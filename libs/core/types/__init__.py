@@ -1,7 +1,19 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Dict, Optional
-from instructor.client import T as InstructorT
+from typing import Dict, Optional, Type, TypeVar, Iterable
+
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class Executable(BaseModel):
+    """
+    Base class for all executable objects
+    """
+
+    def execute(self):
+        raise NotImplementedError
 
 
 class CapabilityType(str, Enum):
@@ -26,24 +38,19 @@ class Metadata(BaseModel):
 
 class ContextSpec(BaseModel):
     params: Dict[str, str] = Field(title="params", default={})
-    tools: list["Tool"] = Field(title="tools", default=[])
-    instruction: str = Field(title="instruction")
+    executables: list[Type[Executable]] = Field(title="executables", default=[])
+    contexts: list[Context] = Field(title="contexts", default=[])
+    data: str = Field(title="data")
 
 
 class Context(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: ContextSpec = Field(title="spec")
 
-
-class ToolSpec(BaseModel):
-    params: Dict[str, str] = Field(title="params", default={})
-    contexts: list[Context] = Field(title="Tool contexts", default=[])
-    instruction: str = Field(title="instruction")
-
-
-class Tool(BaseModel):
-    metadata: Metadata = Field(title="metadata")
-    spec: ToolSpec = Field(title="spec")
+    def all_executables(self) -> Iterable[Executable]:
+        for ctx in self.spec.contexts:
+            yield from ctx.all_executables()
+        yield from self.spec.executables
 
 
 class TaskState(str, Enum):
@@ -55,25 +62,18 @@ class TaskState(str, Enum):
 
 class TaskStatus(BaseModel):
     state: TaskState = Field(title="state")
-    result: Optional[InstructorT] = Field(title="result", default=None)
+    result: Optional[T] = Field(title="result", default=None)
     error: str = Field(title="error", default="")
 
 
 class TaskSpec(BaseModel):
     input: Dict[str, str] = Field(title="input", default={})
-    contexts: list[Context] = Field(title="Tool contexts", default=[])
-    tools: list[Tool] = Field(title="tools", default=[])
-    response_model: Optional[type[InstructorT]] = Field(
-        title="response_model", default=str
-    )
+    contexts: list[Context] = Field(title="contexts", default=[])
+    response_model: Type[T] = Field(title="response_model", default=BaseModel)
     instruction: str = Field(title="instruction")
 
 
-TaskSpec.model_rebuild()
-
-
 class Task(BaseModel):
-    metadata: Metadata = Field(title="metadata")
     spec: TaskSpec = Field(title="spec")
     status: TaskStatus = Field(
         title="status", default_factory=lambda: TaskStatus(state=TaskState.PENDING)

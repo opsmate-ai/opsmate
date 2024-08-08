@@ -1,26 +1,28 @@
 from libs.core.types import *
+from typing import List, Iterable
+from openai import OpenAI
+import instructor
+from pydantic import create_model
+import inspect
+from inspect import Parameter
+from libs.core.engine import exec_task
+from libs.core.contexts import cli_ctx
+
+# os_cli_tool = Tool(
+#     metadata=Metadata(
+#         name="cli", apiVersion="v1", labels={"type": "system"}, description="System CLI"
+#     ),
+#     spec=ToolSpec(
+#         params={},
+#         contexts=[os_ctx],
+#         instruction="you are a sysadmin specialised in OS commands",
+#     ),
+# )
 
 
-os_ctx = Context(
-    metadata=Metadata(
-        name="os",
-        apiVersion="v1",
-        labels={"type": "system"},
-        description="System tools",
-    ),
-    spec=ContextSpec(tools=[], instruction="find what's the current os"),
-)
+class TaskOutput(BaseModel):
+    data: str = Field(title="output of the task")
 
-os_cli_tool = Tool(
-    metadata=Metadata(
-        name="cli", apiVersion="v1", labels={"type": "system"}, description="System CLI"
-    ),
-    spec=ToolSpec(
-        params={},
-        contexts=[os_ctx],
-        instruction="you are a sysadmin specialised in OS commands",
-    ),
-)
 
 task = Task(
     metadata=Metadata(
@@ -29,9 +31,10 @@ task = Task(
     ),
     spec=TaskSpec(
         input={},
-        contexts=[],
-        tools=[os_cli_tool],
-        instruction="list the files in the current directory",
-        response_model=str,
+        contexts=[cli_ctx],
+        instruction="count loc in the current directory",
+        response_model=TaskOutput,
     ),
 )
+
+exec_task(OpenAI(), task)

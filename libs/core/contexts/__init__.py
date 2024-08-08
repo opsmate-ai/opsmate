@@ -38,7 +38,8 @@ class Exec(Executable):
         )
 
         stdout, stderr = process.communicate()
-        return stdout, stderr, process.returncode
+        # return stdout, stderr, process.returncode
+        return str(stdout), str(stderr), process.returncode
 
 
 built_in_helpers = {

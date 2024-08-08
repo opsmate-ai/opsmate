@@ -1,23 +1,8 @@
-from libs.core.types import *
-from typing import List, Iterable
+from libs.core.types import Task, Metadata, TaskSpec
+from pydantic import BaseModel, Field
 from openai import OpenAI
-import instructor
-from pydantic import create_model
-import inspect
-from inspect import Parameter
 from libs.core.engine import exec_task
 from libs.core.contexts import cli_ctx
-
-# os_cli_tool = Tool(
-#     metadata=Metadata(
-#         name="cli", apiVersion="v1", labels={"type": "system"}, description="System CLI"
-#     ),
-#     spec=ToolSpec(
-#         params={},
-#         contexts=[os_ctx],
-#         instruction="you are a sysadmin specialised in OS commands",
-#     ),
-# )
 
 
 class TaskOutput(BaseModel):
@@ -32,9 +17,9 @@ task = Task(
     spec=TaskSpec(
         input={},
         contexts=[cli_ctx],
-        instruction="count loc in the current directory",
+        instruction="what's the current operating system name and version",
         response_model=TaskOutput,
     ),
 )
 
-exec_task(OpenAI(), task)
+print(exec_task(OpenAI(), task).data)

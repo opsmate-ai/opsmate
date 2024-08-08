@@ -4,6 +4,7 @@ from libs.core.contexts import built_in_helpers
 from openai import Client
 import instructor
 import jinja2
+import json
 
 
 def render_context(context: Context, helpers: Dict[str, Callable] = {}):
@@ -36,21 +37,39 @@ def exec_task(client: Client, task: Task):
     for ctx in task.spec.contexts:
         executables.extend(list(ctx.all_executables()))
 
-    if len(executables) == 0:
-        instructor_client.mode = instructor.Mode.PARALLEL_TOOLS
-    else:
-        instructor_client.mode = instructor.Mode.TOOLS
+    if len(executables) != 0:
+        instructor_client = instructor.from_openai(
+            client, mode=instructor.Mode.PARALLEL_TOOLS
+        )
 
-    resp = instructor_client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+
+    resp_msg, resp = instructor_client.chat.completions.create(
         model="gpt-4o",
+        messages=messages,
         response_model=Iterable[Union[tuple(executables)]],
     )
 
-    for fc in resp:
-        print(fc.command)
+    messages.append(resp_msg)
+
+    for resp_item in resp:
+        tool_call_id, tool = resp_item
+        tool_output = tool.execute()
+        messages.append(
+            {
+                "role": "tool",
+                "content": json.dumps(tool_output),
+                "tool_call_id": tool_call_id,
+            },
+        )
+
+    instructor_client = instructor.from_openai(client)
+    resp = instructor_client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        response_model=task.spec.response_model,
+    )
+
+    return resp

@@ -12,7 +12,14 @@ class Executable(BaseModel):
     Base class for all executable objects
     """
 
-    def execute(self):
+    def execute(self, ask: bool = False):
+        """
+        Execute the executable object
+
+        Args:
+            ask (bool): Whether to ask the user for input
+        """
+
         raise NotImplementedError
 
 
@@ -78,3 +85,7 @@ class Task(BaseModel):
     status: TaskStatus = Field(
         title="status", default_factory=lambda: TaskStatus(state=TaskState.PENDING)
     )
+
+
+class BaseTaskOutput(BaseModel):
+    data: str = Field(title="output of the task")

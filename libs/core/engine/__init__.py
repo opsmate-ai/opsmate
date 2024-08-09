@@ -23,7 +23,7 @@ def render_context(context: Context, helpers: Dict[str, Callable] = {}):
     return output + template.render()
 
 
-def exec_task(client: Client, task: Task):
+def exec_task(client: Client, task: Task, ask: bool = False):
     instructor_client = instructor.from_openai(client)
 
     prompt = ""
@@ -56,7 +56,7 @@ def exec_task(client: Client, task: Task):
 
     for resp_item in resp:
         tool_call_id, tool = resp_item
-        tool_output = tool.execute()
+        tool_output = tool.execute(ask)
         messages.append(
             {
                 "role": "tool",

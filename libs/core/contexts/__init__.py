@@ -8,7 +8,7 @@ class CurrentOS(Executable):
     Get the current OS
     """
 
-    def execute(self):
+    def execute(self, ask: bool = False) -> str:
         import platform
 
         return platform.system()
@@ -21,7 +21,7 @@ class Exec(Executable):
 
     command: str = Field(title="command")
 
-    def execute(self) -> Tuple[str, str, int]:
+    def execute(self, ask: bool = False) -> Tuple[str, str, int]:
         """
         Execute a shell script
 
@@ -33,12 +33,16 @@ class Exec(Executable):
         """
         import subprocess
 
+        if ask:
+            ans = input(f"Are you sure you want to run {self.command}? (y/n): ")
+            if ans.lower() != "y":
+                return "", "User cancelled the operation", 127
+
         process = subprocess.Popen(
             self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
         stdout, stderr = process.communicate()
-        # return stdout, stderr, process.returncode
         return str(stdout), str(stderr), process.returncode
 
 

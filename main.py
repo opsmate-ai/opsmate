@@ -1,13 +1,8 @@
-from libs.core.types import Task, Metadata, TaskSpec
-from pydantic import BaseModel, Field
+from libs.core.types import Task, Metadata, TaskSpec, BaseTaskOutput
 from openai import OpenAI
 from libs.core.engine import exec_task
 from libs.core.contexts import cli_ctx
-
-
-class TaskOutput(BaseModel):
-    data: str = Field(title="output of the task")
-
+import sys
 
 task = Task(
     metadata=Metadata(
@@ -17,9 +12,9 @@ task = Task(
     spec=TaskSpec(
         input={},
         contexts=[cli_ctx],
-        instruction="what's the current operating system name and version",
-        response_model=TaskOutput,
+        instruction=sys.argv[1],
+        response_model=BaseTaskOutput,
     ),
 )
 
-print(exec_task(OpenAI(), task).data)
+print(exec_task(OpenAI(), task, ask=True).data)

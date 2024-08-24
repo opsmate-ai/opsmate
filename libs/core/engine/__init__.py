@@ -49,9 +49,6 @@ def exec_task(client: Client, task: Task, ask: bool = False):
     prompt += task.spec.instruction
 
     executables: Dict[str, Callable] = {}
-    # for ctx in task.spec.contexts:
-    #     executables.extend(list(ctx.all_executables()))
-
     for ctx in task.spec.contexts:
         for executable in ctx.all_executables():
             executables[executable.__name__] = executable
@@ -60,11 +57,6 @@ def exec_task(client: Client, task: Task, ask: bool = False):
         {"role": "user", "content": prompt},
     ]
 
-    # resp_msg, resp = instructor_client.chat.completions.create(
-    #     model="gpt-4o",
-    #     messages=messages,
-    #     response_model=Iterable[Union[tuple(executables)]],
-    # )
     tools = [schema(f) for f in executables.values()]
 
     completion = client.beta.chat.completions.parse(
@@ -74,9 +66,10 @@ def exec_task(client: Client, task: Task, ask: bool = False):
         response_format=task.spec.response_model,
     )
 
-    if completion.choices[0].message.tool_calls is not None:
+    tool_calls = completion.choices[0].message.tool_calls
+    if len(tool_calls) > 0:
         messages.append(completion.choices[0].message)
-        for tool_call in completion.choices[0].message.tool_calls:
+        for tool_call in tool_calls:
             tool_name = tool_call.function.name
             tool = executables[tool_name]
             tool_call_id = tool_call.id

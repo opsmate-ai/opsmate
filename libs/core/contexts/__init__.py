@@ -1,5 +1,5 @@
 from libs.core.types import Context, ContextSpec, Metadata
-from pydantic import Field
+from pydantic import Field, BaseModel
 from typing import Tuple
 
 
@@ -9,7 +9,13 @@ def current_os():
     return platform.system()
 
 
-def exec_shell(command: str) -> Tuple[str, str, int]:
+class ExecShellOutput(BaseModel):
+    stdout: str = Field(title="stdout")
+    stderr: str = Field(title="stderr")
+    exit_code: int = Field(title="exit_code")
+
+
+def exec_shell(command: str) -> ExecShellOutput:
     """
     Execute a shell script
     :param command: The shell command to execute
@@ -19,12 +25,17 @@ def exec_shell(command: str) -> Tuple[str, str, int]:
 
     import subprocess
 
+    print("executing shell command: ", command)
+
     process = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
     stdout, stderr = process.communicate()
-    return str(stdout), str(stderr), process.returncode
+    # return str(stdout), str(stderr), process.returncode
+    return ExecShellOutput(
+        stdout=str(stdout), stderr=str(stderr), exit_code=process.returncode
+    )
 
 
 built_in_helpers = {

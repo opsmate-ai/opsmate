@@ -6,6 +6,8 @@ from typing import Dict, Optional, Type, TypeVar, Iterable, Callable
 
 T = TypeVar("T", bound=BaseModel)
 
+ToolCallable = Callable[..., BaseModel]
+
 
 class CapabilityType(str, Enum):
     LIST = "system:list"
@@ -38,7 +40,7 @@ class Context(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: ContextSpec = Field(title="spec")
 
-    def all_executables(self) -> Iterable[Callable]:
+    def all_executables(self) -> Iterable[ToolCallable]:
         for ctx in self.spec.contexts:
             yield from ctx.all_executables()
         yield from self.spec.executables

@@ -1,5 +1,5 @@
 from libs.core.types import *
-from typing import Callable, Dict, List, Union
+from typing import Dict, List, Union
 from libs.core.contexts import built_in_helpers
 from openai import Client
 import jinja2
@@ -9,7 +9,7 @@ import inspect, json
 from inspect import Parameter
 
 
-def render_context(context: Context, helpers: Dict[str, Callable] = {}):
+def render_context(context: Context, helpers: Dict[str, ToolCallable] = {}):
     env = jinja2.Environment()
     for helper_name, helper in built_in_helpers.items():
         env.globals[helper_name] = helper
@@ -48,7 +48,7 @@ def exec_task(client: Client, task: Task, ask: bool = False):
     prompt += "\nhere is the task instruction: \n"
     prompt += task.spec.instruction
 
-    executables: Dict[str, Callable] = {}
+    executables: Dict[str, ToolCallable] = {}
     for ctx in task.spec.contexts:
         for executable in ctx.all_executables():
             executables[executable.__name__] = executable
@@ -73,10 +73,13 @@ def exec_task(client: Client, task: Task, ask: bool = False):
             tool_name = tool_call.function.name
             tool = executables[tool_name]
             tool_call_id = tool_call.id
+
+            result: BaseModel = tool(**tool_call.function.parsed_arguments)
+
             messages.append(
                 {
                     "role": "tool",
-                    "content": json.dumps(tool(**tool_call.function.parsed_arguments)),
+                    "content": result.model_dump_json(),
                     "tool_call_id": tool_call_id,
                 },
             )

@@ -1,6 +1,6 @@
 from libs.core.types import *
 from typing import Dict, List, Union
-from libs.core.contexts import built_in_helpers, react_ctx
+from libs.core.contexts import built_in_helpers, react_ctx, cli_ctx
 from openai import Client
 import jinja2
 import json
@@ -125,53 +125,38 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-2024-08-06",
             messages=messages,
-            tools=tools,
             response_format=ReactOutput,
         )
 
         parsed = completion.choices[0].message.parsed
 
+        messages.append({
+            "role": "system",
+            "content": parsed.model_dump_json(),
+        })
+
         if parsed is not None:
-            if parsed.answer is not None:
-                return parsed.answer
-
-            if parsed.observation is not None:
-                print("observation: ", parsed.observation)
-                messages.append(
-                    {"role": "user", "content": "observation: " + parsed.observation}
-                )
-
-            if parsed.thought is not None:
-                print("thought: ", parsed.thought)
-                messages.append(
-                    {"role": "user", "content": "thought: " + parsed.thought}
-                )
-
-        tool_calls = completion.choices[0].message.tool_calls
-        if len(tool_calls) > 0:
-            messages.append(completion.choices[0].message)
-            for tool_call in tool_calls:
-                tool_name = tool_call.function.name
-                tool = executables[tool_name]
-                tool_call_id = tool_call.id
-
-                result: BaseModel = tool(**tool_call.function.parsed_arguments)
-
-                messages.append(
-                    {
-                        "role": "tool",
-                        "content": result.model_dump_json(),
-                        "tool_call_id": tool_call_id,
-                    },
-                )
-
-    # completion = client.beta.chat.completions.parse(
-    #     model="gpt-4o-2024-08-06",
-    #     messages=messages,
-    #     tools=tools,
-    #     response_format=task.spec.response_model,
-    # )
-
-    # resp = completion.choices[0].message.parsed
-
-    # return resp
+            print("*" * 80)
+            print(parsed)
+            print("*" * 80)
+            if isinstance(parsed.output, ReactAnswer):
+                return parsed.output.answer
+            elif isinstance(parsed.output, ReactProcess):
+                if parsed.output.action is not None:
+                    task = Task(
+                        metadata=task.metadata,
+                        spec=TaskSpec(
+                            instruction="executable commands based on the action: " + parsed.output.action,
+                            response_model=BaseTaskOutput,
+                            executables=tools,
+                            contexts=[cli_ctx], # xxx: hack
+                        ),
+                    )
+                    task_result = exec_task(client, task)
+                    if task_result is not None:
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": task_result.data,
+                            },
+                        )

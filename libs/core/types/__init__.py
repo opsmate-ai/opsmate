@@ -79,9 +79,14 @@ class BaseTaskOutput(BaseModel):
     data: str = Field(title="output of the task")
 
 
-class ReactOutput(BaseModel):
-    # question: Annotated[Optional[str], Field(default=None)]
+class ReactProcess(BaseModel):
+    question: Annotated[Optional[str], Field(default=None)]
     thought: Annotated[Optional[str], Field(default=None)]
-    # actions: Annotated[Optional[str], Field(default=None)]
-    observation: Annotated[Optional[str], Field(default=None)]
-    answer: Annotated[Optional[str], Field(default=None)]
+    action: Annotated[Optional[str], Field(default=None)]
+    # observation: Annotated[Optional[str], Field(default=None)]
+
+class ReactAnswer(BaseModel):
+    answer: str = Field(title="answer")
+
+class ReactOutput(BaseModel):
+    output: ReactProcess | ReactAnswer = Field(title="output")

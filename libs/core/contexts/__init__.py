@@ -69,3 +69,50 @@ cli_ctx = Context(
         data="you are a sysadmin specialised in OS commands",
     ),
 )
+
+react_prompt = """
+You run in a loop of thought, actions, observation.
+At the end of the loop you output an answer.
+Use thought to describe your thoughts about the question you have been asked.
+Use actions to run one of the actions available to you - then return.
+observation will be the result of running those actions.
+
+If you know the answer you can skip the Thought and Actions steps, and output the Answer directly.
+
+Notes you output must be in format as follows:
+
+<output>
+question: ...
+thought: ...
+actions: ...
+</output>
+
+Or
+
+<output>
+observation: ...
+question: ...
+thought: ...
+actions: ...
+</output>
+
+Or
+
+<output>
+answer: ...
+</output>
+"""
+
+react_ctx = Context(
+    metadata=Metadata(
+        name="react",
+        apiVersion="v1",
+        labels={"type": "system"},
+        description="System React",
+    ),
+    spec=ContextSpec(
+        params={},
+        contexts=[cli_ctx],
+        data=react_prompt,
+    ),
+)

@@ -1,7 +1,7 @@
-from libs.core.types import Task, Metadata, TaskSpec, BaseTaskOutput
+from libs.core.types import Task, Metadata, TaskSpec, BaseTaskOutput, ReactOutput
 from openai import OpenAI
-from libs.core.engine import exec_task
-from libs.core.contexts import cli_ctx
+from libs.core.engine import exec_task, exec_react_task
+from libs.core.contexts import cli_ctx, react_ctx
 import sys
 
 task = Task(
@@ -11,10 +11,11 @@ task = Task(
     ),
     spec=TaskSpec(
         input={},
-        contexts=[cli_ctx],
+        contexts=[cli_ctx, react_ctx],
         instruction=sys.argv[1],
-        response_model=BaseTaskOutput,
+        response_model=ReactOutput,
     ),
 )
 
-print(exec_task(OpenAI(), task, ask=True).data)
+print(exec_react_task(OpenAI(), task, ask=True))
+# print(exec_react_task(OpenAI(), task, ask=True).data)

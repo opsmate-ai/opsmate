@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field
+from typing_extensions import Annotated
 from enum import Enum
 from typing import Dict, Optional, Type, TypeVar, Iterable, Callable
 
@@ -46,17 +47,17 @@ class Context(BaseModel):
         yield from self.spec.executables
 
 
-class TaskState(str, Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
+# class TaskState(str, Enum):
+#     PENDING = "pending"
+#     RUNNING = "running"
+#     SUCCESS = "success"
+#     FAILED = "failed"
 
 
-class TaskStatus(BaseModel):
-    state: TaskState = Field(title="state")
-    result: Optional[T] = Field(title="result", default=None)
-    error: str = Field(title="error", default="")
+# class TaskStatus(BaseModel):
+#     state: TaskState = Field(title="state")
+#     result: Optional[T] = Field(title="result", default=None)
+#     error: str = Field(title="error", default="")
 
 
 class TaskSpec(BaseModel):
@@ -67,11 +68,20 @@ class TaskSpec(BaseModel):
 
 
 class Task(BaseModel):
+    metadata: Metadata = Field(title="metadata")
     spec: TaskSpec = Field(title="spec")
-    status: TaskStatus = Field(
-        title="status", default_factory=lambda: TaskStatus(state=TaskState.PENDING)
-    )
+    # status: TaskStatus = Field(
+    #     title="status", default_factory=lambda: TaskStatus(state=TaskState.PENDING)
+    # )
 
 
 class BaseTaskOutput(BaseModel):
     data: str = Field(title="output of the task")
+
+
+class ReactOutput(BaseModel):
+    # question: Annotated[Optional[str], Field(default=None)]
+    thought: Annotated[Optional[str], Field(default=None)]
+    # actions: Annotated[Optional[str], Field(default=None)]
+    observation: Annotated[Optional[str], Field(default=None)]
+    answer: Annotated[Optional[str], Field(default=None)]

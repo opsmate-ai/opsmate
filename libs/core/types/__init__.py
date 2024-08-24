@@ -1,26 +1,10 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Dict, Optional, Type, TypeVar, Iterable
+from typing import Dict, Optional, Type, TypeVar, Iterable, Callable
 
 
 T = TypeVar("T", bound=BaseModel)
-
-
-class Executable(BaseModel):
-    """
-    Base class for all executable objects
-    """
-
-    def execute(self, ask: bool = False):
-        """
-        Execute the executable object
-
-        Args:
-            ask (bool): Whether to ask the user for input
-        """
-
-        raise NotImplementedError
 
 
 class CapabilityType(str, Enum):
@@ -45,7 +29,7 @@ class Metadata(BaseModel):
 
 class ContextSpec(BaseModel):
     params: Dict[str, str] = Field(title="params", default={})
-    executables: list[Type[Executable]] = Field(title="executables", default=[])
+    executables: list[Callable] = Field(title="executables", default=[])
     contexts: list[Context] = Field(title="contexts", default=[])
     data: str = Field(title="data")
 
@@ -54,7 +38,7 @@ class Context(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: ContextSpec = Field(title="spec")
 
-    def all_executables(self) -> Iterable[Executable]:
+    def all_executables(self) -> Iterable[Callable]:
         for ctx in self.spec.contexts:
             yield from ctx.all_executables()
         yield from self.spec.executables

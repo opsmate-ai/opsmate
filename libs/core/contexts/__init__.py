@@ -1,53 +1,34 @@
-from libs.core.types import Context, ContextSpec, Executable, Metadata
+from libs.core.types import Context, ContextSpec, Metadata
 from pydantic import Field
 from typing import Tuple
 
 
-class CurrentOS(Executable):
+def current_os():
+    import platform
+
+    return platform.system()
+
+
+def exec_shell(command: str) -> Tuple[str, str, int]:
     """
-    Get the current OS
-    """
+    Execute a shell script
+    :param command: The shell command to execute
 
-    def execute(self, ask: bool = False) -> str:
-        import platform
-
-        return platform.system()
-
-
-class Exec(Executable):
-    """
-    Execute a shell script returns the stdout and stderr and the exit code as a tuple
+    :return: The stdout, stderr, and exit code
     """
 
-    command: str = Field(title="command")
+    import subprocess
 
-    def execute(self, ask: bool = False) -> Tuple[str, str, int]:
-        """
-        Execute a shell script
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
 
-        Args:
-            command (str): The shell command to execute
-
-        Returns:
-            tuple: The stdout, stderr, and exit code
-        """
-        import subprocess
-
-        if ask:
-            ans = input(f"Are you sure you want to run {self.command}? (y/n): ")
-            if ans.lower() != "y":
-                return "", "User cancelled the operation", 127
-
-        process = subprocess.Popen(
-            self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-        stdout, stderr = process.communicate()
-        return str(stdout), str(stderr), process.returncode
+    stdout, stderr = process.communicate()
+    return str(stdout), str(stderr), process.returncode
 
 
 built_in_helpers = {
-    "get_current_os": CurrentOS().execute,
+    "get_current_os": current_os,
 }
 
 
@@ -73,7 +54,7 @@ cli_ctx = Context(
     spec=ContextSpec(
         params={},
         contexts=[os_ctx],
-        executables=[Exec],
+        executables=[exec_shell],
         data="you are a sysadmin specialised in OS commands",
     ),
 )

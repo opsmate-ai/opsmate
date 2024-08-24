@@ -2,9 +2,11 @@ from libs.core.types import *
 from typing import Callable, Dict, List, Union
 from libs.core.contexts import built_in_helpers
 from openai import Client
-import instructor
 import jinja2
 import json
+from pydantic import create_model
+import inspect, json
+from inspect import Parameter
 
 
 def render_context(context: Context, helpers: Dict[str, Callable] = {}):
@@ -23,9 +25,22 @@ def render_context(context: Context, helpers: Dict[str, Callable] = {}):
     return output + template.render()
 
 
-def exec_task(client: Client, task: Task, ask: bool = False):
-    instructor_client = instructor.from_openai(client)
+def schema(f):
+    kw = {
+        n: (o.annotation, ... if o.default == Parameter.empty else o.default)
+        for n, o in inspect.signature(f).parameters.items()
+    }
+    s = create_model(f"Input for `{f.__name__}`", **kw).schema()
+    s["additionalProperties"] = False
+    return {
+        "type": "function",
+        "function": dict(
+            name=f.__name__, description=f.__doc__, strict=True, parameters=s
+        ),
+    }
 
+
+def exec_task(client: Client, task: Task, ask: bool = False):
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
@@ -33,43 +48,53 @@ def exec_task(client: Client, task: Task, ask: bool = False):
     prompt += "\nhere is the task instruction: \n"
     prompt += task.spec.instruction
 
-    executables: List[Executable] = []
-    for ctx in task.spec.contexts:
-        executables.extend(list(ctx.all_executables()))
+    executables: Dict[str, Callable] = {}
+    # for ctx in task.spec.contexts:
+    #     executables.extend(list(ctx.all_executables()))
 
-    if len(executables) != 0:
-        instructor_client = instructor.from_openai(
-            client, mode=instructor.Mode.PARALLEL_TOOLS
-        )
+    for ctx in task.spec.contexts:
+        for executable in ctx.all_executables():
+            executables[executable.__name__] = executable
 
     messages = [
         {"role": "user", "content": prompt},
     ]
 
-    resp_msg, resp = instructor_client.chat.completions.create(
-        model="gpt-4o",
+    # resp_msg, resp = instructor_client.chat.completions.create(
+    #     model="gpt-4o",
+    #     messages=messages,
+    #     response_model=Iterable[Union[tuple(executables)]],
+    # )
+    tools = [schema(f) for f in executables.values()]
+
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
         messages=messages,
-        response_model=Iterable[Union[tuple(executables)]],
+        tools=tools,
+        response_format=task.spec.response_model,
     )
 
-    messages.append(resp_msg)
+    if completion.choices[0].message.tool_calls is not None:
+        messages.append(completion.choices[0].message)
+        for tool_call in completion.choices[0].message.tool_calls:
+            tool_name = tool_call.function.name
+            tool = executables[tool_name]
+            tool_call_id = tool_call.id
+            messages.append(
+                {
+                    "role": "tool",
+                    "content": json.dumps(tool(**tool_call.function.parsed_arguments)),
+                    "tool_call_id": tool_call_id,
+                },
+            )
 
-    for resp_item in resp:
-        tool_call_id, tool = resp_item
-        tool_output = tool.execute(ask)
-        messages.append(
-            {
-                "role": "tool",
-                "content": json.dumps(tool_output),
-                "tool_call_id": tool_call_id,
-            },
-        )
-
-    instructor_client = instructor.from_openai(client)
-    resp = instructor_client.chat.completions.create(
-        model="gpt-4o",
+    completion = client.beta.chat.completions.parse(
+        model="gpt-4o-2024-08-06",
         messages=messages,
-        response_model=task.spec.response_model,
+        tools=tools,
+        response_format=task.spec.response_model,
     )
+
+    resp = completion.choices[0].message.parsed
 
     return resp

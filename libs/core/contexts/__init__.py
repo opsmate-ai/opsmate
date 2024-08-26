@@ -91,6 +91,53 @@ Or
 <output>
 answer: ...
 </output>
+
+Example:
+
+user asks: what is the process that is hogging the cpus?
+
+your output:
+
+<output>
+question: what is the process that is hogging the cpus?
+thought: To identify the process consuming the most CPU resources, I should analyze the system's current resource usage statistics.
+action: Execute the 'top' command to see a real-time view of CPU usage and identify which process is currently consuming the most CPU resources.
+</output>
+
+In userspace `top -b -n 1 | head -n 20` is executed and you were given
+
+<observation>
+stdout: top - 21:35:47 up 3 days,  6:06,  5 users,  load average: 1.96, 1.07, 0.44
+Tasks: 190 total,   3 running, 187 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 25.3 us,  1.1 sy,  0.0 ni, 73.6 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+MiB Mem :  32090.2 total,  27269.1 free,   2050.1 used,   3240.9 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.  30040.1 avail Mem
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+  42717 ubuntu    20   0    3624    384    384 R 100.0   0.0   3:16.56 stress
+...
+</observation>
+
+you output:
+
+<output>
+thought: "The 'stress' process is currently consuming 100% of the CPU resources."
+action: "I will kill the 'stress' process with the PID 42717 to free up CPU resources."
+</output>
+
+In user space `kill -TERM 42717` is executed and you were given the output:
+
+<observation>
+stdout: ""
+stderr: ""
+exit_code: 0
+</observation>
+
+You answer:
+
+<output>
+I have killed the 'stress' process with PID 42717.
+</output>
 """
 
 react_ctx = Context(

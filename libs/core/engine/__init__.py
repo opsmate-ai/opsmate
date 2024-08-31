@@ -24,21 +24,6 @@ def render_context(context: Context):
     return output + template.render()
 
 
-# def schema(f):
-#     kw = {
-#         n: (o.annotation, ... if o.default == Parameter.empty else o.default)
-#         for n, o in inspect.signature(f).parameters.items()
-#     }
-#     s = create_model(f"Input for `{f.__name__}`", **kw).schema()
-#     s["additionalProperties"] = False
-#     return {
-#         "type": "function",
-#         "function": dict(
-#             name=f.__name__, description=f.__doc__, strict=True, parameters=s
-#         ),
-#     }
-
-
 class ExecCall(BaseModel):
     executable: Executable
     output: str
@@ -82,7 +67,7 @@ def exec_task(client: Client, task: Task, ask: bool = False):
 
     exec_result = ExecResult(calls=[])
     for exec_call in exec_calls:
-        output = exec_call()
+        output = exec_call(ask=ask)
         exec_result.calls.append(
             ExecCall(executable=exec_call, output=output.model_dump_json())
         )
@@ -147,6 +132,7 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
         if isinstance(output, ReactAnswer):
             return output.answer
         elif isinstance(output, ReactProcess):
+            print(output)
             messages.append(
                 {
                     "role": "user",
@@ -162,7 +148,7 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
                         contexts=task.spec.contexts,
                     ),
                 )
-                observation: Observation = exec_task(client, task)
+                observation: Observation = exec_task(client, task, ask=ask)
                 if observation is not None:
                     messages.append(
                         {

@@ -7,6 +7,7 @@ from typing import Dict, Optional, Type, TypeVar, Iterable
 
 T = TypeVar("T", bound=BaseModel)
 
+
 class CapabilityType(str, Enum):
     LIST = "system:list"
     FIND = "system:find"
@@ -31,6 +32,7 @@ class Executable(BaseModel):
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError("Executable must implement __call__")
+
 
 class ContextSpec(BaseModel):
     params: Dict[str, str] = Field(title="params", default={})
@@ -87,8 +89,19 @@ class ReactProcess(BaseModel):
     action: Annotated[Optional[str], Field(default=None)]
     # observation: Annotated[Optional[str], Field(default=None)]
 
+    def __str__(self):
+        return (
+            f"ReactProcess(\n"
+            f"  question={self.question},\n"
+            f"  thought={self.thought},\n"
+            f"  action={self.action}\n"
+            f")"
+        )
+
+
 class ReactAnswer(BaseModel):
     answer: str = Field(title="answer")
+
 
 class ReactOutput(BaseModel):
     output: ReactProcess | ReactAnswer = Field(title="output")

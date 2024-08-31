@@ -21,6 +21,7 @@ class ExecShell(Executable):
 
     def __call__(
         self,
+        ask: bool = False,
     ) -> ExecShellOutput:
         """
         Execute a shell script
@@ -31,6 +32,11 @@ class ExecShell(Executable):
         import subprocess
 
         print("executing shell command: ", self.command)
+        if ask:
+            if input("Proceed? (yes/no): ").strip().lower() != "yes":
+                return ExecShellOutput(
+                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                )
 
         process = subprocess.Popen(
             self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE

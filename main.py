@@ -24,6 +24,19 @@ task = Task(
     ),
 )
 
+import argparse
+
+parser = argparse.ArgumentParser(description="Execute a task with optional --ask flag")
+parser.add_argument("instruction", type=str, help="The instruction for the task")
+parser.add_argument(
+    "--ask", action="store_true", help="Ask for confirmation before executing commands"
+)
+
+args = parser.parse_args()
+
+task.spec.instruction = args.instruction
+ask = args.ask
+
 print(exec_react_task(OpenAI(), task, ask=True))
 # print(exec_task(OpenAI(), task))
 # print(exec_react_task(OpenAI(), task, ask=True).data)

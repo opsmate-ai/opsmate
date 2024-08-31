@@ -146,10 +146,10 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
                     task = Task(
                         metadata=task.metadata,
                         spec=TaskSpec(
-                            instruction="executable commands based on the action: " + parsed.output.action,
+                            instruction=parsed.output.action,
                             response_model=BaseTaskOutput,
                             executables=tools,
-                            contexts=[cli_ctx], # xxx: hack
+                            contexts=task.spec.contexts,
                         ),
                     )
                     task_result = exec_task(client, task)

@@ -2,13 +2,10 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 from enum import Enum
-from typing import Dict, Optional, Type, TypeVar, Iterable, Callable
+from typing import Dict, Optional, Type, TypeVar, Iterable
 
 
 T = TypeVar("T", bound=BaseModel)
-
-ToolCallable = Callable[..., BaseModel]
-
 
 class CapabilityType(str, Enum):
     LIST = "system:list"
@@ -30,9 +27,14 @@ class Metadata(BaseModel):
     description: str = Field(title="description", default="")
 
 
+class Executable(BaseModel):
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError("Executable must implement __call__")
+
 class ContextSpec(BaseModel):
     params: Dict[str, str] = Field(title="params", default={})
-    executables: list[Callable] = Field(title="executables", default=[])
+    executables: list[Type[Executable]] = Field(title="executables", default=[])
     contexts: list[Context] = Field(title="contexts", default=[])
     data: str = Field(title="data")
 
@@ -41,7 +43,7 @@ class Context(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: ContextSpec = Field(title="spec")
 
-    def all_executables(self) -> Iterable[ToolCallable]:
+    def all_executables(self) -> Iterable[Executable]:
         for ctx in self.spec.contexts:
             yield from ctx.all_executables()
         yield from self.spec.executables

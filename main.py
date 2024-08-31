@@ -1,4 +1,11 @@
-from libs.core.types import Task, Metadata, TaskSpec, BaseTaskOutput, ReactOutput
+from libs.core.types import (
+    Task,
+    Metadata,
+    TaskSpec,
+    BaseTaskOutput,
+    ReactOutput,
+    ReactAnswer,
+)
 from openai import OpenAI
 from libs.core.engine import exec_task, exec_react_task
 from libs.core.contexts import cli_ctx, react_ctx
@@ -18,4 +25,5 @@ task = Task(
 )
 
 print(exec_react_task(OpenAI(), task, ask=True))
+# print(exec_task(OpenAI(), task))
 # print(exec_react_task(OpenAI(), task, ask=True).data)

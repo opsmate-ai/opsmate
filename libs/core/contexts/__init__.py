@@ -1,6 +1,5 @@
 from libs.core.types import Context, ContextSpec, Metadata, Executable
 from pydantic import Field, BaseModel
-from typing import Tuple
 
 
 class CurrentOS(Executable):

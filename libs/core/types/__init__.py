@@ -89,15 +89,6 @@ class ReactProcess(BaseModel):
     action: Annotated[Optional[str], Field(default=None)]
     # observation: Annotated[Optional[str], Field(default=None)]
 
-    def __str__(self):
-        return (
-            f"ReactProcess(\n"
-            f"  question={self.question},\n"
-            f"  thought={self.thought},\n"
-            f"  action={self.action}\n"
-            f")"
-        )
-
 
 class ReactAnswer(BaseModel):
     answer: str = Field(title="answer")

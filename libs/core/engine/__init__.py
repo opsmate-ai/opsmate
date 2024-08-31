@@ -8,6 +8,9 @@ from pydantic import create_model
 import inspect, json
 from inspect import Parameter
 import instructor
+import structlog
+
+logger = structlog.get_logger()
 
 
 def render_context(context: Context):
@@ -132,7 +135,12 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
         if isinstance(output, ReactAnswer):
             return output.answer
         elif isinstance(output, ReactProcess):
-            print(output)
+            logger.info(
+                "react_process",
+                question=output.question,
+                thought=output.thought,
+                action=output.action,
+            )
             messages.append(
                 {
                     "role": "user",

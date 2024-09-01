@@ -5,11 +5,12 @@ from openai import Client
 import instructor
 import structlog
 from .render import render_context
+import yaml
 
 logger = structlog.get_logger()
 
 
-def exec_task(client: Client, task: Task, ask: bool = False):
+def _exec_executables(client: Client, task: Task, ask: bool = False):
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
@@ -42,6 +43,12 @@ def exec_task(client: Client, task: Task, ask: bool = False):
         exec_result.calls.append(
             ExecCall(executable=exec_call, output=output.model_dump_json())
         )
+
+    return exec_result, messages
+
+
+def exec_task(client: Client, task: Task, ask: bool = False):
+    exec_result, messages = _exec_executables(client, task, ask)
 
     instructor_client = instructor.from_openai(client)
 
@@ -106,23 +113,31 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
             messages.append(
                 {
                     "role": "user",
-                    "content": output.model_dump_json(),
+                    "content": yaml.dump(output.model_dump()),
                 }
             )
             if output.action is not None:
-                task = Task(
-                    metadata=task.metadata,
+                action_task = Task(
+                    metadata=Metadata(
+                        name="action",
+                        apiVersion="v1",
+                    ),
                     spec=TaskSpec(
                         instruction=output.action,
                         response_model=Observation,
                         contexts=task.spec.contexts,
                     ),
                 )
-                observation: Observation = exec_task(client, task, ask=ask)
+                exec_result, _ = _exec_executables(client, action_task, ask=ask)
+
+                observation = Observation(
+                    action=output.action,
+                    observation=yaml.dump(exec_result.model_dump()),
+                )
                 if observation is not None:
                     messages.append(
                         {
                             "role": "user",
-                            "content": observation.model_dump_json(),
+                            "content": yaml.dump(observation.model_dump()),
                         },
                     )

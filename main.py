@@ -35,6 +35,6 @@ args = parser.parse_args()
 task.spec.instruction = args.instruction
 ask = args.ask
 
-print(exec_react_task(OpenAI(), task, ask=True))
+print(exec_react_task(OpenAI(), task, ask=ask))
 # print(exec_task(OpenAI(), task))
 # print(exec_react_task(OpenAI(), task, ask=True).data)

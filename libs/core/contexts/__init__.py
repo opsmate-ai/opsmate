@@ -80,19 +80,19 @@ cli_ctx = Context(
 )
 
 react_prompt = """
-You run in a loop of thought, actions.
+You run in a loop of thought, action.
 At the end of the loop you output an answer.
 Use thought to describe your thoughts about the question you have been asked.
-Use actions to run one of the actions available to you - then return.
-
-If you know the answer you can skip the Thought and Actions steps, and output the Answer directly.
+Use action to run one of the action available to you - then return.
+observation will be the result of running those action.
+If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 
 Notes you output must be in format as follows:
 
 <output>
 question: ...
 thought: ...
-actions: ...
+action: ...
 </output>
 
 Or
@@ -103,49 +103,100 @@ answer: ...
 
 Example:
 
-user asks: what is the process that is hogging the cpus?
-
-your output:
+user asks: customers are reporting that the nginx service in the kubernetes cluster is down, can you check on it?
 
 <output>
-question: what is the process that is hogging the cpus?
-thought: To identify the process consuming the most CPU resources, I should analyze the system's current resource usage statistics.
-action: Execute the 'top' command to see a real-time view of CPU usage and identify which process is currently consuming the most CPU resources.
+question: what is the status of the nginx service in the kubernetes cluster?
+thought: i need to check the status of the nginx service in the kubernetes cluster
+action: I need to find the nginx services and nginx deployement and check their status
 </output>
 
-In userspace `top -b -n 1 | head -n 20` is executed and you were given
+you carry out investigations and find out
 
 <observation>
-stdout: top - 21:35:47 up 3 days,  6:06,  5 users,  load average: 1.96, 1.07, 0.44
-Tasks: 190 total,   3 running, 187 sleeping,   0 stopped,   0 zombie
-%Cpu(s): 25.3 us,  1.1 sy,  0.0 ni, 73.6 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
-MiB Mem :  32090.2 total,  27269.1 free,   2050.1 used,   3240.9 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.  30040.1 avail Mem
-
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-  42717 ubuntu    20   0    3624    384    384 R 100.0   0.0   3:16.56 stress
-...
+action: I need to find the nginx services and nginx deployement and check their status
+observation:
+  calls:
+    - command: kubectl get services -A
+      stdout: |
+        NAMESPACE                 NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                  AGE
+        nginx                     nginx-service        ClusterIP   10.96.0.1        <none>        80/TCP                   10s
+        ...
+      stderr: ""
+      exit_code: 0
+    - command: kubectl get deployements -A
+      stdout: |
+        NAMESPACE                 NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
+        nginx                    nginx-deployment     0/1     1            1           10s
+        ...
+      stderr: ""
+      exit_code: 0
 </observation>
 
-you output:
-
 <output>
-thought: "The 'stress' process is currently consuming 100% of the CPU resources."
-action: "I will kill the 'stress' process with the PID 42717 to free up CPU resources."
+question: ""
+thought: "the nginx deployment does not appear to be ready, lets find out why"
+action: "I need to find out what's wrong with the nginx pod"
 </output>
 
-In user space `kill -TERM 42717` is executed and you were given the output:
+you carry out actions and find out
 
 <observation>
-stdout: ""
-stderr: ""
-exit_code: 0
+action:"I need to find out what's wrong with the nginx pod"
+observation:
+  calls:
+    - command: kubectl -n nginx get pod $(kubectl -n nginx get pods | grep nginx | awk '{print $1}') -oyaml
+      stdout: |
+        ...
+        image: nginx:doesnotexist
+        ...
+      stderr: ""
+      exit_code: 0
 </observation>
 
-You answer:
+<output>
+thought: "the deployment image is not valid"
+action: "let me try to fix it by updating the image to a valid one"
+</output>
+
+you carry out actions and find out
+
+<observation>
+action: "let me try to fix it by updating the image to a valid one"
+observation:
+  calls:
+    - command: kubectl -n nginx set image deployement/nginx nginx=nginx:1.27.1
+      stdout: |
+        ...
+      stderr: ""
+      exit_code: 0
+</observation>
 
 <output>
-I have killed the 'stress' process with PID 42717.
+thought: "let's see if it worked"
+action: "I need to find the nginx services and nginx deployement and check their status"
+</output>
+
+<observation>
+action: "I need to find the nginx services and nginx deployement and check their status"
+observation:
+  calls:
+    - command: kubectl -n nginx get deployement nginx-deployment
+      stdout: |
+        NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
+        nginx-deployment     1/1     1            1           10s
+      stderr: ""
+      exit_code: 0
+    - command: kubectl -n nginx get endpoints nginx-service
+      stdout: |
+        NAME                 ENDPOINTS           AGE
+        nginx-service        10.244.0.0:80       10s
+      stderr: ""
+      exit_code: 0
+</observation>
+
+<output>
+answer: "the nginx service is now working via applying the new image"
 </output>
 """
 

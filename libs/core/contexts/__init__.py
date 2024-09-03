@@ -101,7 +101,35 @@ Or
 answer: ...
 </output>
 
-Example:
+Example 1:
+
+user asks: how many cpu and memory does the machine have?
+
+<output>
+question: how many cpu and memory does the machine have?
+thought: i need to find out how many cpu and memory the machine has
+action: i need to find out how many cpu and memory the machine has
+observation:
+  calls:
+    - command: nproc
+      stdout: 2
+      stderr: ""
+      exit_code: 0
+    - command: free -h
+      stdout: |
+                        total        used        free      shared  buff/cache   available
+            Mem:        12Gi       1.5Gi        1Gi        17Mi       4.7Gi        10Gi
+            Swap:             0B          0B          0B
+      stderr: ""
+      exit_code: 0
+</observation>
+
+<answer>
+the machine has 2 cpu and 12Gi memory
+</answer>
+
+
+Example 2:
 
 user asks: customers are reporting that the nginx service in the kubernetes cluster is down, can you check on it?
 

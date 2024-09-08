@@ -91,6 +91,7 @@ class ReactProcess(BaseModel):
 
 
 class ReactAnswer(BaseModel):
+    question: Annotated[Optional[str], Field(default=None)]
     answer: str = Field(title="answer")
 
 

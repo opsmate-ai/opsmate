@@ -62,5 +62,42 @@ def list_models():
         print(model_name)
 
 
+@opsmate_cli.command()
+@click.option(
+    "--ask", is_flag=True, help="Ask for confirmation before executing commands"
+)
+@click.option(
+    "--model",
+    default="gpt-4o",
+    help="OpenAI model to use. To list models available please run the list-models command.",
+)
+def chat(ask, model):
+    click.echo("OpsMate: Howdy! How can I help you?")
+    historic_context = []
+    while True:
+        user_input = click.prompt("You")
+        task = Task(
+            metadata=Metadata(
+                name="chat",
+                apiVersion="v1",
+            ),
+            spec=TaskSpec(
+                input={},
+                contexts=[cli_ctx, react_ctx],
+                instruction=user_input,
+                response_model=ReactOutput,
+            ),
+        )
+
+        answer, historic_context = exec_react_task(
+            OpenAI(),
+            task,
+            ask=ask,
+            historic_context=historic_context,
+            model=model,
+        )
+        click.echo(answer)
+
+
 if __name__ == "__main__":
     opsmate_cli()

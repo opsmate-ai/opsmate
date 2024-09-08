@@ -15,7 +15,8 @@ import click
 @click.option(
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
 )
-def main(instruction, ask):
+@click.option("--model", default="gpt-4o", help="OpenAI model to use")
+def main(instruction, ask, model):
     task = Task(
         metadata=Metadata(
             name=instruction,
@@ -29,7 +30,7 @@ def main(instruction, ask):
         ),
     )
 
-    print(exec_react_task(OpenAI(), task, ask=ask))
+    print(exec_react_task(OpenAI(), task, ask=ask, model=model))
 
 
 if __name__ == "__main__":

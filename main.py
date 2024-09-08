@@ -89,13 +89,17 @@ def chat(ask, model):
             ),
         )
 
-        answer, historic_context = exec_react_task(
-            OpenAI(),
-            task,
-            ask=ask,
-            historic_context=historic_context,
-            model=model,
-        )
+        try:
+            answer, historic_context = exec_react_task(
+                OpenAI(),
+                task,
+                ask=ask,
+                historic_context=historic_context,
+                model=model,
+            )
+        except Exception as e:
+            click.echo(f"OpsMate: {e}")
+            continue
         click.echo(answer)
 
 

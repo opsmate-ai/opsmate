@@ -71,7 +71,11 @@ def exec_task(client: Client, task: Task, ask: bool = False, model: str = "gpt-4
 
 
 def exec_react_task(
-    client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"
+    client: Client,
+    task: Task,
+    ask: bool = False,
+    historic_context: List[ReactProcess | ReactAnswer] = [],
+    model: str = "gpt-4o",
 ):
     if task.spec.response_model != ReactOutput:
         raise ValueError("Task response model must be ReactOutput")
@@ -91,9 +95,13 @@ def exec_react_task(
         for executable in ctx.all_executables():
             executables.append(executable)
 
-    messages = [
-        {"role": "user", "content": prompt},
-    ]
+    messages = []
+    messages.extend(
+        {"role": "system", "content": yaml.dump(ctx.model_dump())}
+        for ctx in historic_context
+    )
+
+    messages.append({"role": "user", "content": prompt})
 
     instructor_client = instructor.from_openai(client)
 
@@ -106,8 +114,10 @@ def exec_react_task(
 
         output = resp.output
         if isinstance(output, ReactAnswer):
-            return output.answer
+            historic_context.append(output)
+            return output.answer, historic_context
         elif isinstance(output, ReactProcess):
+            historic_context.append(output)
             logger.info(
                 "react_process",
                 question=output.question,

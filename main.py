@@ -73,6 +73,7 @@ def list_models():
 )
 def chat(ask, model):
     click.echo("OpsMate: Howdy! How can I help you?")
+    historic_context = []
     while True:
         user_input = click.prompt("You")
         task = Task(
@@ -87,7 +88,15 @@ def chat(ask, model):
                 response_model=ReactOutput,
             ),
         )
-        click.echo(exec_react_task(OpenAI(), task, ask=ask, model=model))
+
+        answer, historic_context = exec_react_task(
+            OpenAI(),
+            task,
+            ask=ask,
+            historic_context=historic_context,
+            model=model,
+        )
+        click.echo(answer)
 
 
 if __name__ == "__main__":

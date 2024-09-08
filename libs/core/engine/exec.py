@@ -10,7 +10,9 @@ import yaml
 logger = structlog.get_logger()
 
 
-def _exec_executables(client: Client, task: Task, ask: bool = False):
+def _exec_executables(
+    client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"
+):
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
@@ -32,7 +34,7 @@ def _exec_executables(client: Client, task: Task, ask: bool = False):
     )
 
     exec_calls = instructor_client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=messages,
         response_model=Iterable[Union[tuple(executables)]],
     )
@@ -47,8 +49,8 @@ def _exec_executables(client: Client, task: Task, ask: bool = False):
     return exec_result, messages
 
 
-def exec_task(client: Client, task: Task, ask: bool = False):
-    exec_result, messages = _exec_executables(client, task, ask)
+def exec_task(client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"):
+    exec_result, messages = _exec_executables(client, task, ask, model)
 
     instructor_client = instructor.from_openai(client)
 
@@ -60,7 +62,7 @@ def exec_task(client: Client, task: Task, ask: bool = False):
     )
 
     resp = instructor_client.chat.completions.create(
-        model="gpt-4o",
+        model=model,
         messages=messages,
         response_model=task.spec.response_model,
     )
@@ -68,7 +70,9 @@ def exec_task(client: Client, task: Task, ask: bool = False):
     return resp
 
 
-def exec_react_task(client: Client, task: Task, ask: bool = False):
+def exec_react_task(
+    client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"
+):
     if task.spec.response_model != ReactOutput:
         raise ValueError("Task response model must be ReactOutput")
 
@@ -95,7 +99,7 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
 
     while True:
         resp = instructor_client.chat.completions.create(
-            model="gpt-4o",
+            model=model,
             messages=messages,
             response_model=ReactOutput,
         )
@@ -128,7 +132,9 @@ def exec_react_task(client: Client, task: Task, ask: bool = False):
                         contexts=task.spec.contexts,
                     ),
                 )
-                exec_result, _ = _exec_executables(client, action_task, ask=ask)
+                exec_result, _ = _exec_executables(
+                    client, action_task, ask=ask, model=model
+                )
 
                 observation = Observation(
                     action=output.action,

@@ -100,7 +100,7 @@ def chat(ask, model):
         except Exception as e:
             click.echo(f"OpsMate: {e}")
             continue
-        click.echo(answer)
+        click.echo(f"OpsMate: {answer}")
 
 
 if __name__ == "__main__":

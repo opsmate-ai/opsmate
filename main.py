@@ -29,7 +29,12 @@ def opsmate_cli():
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
-def ask(instruction, ask, model):
+@click.option(
+    "--max-depth",
+    default=10,
+    help="Max depth the AI assistant can reason about",
+)
+def ask(instruction, ask, model, max_depth):
     """
     Ask a question to the OpsMate.
     """
@@ -46,7 +51,10 @@ def ask(instruction, ask, model):
         ),
     )
 
-    print(exec_react_task(OpenAI(), task, ask=ask, model=model))
+    answer, _ = exec_react_task(
+        OpenAI(), task, ask=ask, model=model, max_depth=max_depth
+    )
+    click.echo(answer)
 
 
 @opsmate_cli.command()
@@ -71,7 +79,12 @@ def list_models():
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
-def chat(ask, model):
+@click.option(
+    "--max-depth",
+    default=10,
+    help="Max depth the AI assistant can reason about",
+)
+def chat(ask, model, max_depth):
     click.echo("OpsMate: Howdy! How can I help you?")
     historic_context = []
     while True:
@@ -95,6 +108,7 @@ def chat(ask, model):
                 task,
                 ask=ask,
                 historic_context=historic_context,
+                max_depth=max_depth,
                 model=model,
             )
         except Exception as e:

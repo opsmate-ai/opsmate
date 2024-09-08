@@ -78,6 +78,7 @@ def exec_react_task(
     task: Task,
     ask: bool = False,
     historic_context: List[ReactProcess | ReactAnswer] = [],
+    max_depth: int = 10,
     model: str = "gpt-4o",
 ):
     if task.spec.response_model != ReactOutput:
@@ -85,6 +86,9 @@ def exec_react_task(
 
     if react_ctx not in task.spec.contexts:
         raise ValueError("React context is required for react task")
+
+    if max_depth <= 0:
+        raise ValueError("Max depth must be greater than 0")
 
     prompt = ""
     for ctx in task.spec.contexts:
@@ -108,7 +112,7 @@ def exec_react_task(
 
     instructor_client = instructor.from_openai(client)
 
-    while True:
+    for _ in range(max_depth):
         resp = instructor_client.chat.completions.create(
             model=model,
             messages=messages,
@@ -160,3 +164,6 @@ def exec_react_task(
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )
+
+    logger.warning(f"Max depth reached, returning partial result")
+    return "", historic_context

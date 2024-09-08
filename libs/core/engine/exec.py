@@ -40,11 +40,14 @@ def _exec_executables(
     )
 
     exec_result = ExecResult(calls=[])
-    for exec_call in exec_calls:
-        output = exec_call(ask=ask)
+    try:
+        for exec_call in exec_calls:
+            output = exec_call(ask=ask)
         exec_result.calls.append(
             ExecCall(executable=exec_call, output=output.model_dump_json())
         )
+    except Exception as e:
+        logger.error(f"Error executing {exec_calls}: {e}")
 
     return exec_result, messages
 

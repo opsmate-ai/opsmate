@@ -17,11 +17,9 @@ def _exec_executables(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    prompt += "\nhere is the task instruction: \n"
-    prompt += task.spec.instruction
-
     messages = [
         {"role": "user", "content": prompt},
+        {"role": "user", "content": "instruction: " + task.spec.instruction},
     ]
 
     executables = []
@@ -94,9 +92,6 @@ def exec_react_task(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    prompt += "\nhere is the task instruction: \n"
-    prompt += task.spec.instruction
-
     executables = []
     for ctx in task.spec.contexts:
         for executable in ctx.all_executables():
@@ -109,6 +104,7 @@ def exec_react_task(
     )
 
     messages.append({"role": "user", "content": prompt})
+    messages.append({"role": "user", "content": "question: " + task.spec.instruction})
 
     instructor_client = instructor.from_openai(client)
 

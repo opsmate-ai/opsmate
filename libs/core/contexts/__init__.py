@@ -87,6 +87,8 @@ Use action to run one of the action available to you - then return.
 observation will be the result of running those action.
 If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 
+If you know the instructions of how to do something, please do not use it as an answer but as an action.
+
 Notes you output must be in format as follows:
 
 <output>

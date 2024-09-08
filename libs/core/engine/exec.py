@@ -17,11 +17,9 @@ def _exec_executables(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    prompt += "\nhere is the task instruction: \n"
-    prompt += task.spec.instruction
-
     messages = [
         {"role": "user", "content": prompt},
+        {"role": "user", "content": "instruction: " + task.spec.instruction},
     ]
 
     executables = []
@@ -78,6 +76,7 @@ def exec_react_task(
     task: Task,
     ask: bool = False,
     historic_context: List[ReactProcess | ReactAnswer] = [],
+    max_depth: int = 10,
     model: str = "gpt-4o",
 ):
     if task.spec.response_model != ReactOutput:
@@ -86,12 +85,12 @@ def exec_react_task(
     if react_ctx not in task.spec.contexts:
         raise ValueError("React context is required for react task")
 
+    if max_depth <= 0:
+        raise ValueError("Max depth must be greater than 0")
+
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
-
-    prompt += "\nhere is the task instruction: \n"
-    prompt += task.spec.instruction
 
     executables = []
     for ctx in task.spec.contexts:
@@ -105,10 +104,11 @@ def exec_react_task(
     )
 
     messages.append({"role": "user", "content": prompt})
+    messages.append({"role": "user", "content": "question: " + task.spec.instruction})
 
     instructor_client = instructor.from_openai(client)
 
-    while True:
+    for _ in range(max_depth):
         resp = instructor_client.chat.completions.create(
             model=model,
             messages=messages,
@@ -160,3 +160,6 @@ def exec_react_task(
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )
+
+    logger.warning(f"Max depth reached, returning partial result")
+    return "", historic_context

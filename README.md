@@ -1,6 +1,6 @@
 # OpsMate
 
-OpsMate is an SRE AI assistant that helps you manage production environment. It is a cli tool that can be used to performance various operations on the production environment.
+OpsMate is an SRE AI assistant that helps you manage production environment.
 
 ## Getting Started
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 from enum import Enum
-from typing import Dict, Optional, Type, TypeVar, Iterable
+from typing import Dict, Optional, Type, TypeVar, Iterable, List
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -96,3 +96,17 @@ class ReactAnswer(BaseModel):
 
 class ReactOutput(BaseModel):
     output: ReactProcess | ReactAnswer = Field(title="output")
+
+
+class ExecCall(BaseModel):
+    executable: Executable
+    output: str
+
+
+class ExecResult(BaseModel):
+    calls: List[ExecCall]
+
+
+class Observation(BaseModel):
+    action: str
+    observation: str

@@ -16,7 +16,7 @@ pyyaml = "^6.0.2"
 click = "^8.1.7"
 
 [tool.poetry.scripts]
-opsmate = "main:main"
+opsmate = "opsmate.cli:opsmate_cli"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

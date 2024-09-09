@@ -1,6 +1,6 @@
-from libs.core.types import *
+from opsmate.libs.core.types import *
 from typing import Union
-from libs.core.contexts import react_ctx
+from opsmate.libs.core.contexts import react_ctx
 from openai import Client
 import instructor
 import structlog

@@ -1,4 +1,4 @@
-from libs.core.types import Context, ContextSpec, Metadata, Executable
+from opsmate.libs.core.types import Context, ContextSpec, Metadata, Executable
 from pydantic import Field, BaseModel
 
 

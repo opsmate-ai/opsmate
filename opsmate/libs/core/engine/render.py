@@ -1,5 +1,5 @@
-from libs.core.types import *
-from libs.core.contexts import built_in_helpers
+from opsmate.libs.core.types import *
+from opsmate.libs.core.contexts import built_in_helpers
 import jinja2
 
 

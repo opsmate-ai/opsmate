@@ -1,12 +1,12 @@
-from libs.core.types import (
+from opsmate.libs.core.types import (
     Task,
     Metadata,
     TaskSpec,
     ReactOutput,
 )
 from openai import OpenAI
-from libs.core.engine import exec_task, exec_react_task
-from libs.core.contexts import cli_ctx, react_ctx
+from opsmate.libs.core.engine import exec_task, exec_react_task
+from opsmate.libs.core.contexts import cli_ctx, react_ctx
 import click
 
 

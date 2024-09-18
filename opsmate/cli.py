@@ -112,10 +112,27 @@ def list_models():
 @traceit
 def chat(ask, model, max_depth):
     try:
-        click.echo("OpsMate: Howdy! How can I help you?")
+        click.echo(
+            """
+OpsMate: Howdy! How can I help you?
+
+Some useful commands:
+
+!clear - Clear the chat history
+!exit - Exit the chat
+"""
+        )
         historic_context = []
         while True:
             user_input = click.prompt("You")
+
+            if user_input == "!clear":
+                historic_context = []
+                click.echo("OpsMate: Chat history cleared")
+                continue
+            elif user_input == "!exit":
+                break
+
             task = Task(
                 metadata=Metadata(
                     name="chat",

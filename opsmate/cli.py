@@ -95,6 +95,15 @@ def list_models():
         print(model_name)
 
 
+help_msg = """
+Commands:
+
+!clear - Clear the chat history
+!exit - Exit the chat
+!help - Show this message
+"""
+
+
 @opsmate_cli.command()
 @click.option(
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
@@ -113,13 +122,10 @@ def list_models():
 def chat(ask, model, max_depth):
     try:
         click.echo(
-            """
+            f"""
 OpsMate: Howdy! How can I help you?
 
-Some useful commands:
-
-!clear - Clear the chat history
-!exit - Exit the chat
+{help_msg}
 """
         )
         historic_context = []
@@ -132,35 +138,57 @@ Some useful commands:
                 continue
             elif user_input == "!exit":
                 break
-
-            task = Task(
-                metadata=Metadata(
-                    name="chat",
-                    apiVersion="v1",
-                ),
-                spec=TaskSpec(
-                    input={},
-                    contexts=[cli_ctx, react_ctx],
-                    instruction=user_input,
-                    response_model=ReactOutput,
-                ),
-            )
-
-            try:
-                answer, historic_context = exec_react_task(
-                    OpenAI(),
-                    task,
-                    ask=ask,
-                    historic_context=historic_context,
-                    max_depth=max_depth,
-                    model=model,
-                )
-            except Exception as e:
-                click.echo(f"OpsMate: {e}")
+            elif user_input == "!help":
+                click.echo(help_msg)
                 continue
-            click.echo(f"OpsMate: {answer}")
+
+            answer, historic_context = q_and_a(
+                user_input,
+                historic_context=historic_context,
+                ask=ask,
+                max_depth=max_depth,
+                model=model,
+            )
+            if answer is not None:
+                click.echo(f"OpsMate: {answer}")
     except click.exceptions.Abort:
         click.echo("OpsMate: Goodbye!")
+
+
+@traceit(exclude=["historic_context"])
+def q_and_a(
+    user_input: str,
+    historic_context: list = [],
+    ask: bool = False,
+    max_depth: int = 10,
+    model: str = "gpt-4o",
+):
+    task = Task(
+        metadata=Metadata(
+            name="chat",
+            apiVersion="v1",
+        ),
+        spec=TaskSpec(
+            input={},
+            contexts=[cli_ctx, react_ctx],
+            instruction=user_input,
+            response_model=ReactOutput,
+        ),
+    )
+
+    try:
+        answer, historic_context = exec_react_task(
+            OpenAI(),
+            task,
+            ask=ask,
+            max_depth=max_depth,
+            model=model,
+            historic_context=historic_context,
+        )
+    except Exception as e:
+        click.echo(f"OpsMate: {e}")
+        return None, historic_context
+    return answer, historic_context
 
 
 if __name__ == "__main__":

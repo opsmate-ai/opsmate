@@ -1,4 +1,10 @@
-from opsmate.libs.core.types import Context, ContextSpec, Metadata, Executable
+from opsmate.libs.core.types import (
+    Context,
+    ContextSpec,
+    Metadata,
+    Executable,
+    ExecOutput,
+)
 from pydantic import Field, BaseModel
 
 
@@ -9,19 +15,13 @@ class CurrentOS(Executable):
         return platform.system()
 
 
-class ExecShellOutput(BaseModel):
-    stdout: str = Field(title="stdout")
-    stderr: str = Field(title="stderr")
-    exit_code: int = Field(title="exit_code")
-
-
 class ExecShell(Executable):
     command: str = Field(title="command to execute")
 
     def __call__(
         self,
         ask: bool = False,
-    ) -> ExecShellOutput:
+    ) -> ExecOutput:
         """
         Execute a shell script
 
@@ -30,10 +30,9 @@ class ExecShell(Executable):
 
         import subprocess
 
-        print("executing shell command: ", self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
-                return ExecShellOutput(
+                return ExecOutput(
                     stdout="", stderr="Execution cancelled by user", exit_code=1
                 )
 
@@ -42,8 +41,10 @@ class ExecShell(Executable):
         )
 
         stdout, stderr = process.communicate()
-        return ExecShellOutput(
-            stdout=str(stdout), stderr=str(stderr), exit_code=process.returncode
+        return ExecOutput(
+            stdout=stdout.decode().strip(),
+            stderr=stderr.decode().strip(),
+            exit_code=process.returncode,
         )
 
 

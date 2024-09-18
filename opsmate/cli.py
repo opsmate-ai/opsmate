@@ -3,6 +3,9 @@ from opsmate.libs.core.types import (
     Metadata,
     TaskSpec,
     ReactOutput,
+    ReactProcess,
+    ReactAnswer,
+    ExecResult,
 )
 from openai import OpenAI
 from opsmate.libs.core.engine import exec_react_task
@@ -17,6 +20,7 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 import os
+import yaml
 import click
 
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
@@ -57,28 +61,19 @@ def opsmate_cli():
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@click.option(
+    "--answer-only",
+    is_flag=True,
+    help="Only show the answer and not the thought, action and observation",
+)
 @traceit
-def ask(instruction, ask, model, max_depth):
+def ask(instruction, ask, model, max_depth, answer_only):
     """
     Ask a question to the OpsMate.
     """
-    task = Task(
-        metadata=Metadata(
-            name=instruction,
-            apiVersion="v1",
-        ),
-        spec=TaskSpec(
-            input={},
-            contexts=[cli_ctx, react_ctx],
-            instruction=instruction,
-            response_model=ReactOutput,
-        ),
+    q_and_a(
+        instruction, ask=ask, model=model, max_depth=max_depth, answer_only=answer_only
     )
-
-    answer, _ = exec_react_task(
-        OpenAI(), task, ask=ask, model=model, max_depth=max_depth
-    )
-    click.echo(answer)
 
 
 @opsmate_cli.command()
@@ -118,8 +113,13 @@ Commands:
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@click.option(
+    "--answer-only",
+    is_flag=True,
+    help="Only show the answer and not the thought, action and observation",
+)
 @traceit
-def chat(ask, model, max_depth):
+def chat(ask, model, max_depth, answer_only):
     try:
         click.echo(
             f"""
@@ -142,15 +142,14 @@ OpsMate: Howdy! How can I help you?
                 click.echo(help_msg)
                 continue
 
-            answer, historic_context = q_and_a(
+            q_and_a(
                 user_input,
-                historic_context=historic_context,
                 ask=ask,
                 max_depth=max_depth,
                 model=model,
+                historic_context=historic_context,
+                answer_only=answer_only,
             )
-            if answer is not None:
-                click.echo(f"OpsMate: {answer}")
     except click.exceptions.Abort:
         click.echo("OpsMate: Goodbye!")
 
@@ -158,10 +157,11 @@ OpsMate: Howdy! How can I help you?
 @traceit(exclude=["historic_context"])
 def q_and_a(
     user_input: str,
-    historic_context: list = [],
     ask: bool = False,
     max_depth: int = 10,
     model: str = "gpt-4o",
+    historic_context: list = [],
+    answer_only: bool = False,
 ):
     task = Task(
         metadata=Metadata(
@@ -177,18 +177,34 @@ def q_and_a(
     )
 
     try:
-        answer, historic_context = exec_react_task(
+        for output in exec_react_task(
             OpenAI(),
             task,
             ask=ask,
             max_depth=max_depth,
             model=model,
             historic_context=historic_context,
-        )
+        ):
+            if isinstance(output, ReactAnswer):
+                click.echo(f"OpsMate: {output.answer}")
+            elif isinstance(output, ReactProcess) and not answer_only:
+                click.echo(
+                    f"""
+OpsMate:
+{f"Question: {output.question}" if output.question else ""}
+{f"Thought: {output.thought}" if output.thought else ""}
+{f"Action: {output.action}" if output.action else ""}
+"""
+                )
+            elif isinstance(output, ExecResult) and not answer_only:
+                click.echo(
+                    f"""
+OpsMate:
+{yaml.dump(output.model_dump())}
+"""
+                )
     except Exception as e:
         click.echo(f"OpsMate: {e}")
-        return None, historic_context
-    return answer, historic_context
 
 
 if __name__ == "__main__":

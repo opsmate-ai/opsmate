@@ -5,9 +5,32 @@ from opsmate.libs.core.types import (
     ReactOutput,
 )
 from openai import OpenAI
-from opsmate.libs.core.engine import exec_task, exec_react_task
+from opsmate.libs.core.engine import exec_react_task
 from opsmate.libs.core.contexts import cli_ctx, react_ctx
+from opsmate.libs.core.trace import traceit
+from openai_otel import OpenAIAutoInstrumentor
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+)
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+import os
 import click
+
+resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
+provider = TracerProvider(resource=resource)
+exporter = OTLPSpanExporter(
+    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+    insecure=True,
+)
+processor = BatchSpanProcessor(exporter)
+provider.add_span_processor(processor)
+trace.set_tracer_provider(provider)
+
+
+OpenAIAutoInstrumentor().instrument()
 
 
 @click.group()
@@ -34,6 +57,7 @@ def opsmate_cli():
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@traceit
 def ask(instruction, ask, model, max_depth):
     """
     Ask a question to the OpsMate.
@@ -58,6 +82,7 @@ def ask(instruction, ask, model, max_depth):
 
 
 @opsmate_cli.command()
+@traceit
 def list_models():
     """
     List all the models available in OpenAI.
@@ -84,37 +109,41 @@ def list_models():
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@traceit
 def chat(ask, model, max_depth):
-    click.echo("OpsMate: Howdy! How can I help you?")
-    historic_context = []
-    while True:
-        user_input = click.prompt("You")
-        task = Task(
-            metadata=Metadata(
-                name="chat",
-                apiVersion="v1",
-            ),
-            spec=TaskSpec(
-                input={},
-                contexts=[cli_ctx, react_ctx],
-                instruction=user_input,
-                response_model=ReactOutput,
-            ),
-        )
-
-        try:
-            answer, historic_context = exec_react_task(
-                OpenAI(),
-                task,
-                ask=ask,
-                historic_context=historic_context,
-                max_depth=max_depth,
-                model=model,
+    try:
+        click.echo("OpsMate: Howdy! How can I help you?")
+        historic_context = []
+        while True:
+            user_input = click.prompt("You")
+            task = Task(
+                metadata=Metadata(
+                    name="chat",
+                    apiVersion="v1",
+                ),
+                spec=TaskSpec(
+                    input={},
+                    contexts=[cli_ctx, react_ctx],
+                    instruction=user_input,
+                    response_model=ReactOutput,
+                ),
             )
-        except Exception as e:
-            click.echo(f"OpsMate: {e}")
-            continue
-        click.echo(f"OpsMate: {answer}")
+
+            try:
+                answer, historic_context = exec_react_task(
+                    OpenAI(),
+                    task,
+                    ask=ask,
+                    historic_context=historic_context,
+                    max_depth=max_depth,
+                    model=model,
+                )
+            except Exception as e:
+                click.echo(f"OpsMate: {e}")
+                continue
+            click.echo(f"OpsMate: {answer}")
+    except click.exceptions.Abort:
+        click.echo("OpsMate: Goodbye!")
 
 
 if __name__ == "__main__":

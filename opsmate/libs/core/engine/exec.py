@@ -1,6 +1,8 @@
 from opsmate.libs.core.types import *
-from typing import Union
+from typing import Union, Callable
 from opsmate.libs.core.contexts import react_ctx
+from opsmate.libs.core.trace import traceit
+from opentelemetry.trace import Span
 from openai import Client
 import instructor
 import structlog
@@ -10,9 +12,16 @@ import yaml
 logger = structlog.get_logger()
 
 
+@traceit
 def _exec_executables(
-    client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"
+    client: Client,
+    task: Task,
+    ask: bool = False,
+    model: str = "gpt-4o",
+    span: Span = None,
 ):
+    span.set_attribute("instruction", task.spec.instruction)
+
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
@@ -50,7 +59,16 @@ def _exec_executables(
     return exec_result, messages
 
 
-def exec_task(client: Client, task: Task, ask: bool = False, model: str = "gpt-4o"):
+@traceit
+def exec_task(
+    client: Client,
+    task: Task,
+    ask: bool = False,
+    model: str = "gpt-4o",
+    span: Span = None,
+):
+    span.set_attribute("instruction", task.spec.instruction)
+
     exec_result, messages = _exec_executables(client, task, ask, model)
 
     instructor_client = instructor.from_openai(client)
@@ -71,6 +89,7 @@ def exec_task(client: Client, task: Task, ask: bool = False, model: str = "gpt-4
     return resp
 
 
+@traceit
 def exec_react_task(
     client: Client,
     task: Task,
@@ -78,7 +97,10 @@ def exec_react_task(
     historic_context: List[ReactProcess | ReactAnswer] = [],
     max_depth: int = 10,
     model: str = "gpt-4o",
+    span: Span = None,
 ):
+    span.set_attribute("instruction", task.spec.instruction)
+
     if task.spec.response_model != ReactOutput:
         raise ValueError("Task response model must be ReactOutput")
 

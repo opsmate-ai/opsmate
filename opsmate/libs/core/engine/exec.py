@@ -12,7 +12,7 @@ import yaml
 logger = structlog.get_logger()
 
 
-@traceit
+@traceit(exclude=["client", "task"])
 def _exec_executables(
     client: Client,
     task: Task,
@@ -59,7 +59,7 @@ def _exec_executables(
     return exec_result, messages
 
 
-@traceit
+@traceit(exclude=["client", "task"])
 def exec_task(
     client: Client,
     task: Task,
@@ -89,7 +89,7 @@ def exec_task(
     return resp
 
 
-@traceit
+@traceit(exclude=["client", "task", "historic_context"])
 def exec_react_task(
     client: Client,
     task: Task,

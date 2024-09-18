@@ -8,7 +8,7 @@ from typing import Callable, Union
 tracer = trace.get_tracer("opsmate")
 
 
-def traceit(*args, exclude: list = []):
+def traceit(*args, name: str = None, exclude: list = []):
     """
     Decorator to trace function calls.
 
@@ -23,18 +23,18 @@ def traceit(*args, exclude: list = []):
         pass
     """
     if len(args) == 1 and callable(args[0]):
-        return _traceit(args[0], exclude)
+        return _traceit(args[0], name, exclude)
     elif len(args) == 0:
 
         def decorator(func: Callable):
-            return _traceit(func, exclude)
+            return _traceit(func, name, exclude)
 
         return decorator
     else:
         raise ValueError("Invalid arguments")
 
 
-def _traceit(func: Callable, exclude: list = []):
+def _traceit(func: Callable, name: str = None, exclude: list = []):
     @wraps(func)
     def wrapper(*args, **kwargs):
         kvs = {}
@@ -56,7 +56,7 @@ def _traceit(func: Callable, exclude: list = []):
             elif isinstance(k, (dict, list)):
                 kvs[k] = json.dumps(v)
 
-        with tracer.start_as_current_span(func.__name__) as span:
+        with tracer.start_as_current_span(name or func.__name__) as span:
             for k, v in kvs.items():
                 span.set_attribute(f"{func.__name__}.{k}", v)
 

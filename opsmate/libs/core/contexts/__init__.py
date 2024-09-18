@@ -6,6 +6,8 @@ from opsmate.libs.core.types import (
     ExecOutput,
 )
 from pydantic import Field, BaseModel
+from opsmate.libs.core.trace import traceit
+from opentelemetry.trace import Span
 
 
 class CurrentOS(Executable):
@@ -18,15 +20,19 @@ class CurrentOS(Executable):
 class ExecShell(Executable):
     command: str = Field(title="command to execute")
 
+    @traceit(name="exec_shell")
     def __call__(
         self,
         ask: bool = False,
+        span: Span = None,
     ) -> ExecOutput:
         """
         Execute a shell script
 
         :return: The stdout, stderr, and exit code
         """
+
+        span.set_attribute("command", self.command)
 
         import subprocess
 

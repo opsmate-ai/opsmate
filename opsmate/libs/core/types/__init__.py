@@ -99,9 +99,15 @@ class ReactOutput(BaseModel):
     output: ReactProcess | ReactAnswer = Field(title="output")
 
 
+class ExecOutput(BaseModel):
+    stdout: str = Field(title="stdout")
+    stderr: str = Field(title="stderr")
+    exit_code: int = Field(title="exit_code")
+
+
 class ExecCall(BaseModel):
-    executable: Executable
-    output: str
+    command: str
+    output: ExecOutput
 
 
 class ExecResult(BaseModel):

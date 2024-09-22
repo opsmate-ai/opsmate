@@ -2,13 +2,13 @@ import json
 from functools import wraps
 from opentelemetry import trace
 import inspect
-from typing import Callable, Union
+from typing import Callable
 
 
 tracer = trace.get_tracer("opsmate")
 
 
-def traceit(*args, exclude: list = []):
+def traceit(*args, name: str = None, exclude: list = []):
     """
     Decorator to trace function calls.
 
@@ -21,20 +21,26 @@ def traceit(*args, exclude: list = []):
     @traceit(exclude=["b"]) # b will not be traced as an attribute
     def my_function(a, b, c):
         pass
+
+
+    @traceit # Span can be accessed in the function
+    def my_function(a, b, c, span: Span = None):
+        span.add_event("my_event", {"key": "value"})
+        return a + b + c
     """
     if len(args) == 1 and callable(args[0]):
-        return _traceit(args[0], exclude)
+        return _traceit(args[0], name, exclude)
     elif len(args) == 0:
 
         def decorator(func: Callable):
-            return _traceit(func, exclude)
+            return _traceit(func, name, exclude)
 
         return decorator
     else:
         raise ValueError("Invalid arguments")
 
 
-def _traceit(func: Callable, exclude: list = []):
+def _traceit(func: Callable, name: str = None, exclude: list = []):
     @wraps(func)
     def wrapper(*args, **kwargs):
         kvs = {}
@@ -56,9 +62,10 @@ def _traceit(func: Callable, exclude: list = []):
             elif isinstance(k, (dict, list)):
                 kvs[k] = json.dumps(v)
 
-        with tracer.start_as_current_span(func.__name__) as span:
+        span_name = name or func.__qualname__
+        with tracer.start_as_current_span(span_name) as span:
             for k, v in kvs.items():
-                span.set_attribute(f"{func.__name__}.{k}", v)
+                span.set_attribute(f"{span_name}.{k}", v)
 
             if parameters.get("span") is not None:
                 kwargs["span"] = span

@@ -3,6 +3,9 @@ from opsmate.libs.core.types import (
     Metadata,
     TaskSpec,
     ReactOutput,
+    ReactProcess,
+    ReactAnswer,
+    ExecResult,
 )
 from openai import OpenAI
 from opsmate.libs.core.engine import exec_react_task
@@ -18,19 +21,26 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 import os
 import click
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
+console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
-provider = TracerProvider(resource=resource)
-exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-processor = BatchSpanProcessor(exporter)
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
 
+otel_enabled = os.getenv("OTEL_ENABLED", "false").lower() == "true"
 
-OpenAIAutoInstrumentor().instrument()
+if otel_enabled:
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(
+        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+        insecure=True,
+    )
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    OpenAIAutoInstrumentor().instrument()
 
 
 @click.group()
@@ -57,28 +67,19 @@ def opsmate_cli():
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@click.option(
+    "--answer-only",
+    is_flag=True,
+    help="Only show the answer and not the thought, action and observation",
+)
 @traceit
-def ask(instruction, ask, model, max_depth):
+def run(instruction, ask, model, max_depth, answer_only):
     """
-    Ask a question to the OpsMate.
+    Run a task with the OpsMate.
     """
-    task = Task(
-        metadata=Metadata(
-            name=instruction,
-            apiVersion="v1",
-        ),
-        spec=TaskSpec(
-            input={},
-            contexts=[cli_ctx, react_ctx],
-            instruction=instruction,
-            response_model=ReactOutput,
-        ),
+    q_and_a(
+        instruction, ask=ask, model=model, max_depth=max_depth, answer_only=answer_only
     )
-
-    answer, _ = exec_react_task(
-        OpenAI(), task, ask=ask, model=model, max_depth=max_depth
-    )
-    click.echo(answer)
 
 
 @opsmate_cli.command()
@@ -92,7 +93,7 @@ def list_models():
         model.id for model in client.models.list().data if model.id.startswith("gpt")
     ]
     for model_name in model_names:
-        print(model_name)
+        console.print(model_name)
 
 
 help_msg = """
@@ -118,50 +119,50 @@ Commands:
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+@click.option(
+    "--answer-only",
+    is_flag=True,
+    help="Only show the answer and not the thought, action and observation",
+)
 @traceit
-def chat(ask, model, max_depth):
+def chat(ask, model, max_depth, answer_only):
     try:
-        click.echo(
-            f"""
-OpsMate: Howdy! How can I help you?
+        opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-{help_msg}
-"""
-        )
         historic_context = []
         while True:
-            user_input = click.prompt("You")
-
+            # user_input = click.prompt("You")
+            user_input = console.input("[bold cyan]You> [/bold cyan]")
             if user_input == "!clear":
                 historic_context = []
-                click.echo("OpsMate: Chat history cleared")
+                opsmate_says("Chat history cleared")
                 continue
             elif user_input == "!exit":
                 break
             elif user_input == "!help":
-                click.echo(help_msg)
+                console.print(help_msg)
                 continue
 
-            answer, historic_context = q_and_a(
+            q_and_a(
                 user_input,
-                historic_context=historic_context,
                 ask=ask,
                 max_depth=max_depth,
                 model=model,
+                historic_context=historic_context,
+                answer_only=answer_only,
             )
-            if answer is not None:
-                click.echo(f"OpsMate: {answer}")
-    except click.exceptions.Abort:
-        click.echo("OpsMate: Goodbye!")
+    except (KeyboardInterrupt, EOFError):
+        opsmate_says("Goodbye!")
 
 
 @traceit(exclude=["historic_context"])
 def q_and_a(
     user_input: str,
-    historic_context: list = [],
     ask: bool = False,
     max_depth: int = 10,
     model: str = "gpt-4o",
+    historic_context: list = [],
+    answer_only: bool = False,
 ):
     task = Task(
         metadata=Metadata(
@@ -177,18 +178,46 @@ def q_and_a(
     )
 
     try:
-        answer, historic_context = exec_react_task(
+        for output in exec_react_task(
             OpenAI(),
             task,
             ask=ask,
             max_depth=max_depth,
             model=model,
             historic_context=historic_context,
-        )
+        ):
+            if isinstance(output, ReactAnswer):
+                opsmate_says(output.answer)
+            elif isinstance(output, ReactProcess) and not answer_only:
+                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table.add_row("Question", output.question)
+                table.add_row("Thought", output.thought)
+                table.add_row("Action", output.action)
+                console.print(table)
+
+            elif isinstance(output, ExecResult) and not answer_only:
+                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table.add_column("Command", style="cyan")
+                table.add_column("Stdout", style="green")
+                table.add_column("Stderr", style="red")
+                table.add_column("Exit Code", style="magenta")
+                for call in output.calls:
+                    table.add_row(
+                        call.command,
+                        call.output.stdout,
+                        call.output.stderr,
+                        str(call.output.exit_code),
+                    )
+                console.print(table)
     except Exception as e:
-        click.echo(f"OpsMate: {e}")
-        return None, historic_context
-    return answer, historic_context
+        console.print(f"OpsMate Error: {e}", style="red")
+
+
+def opsmate_says(message: str):
+    text = Text()
+    text.append("OpsMate> ", style="bold green")
+    text.append(message)
+    console.print(text)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,6 @@ def _exec_executables(
     model: str = "gpt-4o",
     span: Span = None,
 ):
-    span.set_attribute("instruction", task.spec.instruction)
 
     prompt = ""
     for ctx in task.spec.contexts:
@@ -50,9 +49,7 @@ def _exec_executables(
     try:
         for exec_call in exec_calls:
             output = exec_call(ask=ask)
-        exec_result.calls.append(
-            ExecCall(executable=exec_call, output=output.model_dump_json())
-        )
+            exec_result.calls.append(ExecCall(command=exec_call.command, output=output))
     except Exception as e:
         logger.error(f"Error executing {exec_calls}: {e}")
 
@@ -99,8 +96,6 @@ def exec_react_task(
     model: str = "gpt-4o",
     span: Span = None,
 ):
-    span.set_attribute("instruction", task.spec.instruction)
-
     if task.spec.response_model != ReactOutput:
         raise ValueError("Task response model must be ReactOutput")
 
@@ -130,6 +125,7 @@ def exec_react_task(
 
     instructor_client = instructor.from_openai(client)
 
+    answered = False
     for _ in range(max_depth):
         resp = instructor_client.chat.completions.create(
             model=model,
@@ -140,15 +136,19 @@ def exec_react_task(
         output = resp.output
         if isinstance(output, ReactAnswer):
             historic_context.append(output)
-            return output.answer, historic_context
+            yield output
+            answered = True
+            break
         elif isinstance(output, ReactProcess):
             historic_context.append(output)
-            logger.info(
-                "react_process",
-                question=output.question,
-                thought=output.thought,
-                action=output.action,
-            )
+            # logger.info(
+            #     "react_process",
+            #     question=output.question,
+            #     thought=output.thought,
+            #     action=output.action,
+            # )
+            yield output
+
             messages.append(
                 {
                     "role": "user",
@@ -175,6 +175,9 @@ def exec_react_task(
                     action=output.action,
                     observation=yaml.dump(exec_result.model_dump()),
                 )
+
+                yield exec_result
+
                 if observation is not None:
                     messages.append(
                         {
@@ -183,5 +186,5 @@ def exec_react_task(
                         },
                     )
 
-    logger.warning(f"Max depth reached, returning partial result")
-    return "", historic_context
+    if not answered:
+        logger.warning("No answer found")

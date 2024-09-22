@@ -142,12 +142,6 @@ def exec_react_task(
             break
         elif isinstance(output, ReactProcess):
             historic_context.append(output)
-            # logger.info(
-            #     "react_process",
-            #     question=output.question,
-            #     thought=output.thought,
-            #     action=output.action,
-            # )
             yield output
 
             messages.append(
@@ -165,7 +159,11 @@ def exec_react_task(
                         apiVersion="v1",
                     ),
                     spec=TaskSpec(
-                        instruction=output.action,
+                        instruction=f"""
+Here is the question: {output.question}
+Here is the thought: {output.thought}
+Please execute the action: {output.action}
+                        """,
                         response_model=Observation,
                         contexts=ctx,
                     ),

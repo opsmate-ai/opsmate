@@ -16,6 +16,7 @@ pyyaml = "^6.0.2"
 click = "^8.1.7"
 openai-otel = "^0.1.0a1"
 opentelemetry-exporter-otlp = "^1.27.0"
+rich = "^13.8.1"
 
 [tool.poetry.scripts]
 opsmate = "opsmate.cli:opsmate_cli"

@@ -20,9 +20,12 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 import os
-import yaml
 import click
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
+console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 
 otel_enabled = os.getenv("OTEL_ENABLED", "false").lower() == "true"
@@ -90,7 +93,7 @@ def list_models():
         model.id for model in client.models.list().data if model.id.startswith("gpt")
     ]
     for model_name in model_names:
-        print(model_name)
+        console.print(model_name)
 
 
 help_msg = """
@@ -124,25 +127,20 @@ Commands:
 @traceit
 def chat(ask, model, max_depth, answer_only):
     try:
-        click.echo(
-            f"""
-OpsMate: Howdy! How can I help you?
+        opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-{help_msg}
-"""
-        )
         historic_context = []
         while True:
-            user_input = click.prompt("You")
-
+            # user_input = click.prompt("You")
+            user_input = console.input("[bold cyan]You> [/bold cyan]")
             if user_input == "!clear":
                 historic_context = []
-                click.echo("OpsMate: Chat history cleared")
+                opsmate_says("Chat history cleared")
                 continue
             elif user_input == "!exit":
                 break
             elif user_input == "!help":
-                click.echo(help_msg)
+                console.print(help_msg)
                 continue
 
             q_and_a(
@@ -153,8 +151,8 @@ OpsMate: Howdy! How can I help you?
                 historic_context=historic_context,
                 answer_only=answer_only,
             )
-    except click.exceptions.Abort:
-        click.echo("OpsMate: Goodbye!")
+    except (KeyboardInterrupt, EOFError):
+        opsmate_says("Goodbye!")
 
 
 @traceit(exclude=["historic_context"])
@@ -189,25 +187,37 @@ def q_and_a(
             historic_context=historic_context,
         ):
             if isinstance(output, ReactAnswer):
-                click.echo(f"OpsMate: {output.answer}")
+                opsmate_says(output.answer)
             elif isinstance(output, ReactProcess) and not answer_only:
-                click.echo(
-                    f"""
-OpsMate:
-{f"Question: {output.question}" if output.question else ""}
-{f"Thought: {output.thought}" if output.thought else ""}
-{f"Action: {output.action}" if output.action else ""}
-"""
-                )
+                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table.add_row("Question", output.question)
+                table.add_row("Thought", output.thought)
+                table.add_row("Action", output.action)
+                console.print(table)
+
             elif isinstance(output, ExecResult) and not answer_only:
-                click.echo(
-                    f"""
-OpsMate:
-{yaml.dump(output.model_dump())}
-"""
-                )
+                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table.add_column("Command", style="cyan")
+                table.add_column("Stdout", style="green")
+                table.add_column("Stderr", style="red")
+                table.add_column("Exit Code", style="magenta")
+                for call in output.calls:
+                    table.add_row(
+                        call.command,
+                        call.output.stdout,
+                        call.output.stderr,
+                        str(call.output.exit_code),
+                    )
+                console.print(table)
     except Exception as e:
-        click.echo(f"OpsMate: {e}")
+        console.print(f"OpsMate Error: {e}", style="red")
+
+
+def opsmate_says(message: str):
+    text = Text()
+    text.append("OpsMate> ", style="bold green")
+    text.append(message)
+    console.print(text)
 
 
 if __name__ == "__main__":

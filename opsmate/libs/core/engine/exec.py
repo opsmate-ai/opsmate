@@ -162,7 +162,7 @@ def exec_react_task(
                         apiVersion="v1",
                     ),
                     spec=TaskSpec(
-                        instruction=output.action,
+                        instruction=f"thought: {output.thought}\n action: {output.action}",
                         response_model=Observation,
                         contexts=task.spec.contexts,
                     ),

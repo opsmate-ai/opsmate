@@ -6,10 +6,11 @@ from opsmate.libs.core.types import (
     ReactProcess,
     ReactAnswer,
     ExecResult,
+    Context,
 )
 from openai import OpenAI
 from opsmate.libs.core.engine import exec_react_task
-from opsmate.libs.core.contexts import cli_ctx, react_ctx
+from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
 from opentelemetry import trace
@@ -72,13 +73,24 @@ def opsmate_cli():
     is_flag=True,
     help="Only show the answer and not the thought, action and observation",
 )
+@click.option(
+    "--contexts",
+    default="cli",
+    help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
+)
 @traceit
-def run(instruction, ask, model, max_depth, answer_only):
+def run(instruction, ask, model, max_depth, answer_only, contexts):
     """
     Run a task with the OpsMate.
     """
+    selected_contexts = get_contexts(contexts)
     q_and_a(
-        instruction, ask=ask, model=model, max_depth=max_depth, answer_only=answer_only
+        instruction,
+        ask=ask,
+        model=model,
+        max_depth=max_depth,
+        answer_only=answer_only,
+        contexts=selected_contexts,
     )
 
 
@@ -94,6 +106,24 @@ def list_models():
     ]
     for model_name in model_names:
         console.print(model_name)
+
+
+@opsmate_cli.command()
+@traceit
+def list_contexts():
+    """
+    List all the contexts available in OpsMate.
+    """
+
+    table = Table(show_header=True, show_lines=True)
+    table.add_column("Name")
+    table.add_column("API Version")
+    table.add_column("Description")
+    for ctx in available_contexts:
+        table.add_row(
+            ctx.metadata.name, ctx.metadata.apiVersion, ctx.metadata.description
+        )
+    console.print(table)
 
 
 help_msg = """
@@ -124,8 +154,17 @@ Commands:
     is_flag=True,
     help="Only show the answer and not the thought, action and observation",
 )
+@click.option(
+    "--contexts",
+    default="cli",
+    help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
+)
 @traceit
-def chat(ask, model, max_depth, answer_only):
+def chat(ask, model, max_depth, answer_only, contexts):
+    selected_contexts = get_contexts(contexts)
+    for ctx in selected_contexts:
+        console.print(ctx.metadata.name)
+
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
@@ -148,6 +187,7 @@ def chat(ask, model, max_depth, answer_only):
                 ask=ask,
                 max_depth=max_depth,
                 model=model,
+                contexts=selected_contexts,
                 historic_context=historic_context,
                 answer_only=answer_only,
             )
@@ -161,6 +201,7 @@ def q_and_a(
     ask: bool = False,
     max_depth: int = 10,
     model: str = "gpt-4o",
+    contexts: list[Context] = [cli_ctx, react_ctx],
     historic_context: list = [],
     answer_only: bool = False,
 ):
@@ -171,7 +212,7 @@ def q_and_a(
         ),
         spec=TaskSpec(
             input={},
-            contexts=[cli_ctx, react_ctx],
+            contexts=contexts,
             instruction=user_input,
             response_model=ReactOutput,
         ),
@@ -194,7 +235,6 @@ def q_and_a(
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)
-
             elif isinstance(output, ExecResult) and not answer_only:
                 table = Table(title="OpsMate", show_header=True, show_lines=True)
                 table.add_column("Command", style="cyan")
@@ -218,6 +258,24 @@ def opsmate_says(message: str):
     text.append("OpsMate> ", style="bold green")
     text.append(message)
     console.print(text)
+
+
+def get_contexts(contexts: str):
+    context_list = contexts.split(",")
+    context_list.append("react")
+    context_list = list(set(context_list))
+
+    selected_contexts = []
+    for ctx_name in context_list:
+        for ctx in available_contexts:
+            if ctx.metadata.name == ctx_name:
+                selected_contexts.append(ctx)
+                break
+        else:
+            console.print(f"Context {ctx_name} not found", style="red")
+            exit(1)
+
+    return selected_contexts
 
 
 if __name__ == "__main__":

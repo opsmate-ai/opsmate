@@ -38,6 +38,9 @@ class ContextSpec(BaseModel):
     params: Dict[str, str] = Field(title="params", default={})
     executables: list[Type[Executable]] = Field(title="executables", default=[])
     contexts: list[Context] = Field(title="contexts", default=[])
+    helpers: Dict[str, Executable] = Field(
+        title="helpers to provide extra contexts", default={}
+    )
     data: str = Field(title="data")
 
 

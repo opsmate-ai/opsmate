@@ -8,6 +8,9 @@ def render_context(context: Context):
     for helper_name, helper in built_in_helpers.items():
         env.globals[helper_name] = helper
 
+    for helper_name, helper in context.spec.helpers.items():
+        env.globals[helper_name] = helper
+
     output = ""
     for sub_ctx in context.spec.contexts:
         output += render_context(sub_ctx) + "\n"

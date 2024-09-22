@@ -18,6 +18,7 @@ def _exec_executables(
     task: Task,
     ask: bool = False,
     model: str = "gpt-4o",
+    max_retries: int = 3,
     span: Span = None,
 ):
 
@@ -141,12 +142,6 @@ def exec_react_task(
             break
         elif isinstance(output, ReactProcess):
             historic_context.append(output)
-            # logger.info(
-            #     "react_process",
-            #     question=output.question,
-            #     thought=output.thought,
-            #     action=output.action,
-            # )
             yield output
 
             messages.append(
@@ -156,15 +151,21 @@ def exec_react_task(
                 }
             )
             if output.action is not None:
+                ctx = task.spec.contexts.copy()
+                ctx.remove(react_ctx)
                 action_task = Task(
                     metadata=Metadata(
                         name="action",
                         apiVersion="v1",
                     ),
                     spec=TaskSpec(
-                        instruction=output.action,
+                        instruction=f"""
+Here is the question: {output.question}
+Here is the thought: {output.thought}
+Please execute the action: {output.action}
+                        """,
                         response_model=Observation,
-                        contexts=task.spec.contexts,
+                        contexts=ctx,
                     ),
                 )
                 exec_result, _ = _exec_executables(

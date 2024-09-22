@@ -162,8 +162,6 @@ Commands:
 @traceit
 def chat(ask, model, max_depth, answer_only, contexts):
     selected_contexts = get_contexts(contexts)
-    for ctx in selected_contexts:
-        console.print(ctx.metadata.name)
 
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)

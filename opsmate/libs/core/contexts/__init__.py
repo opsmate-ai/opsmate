@@ -95,8 +95,8 @@ cli_ctx = Context(
 react_prompt = """
 You run in a loop of thought, action.
 At the end of the loop you output an answer.
-Use thought to describe your thoughts about the question you have been asked.
-Use action to run one of the action available to you - then return.
+Use "Thought" to describe your thoughts about the question you have been asked.
+Use "Action" to describe the action items you are going to take. action can be the question if the question is easy enough
 observation will be the result of running those action.
 If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 

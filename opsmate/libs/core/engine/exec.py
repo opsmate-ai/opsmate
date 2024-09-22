@@ -18,6 +18,7 @@ def _exec_executables(
     task: Task,
     ask: bool = False,
     model: str = "gpt-4o",
+    max_retries: int = 3,
     span: Span = None,
 ):
 
@@ -156,15 +157,17 @@ def exec_react_task(
                 }
             )
             if output.action is not None:
+                ctx = task.spec.contexts.copy()
+                ctx.remove(react_ctx)
                 action_task = Task(
                     metadata=Metadata(
                         name="action",
                         apiVersion="v1",
                     ),
                     spec=TaskSpec(
-                        instruction=f"thought: {output.thought}\n action: {output.action}",
+                        instruction=output.action,
                         response_model=Observation,
-                        contexts=task.spec.contexts,
+                        contexts=ctx,
                     ),
                 )
                 exec_result, _ = _exec_executables(

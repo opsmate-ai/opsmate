@@ -230,13 +230,15 @@ def q_and_a(
             if isinstance(output, ReactAnswer):
                 opsmate_says(output.answer)
             elif isinstance(output, ReactProcess) and not answer_only:
-                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table = Table(title="Thought Process", show_lines=True)
                 table.add_row("Question", output.question)
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)
             elif isinstance(output, ExecResult) and not answer_only:
-                table = Table(title="OpsMate", show_header=True, show_lines=True)
+                table = Table(
+                    title="Command Execution", show_header=True, show_lines=True
+                )
                 table.add_column("Command", style="cyan")
                 table.add_column("Stdout", style="green")
                 table.add_column("Stderr", style="red")

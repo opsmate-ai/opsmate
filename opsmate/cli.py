@@ -24,17 +24,20 @@ import yaml
 import click
 
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
-provider = TracerProvider(resource=resource)
-exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-processor = BatchSpanProcessor(exporter)
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
 
+otel_enabled = os.getenv("OTEL_ENABLED", "false").lower() == "true"
 
-OpenAIAutoInstrumentor().instrument()
+if otel_enabled:
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(
+        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+        insecure=True,
+    )
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    OpenAIAutoInstrumentor().instrument()
 
 
 @click.group()

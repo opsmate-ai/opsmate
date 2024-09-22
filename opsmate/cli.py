@@ -70,9 +70,9 @@ def opsmate_cli():
     help="Only show the answer and not the thought, action and observation",
 )
 @traceit
-def ask(instruction, ask, model, max_depth, answer_only):
+def run(instruction, ask, model, max_depth, answer_only):
     """
-    Ask a question to the OpsMate.
+    Run a task with the OpsMate.
     """
     q_and_a(
         instruction, ask=ask, model=model, max_depth=max_depth, answer_only=answer_only

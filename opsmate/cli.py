@@ -24,6 +24,9 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+import sys
+import subprocess
+import threading
 
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
@@ -50,6 +53,47 @@ def opsmate_cli():
     This is the cli tool to interact with OpsMate.
     """
     pass
+
+
+@opsmate_cli.command()
+@traceit
+def install_playwright():
+    """
+    Install Playwright
+    """
+    # get the current python path
+    python_path = sys.executable
+
+    console.print("Installing Playwright", style="yellow")
+
+    process = subprocess.Popen(
+        [python_path, "-m", "playwright", "install", "chromium"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+    )
+
+    def read_output(stream, output):
+        for line in stream:
+            output.write(line)
+            output.flush()
+
+    stdout_thread = threading.Thread(
+        target=read_output, args=(process.stdout, sys.stdout)
+    )
+    stderr_thread = threading.Thread(
+        target=read_output, args=(process.stderr, sys.stderr)
+    )
+
+    stdout_thread.start()
+    stderr_thread.start()
+
+    stdout_thread.join()
+    stderr_thread.join()
+
+    process.wait()
+
+    console.print("Playwright installed successfully", style="green")
 
 
 @opsmate_cli.command()

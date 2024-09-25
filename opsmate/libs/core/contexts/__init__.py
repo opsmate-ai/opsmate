@@ -105,143 +105,70 @@ Returns answer if the question is meaningless.
 
 Notes you output must be in format as follows:
 
-<output>
+<react>
 question: ...
 thought: ...
 action: ...
-</output>
+</react>
 
 Or
 
-<output>
+<react>
 answer: ...
-</output>
+</react>
 
 Example 1:
 
 user asks: how many cpu and memory does the machine have?
 
-<output>
+<react>
 question: how many cpu and memory does the machine have?
 thought: i need to find out how many cpu and memory the machine has
 action: i need to find out how many cpu and memory the machine has
-observation:
-  calls:
-    - command: nproc
-      stdout: 2
-      stderr: ""
-      exit_code: 0
-    - command: free -h
-      stdout: |
-                        total        used        free      shared  buff/cache   available
-            Mem:        12Gi       1.5Gi        1Gi        17Mi       4.7Gi        10Gi
-            Swap:             0B          0B          0B
-      stderr: ""
-      exit_code: 0
+</react>
+
+<observation>
+cpu: 2 vcpu
+memory: 12Gi
 </observation>
 
 <answer>
 the machine has 2 cpu and 12Gi memory
 </answer>
 
-
 Example 2:
 
 user asks: customers are reporting that the nginx service in the kubernetes cluster is down, can you check on it?
 
-<output>
+<react>
 question: what is the status of the nginx service in the kubernetes cluster?
 thought: i need to check the status of the nginx service in the kubernetes cluster
 action: I need to find the nginx services and nginx deployement and check their status
-</output>
+</react>
 
 you carry out investigations and find out
 
 <observation>
-action: I need to find the nginx services and nginx deployement and check their status
-observation:
-  calls:
-    - command: kubectl get services -A
-      stdout: |
-        NAMESPACE                 NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                  AGE
-        nginx                     nginx-service        ClusterIP   10.96.0.1        <none>        80/TCP                   10s
-        ...
-      stderr: ""
-      exit_code: 0
-    - command: kubectl get deployements -A
-      stdout: |
-        NAMESPACE                 NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
-        nginx                    nginx-deployment     0/1     1            1           10s
-        ...
-      stderr: ""
-      exit_code: 0
+nginx service is up and running just fine, the deployment is not ready
 </observation>
 
-<output>
+<react>
 question: ""
 thought: "the nginx deployment does not appear to be ready, lets find out why"
 action: "I need to find out what's wrong with the nginx pod"
-</output>
+</react>
 
 you carry out actions and find out
 
 <observation>
-action:"I need to find out what's wrong with the nginx pod"
-observation:
-  calls:
-    - command: kubectl -n nginx get pod $(kubectl -n nginx get pods | grep nginx | awk '{print $1}') -oyaml
-      stdout: |
-        ...
-        image: nginx:doesnotexist
-        ...
-      stderr: ""
-      exit_code: 0
+the image is `image: nginx:doesnotexist` which does not exist
 </observation>
 
-<output>
-thought: "the deployment image is not valid"
-action: "let me try to fix it by updating the image to a valid one"
-</output>
+You can then give the answer:
 
-you carry out actions and find out
-
-<observation>
-action: "let me try to fix it by updating the image to a valid one"
-observation:
-  calls:
-    - command: kubectl -n nginx set image deployement/nginx nginx=nginx:1.27.1
-      stdout: |
-        ...
-      stderr: ""
-      exit_code: 0
-</observation>
-
-<output>
-thought: "let's see if it worked"
-action: "I need to find the nginx services and nginx deployement and check their status"
-</output>
-
-<observation>
-action: "I need to find the nginx services and nginx deployement and check their status"
-observation:
-  calls:
-    - command: kubectl -n nginx get deployement nginx-deployment
-      stdout: |
-        NAME                 READY   UP-TO-DATE   AVAILABLE   AGE
-        nginx-deployment     1/1     1            1           10s
-      stderr: ""
-      exit_code: 0
-    - command: kubectl -n nginx get endpoints nginx-service
-      stdout: |
-        NAME                 ENDPOINTS           AGE
-        nginx-service        10.244.0.0:80       10s
-      stderr: ""
-      exit_code: 0
-</observation>
-
-<output>
-answer: "the nginx service is now working via applying the new image"
-</output>
+<answer>
+the nginx service is now working via applying the new image
+</answer>
 """
 
 react_ctx = Context(

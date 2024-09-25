@@ -7,9 +7,10 @@ from opsmate.libs.core.types import (
     ReactAnswer,
     ExecResult,
     Context,
+    ExecOutput,
 )
 from openai import OpenAI
-from opsmate.libs.core.engine import exec_react_task
+from opsmate.libs.core.engine import exec_react_task, exec_task
 from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
@@ -83,15 +84,35 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
     """
     Run a task with the OpsMate.
     """
-    selected_contexts = get_contexts(contexts)
-    q_and_a(
-        instruction,
-        ask=ask,
-        model=model,
-        max_depth=max_depth,
-        answer_only=answer_only,
-        contexts=selected_contexts,
+    selected_contexts = get_contexts(contexts, with_react=False)
+
+    task = Task(
+        metadata=Metadata(
+            name="run",
+            apiVersion="v1",
+        ),
+        spec=TaskSpec(
+            input={},
+            contexts=selected_contexts,
+            instruction=instruction,
+            response_model=ExecResult,
+        ),
     )
+
+    output = exec_task(OpenAI(), task, ask=ask, model=model)
+    table = Table(title="Command Execution", show_header=True, show_lines=True)
+    table.add_column("Command", style="cyan")
+    table.add_column("Stdout", style="green")
+    table.add_column("Stderr", style="red")
+    table.add_column("Exit Code", style="magenta")
+    for call in output.calls:
+        table.add_row(
+            call.command,
+            call.output.stdout,
+            call.output.stderr,
+            str(call.output.exit_code),
+        )
+    console.print(table)
 
 
 @opsmate_cli.command()
@@ -260,9 +281,10 @@ def opsmate_says(message: str):
     console.print(text)
 
 
-def get_contexts(contexts: str):
+def get_contexts(contexts: str, with_react: bool = True):
     context_list = contexts.split(",")
-    context_list.append("react")
+    if with_react:
+        context_list.append("react")
     context_list = list(set(context_list))
 
     selected_contexts = []

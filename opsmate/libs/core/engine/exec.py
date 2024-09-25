@@ -110,10 +110,10 @@ def exec_react_task(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    executables = []
-    for ctx in task.spec.contexts:
-        for executable in ctx.all_executables():
-            executables.append(executable)
+    # executables = []
+    # for ctx in task.spec.contexts:
+    #     for executable in ctx.all_executables():
+    #         executables.append(executable)
 
     messages = []
     messages.extend(

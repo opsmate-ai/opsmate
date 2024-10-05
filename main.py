@@ -1,5 +1,10 @@
 from opsmate.libs.core.engine.agent_executor import AgentExecutor
-from opsmate.libs.core.agents import supervisor_agent, cli_agent, k8s_agent, AgentCommand
+from opsmate.libs.core.agents import (
+    supervisor_agent,
+    cli_agent,
+    k8s_agent,
+    AgentCommand,
+)
 from opsmate.libs.core.types import ReactProcess, ReactAnswer, ExecResult
 from openai import Client
 import structlog
@@ -8,6 +13,7 @@ import os
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+import sys
 
 console = Console()
 
@@ -19,7 +25,7 @@ structlog.configure(
 )
 
 
-def main():
+def main(instruction: str):
     supervisor = supervisor_agent(
         extra_context="You are a helpful SRE manager who manages a sysadmin and a k8s SME",
         agents=[
@@ -36,25 +42,31 @@ def main():
     # for step in execution:
     #     print(step)
 
-    execution = executor.supervise(
-        supervisor, "what are the namespaces in the cluster?"
-    )
+    execution = executor.supervise(supervisor, instruction)
     for step in execution:
         actor, output = step
         if actor == "@supervisor":
             if isinstance(output, ReactProcess):
-                table = Table(title="Supervisor Thought Process", show_header=True, show_lines=True)
+                table = Table(
+                    title="Supervisor Thought Process",
+                    show_header=True,
+                    show_lines=True,
+                )
                 table.add_row("Question", output.question)
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)
             elif isinstance(output, ReactAnswer):
-                table = Table(title="Supervisor Answer", show_header=False, show_lines=True)
+                table = Table(
+                    title="Supervisor Answer", show_header=False, show_lines=True
+                )
                 table.add_row("Answer", output.answer)
                 console.print(table)
         else:
             if isinstance(output, ExecResult):
-                table = Table(title="Command Execution", show_header=False, show_lines=True)
+                table = Table(
+                    title="Command Execution", show_header=False, show_lines=True
+                )
                 table.add_column("Agent", style="cyan")
                 table.add_column("Command", style="cyan")
                 table.add_column("Stdout", style="green")
@@ -77,4 +89,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])

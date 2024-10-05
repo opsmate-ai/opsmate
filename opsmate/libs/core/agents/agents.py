@@ -29,7 +29,27 @@ def supervisor_agent(
 ):
     agent_map = {agent.metadata.name: agent for agent in agents}
 
-    contexts = [react_ctx]
+    agent_context = Context(
+        metadata=Metadata(
+            name="Agent Supervisor",
+            apiVersion="v1",
+            description="Supervisor to execute agent commands",
+        ),
+        spec=ContextSpec(
+            data="""
+Here is the list of agents you are supervising:
+{agents}
+""".format(
+                agents="\n".join(
+                    [
+                        f"- {agent.metadata.name}: {agent.metadata.description}"
+                        for agent in agents
+                    ]
+                )
+            ),
+        ),
+    )
+    contexts = [agent_context]
     if extra_context != "":
         ctx = Context(
             metadata=Metadata(
@@ -41,6 +61,9 @@ def supervisor_agent(
                 data=extra_context,
             ),
         )
+        contexts.append(ctx)
+
+    contexts.append(react_ctx)
     return Agent(
         metadata=Metadata(
             name="Agent Supervisor",

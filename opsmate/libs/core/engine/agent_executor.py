@@ -70,9 +70,9 @@ class AgentExecutor:
     def supervise(self, supervisor: Agent, instruction: str, ask: bool = False):
         instructor_client = instructor.from_openai(self.client)
 
-        # prompt = render_context(react_ctx)
-        for ctx in supervisor.spec.task_template.spec.contexts:
-            prompt = render_context(ctx) + "\n"
+        prompt = "\n".join(
+            render_context(ctx) for ctx in supervisor.spec.task_template.spec.contexts
+        )
 
         messages = []
         messages.extend(
@@ -111,9 +111,7 @@ Here is the question: {resp.output.question}
 Here is the thought: {resp.output.thought}
 Please execute the action: {resp.output.action}
                         """
-                commands = gen_agent_commands(
-                    self.client, supervisor, instruction
-                )
+                commands = gen_agent_commands(self.client, supervisor, instruction)
                 for command in commands:
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"

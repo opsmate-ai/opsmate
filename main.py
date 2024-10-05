@@ -1,5 +1,5 @@
 from opsmate.libs.core.engine.agent_executor import AgentExecutor
-from opsmate.libs.core.agents import supervisor_agent, cli_agent
+from opsmate.libs.core.agents import supervisor_agent, cli_agent, k8s_agent
 from opsmate.libs.core.types import (
     Agent,
     AgentSpec,
@@ -25,11 +25,12 @@ structlog.configure(
 
 
 def main():
-
     supervisor = supervisor_agent(
+        extra_context="You are a helpful SRE manager who manages a sysadmin and a k8s SME",
         agents=[
             cli_agent(),
-        ]
+            k8s_agent(),
+        ],
     )
 
     executor = AgentExecutor(Client())
@@ -41,7 +42,7 @@ def main():
     #     print(step)
 
     execution = executor.supervise(
-        supervisor, "what's the cpu ram and disk space of the current machine?"
+        supervisor, "what's the current k8s cluster context?"
     )
     for step in execution:
         print(step)

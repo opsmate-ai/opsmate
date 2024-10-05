@@ -12,6 +12,7 @@ from opsmate.libs.core.types import (
     BaseTaskOutput,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
+from opsmate.libs.contexts import k8s_ctx
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -95,6 +96,41 @@ def cli_agent(
                 ),
                 spec=TaskSpecTemplate(
                     contexts=[cli_ctx],
+                    response_model=BaseTaskOutput,
+                ),
+            ),
+        ),
+    )
+
+
+def k8s_agent(
+    model: str = "gpt-4o",
+    react_mode: bool = False,
+    max_depth: int = 10,
+    historical_context: ReactContext = [],
+):
+    return Agent(
+        metadata=Metadata(
+            name="K8S Agent",
+            description="Agent to run K8S commands",
+            apiVersion="v1",
+        ),
+        status=AgentStatus(
+            historical_context=historical_context,
+        ),
+        spec=AgentSpec(
+            react_mode=react_mode,
+            model=model,
+            max_depth=max_depth,
+            description="Agent to run K8S commands",
+            task_template=TaskTemplate(
+                metadata=Metadata(
+                    name="k8s tool",
+                    apiVersion="v1",
+                    description="Run K8S command",
+                ),
+                spec=TaskSpecTemplate(
+                    contexts=[k8s_ctx],
                     response_model=BaseTaskOutput,
                 ),
             ),

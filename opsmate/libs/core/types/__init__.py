@@ -67,30 +67,87 @@ class Context(BaseModel):
 #     error: str = Field(title="error", default="")
 
 
-class TaskSpec(BaseModel):
+class TaskSpecTemplate(BaseModel):
     input: Dict[str, str] = Field(title="input", default={})
     contexts: list[Context] = Field(title="contexts", default=[])
     response_model: Type[T] = Field(title="response_model", default=BaseModel)
+
+
+class TaskSpec(TaskSpecTemplate):
     instruction: str = Field(title="instruction")
 
 
 class Task(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: TaskSpec = Field(title="spec")
-    # status: TaskStatus = Field(
-    #     title="status", default_factory=lambda: TaskStatus(state=TaskState.PENDING)
-    # )
+
+
+class TaskTemplate(BaseModel):
+    metadata: Metadata = Field(title="metadata")
+    spec: TaskSpecTemplate = Field(title="spec")
 
 
 class BaseTaskOutput(BaseModel):
     data: str = Field(title="output of the task")
 
 
+class AgentSpec(BaseModel):
+    react_mode: bool = Field(
+        title="react mode",
+        default=False,
+        description="if true, the agent will use react mode",
+    )
+    model: str = Field(
+        title="model",
+        default="gpt-4o",
+        description="model to use for the agent",
+    )
+    max_depth: int = Field(
+        title="max depth",
+        default=10,
+        description="max depth for the react mode",
+    )
+    description: str = Field(
+        title="description",
+        default="",
+        description="description of the agent",
+    )
+    task_template: TaskTemplate = Field(
+        title="task template",
+        description="task template to use for the agent",
+    )
+    agents: Dict[str, Agent] = Field(
+        title="agents",
+        description="agents to use for the agent",
+        default={},
+    )
+
+
+class AgentStatus(BaseModel):
+    historical_context: ReactContext = Field(title="historical context", default=[])
+
+
+class Agent(BaseModel):
+    metadata: Metadata = Field(title="metadata")
+    spec: AgentSpec = Field(title="spec")
+    status: AgentStatus = Field(title="status")
+
+    def task(self, instruction: str) -> Task:
+        return Task(
+            metadata=self.metadata,
+            spec=TaskSpec(
+                instruction=instruction,
+                response_model=self.spec.task_template.spec.response_model,
+                contexts=self.spec.task_template.spec.contexts,
+                input=self.spec.task_template.spec.input,
+            ),
+        )
+
+    # def run(self, instruction: str):
+    #     raise NotImplementedError("Agent must implement run")
+
+
 class ReactProcess(BaseModel):
-    # question: Annotated[Optional[str], Field(default=None)]
-    # thought: Annotated[Optional[str], Field(default=None)]
-    # action: Annotated[Optional[str], Field(default=None)]
-    # observation: Annotated[Optional[str], Field(default=None)]
     question: str = Field(title="question")
     thought: str = Field(title="thought")
     action: str = Field(title="action")
@@ -103,6 +160,9 @@ class ReactAnswer(BaseModel):
 
 class ReactOutput(BaseModel):
     output: ReactProcess | ReactAnswer = Field(title="output")
+
+
+ReactContext = List[ReactProcess | ReactAnswer]
 
 
 class ExecOutput(BaseModel):

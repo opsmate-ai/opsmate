@@ -150,7 +150,7 @@ def exec_react_task(
                     "content": yaml.dump(output.model_dump()),
                 }
             )
-            if output.action is not None:
+            if output.action is not None and len(task.spec.contexts) > 1:
                 ctx = task.spec.contexts.copy()
                 ctx.remove(react_ctx)
                 action_task = Task(

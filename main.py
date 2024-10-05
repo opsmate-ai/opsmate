@@ -35,12 +35,6 @@ def main(instruction: str):
     )
 
     executor = AgentExecutor(Client())
-    # execution = executor.execute(
-    #     agent,
-    #     "what's the current ip location? use cli to find out",
-    # )
-    # for step in execution:
-    #     print(step)
 
     execution = executor.supervise(supervisor, instruction)
     for step in execution:
@@ -49,7 +43,7 @@ def main(instruction: str):
             if isinstance(output, ReactProcess):
                 table = Table(
                     title="Supervisor Thought Process",
-                    show_header=True,
+                    show_header=False,
                     show_lines=True,
                 )
                 table.add_row("Question", output.question)
@@ -65,7 +59,7 @@ def main(instruction: str):
         else:
             if isinstance(output, ExecResult):
                 table = Table(
-                    title="Command Execution", show_header=False, show_lines=True
+                    title="Command Execution", show_header=True, show_lines=True
                 )
                 table.add_column("Agent", style="cyan")
                 table.add_column("Command", style="cyan")

@@ -21,7 +21,7 @@ from typing import List
 class AgentCommand(BaseModel):
     agent: str = Field(..., description="The agent to execute")
     instruction: str = Field(..., description="The instruction to execute")
-    ask: bool = Field(False, description="Whether to ask for confirmation")
+    # ask: bool = Field(False, description="Whether to ask for confirmation")
 
 
 def supervisor_agent(
@@ -38,7 +38,11 @@ def supervisor_agent(
         spec=ContextSpec(
             data="""
 Here is the list of agents you are supervising:
+
+<agents>
 {agents}
+</agents>
+
 """.format(
                 agents="\n".join(
                     [
@@ -98,6 +102,13 @@ def cli_agent(
     max_depth: int = 10,
     historical_context: ReactContext = [],
 ):
+    contexts = [cli_ctx]
+    response_model = ExecResult
+
+    if react_mode:
+        contexts.append(react_ctx)
+        response_model = ReactOutput
+
     return Agent(
         metadata=Metadata(
             name="CLI Agent",
@@ -119,8 +130,8 @@ def cli_agent(
                     description="Run CLI command",
                 ),
                 spec=TaskSpecTemplate(
-                    contexts=[cli_ctx],
-                    response_model=ExecResult,
+                    contexts=contexts,
+                    response_model=response_model,
                 ),
             ),
         ),
@@ -133,6 +144,13 @@ def k8s_agent(
     max_depth: int = 10,
     historical_context: ReactContext = [],
 ):
+    contexts = [k8s_ctx]
+    response_model = ExecResult
+
+    if react_mode:
+        contexts.append(react_ctx)
+        response_model = ReactOutput
+
     return Agent(
         metadata=Metadata(
             name="K8S Agent",
@@ -154,8 +172,8 @@ def k8s_agent(
                     description="Run K8S command",
                 ),
                 spec=TaskSpecTemplate(
-                    contexts=[k8s_ctx],
-                    response_model=ExecResult,
+                    contexts=contexts,
+                    response_model=response_model,
                 ),
             ),
         ),

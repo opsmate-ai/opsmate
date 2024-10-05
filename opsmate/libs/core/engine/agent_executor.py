@@ -8,7 +8,7 @@ from opsmate.libs.core.types import (
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
 from opsmate.libs.core.agents import AgentCommand
-from typing import List
+from typing import List, Generator
 import yaml
 import instructor
 import structlog
@@ -60,12 +60,22 @@ Come up with a list of agent commands to execute
         messages=[{"role": "user", "content": ctx}],
         response_model=List[AgentCommand],
     )
-    return resp
+
+    # deduplicate the commands
+    agents = {}
+    for command in resp:
+        if command.agent not in agents:
+            agents[command.agent] = command
+        else:
+            agents[command.agent].instruction += "\n" + command.instruction
+
+    return agents.values()
 
 
 class AgentExecutor:
-    def __init__(self, client: Client):
+    def __init__(self, client: Client, ask: bool = False):
         self.client = client
+        self.ask = ask
 
     def supervise(self, supervisor: Agent, instruction: str, ask: bool = False):
         instructor_client = instructor.from_openai(self.client)
@@ -122,13 +132,20 @@ Please execute the action: {resp.output.action}
                     output = self.execute(
                         supervisor.spec.agents[command.agent],
                         command.instruction,
-                        command.ask,
                     )
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"
                     )
-                    yield (agent_name, output)
-                    outputs.append(output.model_dump())
+                    # check if output is a generator
+                    if isinstance(output, Generator):
+                        for step in output:
+                            yield (agent_name, step)
+                            if isinstance(step, ReactAnswer):
+                                outputs.append(step.model_dump())
+                                break
+                    else:
+                        yield (agent_name, output)
+                        outputs.append(output.model_dump())
 
                 outputs = yaml.dump(outputs)
                 observation = Observation(
@@ -146,12 +163,12 @@ Please execute the action: {resp.output.action}
                     {"role": "user", "content": yaml.dump(observation.model_dump())}
                 )
 
-    def execute(self, agent: Agent, instruction: str, ask: bool = False):
+    def execute(self, agent: Agent, instruction: str):
         if agent.spec.react_mode:
             return exec_react_task(
                 self.client,
                 agent.task(instruction),
-                ask=ask,
+                ask=self.ask,
                 historic_context=agent.status.historical_context,
                 max_depth=agent.spec.max_depth,
                 model=agent.spec.model,
@@ -160,6 +177,6 @@ Please execute the action: {resp.output.action}
             return exec_task(
                 self.client,
                 agent.task(instruction),
-                ask=ask,
+                ask=self.ask,
                 model=agent.spec.model,
             )

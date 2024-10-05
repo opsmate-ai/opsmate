@@ -27,10 +27,10 @@ structlog.configure(
 
 def main(instruction: str):
     supervisor = supervisor_agent(
-        extra_context="You are a helpful SRE manager who manages a sysadmin and a k8s SME",
+        extra_context="You are a helpful SRE manager who manages a team of SMEs",
         agents=[
-            cli_agent(),
-            k8s_agent(),
+            cli_agent(react_mode=True),
+            k8s_agent(react_mode=True),
         ],
     )
 
@@ -42,7 +42,7 @@ def main(instruction: str):
         if actor == "@supervisor":
             if isinstance(output, ReactProcess):
                 table = Table(
-                    title="Supervisor Thought Process",
+                    title="@supervisor Thought Process",
                     show_header=False,
                     show_lines=True,
                 )
@@ -52,7 +52,7 @@ def main(instruction: str):
                 console.print(table)
             elif isinstance(output, ReactAnswer):
                 table = Table(
-                    title="Supervisor Answer", show_header=False, show_lines=True
+                    title="@supervisor Answer", show_header=False, show_lines=True
                 )
                 table.add_row("Answer", output.answer)
                 console.print(table)
@@ -79,6 +79,22 @@ def main(instruction: str):
                 table = Table(title="Agent Command", show_header=False, show_lines=True)
                 table.add_row("Agent", output.agent)
                 table.add_row("Command", output.instruction)
+                console.print(table)
+            elif isinstance(output, ReactAnswer):
+                table = Table(
+                    title=f"{actor} Answer", show_header=False, show_lines=True
+                )
+                table.add_row("Answer", output.answer)
+                console.print(table)
+            elif isinstance(output, ReactProcess):
+                table = Table(
+                    title=f"{actor} Throught Process",
+                    show_header=False,
+                    show_lines=True,
+                )
+                table.add_row("Question", output.question)
+                table.add_row("Thought", output.thought)
+                table.add_row("Action", output.action)
                 console.print(table)
 
 

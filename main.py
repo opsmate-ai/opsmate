@@ -1,4 +1,5 @@
-from opsmate.libs.core.engine.agent_executor import AgentExecutor, supervisor_agent
+from opsmate.libs.core.engine.agent_executor import AgentExecutor
+from opsmate.libs.core.agents import supervisor_agent, cli_agent
 from opsmate.libs.core.types import (
     Agent,
     AgentSpec,
@@ -24,33 +25,12 @@ structlog.configure(
 
 
 def main():
-    agent = Agent(
-        metadata=Metadata(
-            name="CLI Agent",
-            description="Agent to run CLI commands",
-            apiVersion="v1",
-        ),
-        status=AgentStatus(),
-        spec=AgentSpec(
-            react_mode=False,
-            model="gpt-4o",
-            max_depth=10,
-            description="Agent to run CLI commands",
-            task_template=TaskTemplate(
-                metadata=Metadata(
-                    name="cli tool",
-                    apiVersion="v1",
-                    description="Run CLI command",
-                ),
-                spec=TaskSpecTemplate(
-                    contexts=[cli_ctx],
-                    response_model=BaseTaskOutput,
-                ),
-            ),
-        ),
-    )
 
-    supervisor = supervisor_agent(agents=[agent])
+    supervisor = supervisor_agent(
+        agents=[
+            cli_agent(),
+        ]
+    )
 
     executor = AgentExecutor(Client())
     # execution = executor.execute(

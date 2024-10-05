@@ -1,80 +1,19 @@
 from openai import Client
 from opsmate.libs.core.types import (
-    ReactContext,
-    Task,
-    TaskSpec,
-    Metadata,
     ReactOutput,
     Agent,
-    AgentSpec,
-    TaskTemplate,
-    TaskSpecTemplate,
-    AgentStatus,
     ReactAnswer,
     Observation,
-    Context,
-    ContextSpec,
 )
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
-from pydantic import BaseModel, Field
+from opsmate.libs.core.agents import AgentCommand
 from typing import List
 import yaml
 import instructor
 import structlog
 
 logger = structlog.get_logger()
-
-
-class AgentCommand(BaseModel):
-    agent: str = Field(..., description="The agent to execute")
-    instruction: str = Field(..., description="The instruction to execute")
-    ask: bool = Field(False, description="Whether to ask for confirmation")
-
-
-def supervisor_agent(
-    model: str = "gpt-4o", agents: List[Agent] = [], extra_context: str = ""
-):
-    agent_map = {agent.metadata.name: agent for agent in agents}
-
-    contexts = [react_ctx]
-    if extra_context != "":
-        ctx = Context(
-            metadata=Metadata(
-                name="Agent Supervisor",
-                apiVersion="v1",
-                description="Supervisor to execute agent commands",
-            ),
-            spec=ContextSpec(
-                data=extra_context,
-            ),
-        )
-    return Agent(
-        metadata=Metadata(
-            name="Agent Supervisor",
-            apiVersion="v1",
-            description="Supervisor to execute agent commands",
-        ),
-        status=AgentStatus(),
-        spec=AgentSpec(
-            react_mode=True,
-            model=model,
-            max_depth=10,
-            agents=agent_map,
-            description="Supervisor to execute agent commands",
-            task_template=TaskTemplate(
-                metadata=Metadata(
-                    name="Agent Supervisor",
-                    apiVersion="v1",
-                    description="Supervisor to execute agent commands",
-                ),
-                spec=TaskSpecTemplate(
-                    contexts=contexts,
-                    response_model=ReactOutput,
-                ),
-            ),
-        ),
-    )
 
 
 def gen_agent_commands(client: Client, supervisor: Agent, action: str):

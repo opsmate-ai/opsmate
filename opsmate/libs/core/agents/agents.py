@@ -9,7 +9,8 @@ from opsmate.libs.core.types import (
     Context,
     ContextSpec,
     ReactContext,
-    BaseTaskOutput,
+    # BaseTaskOutput,
+    ExecResult,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx
@@ -96,7 +97,7 @@ def cli_agent(
                 ),
                 spec=TaskSpecTemplate(
                     contexts=[cli_ctx],
-                    response_model=BaseTaskOutput,
+                    response_model=ExecResult,
                 ),
             ),
         ),
@@ -131,7 +132,7 @@ def k8s_agent(
                 ),
                 spec=TaskSpecTemplate(
                     contexts=[k8s_ctx],
-                    response_model=BaseTaskOutput,
+                    response_model=ExecResult,
                 ),
             ),
         ),

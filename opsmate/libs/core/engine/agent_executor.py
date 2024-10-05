@@ -95,7 +95,7 @@ class AgentExecutor:
                     "ReactAnswer",
                     answer=resp.output.answer,
                 )
-                yield resp
+                yield ("@supervisor", resp.output)
                 break
 
             logger.info(
@@ -104,11 +104,21 @@ class AgentExecutor:
                 thought=resp.output.thought,
                 action=resp.output.action,
             )
-            yield resp
+            yield ("@supervisor", resp.output)
             if resp.output.action is not None:
+                instruction = f"""
+Here is the question: {resp.output.question}
+Here is the thought: {resp.output.thought}
+Please execute the action: {resp.output.action}
+                        """
                 commands = gen_agent_commands(
-                    self.client, supervisor, resp.output.action
+                    self.client, supervisor, instruction
                 )
+                for command in commands:
+                    agent_name = (
+                        f"@{supervisor.spec.agents[command.agent].metadata.name}"
+                    )
+                    yield (agent_name, command)
                 outputs = []
                 for command in commands:
                     output = self.execute(
@@ -116,7 +126,10 @@ class AgentExecutor:
                         command.instruction,
                         command.ask,
                     )
-                    yield output
+                    agent_name = (
+                        f"@{supervisor.spec.agents[command.agent].metadata.name}"
+                    )
+                    yield (agent_name, output)
                     outputs.append(output.model_dump())
 
                 outputs = yaml.dump(outputs)

@@ -212,7 +212,7 @@ Commands:
 # )
 @click.option(
     "--agents",
-    default="CLI Agent",
+    default="cli-agent",
     help="Comma separated list of agents to use. To list all agents please run the list-agents command.",
 )
 @traceit
@@ -403,6 +403,10 @@ def get_agents(
     agents: str, react_mode: bool = False, max_depth: int = 10, model: str = "gpt-4o"
 ):
     agent_list = agents.split(",")
+
+    if agent_list == ["all"]:
+        agent_list = list(available_agents.keys())
+
     selected_agent_fns = []
     for agent_name in agent_list:
         if agent_name in available_agents:

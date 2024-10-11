@@ -111,7 +111,7 @@ def cli_agent(
 
     return Agent(
         metadata=Metadata(
-            name="CLI Agent",
+            name="cli-agent",
             description="Agent to run CLI commands",
             apiVersion="v1",
         ),
@@ -153,7 +153,7 @@ def k8s_agent(
 
     return Agent(
         metadata=Metadata(
-            name="K8S Agent",
+            name="k8s-agent",
             description="Agent to run K8S commands",
             apiVersion="v1",
         ),

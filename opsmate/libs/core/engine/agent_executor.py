@@ -103,6 +103,8 @@ class AgentExecutor:
                 response_model=ReactOutput,
             )
 
+            supervisor.status.historical_context.append(resp.output)
+
             if isinstance(resp.output, ReactAnswer):
                 logger.info(
                     "ReactAnswer",
@@ -116,6 +118,10 @@ class AgentExecutor:
                 question=resp.output.question,
                 thought=resp.output.thought,
                 action=resp.output.action,
+            )
+
+            messages.append(
+                {"role": "system", "content": yaml.dump(resp.output.model_dump())}
             )
             yield ("@supervisor", resp.output)
             if resp.output.action is not None:
@@ -184,3 +190,9 @@ Please execute the action: {resp.output.action}
                 ask=self.ask,
                 model=agent.spec.model,
             )
+
+    def clear_history(self, agent: Agent):
+        logger.info("Clearing history for agent", agent=agent.metadata.name)
+        agent.status.historical_context = []
+        for agent in agent.spec.agents.values():
+            self.clear_history(agent)

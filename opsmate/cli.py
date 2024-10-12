@@ -230,12 +230,11 @@ def chat(ask, model, max_depth, agents):
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-        historic_context = []
         while True:
             # user_input = click.prompt("You")
             user_input = console.input("[bold cyan]You> [/bold cyan]")
             if user_input == "!clear":
-                historic_context = []
+                executor.clear_history(supervisor)
                 opsmate_says("Chat history cleared")
                 continue
             elif user_input == "!exit":

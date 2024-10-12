@@ -8,6 +8,9 @@ from opsmate.libs.core.types import (
 from pydantic import Field, BaseModel
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
+import structlog
+
+logger = structlog.get_logger()
 
 
 class CurrentOS(Executable):
@@ -36,6 +39,7 @@ class ExecShell(Executable):
 
         import subprocess
 
+        logger.info("ExecShell", command=self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
                 return ExecOutput(

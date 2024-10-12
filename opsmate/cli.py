@@ -8,10 +8,17 @@ from opsmate.libs.core.types import (
     ExecResult,
     Context,
     ExecOutput,
+    Agent,
 )
+from typing import List
 from openai import OpenAI
-from opsmate.libs.core.engine import exec_react_task, exec_task
+from opsmate.libs.core.engine import (
+    exec_react_task,
+    exec_task,
+)
+from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
+from opsmate.libs.core.agents import available_agents, supervisor_agent
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
 from opentelemetry import trace
@@ -26,7 +33,15 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+import structlog
+import logging
 
+loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(
+        logging.getLevelNamesMapping()[loglevel]
+    ),
+)
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 
@@ -147,6 +162,26 @@ def list_contexts():
     console.print(table)
 
 
+@opsmate_cli.command()
+@traceit
+def list_agents():
+    """
+    List all the agents available in OpsMate.
+    """
+    table = Table(show_header=True, show_lines=True)
+    table.add_column("Name")
+    table.add_column("API Version")
+    table.add_column("Description")
+
+    # XXX: realise the agents, it's a bit hacky now
+    agents = [fn() for fn in available_agents.values()]
+    for agent in agents:
+        table.add_row(
+            agent.metadata.name, agent.metadata.apiVersion, agent.metadata.description
+        )
+    console.print(table)
+
+
 help_msg = """
 Commands:
 
@@ -170,20 +205,28 @@ Commands:
     default=10,
     help="Max depth the AI assistant can reason about",
 )
+# @click.option(
+#     "--answer-only",
+#     is_flag=True,
+#     help="Only show the answer and not the thought, action and observation",
+# )
 @click.option(
-    "--answer-only",
-    is_flag=True,
-    help="Only show the answer and not the thought, action and observation",
-)
-@click.option(
-    "--contexts",
-    default="cli",
-    help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
+    "--agents",
+    default="cli-agent",
+    help="Comma separated list of agents to use. To list all agents please run the list-agents command.",
 )
 @traceit
-def chat(ask, model, max_depth, answer_only, contexts):
-    selected_contexts = get_contexts(contexts)
+def chat(ask, model, max_depth, agents):
+    selected_agents = get_agents(
+        agents, react_mode=True, max_depth=max_depth, model=model
+    )
 
+    executor = AgentExecutor(OpenAI())
+
+    supervisor = supervisor_agent(
+        extra_context="You are a helpful SRE manager who manages a team of SMEs",
+        agents=selected_agents,
+    )
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
@@ -201,17 +244,73 @@ def chat(ask, model, max_depth, answer_only, contexts):
                 console.print(help_msg)
                 continue
 
-            q_and_a(
-                user_input,
-                ask=ask,
-                max_depth=max_depth,
-                model=model,
-                contexts=selected_contexts,
-                historic_context=historic_context,
-                answer_only=answer_only,
-            )
+            run_supervisor(executor, supervisor, user_input)
     except (KeyboardInterrupt, EOFError):
         opsmate_says("Goodbye!")
+
+
+@traceit(name="run_supervisor")
+def run_supervisor(executor: AgentExecutor, supervisor: Agent, instruction: str):
+    execution = executor.supervise(supervisor, instruction)
+    for step in execution:
+        actor, output = step
+        if actor == "@supervisor":
+            if isinstance(output, ReactProcess):
+                table = Table(
+                    title="@supervisor Thought Process",
+                    show_header=False,
+                    show_lines=True,
+                )
+                table.add_row("Question", output.question)
+                table.add_row("Thought", output.thought)
+                table.add_row("Action", output.action)
+                console.print(table)
+            elif isinstance(output, ReactAnswer):
+                table = Table(
+                    title="@supervisor Answer", show_header=False, show_lines=True
+                )
+                table.add_row("Answer", output.answer)
+                console.print(table)
+        else:
+            if isinstance(output, ExecResult):
+                table = Table(
+                    title="Command Execution", show_header=True, show_lines=True
+                )
+                table.add_column("Agent", style="cyan")
+                table.add_column("Command", style="cyan")
+                table.add_column("Stdout", style="green")
+                table.add_column("Stderr", style="red")
+                table.add_column("Exit Code", style="magenta")
+                for call in output.calls:
+                    table.add_row(
+                        actor,
+                        call.command,
+                        call.output.stdout,
+                        call.output.stderr,
+                        str(call.output.exit_code),
+                    )
+                console.print(table)
+            elif isinstance(output, AgentCommand):
+                table = Table(title="Agent Command", show_header=False, show_lines=True)
+                table.add_row("Agent", output.agent)
+                table.add_row("Command", output.instruction)
+                console.print(table)
+            elif isinstance(output, ReactAnswer):
+                table = Table(
+                    title=f"{actor} Answer", show_header=False, show_lines=True
+                )
+                table.add_row("Answer", output.answer)
+                console.print(table)
+            elif isinstance(output, ReactProcess):
+                table = Table(
+                    title=f"{actor} Throught Process",
+                    show_header=False,
+                    show_lines=True,
+                )
+                table.add_row("Question", output.question)
+                table.add_row("Thought", output.thought)
+                table.add_row("Action", output.action)
+                console.print(table)
 
 
 @traceit(exclude=["historic_context"])
@@ -298,6 +397,30 @@ def get_contexts(contexts: str, with_react: bool = True):
             exit(1)
 
     return selected_contexts
+
+
+def get_agents(
+    agents: str, react_mode: bool = False, max_depth: int = 10, model: str = "gpt-4o"
+):
+    agent_list = agents.split(",")
+
+    if agent_list == ["all"]:
+        agent_list = list(available_agents.keys())
+
+    selected_agent_fns = []
+    for agent_name in agent_list:
+        if agent_name in available_agents:
+            selected_agent_fns.append(available_agents[agent_name])
+        else:
+            console.print(f"Agent {agent_name} not found", style="red")
+            exit(1)
+
+    agents: List[Agent] = [
+        fn(react_mode=react_mode, max_depth=max_depth, model=model)
+        for fn in selected_agent_fns
+    ]
+
+    return agents
 
 
 if __name__ == "__main__":

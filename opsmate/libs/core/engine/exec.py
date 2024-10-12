@@ -146,7 +146,7 @@ def exec_react_task(
 
             messages.append(
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": yaml.dump(output.model_dump()),
                 }
             )

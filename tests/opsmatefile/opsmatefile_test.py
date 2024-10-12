@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 from opsmate.libs.opsmatefile import load_opsmatefile
-from opsmate.libs.core.types import Context, Supervisor
+from opsmate.libs.core.types import Context, Supervisor, Agent
 
 fixture = """
 kind: Context
@@ -46,3 +46,6 @@ def test_load_opsmatefile(opsmatefile):
 
     assert world.supervisor is not None
     assert isinstance(world.supervisor, Supervisor)
+
+    supervisor_agent = world.supervisor_agent()
+    assert isinstance(supervisor_agent, Agent)

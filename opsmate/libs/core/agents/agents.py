@@ -25,7 +25,7 @@ class AgentCommand(BaseModel):
 
 
 def supervisor_agent(
-    model: str = "gpt-4o", agents: List[Agent] = [], extra_context: str = ""
+    model: str = "gpt-4o", agents: List[Agent] = [], extra_context: str | Context = ""
 ):
     agent_map = {agent.metadata.name: agent for agent in agents}
 
@@ -53,17 +53,20 @@ Here is the list of agents you are supervising:
         ),
     )
     contexts = [agent_context]
-    if extra_context != "":
-        ctx = Context(
-            metadata=Metadata(
-                name="Agent Supervisor",
-                description="Supervisor to execute agent commands",
-            ),
-            spec=ContextSpec(
-                data=extra_context,
-            ),
-        )
-        contexts.append(ctx)
+    if isinstance(extra_context, str):
+        if extra_context != "":
+            ctx = Context(
+                metadata=Metadata(
+                    name="Agent Supervisor",
+                    description="Supervisor to execute agent commands",
+                ),
+                spec=ContextSpec(
+                    data=extra_context,
+                ),
+            )
+            contexts.append(ctx)
+    elif isinstance(extra_context, Context):
+        contexts.append(extra_context)
 
     contexts.append(react_ctx)
     return Agent(

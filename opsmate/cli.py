@@ -104,7 +104,6 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
     task = Task(
         metadata=Metadata(
             name="run",
-            apiVersion="v1",
         ),
         spec=TaskSpec(
             input={},
@@ -325,7 +324,6 @@ def q_and_a(
     task = Task(
         metadata=Metadata(
             name="chat",
-            apiVersion="v1",
         ),
         spec=TaskSpec(
             input={},

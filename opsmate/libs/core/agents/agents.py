@@ -15,7 +15,7 @@ from opsmate.libs.core.types import (
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Callable
 
 
 class AgentCommand(BaseModel):
@@ -32,7 +32,6 @@ def supervisor_agent(
     agent_context = Context(
         metadata=Metadata(
             name="Agent Supervisor",
-            apiVersion="v1",
             description="Supervisor to execute agent commands",
         ),
         spec=ContextSpec(
@@ -58,7 +57,6 @@ Here is the list of agents you are supervising:
         ctx = Context(
             metadata=Metadata(
                 name="Agent Supervisor",
-                apiVersion="v1",
                 description="Supervisor to execute agent commands",
             ),
             spec=ContextSpec(
@@ -71,7 +69,6 @@ Here is the list of agents you are supervising:
     return Agent(
         metadata=Metadata(
             name="Agent Supervisor",
-            apiVersion="v1",
             description="Supervisor to execute agent commands",
         ),
         status=AgentStatus(),
@@ -84,7 +81,6 @@ Here is the list of agents you are supervising:
             task_template=TaskTemplate(
                 metadata=Metadata(
                     name="Agent Supervisor",
-                    apiVersion="v1",
                     description="Supervisor to execute agent commands",
                 ),
                 spec=TaskSpecTemplate(
@@ -113,7 +109,6 @@ def cli_agent(
         metadata=Metadata(
             name="cli-agent",
             description="Agent to run CLI commands",
-            apiVersion="v1",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -126,7 +121,6 @@ def cli_agent(
             task_template=TaskTemplate(
                 metadata=Metadata(
                     name="cli tool",
-                    apiVersion="v1",
                     description="Run CLI command",
                 ),
                 spec=TaskSpecTemplate(
@@ -155,7 +149,6 @@ def k8s_agent(
         metadata=Metadata(
             name="k8s-agent",
             description="Agent to run K8S commands",
-            apiVersion="v1",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -168,7 +161,6 @@ def k8s_agent(
             task_template=TaskTemplate(
                 metadata=Metadata(
                     name="k8s tool",
-                    apiVersion="v1",
                     description="Run K8S command",
                 ),
                 spec=TaskSpecTemplate(

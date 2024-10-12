@@ -34,7 +34,6 @@ class Namespaces(Executable):
 k8s_ctx = Context(
     metadata=Metadata(
         name="k8s",
-        apiVersion="v1",
         labels={"type": "platform"},
         description="Kubernetes CLI specialist",
     ),

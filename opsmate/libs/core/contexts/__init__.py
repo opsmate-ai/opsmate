@@ -66,7 +66,6 @@ built_in_helpers = {
 os_ctx = Context(
     metadata=Metadata(
         name="os",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System tools",
     ),
@@ -78,7 +77,6 @@ os_ctx = Context(
 cli_ctx = Context(
     metadata=Metadata(
         name="cli",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System CLI",
     ),
@@ -178,7 +176,6 @@ the nginx service is now working via applying the new image
 react_ctx = Context(
     metadata=Metadata(
         name="react",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System React",
     ),

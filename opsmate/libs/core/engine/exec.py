@@ -156,7 +156,6 @@ def exec_react_task(
                 action_task = Task(
                     metadata=Metadata(
                         name="action",
-                        apiVersion="v1",
                     ),
                     spec=TaskSpec(
                         instruction=f"""

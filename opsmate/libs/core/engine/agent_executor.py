@@ -8,6 +8,7 @@ from opsmate.libs.core.types import (
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
 from opsmate.libs.core.agents import AgentCommand
+from opsmate.libs.core.trace import traceit
 from typing import List, Generator
 import yaml
 import instructor
@@ -16,6 +17,7 @@ import structlog
 logger = structlog.get_logger()
 
 
+@traceit
 def gen_agent_commands(client: Client, supervisor: Agent, action: str):
     agents_context = []
     for _, agent in supervisor.spec.agents.items():
@@ -77,7 +79,8 @@ class AgentExecutor:
         self.client = client
         self.ask = ask
 
-    def supervise(self, supervisor: Agent, instruction: str, ask: bool = False):
+    @traceit
+    def supervise(self, supervisor: Agent, instruction: str):
         instructor_client = instructor.from_openai(self.client)
 
         prompt = "\n".join(
@@ -163,6 +166,7 @@ Please execute the action: {resp.output.action}
                     {"role": "user", "content": yaml.dump(observation.model_dump())}
                 )
 
+    @traceit
     def execute(self, agent: Agent, instruction: str):
         if agent.spec.react_mode:
             return exec_react_task(

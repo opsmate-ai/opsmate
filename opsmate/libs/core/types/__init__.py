@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 from enum import Enum
-from typing import Dict, Optional, Type, TypeVar, Iterable, List
+from typing import Dict, Optional, Type, TypeVar, Iterable, List, Callable
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -23,7 +23,6 @@ class CapabilityType(str, Enum):
 
 class Metadata(BaseModel):
     name: str = Field(title="name")
-    apiVersion: str = Field(title="apiVersion")
     labels: Dict[str, str] = Field(title="labels", default={})
     description: str = Field(title="description", default="")
 
@@ -183,3 +182,18 @@ class ExecResult(BaseModel):
 class Observation(BaseModel):
     action: str
     observation: str
+
+
+class Supervisor(BaseModel):
+    metadata: Metadata = Field(title="metadata")
+    spec: SupervisorSpec = Field(title="spec")
+
+
+AgentFactory = Callable[[str, bool, int, ReactContext, List[Context]], Agent]
+
+
+class SupervisorSpec(BaseModel):
+    model: str = Field(title="model", default="gpt-4o")
+    max_depth: int = Field(title="max depth", default=10)
+    contexts: List[Context] = Field(title="contexts")
+    agents: List[Agent] = Field(title="agents")

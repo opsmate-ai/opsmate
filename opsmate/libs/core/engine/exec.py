@@ -74,7 +74,7 @@ def exec_task(
     messages.append(
         {
             "role": "user",
-            "content": exec_result.model_dump_json(),
+            "content": yaml.dump(exec_result.model_dump()),
         }
     )
 
@@ -117,7 +117,7 @@ def exec_react_task(
 
     messages = []
     messages.extend(
-        {"role": "system", "content": yaml.dump(ctx.model_dump())}
+        {"role": "user", "content": yaml.dump(ctx.model_dump())}
         for ctx in historic_context
     )
 
@@ -156,7 +156,6 @@ def exec_react_task(
                 action_task = Task(
                     metadata=Metadata(
                         name="action",
-                        apiVersion="v1",
                     ),
                     spec=TaskSpec(
                         instruction=f"""

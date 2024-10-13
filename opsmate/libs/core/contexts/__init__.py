@@ -21,6 +21,10 @@ class CurrentOS(Executable):
 
 
 class ExecShell(Executable):
+    """
+    Execute a shell script
+    """
+
     command: str = Field(title="command to execute")
 
     @traceit(name="exec_shell")
@@ -51,6 +55,14 @@ class ExecShell(Executable):
         )
 
         stdout, stderr = process.communicate()
+
+        logger.info(
+            "ExecShell.result",
+            stdout=stdout.decode().strip(),
+            stderr=stderr.decode().strip(),
+            exit_code=process.returncode,
+        )
+
         return ExecOutput(
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
@@ -66,7 +78,6 @@ built_in_helpers = {
 os_ctx = Context(
     metadata=Metadata(
         name="os",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System tools",
     ),
@@ -78,7 +89,6 @@ os_ctx = Context(
 cli_ctx = Context(
     metadata=Metadata(
         name="cli",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System CLI",
     ),
@@ -178,7 +188,6 @@ the nginx service is now working via applying the new image
 react_ctx = Context(
     metadata=Metadata(
         name="react",
-        apiVersion="v1",
         labels={"type": "system"},
         description="System React",
     ),

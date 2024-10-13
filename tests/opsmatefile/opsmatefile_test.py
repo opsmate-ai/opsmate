@@ -40,7 +40,7 @@ spec:
     max_depth: 5
   - name: git-agent
     model: gpt-4o-mini
-    react_mode: true
+    react_mode: false
     max_depth: 10
     extra_contexts:
     - the-infra-repo
@@ -77,14 +77,29 @@ def test_load_opsmatefile(opsmatefile):
     assert "git-agent" in agents
     assert agents["git-agent"].metadata.name == "git-agent"
     assert agents["git-agent"].spec.model == "gpt-4o-mini"
-    assert agents["git-agent"].spec.react_mode is True
+    assert agents["git-agent"].spec.react_mode is False
     assert agents["git-agent"].spec.max_depth == 10
+    assert len(agents["git-agent"].spec.task_template.spec.contexts) >= 1
+    git_ctxs = [
+        ctx.metadata.name
+        for ctx in agents["git-agent"].spec.task_template.spec.contexts
+    ]
+    assert "react" not in git_ctxs
+    assert "git" in git_ctxs
+    assert "the-infra-repo" in git_ctxs
 
     assert "k8s-agent" in agents
     assert agents["k8s-agent"].metadata.name == "k8s-agent"
     assert agents["k8s-agent"].spec.model == "gpt-4o"
     assert agents["k8s-agent"].spec.react_mode is True
     assert agents["k8s-agent"].spec.max_depth == 5
+    assert len(agents["k8s-agent"].spec.task_template.spec.contexts) == 2
+    k8s_ctxs = [
+        ctx.metadata.name
+        for ctx in agents["k8s-agent"].spec.task_template.spec.contexts
+    ]
+    assert "react" in k8s_ctxs
+    assert "k8s" in k8s_ctxs
 
     assert supervisor_agent.spec.model == "gpt-o1"
     assert supervisor_agent.spec.react_mode is True

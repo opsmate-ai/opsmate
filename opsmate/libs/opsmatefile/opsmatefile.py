@@ -8,8 +8,6 @@ from opsmate.libs.core.agents import (
 from typing import Optional
 import yaml
 
-# available_contexts = {ctx.metadata.name: ctx for ctx in _available_contexts}
-
 
 class World(BaseModel):
     agent_factories: Dict[str, AgentFactory] = Field(
@@ -63,7 +61,7 @@ class World(BaseModel):
         return supervisor_agent(
             model=model,
             agents=agents,
-            extra_context=historical_context,
+            extra_contexts=self.supervisor.spec.contexts,
         )
 
 

@@ -25,13 +25,15 @@ class AgentCommand(BaseModel):
 
 
 def supervisor_agent(
-    model: str = "gpt-4o", agents: List[Agent] = [], extra_context: str | Context = ""
+    model: str = "gpt-4o",
+    agents: List[Agent] = [],
+    extra_contexts: str | List[Context] = "",
 ):
     agent_map = {agent.metadata.name: agent for agent in agents}
 
     agent_context = Context(
         metadata=Metadata(
-            name="Agent Supervisor",
+            name="agent-supervisor",
             description="Supervisor to execute agent commands",
         ),
         spec=ContextSpec(
@@ -53,25 +55,25 @@ Here is the list of agents you are supervising:
         ),
     )
     contexts = [agent_context]
-    if isinstance(extra_context, str):
-        if extra_context != "":
+    if isinstance(extra_contexts, str):
+        if extra_contexts != "":
             ctx = Context(
                 metadata=Metadata(
-                    name="Agent Supervisor",
+                    name="agent-supervisor",
                     description="Supervisor to execute agent commands",
                 ),
                 spec=ContextSpec(
-                    data=extra_context,
+                    data=extra_contexts,
                 ),
             )
             contexts.append(ctx)
-    elif isinstance(extra_context, Context):
-        contexts.append(extra_context)
+    elif isinstance(extra_contexts, list):
+        contexts.extend(extra_contexts)
 
     contexts.append(react_ctx)
     return Agent(
         metadata=Metadata(
-            name="Agent Supervisor",
+            name="agent-supervisor",
             description="Supervisor to execute agent commands",
         ),
         status=AgentStatus(),
@@ -83,7 +85,7 @@ Here is the list of agents you are supervising:
             description="Supervisor to execute agent commands",
             task_template=TaskTemplate(
                 metadata=Metadata(
-                    name="Agent Supervisor",
+                    name="agent-supervisor",
                     description="Supervisor to execute agent commands",
                 ),
                 spec=TaskSpecTemplate(

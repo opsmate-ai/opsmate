@@ -15,6 +15,17 @@ spec:
   data: |
     this is the infra repo context
 ---
+kind: Context
+apiVersion: v1
+metadata:
+  name: sre-manager
+  description: Context for the SRE manager
+spec:
+  contexts:
+  - the-infra-repo
+  data: |
+    you are a helpful SRE manager who manages a team of SMEs
+---
 kind: Supervisor
 apiVersion: v1
 metadata:
@@ -25,6 +36,7 @@ spec:
   - cli-agent
   - git-agent
   contexts:
+  - sre-manager
   - the-infra-repo
 """
 
@@ -56,3 +68,12 @@ def test_load_opsmatefile(opsmatefile):
     assert "git-agent" in agents
     assert "k8s-agent" in agents
     assert "cli-agent" in agents
+
+    contexts = supervisor_agent.spec.task_template.spec.contexts
+
+    context_names = [ctx.metadata.name for ctx in contexts]
+    assert len(context_names) == 4
+    assert "agent-supervisor" in context_names
+    assert "react" in context_names
+    assert "sre-manager" in context_names
+    assert "the-infra-repo" in context_names

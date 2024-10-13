@@ -19,6 +19,7 @@ from opsmate.libs.core.engine import (
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
 from opsmate.libs.core.agents import available_agents, supervisor_agent
+from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
 from opentelemetry import trace
@@ -208,18 +209,31 @@ Commands:
     default="cli-agent",
     help="Comma separated list of agents to use. To list all agents please run the list-agents command.",
 )
+@click.option(
+    "--skip-opsmatefile",
+    is_flag=True,
+    help="Skip loading OpsMatefile",
+)
 @traceit
-def chat(ask, model, max_depth, agents):
-    selected_agents = get_agents(
-        agents, react_mode=True, max_depth=max_depth, model=model
-    )
-
+def chat(ask, model, max_depth, agents, skip_opsmatefile):
     executor = AgentExecutor(OpenAI())
+    # check if Opsmatefile exists in the cwd
+    if not skip_opsmatefile and not os.path.exists("Opsmatefile"):
+        console.print("OpsMatefile is not loaded", style="yellow")
 
-    supervisor = supervisor_agent(
-        extra_context="You are a helpful SRE manager who manages a team of SMEs",
-        agents=selected_agents,
-    )
+        selected_agents = get_agents(
+            agents, react_mode=True, max_depth=max_depth, model=model
+        )
+
+        supervisor = supervisor_agent(
+            extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
+            agents=selected_agents,
+        )
+    else:
+        console.print("OpsMatefile detected, loading supervisor", style="green")
+        world = load_opsmatefile("Opsmatefile")
+        supervisor = world.supervisor_agent()
+
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 

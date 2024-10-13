@@ -53,7 +53,6 @@ class World(BaseModel):
         model: str = "gpt-4o",
         react_mode: bool = False,
         max_depth: int = 10,
-        historical_context: ReactContext = [],
     ):
         agents = [
             agent(model, react_mode, max_depth) for agent in self.supervisor.spec.agents

@@ -21,6 +21,10 @@ class CurrentOS(Executable):
 
 
 class ExecShell(Executable):
+    """
+    Execute a shell script
+    """
+
     command: str = Field(title="command to execute")
 
     @traceit(name="exec_shell")

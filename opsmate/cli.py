@@ -152,12 +152,9 @@ def list_contexts():
 
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name")
-    table.add_column("API Version")
     table.add_column("Description")
     for ctx in available_contexts:
-        table.add_row(
-            ctx.metadata.name, ctx.metadata.apiVersion, ctx.metadata.description
-        )
+        table.add_row(ctx.metadata.name, ctx.metadata.description)
     console.print(table)
 
 
@@ -169,15 +166,12 @@ def list_agents():
     """
     table = Table(show_header=True, show_lines=True)
     table.add_column("Name")
-    table.add_column("API Version")
     table.add_column("Description")
 
     # XXX: realise the agents, it's a bit hacky now
     agents = [fn() for fn in available_agents.values()]
     for agent in agents:
-        table.add_row(
-            agent.metadata.name, agent.metadata.apiVersion, agent.metadata.description
-        )
+        table.add_row(agent.metadata.name, agent.metadata.description)
     console.print(table)
 
 

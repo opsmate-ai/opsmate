@@ -23,6 +23,7 @@ spec:
   agents:
   - k8s-agent
   - cli-agent
+  - git-agent
   contexts:
   - the-infra-repo
 """
@@ -49,3 +50,9 @@ def test_load_opsmatefile(opsmatefile):
 
     supervisor_agent = world.supervisor_agent()
     assert isinstance(supervisor_agent, Agent)
+
+    agents = supervisor_agent.spec.agents
+    assert len(agents) == 3
+    assert "git-agent" in agents
+    assert "k8s-agent" in agents
+    assert "cli-agent" in agents

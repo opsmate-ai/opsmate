@@ -55,6 +55,14 @@ class ExecShell(Executable):
         )
 
         stdout, stderr = process.communicate()
+
+        logger.info(
+            "ExecShell.result",
+            stdout=stdout.decode().strip(),
+            stderr=stderr.decode().strip(),
+            exit_code=process.returncode,
+        )
+
         return ExecOutput(
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),

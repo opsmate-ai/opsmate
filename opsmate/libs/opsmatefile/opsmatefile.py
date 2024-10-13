@@ -11,7 +11,7 @@ import yaml
 
 class AgentConfig(BaseModel):
     model: str = "gpt-4o"
-    react_mode: bool = False
+    react_mode: bool = True
     max_depth: int = 10
     extra_contexts: List[Context] = []
 

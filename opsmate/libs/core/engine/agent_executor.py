@@ -148,11 +148,13 @@ Please execute the action: {resp.output.action}
                     # check if output is a generator
                     if isinstance(output, Generator):
                         for step in output:
+                            logger.info("Step", step=step, agent=agent_name)
                             yield (agent_name, step)
                             if isinstance(step, ReactAnswer):
                                 outputs.append(step.model_dump())
                                 break
                     else:
+                        logger.info("Output", output=output, agent=agent_name)
                         yield (agent_name, output)
                         outputs.append(output.model_dump())
 

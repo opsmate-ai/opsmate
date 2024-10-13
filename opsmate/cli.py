@@ -232,7 +232,9 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile):
     else:
         console.print("OpsMatefile detected, loading supervisor", style="green")
         world = load_opsmatefile("Opsmatefile")
-        supervisor = world.supervisor_agent()
+        supervisor = world.supervisor_agent(
+            model=model, max_depth=max_depth, react_mode=True
+        )
 
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)

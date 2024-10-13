@@ -26,6 +26,7 @@ class AgentCommand(BaseModel):
 
 def supervisor_agent(
     model: str = "gpt-4o",
+    max_depth: int = 10,
     agents: List[Agent] = [],
     extra_contexts: str | List[Context] = "",
 ):
@@ -80,7 +81,7 @@ Here is the list of agents you are supervising:
         spec=AgentSpec(
             react_mode=True,
             model=model,
-            max_depth=10,
+            max_depth=max_depth,
             agents=agent_map,
             description="Supervisor to execute agent commands",
             task_template=TaskTemplate(
@@ -102,8 +103,11 @@ def cli_agent(
     react_mode: bool = False,
     max_depth: int = 10,
     historical_context: ReactContext = [],
+    extra_contexts: List[Context] = [],
 ):
-    contexts = [cli_ctx]
+    contexts = []
+    contexts.extend(extra_contexts)
+    contexts.append(cli_ctx)
     response_model = ExecResult
 
     if react_mode:
@@ -142,8 +146,11 @@ def k8s_agent(
     react_mode: bool = False,
     max_depth: int = 10,
     historical_context: ReactContext = [],
+    extra_contexts: List[Context] = [],
 ):
-    contexts = [k8s_ctx]
+    contexts = []
+    contexts.extend(extra_contexts)
+    contexts.append(k8s_ctx)
     response_model = ExecResult
 
     if react_mode:
@@ -182,8 +189,11 @@ def git_agent(
     react_mode: bool = False,
     max_depth: int = 10,
     historical_context: ReactContext = [],
+    extra_contexts: List[Context] = [],
 ):
-    contexts = [git_ctx]
+    contexts = []
+    contexts.extend(extra_contexts)
+    contexts.append(git_ctx)
     response_model = ExecResult
 
     if react_mode:

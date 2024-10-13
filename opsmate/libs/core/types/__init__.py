@@ -189,9 +189,11 @@ class Supervisor(BaseModel):
     spec: SupervisorSpec = Field(title="spec")
 
 
-AgentFactory = Callable[[str, bool, int, ReactContext], Agent]
+AgentFactory = Callable[[str, bool, int, ReactContext, List[Context]], Agent]
 
 
 class SupervisorSpec(BaseModel):
-    agents: List[AgentFactory] = Field(title="agents")
+    model: str = Field(title="model", default="gpt-4o")
+    max_depth: int = Field(title="max depth", default=10)
     contexts: List[Context] = Field(title="contexts")
+    agents: List[Agent] = Field(title="agents")

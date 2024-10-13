@@ -31,10 +31,19 @@ apiVersion: v1
 metadata:
   name: supervisor
 spec:
+  model: gpt-o1
+  max_depth: 11
   agents:
-  - k8s-agent
-  - cli-agent
-  - git-agent
+  - name: k8s-agent
+    model: gpt-4o
+    react_mode: true
+    max_depth: 5
+  - name: git-agent
+    model: gpt-4o-mini
+    react_mode: true
+    max_depth: 10
+    extra_contexts:
+    - the-infra-repo
   contexts:
   - sre-manager
   - the-infra-repo
@@ -64,10 +73,22 @@ def test_load_opsmatefile(opsmatefile):
     assert isinstance(supervisor_agent, Agent)
 
     agents = supervisor_agent.spec.agents
-    assert len(agents) == 3
+    assert len(agents) == 2
     assert "git-agent" in agents
+    assert agents["git-agent"].metadata.name == "git-agent"
+    assert agents["git-agent"].spec.model == "gpt-4o-mini"
+    assert agents["git-agent"].spec.react_mode is True
+    assert agents["git-agent"].spec.max_depth == 10
+
     assert "k8s-agent" in agents
-    assert "cli-agent" in agents
+    assert agents["k8s-agent"].metadata.name == "k8s-agent"
+    assert agents["k8s-agent"].spec.model == "gpt-4o"
+    assert agents["k8s-agent"].spec.react_mode is True
+    assert agents["k8s-agent"].spec.max_depth == 5
+
+    assert supervisor_agent.spec.model == "gpt-o1"
+    assert supervisor_agent.spec.react_mode is True
+    assert supervisor_agent.spec.max_depth == 11
 
     contexts = supervisor_agent.spec.task_template.spec.contexts
 

@@ -48,7 +48,7 @@ Here is the list of agents you are supervising:
 """.format(
                 agents="\n".join(
                     [
-                        f"- {agent.metadata.name}: {agent.metadata.description}"
+                        f"- name: {agent.metadata.name}\ndescription: {agent.metadata.description}"
                         for agent in agents
                     ]
                 )
@@ -117,7 +117,7 @@ def cli_agent(
     return Agent(
         metadata=Metadata(
             name="cli-agent",
-            description="Agent to run CLI commands",
+            description="cli-agent is specialised in doing system administration tasks on the machine it is running on",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -160,7 +160,7 @@ def k8s_agent(
     return Agent(
         metadata=Metadata(
             name="k8s-agent",
-            description="Agent to run K8S commands",
+            description="k8s-agent is specialised in managing and operating kubernetes clusters",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -203,7 +203,7 @@ def git_agent(
     return Agent(
         metadata=Metadata(
             name="git-agent",
-            description="Agent to run git commands",
+            description="git-agent is specialised in carrying out git operations within a git repo",
         ),
         status=AgentStatus(
             historical_context=historical_context,

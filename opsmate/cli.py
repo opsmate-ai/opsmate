@@ -292,14 +292,15 @@ def run_supervisor(
             try:
                 output = stream_output.get(block=False)
                 if isinstance(output, ExecOutput):
-                    if output.exit_code != -1:
+                    if output.exit_code == -1:
                         if output.stdout != "":
-                            console.print(output.stdout)
+                            print(output.stdout)
                         if output.stderr != "":
-                            console.print(output.stderr)
+                            print(output.stderr)
                 elif isinstance(output, ExecShell):
-                    console.print(f"ExecShell: {output.command}")
+                    print(f"ExecShell: {output.command}")
             except queue.Empty:
+                time.sleep(0.1)
                 pass
 
     thread = threading.Thread(

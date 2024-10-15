@@ -13,7 +13,7 @@ from opsmate.libs.core.types import (
     ExecResult,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
-from opsmate.libs.contexts import k8s_ctx, git_ctx
+from opsmate.libs.contexts import k8s_ctx, git_ctx, terraform_ctx
 from pydantic import BaseModel, Field
 from typing import List, Callable
 
@@ -48,7 +48,7 @@ Here is the list of agents you are supervising:
 """.format(
                 agents="\n".join(
                     [
-                        f"- {agent.metadata.name}: {agent.metadata.description}"
+                        f"- name: {agent.metadata.name}\ndescription: {agent.metadata.description}"
                         for agent in agents
                     ]
                 )
@@ -117,7 +117,7 @@ def cli_agent(
     return Agent(
         metadata=Metadata(
             name="cli-agent",
-            description="Agent to run CLI commands",
+            description="cli-agent is specialised in doing system administration tasks on the machine it is running on",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -160,7 +160,7 @@ def k8s_agent(
     return Agent(
         metadata=Metadata(
             name="k8s-agent",
-            description="Agent to run K8S commands",
+            description="k8s-agent is specialised in managing and operating kubernetes clusters",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -203,7 +203,7 @@ def git_agent(
     return Agent(
         metadata=Metadata(
             name="git-agent",
-            description="Agent to run git commands",
+            description="git-agent is specialised in carrying out git operations within a git repo",
         ),
         status=AgentStatus(
             historical_context=historical_context,
@@ -217,6 +217,49 @@ def git_agent(
                 metadata=Metadata(
                     name="git tool",
                     description="Run git command",
+                ),
+                spec=TaskSpecTemplate(
+                    contexts=contexts,
+                    response_model=response_model,
+                ),
+            ),
+        ),
+    )
+
+
+def terraform_agent(
+    model: str = "gpt-4o",
+    react_mode: bool = False,
+    max_depth: int = 10,
+    historical_context: ReactContext = [],
+    extra_contexts: List[Context] = [],
+):
+    contexts = []
+    contexts.extend(extra_contexts)
+    contexts.append(terraform_ctx)
+    response_model = ExecResult
+
+    if react_mode:
+        contexts.append(react_ctx)
+        response_model = ReactOutput
+
+    return Agent(
+        metadata=Metadata(
+            name="terraform-agent",
+            description="terraform-agent is specialised in carrying out terraform operations",
+        ),
+        status=AgentStatus(
+            historical_context=historical_context,
+        ),
+        spec=AgentSpec(
+            react_mode=react_mode,
+            model=model,
+            max_depth=max_depth,
+            description="Agent to run terraform commands",
+            task_template=TaskTemplate(
+                metadata=Metadata(
+                    name="terraform tool",
+                    description="Run terraform command",
                 ),
                 spec=TaskSpecTemplate(
                     contexts=contexts,

@@ -218,8 +218,11 @@ Commands:
 def chat(ask, model, max_depth, agents, skip_opsmatefile):
     executor = AgentExecutor(OpenAI())
     # check if Opsmatefile exists in the cwd
-    if not skip_opsmatefile and not os.path.exists("Opsmatefile"):
-        console.print("OpsMatefile is not loaded", style="yellow")
+    if skip_opsmatefile or not os.path.exists("Opsmatefile"):
+        if skip_opsmatefile:
+            console.print("OpsMatefile is skipped", style="yellow")
+        else:
+            console.print("OpsMatefile not found", style="red")
 
         selected_agents = get_agents(
             agents, react_mode=True, max_depth=max_depth, model=model
@@ -231,6 +234,10 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile):
         )
     else:
         console.print("OpsMatefile detected, loading supervisor", style="green")
+        console.print(
+            "--model, --max-depth and --agents options are ignored when using OpsMatefile",
+            style="yellow",
+        )
         world = load_opsmatefile("Opsmatefile")
         supervisor = world.supervisor_agent()
 

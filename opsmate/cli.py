@@ -14,7 +14,8 @@ from typing import List
 from openai import OpenAI
 from opsmate.libs.core.engine import exec_task
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
-from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
+from opsmate.libs.core.contexts import ExecShell
+from opsmate.libs.contexts import available_contexts
 from opsmate.libs.core.agents import available_agents, supervisor_agent
 from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.trace import traceit
@@ -33,6 +34,9 @@ from rich.table import Table
 from rich.text import Text
 import structlog
 import logging
+import queue
+import threading
+import time
 
 loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
 structlog.configure(
@@ -259,16 +263,52 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
                 console.print(help_msg)
                 continue
 
-            run_supervisor(executor, supervisor, user_input, stream=stream)
+            run_supervisor(
+                executor,
+                supervisor,
+                user_input,
+                stream=stream,
+                stream_output=queue.Queue(),
+            )
     except (KeyboardInterrupt, EOFError):
         opsmate_says("Goodbye!")
 
 
 @traceit(name="run_supervisor")
 def run_supervisor(
-    executor: AgentExecutor, supervisor: Agent, instruction: str, stream: bool = False
+    executor: AgentExecutor,
+    supervisor: Agent,
+    instruction: str,
+    stream: bool = False,
+    stream_output: queue.Queue = None,
 ):
-    execution = executor.supervise(supervisor, instruction, stream=stream)
+    execution = executor.supervise(
+        supervisor, instruction, stream=stream, stream_output=stream_output
+    )
+
+    # stream the command outputs
+    def stream_output_handler():
+        while True:
+            try:
+                output = stream_output.get(block=False)
+                if isinstance(output, ExecOutput):
+                    if output.exit_code != -1:
+                        if output.stdout != "":
+                            console.print(output.stdout)
+                        if output.stderr != "":
+                            console.print(output.stderr)
+                elif isinstance(output, ExecShell):
+                    console.print(f"ExecShell: {output.command}")
+            except queue.Empty:
+                pass
+
+    thread = threading.Thread(
+        target=stream_output_handler,
+        daemon=True,  # Consider setting this to True if needed
+    )
+
+    thread.start()
+
     for step in execution:
         actor, output = step
         if actor == "@supervisor":
@@ -307,6 +347,11 @@ def run_supervisor(
                         str(call.output.exit_code),
                     )
                 console.print(table)
+            # elif isinstance(output, ExecOutput):
+            #     if output.stdout != "":
+            #         console.print(output.stdout)
+            #     if output.stderr != "":
+            #         console.print(output.stderr)
             elif isinstance(output, AgentCommand):
                 table = Table(title="Agent Command", show_header=False, show_lines=True)
                 table.add_row("Agent", output.agent)

@@ -13,6 +13,7 @@ from typing import List, Generator
 import yaml
 import instructor
 import structlog
+from queue import Queue
 
 logger = structlog.get_logger()
 
@@ -80,7 +81,13 @@ class AgentExecutor:
         self.ask = ask
 
     @traceit
-    def supervise(self, supervisor: Agent, instruction: str, stream: bool = False):
+    def supervise(
+        self,
+        supervisor: Agent,
+        instruction: str,
+        stream: bool = False,
+        stream_output: Queue = None,
+    ):
         instructor_client = instructor.from_openai(self.client)
 
         prompt = "\n".join(
@@ -142,7 +149,9 @@ Please execute the action: {resp.output.action}
                         supervisor.spec.agents[command.agent],
                         command.instruction,
                         stream=stream,
+                        stream_output=stream_output,
                     )
+
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"
                     )
@@ -176,7 +185,13 @@ Please execute the action: {resp.output.action}
                 )
 
     @traceit
-    def execute(self, agent: Agent, instruction: str, stream: bool = False):
+    def execute(
+        self,
+        agent: Agent,
+        instruction: str,
+        stream: bool = False,
+        stream_output: Queue = None,
+    ):
         if agent.spec.react_mode:
             return exec_react_task(
                 self.client,
@@ -186,6 +201,7 @@ Please execute the action: {resp.output.action}
                 max_depth=agent.spec.max_depth,
                 model=agent.spec.model,
                 stream=stream,
+                stream_output=stream_output,
             )
         else:
             return exec_task(
@@ -193,6 +209,8 @@ Please execute the action: {resp.output.action}
                 agent.task(instruction),
                 ask=self.ask,
                 model=agent.spec.model,
+                stream=stream,
+                stream_output=stream_output,
             )
 
     def clear_history(self, agent: Agent):

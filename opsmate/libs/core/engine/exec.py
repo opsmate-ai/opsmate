@@ -8,6 +8,7 @@ import instructor
 import structlog
 from .render import render_context
 import yaml
+from queue import Queue
 
 logger = structlog.get_logger()
 
@@ -20,6 +21,7 @@ def _exec_executables(
     model: str = "gpt-4o",
     max_retries: int = 3,
     stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
 
@@ -56,13 +58,10 @@ def _exec_executables(
                     ExecCall(command=exec_call.command, output=output)
                 )
             else:
+                stream_output.put(exec_call)
                 for out in output:
-                    if out.exit_code == -1:
-                        if out.stdout != "":
-                            print(out.stdout)
-                        if out.stderr != "":
-                            print(out.stderr)
-                    else:
+                    stream_output.put(out)
+                    if out.exit_code != -1:
                         exec_result.calls.append(
                             ExecCall(command=exec_call.command, output=out)
                         )
@@ -80,11 +79,14 @@ def exec_task(
     ask: bool = False,
     model: str = "gpt-4o",
     stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
     span.set_attribute("instruction", task.spec.instruction)
 
-    exec_result, messages = _exec_executables(client, task, ask, model, stream=stream)
+    exec_result, messages = _exec_executables(
+        client, task, ask, model, stream=stream, stream_output=stream_output
+    )
 
     instructor_client = instructor.from_openai(client)
 
@@ -113,6 +115,7 @@ def exec_react_task(
     max_depth: int = 10,
     model: str = "gpt-4o",
     stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
     if task.spec.response_model != ReactOutput:
@@ -185,12 +188,14 @@ Please execute the action: {output.action}
                         contexts=ctx,
                     ),
                 )
+
                 exec_result, _ = _exec_executables(
                     client,
                     action_task,
                     ask=ask,
                     model=model,
                     stream=stream,
+                    stream_output=stream_output,
                 )
 
                 observation = Observation(

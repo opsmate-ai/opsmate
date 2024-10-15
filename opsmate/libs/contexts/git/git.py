@@ -42,7 +42,11 @@ class ExecGit(ExecShell):
 
 
 git_ctx = Context(
-    metadata=Metadata(name="git", labels={"type": "platform"}),
+    metadata=Metadata(
+        name="git",
+        labels={"type": "platform"},
+        description="context for git operations",
+    ),
     spec=ContextSpec(
         params={},
         contexts=[os_ctx],

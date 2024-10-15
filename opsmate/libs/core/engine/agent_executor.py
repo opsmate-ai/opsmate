@@ -7,7 +7,7 @@ from opsmate.libs.core.types import (
 )
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
-from opsmate.libs.core.agents import AgentCommand
+from opsmate.libs.agents import AgentCommand
 from opsmate.libs.core.trace import traceit
 from typing import List, Generator
 import yaml

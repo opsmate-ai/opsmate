@@ -16,7 +16,7 @@ from opsmate.libs.core.engine import exec_task
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.core.contexts import ExecShell
 from opsmate.libs.contexts import available_contexts
-from opsmate.libs.core.agents import available_agents, supervisor_agent
+from opsmate.libs.agents import available_agents, supervisor_agent
 from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor

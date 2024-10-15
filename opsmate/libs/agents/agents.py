@@ -9,19 +9,17 @@ from opsmate.libs.core.types import (
     Context,
     ContextSpec,
     ReactContext,
-    # BaseTaskOutput,
     ExecResult,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx, git_ctx, terraform_ctx
 from pydantic import BaseModel, Field
-from typing import List, Callable
+from typing import List
 
 
 class AgentCommand(BaseModel):
     agent: str = Field(..., description="The agent to execute")
     instruction: str = Field(..., description="The instruction to execute")
-    # ask: bool = Field(False, description="Whether to ask for confirmation")
 
 
 def supervisor_agent(

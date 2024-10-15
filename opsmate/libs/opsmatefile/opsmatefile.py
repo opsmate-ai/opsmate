@@ -1,6 +1,6 @@
 from opsmate.libs.core.types import *
 from opsmate.libs.contexts import available_contexts as _available_contexts
-from opsmate.libs.core.agents import (
+from opsmate.libs.agents import (
     available_agents as _available_agents,
     AgentFactory,
     supervisor_agent as _supervisor_agent,

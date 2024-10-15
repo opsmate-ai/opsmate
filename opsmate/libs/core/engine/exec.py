@@ -19,6 +19,7 @@ def _exec_executables(
     ask: bool = False,
     model: str = "gpt-4o",
     max_retries: int = 3,
+    stream: bool = False,
     span: Span = None,
 ):
 
@@ -49,8 +50,23 @@ def _exec_executables(
     exec_result = ExecResult(calls=[])
     try:
         for exec_call in exec_calls:
-            output = exec_call(ask=ask)
-            exec_result.calls.append(ExecCall(command=exec_call.command, output=output))
+            output = exec_call(ask=ask, stream=stream)
+            if not stream:
+                exec_result.calls.append(
+                    ExecCall(command=exec_call.command, output=output)
+                )
+            else:
+                for out in output:
+                    if out.exit_code == -1:
+                        if out.stdout != "":
+                            print(out.stdout)
+                        if out.stderr != "":
+                            print(out.stderr)
+                    else:
+                        exec_result.calls.append(
+                            ExecCall(command=exec_call.command, output=out)
+                        )
+
     except Exception as e:
         logger.error(f"Error executing {exec_calls}: {e}")
 
@@ -63,11 +79,12 @@ def exec_task(
     task: Task,
     ask: bool = False,
     model: str = "gpt-4o",
+    stream: bool = False,
     span: Span = None,
 ):
     span.set_attribute("instruction", task.spec.instruction)
 
-    exec_result, messages = _exec_executables(client, task, ask, model)
+    exec_result, messages = _exec_executables(client, task, ask, model, stream=stream)
 
     instructor_client = instructor.from_openai(client)
 
@@ -95,6 +112,7 @@ def exec_react_task(
     historic_context: List[ReactProcess | ReactAnswer] = [],
     max_depth: int = 10,
     model: str = "gpt-4o",
+    stream: bool = False,
     span: Span = None,
 ):
     if task.spec.response_model != ReactOutput:
@@ -168,7 +186,11 @@ Please execute the action: {output.action}
                     ),
                 )
                 exec_result, _ = _exec_executables(
-                    client, action_task, ask=ask, model=model
+                    client,
+                    action_task,
+                    ask=ask,
+                    model=model,
+                    stream=stream,
                 )
 
                 observation = Observation(

@@ -80,7 +80,7 @@ class AgentExecutor:
         self.ask = ask
 
     @traceit
-    def supervise(self, supervisor: Agent, instruction: str):
+    def supervise(self, supervisor: Agent, instruction: str, stream: bool = False):
         instructor_client = instructor.from_openai(self.client)
 
         prompt = "\n".join(
@@ -141,6 +141,7 @@ Please execute the action: {resp.output.action}
                     output = self.execute(
                         supervisor.spec.agents[command.agent],
                         command.instruction,
+                        stream=stream,
                     )
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"
@@ -175,7 +176,7 @@ Please execute the action: {resp.output.action}
                 )
 
     @traceit
-    def execute(self, agent: Agent, instruction: str):
+    def execute(self, agent: Agent, instruction: str, stream: bool = False):
         if agent.spec.react_mode:
             return exec_react_task(
                 self.client,
@@ -184,6 +185,7 @@ Please execute the action: {resp.output.action}
                 historic_context=agent.status.historical_context,
                 max_depth=agent.spec.max_depth,
                 model=agent.spec.model,
+                stream=stream,
             )
         else:
             return exec_task(

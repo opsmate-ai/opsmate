@@ -8,6 +8,7 @@ from opsmate.libs.core.types import (
 from pydantic import Field, BaseModel
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
+from typing import Generator
 import structlog
 
 logger = structlog.get_logger()
@@ -31,8 +32,9 @@ class ExecShell(Executable):
     def __call__(
         self,
         ask: bool = False,
+        stream: bool = False,
         span: Span = None,
-    ) -> ExecOutput:
+    ) -> ExecOutput | Generator[ExecOutput, None, None]:
         """
         Execute a shell script
 
@@ -54,16 +56,79 @@ class ExecShell(Executable):
             self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
-        stdout, stderr = process.communicate()
+        if not stream:
+            stdout, stderr = process.communicate()
 
-        logger.info(
-            "ExecShell.result",
-            stdout=stdout.decode().strip(),
-            stderr=stderr.decode().strip(),
-            exit_code=process.returncode,
-        )
+            logger.info(
+                "ExecShell.result",
+                stdout=stdout.decode().strip(),
+                stderr=stderr.decode().strip(),
+                exit_code=process.returncode,
+            )
 
-        return ExecOutput(
+            return ExecOutput(
+                stdout=stdout.decode().strip(),
+                stderr=stderr.decode().strip(),
+                exit_code=process.returncode,
+            )
+
+        import threading
+        import queue
+
+        stdout_queue = queue.Queue()
+        stderr_queue = queue.Queue()
+
+        def read_stdout():
+            for out in process.stdout:
+                stdout_queue.put(out)
+
+        def read_stderr():
+            for err in process.stderr:
+                stderr_queue.put(err)
+
+        stdout_thread = threading.Thread(target=read_stdout)
+        stderr_thread = threading.Thread(target=read_stderr)
+
+        stdout_thread.start()
+        stderr_thread.start()
+
+        stdout = b""
+        stderr = b""
+
+        while (
+            stdout_thread.is_alive()
+            or stderr_thread.is_alive()
+            or not stdout_queue.empty()
+            or not stderr_queue.empty()
+        ):
+            try:
+                out = stdout_queue.get_nowait()
+                stdout += out
+                yield ExecOutput(
+                    stdout=out.decode().strip(),
+                    stderr="",
+                    exit_code=-1,
+                )
+            except queue.Empty:
+                pass
+
+            try:
+                err = stderr_queue.get_nowait()
+                stderr += err
+                yield ExecOutput(
+                    stdout="",
+                    stderr=err.decode().strip(),
+                    exit_code=-1,
+                )
+            except queue.Empty:
+                pass
+
+        stdout_thread.join()
+        stderr_thread.join()
+
+        process.wait()
+
+        yield ExecOutput(
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,

@@ -12,12 +12,10 @@ from opsmate.libs.core.types import (
 )
 from typing import List
 from openai import OpenAI
-from opsmate.libs.core.engine import (
-    exec_react_task,
-    exec_task,
-)
+from opsmate.libs.core.engine import exec_task
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
-from opsmate.libs.contexts import available_contexts, cli_ctx, react_ctx
+from opsmate.libs.core.contexts import ExecShell
+from opsmate.libs.contexts import available_contexts
 from opsmate.libs.core.agents import available_agents, supervisor_agent
 from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.trace import traceit
@@ -36,6 +34,9 @@ from rich.table import Table
 from rich.text import Text
 import structlog
 import logging
+import queue
+import threading
+import time
 
 loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
 structlog.configure(
@@ -205,6 +206,11 @@ Commands:
 #     help="Only show the answer and not the thought, action and observation",
 # )
 @click.option(
+    "--stream",
+    is_flag=True,
+    help="Stream the output of the commands",
+)
+@click.option(
     "--agents",
     default="cli-agent",
     help="Comma separated list of agents to use. To list all agents please run the list-agents command.",
@@ -215,7 +221,7 @@ Commands:
     help="Skip loading OpsMatefile",
 )
 @traceit
-def chat(ask, model, max_depth, agents, skip_opsmatefile):
+def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
     executor = AgentExecutor(OpenAI())
     # check if Opsmatefile exists in the cwd
     if skip_opsmatefile or not os.path.exists("Opsmatefile"):
@@ -257,14 +263,53 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile):
                 console.print(help_msg)
                 continue
 
-            run_supervisor(executor, supervisor, user_input)
+            run_supervisor(
+                executor,
+                supervisor,
+                user_input,
+                stream=stream,
+                stream_output=queue.Queue(),
+            )
     except (KeyboardInterrupt, EOFError):
         opsmate_says("Goodbye!")
 
 
 @traceit(name="run_supervisor")
-def run_supervisor(executor: AgentExecutor, supervisor: Agent, instruction: str):
-    execution = executor.supervise(supervisor, instruction)
+def run_supervisor(
+    executor: AgentExecutor,
+    supervisor: Agent,
+    instruction: str,
+    stream: bool = False,
+    stream_output: queue.Queue = None,
+):
+    execution = executor.supervise(
+        supervisor, instruction, stream=stream, stream_output=stream_output
+    )
+
+    # stream the command outputs
+    def stream_output_handler():
+        while True:
+            try:
+                output = stream_output.get(block=False)
+                if isinstance(output, ExecOutput):
+                    if output.exit_code == -1:
+                        if output.stdout != "":
+                            print(output.stdout)
+                        if output.stderr != "":
+                            print(output.stderr)
+                elif isinstance(output, ExecShell):
+                    print(f"ExecShell: {output.command}")
+            except queue.Empty:
+                time.sleep(0.001)
+                pass
+
+    thread = threading.Thread(
+        target=stream_output_handler,
+        daemon=True,  # Consider setting this to True if needed
+    )
+
+    thread.start()
+
     for step in execution:
         actor, output = step
         if actor == "@supervisor":
@@ -303,6 +348,11 @@ def run_supervisor(executor: AgentExecutor, supervisor: Agent, instruction: str)
                         str(call.output.exit_code),
                     )
                 console.print(table)
+            # elif isinstance(output, ExecOutput):
+            #     if output.stdout != "":
+            #         console.print(output.stdout)
+            #     if output.stderr != "":
+            #         console.print(output.stderr)
             elif isinstance(output, AgentCommand):
                 table = Table(title="Agent Command", show_header=False, show_lines=True)
                 table.add_row("Agent", output.agent)
@@ -324,65 +374,6 @@ def run_supervisor(executor: AgentExecutor, supervisor: Agent, instruction: str)
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)
-
-
-@traceit(exclude=["historic_context"])
-def q_and_a(
-    user_input: str,
-    ask: bool = False,
-    max_depth: int = 10,
-    model: str = "gpt-4o",
-    contexts: list[Context] = [cli_ctx, react_ctx],
-    historic_context: list = [],
-    answer_only: bool = False,
-):
-    task = Task(
-        metadata=Metadata(
-            name="chat",
-        ),
-        spec=TaskSpec(
-            input={},
-            contexts=contexts,
-            instruction=user_input,
-            response_model=ReactOutput,
-        ),
-    )
-
-    try:
-        for output in exec_react_task(
-            OpenAI(),
-            task,
-            ask=ask,
-            max_depth=max_depth,
-            model=model,
-            historic_context=historic_context,
-        ):
-            if isinstance(output, ReactAnswer):
-                opsmate_says(output.answer)
-            elif isinstance(output, ReactProcess) and not answer_only:
-                table = Table(title="Thought Process", show_lines=True)
-                table.add_row("Question", output.question)
-                table.add_row("Thought", output.thought)
-                table.add_row("Action", output.action)
-                console.print(table)
-            elif isinstance(output, ExecResult) and not answer_only:
-                table = Table(
-                    title="Command Execution", show_header=True, show_lines=True
-                )
-                table.add_column("Command", style="cyan")
-                table.add_column("Stdout", style="green")
-                table.add_column("Stderr", style="red")
-                table.add_column("Exit Code", style="magenta")
-                for call in output.calls:
-                    table.add_row(
-                        call.command,
-                        call.output.stdout,
-                        call.output.stderr,
-                        str(call.output.exit_code),
-                    )
-                console.print(table)
-    except Exception as e:
-        console.print(f"OpsMate Error: {e}", style="red")
 
 
 def opsmate_says(message: str):

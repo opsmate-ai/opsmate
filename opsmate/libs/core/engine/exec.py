@@ -8,6 +8,7 @@ import instructor
 import structlog
 from .render import render_context
 import yaml
+from queue import Queue
 
 logger = structlog.get_logger()
 
@@ -19,6 +20,8 @@ def _exec_executables(
     ask: bool = False,
     model: str = "gpt-4o",
     max_retries: int = 3,
+    stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
 
@@ -49,8 +52,21 @@ def _exec_executables(
     exec_result = ExecResult(calls=[])
     try:
         for exec_call in exec_calls:
-            output = exec_call(ask=ask)
-            exec_result.calls.append(ExecCall(command=exec_call.command, output=output))
+            if not stream:
+                output = exec_call(ask=ask)
+                exec_result.calls.append(
+                    ExecCall(command=exec_call.command, output=output)
+                )
+            else:
+                output = exec_call.stream(ask=ask)
+                stream_output.put(exec_call)
+                for out in output:
+                    stream_output.put(out)
+                    if out.exit_code != -1:
+                        exec_result.calls.append(
+                            ExecCall(command=exec_call.command, output=out)
+                        )
+
     except Exception as e:
         logger.error(f"Error executing {exec_calls}: {e}")
 
@@ -63,11 +79,15 @@ def exec_task(
     task: Task,
     ask: bool = False,
     model: str = "gpt-4o",
+    stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
     span.set_attribute("instruction", task.spec.instruction)
 
-    exec_result, messages = _exec_executables(client, task, ask, model)
+    exec_result, messages = _exec_executables(
+        client, task, ask, model, stream=stream, stream_output=stream_output
+    )
 
     instructor_client = instructor.from_openai(client)
 
@@ -95,6 +115,8 @@ def exec_react_task(
     historic_context: List[ReactProcess | ReactAnswer] = [],
     max_depth: int = 10,
     model: str = "gpt-4o",
+    stream: bool = False,
+    stream_output: Queue = None,
     span: Span = None,
 ):
     if task.spec.response_model != ReactOutput:
@@ -167,8 +189,14 @@ Please execute the action: {output.action}
                         contexts=ctx,
                     ),
                 )
+
                 exec_result, _ = _exec_executables(
-                    client, action_task, ask=ask, model=model
+                    client,
+                    action_task,
+                    ask=ask,
+                    model=model,
+                    stream=stream,
+                    stream_output=stream_output,
                 )
 
                 observation = Observation(

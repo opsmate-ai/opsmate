@@ -19,7 +19,9 @@ logger = structlog.get_logger()
 
 
 @traceit
-def gen_agent_commands(client: Client, supervisor: Agent, action: str):
+def gen_agent_commands(
+    client: Client, supervisor: Agent, action: str
+) -> List[AgentCommand]:
     agents_context = []
     for _, agent in supervisor.spec.agents.items():
         agents_context.append(
@@ -72,7 +74,7 @@ Come up with a list of agent commands to execute
         else:
             agents[command.agent].instruction += "\n" + command.instruction
 
-    return agents.values()
+    return list(agents.values())
 
 
 class AgentExecutor:

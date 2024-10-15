@@ -181,7 +181,7 @@ Please execute the action: {output.action}
                 if observation is not None:
                     messages.append(
                         {
-                            "role": "user",
+                            "role": "system",
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )

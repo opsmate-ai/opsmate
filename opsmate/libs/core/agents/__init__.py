@@ -6,4 +6,5 @@ available_agents: Dict[str, AgentFactory] = {
     "cli-agent": cli_agent,
     "k8s-agent": k8s_agent,
     "git-agent": git_agent,
+    "terraform-agent": terraform_agent,
 }

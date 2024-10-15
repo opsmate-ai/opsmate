@@ -171,7 +171,7 @@ Please execute the action: {resp.output.action}
                     observation=observation.observation,
                 )
                 messages.append(
-                    {"role": "user", "content": yaml.dump(observation.model_dump())}
+                    {"role": "system", "content": yaml.dump(observation.model_dump())}
                 )
 
     @traceit

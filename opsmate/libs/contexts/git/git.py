@@ -40,6 +40,10 @@ class ExecGit(ExecShell):
     def __call__(self, *args, **kwargs):
         return super().__call__(*args, **kwargs)
 
+    @traceit(name="exec_git_stream")
+    def stream(self, *args, **kwargs):
+        return super().stream(*args, **kwargs)
+
 
 git_ctx = Context(
     metadata=Metadata(

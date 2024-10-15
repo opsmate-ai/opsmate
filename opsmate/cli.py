@@ -300,7 +300,7 @@ def run_supervisor(
                 elif isinstance(output, ExecShell):
                     print(f"ExecShell: {output.command}")
             except queue.Empty:
-                time.sleep(0.1)
+                time.sleep(0.001)
                 pass
 
     thread = threading.Thread(

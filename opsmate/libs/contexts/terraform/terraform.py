@@ -40,6 +40,10 @@ class ExecTerraform(ExecShell):
         """
         return super().__call__(*args, **kwargs)
 
+    @traceit(name="terraform_exec_stream")
+    def stream(self, *args, **kwargs):
+        return super().stream(*args, **kwargs)
+
 
 terraform_ctx = Context(
     metadata=Metadata(

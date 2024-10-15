@@ -34,7 +34,7 @@ class ExecShell(Executable):
         ask: bool = False,
         stream: bool = False,
         span: Span = None,
-    ) -> ExecOutput | Generator[ExecOutput, None, None]:
+    ) -> ExecOutput:
         """
         Execute a shell script
 
@@ -56,21 +56,47 @@ class ExecShell(Executable):
             self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
 
-        if not stream:
-            stdout, stderr = process.communicate()
+        stdout, stderr = process.communicate()
 
-            logger.info(
-                "ExecShell.result",
-                stdout=stdout.decode().strip(),
-                stderr=stderr.decode().strip(),
-                exit_code=process.returncode,
-            )
+        logger.info(
+            "ExecShell.result",
+            stdout=stdout.decode().strip(),
+            stderr=stderr.decode().strip(),
+            exit_code=process.returncode,
+        )
 
-            return ExecOutput(
-                stdout=stdout.decode().strip(),
-                stderr=stderr.decode().strip(),
-                exit_code=process.returncode,
-            )
+        return ExecOutput(
+            stdout=stdout.decode().strip(),
+            stderr=stderr.decode().strip(),
+            exit_code=process.returncode,
+        )
+
+    @traceit(name="exec_shell_stream")
+    def stream(
+        self,
+        ask: bool = False,
+        span: Span = None,
+    ) -> Generator[ExecOutput, None, None]:
+        """
+        Execute a shell script
+
+        :return: generator of ExecOutput
+        """
+
+        span.set_attribute("command", self.command)
+
+        import subprocess
+
+        logger.info("ExecShell", command=self.command)
+        if ask:
+            if input("Proceed? (yes/no): ").strip().lower() != "yes":
+                return ExecOutput(
+                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                )
+
+        process = subprocess.Popen(
+            self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
         import threading
         import queue

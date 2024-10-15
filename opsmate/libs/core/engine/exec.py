@@ -52,12 +52,13 @@ def _exec_executables(
     exec_result = ExecResult(calls=[])
     try:
         for exec_call in exec_calls:
-            output = exec_call(ask=ask, stream=stream)
             if not stream:
+                output = exec_call(ask=ask)
                 exec_result.calls.append(
                     ExecCall(command=exec_call.command, output=output)
                 )
             else:
+                output = exec_call.stream(ask=ask)
                 stream_output.put(exec_call)
                 for out in output:
                     stream_output.put(out)

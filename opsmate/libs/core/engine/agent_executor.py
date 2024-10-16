@@ -7,7 +7,7 @@ from opsmate.libs.core.types import (
 )
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
-from opsmate.libs.core.agents import AgentCommand
+from opsmate.libs.agents import AgentCommand
 from opsmate.libs.core.trace import traceit
 from typing import List, Generator
 import yaml
@@ -19,7 +19,9 @@ logger = structlog.get_logger()
 
 
 @traceit
-def gen_agent_commands(client: Client, supervisor: Agent, action: str):
+def gen_agent_commands(
+    client: Client, supervisor: Agent, action: str
+) -> List[AgentCommand]:
     agents_context = []
     for _, agent in supervisor.spec.agents.items():
         agents_context.append(
@@ -72,7 +74,7 @@ Come up with a list of agent commands to execute
         else:
             agents[command.agent].instruction += "\n" + command.instruction
 
-    return agents.values()
+    return list(agents.values())
 
 
 class AgentExecutor:
@@ -173,7 +175,7 @@ Please execute the action: {resp.output.action}
                     action=resp.output.action,
                     observation=outputs,
                 )
-                yield observation
+                yield ("@supervisor", observation)
 
                 logger.info(
                     "Observation",

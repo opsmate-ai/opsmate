@@ -24,6 +24,7 @@ opsmate = "opsmate.cli:opsmate_cli"
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
 pytest = "^8.3.3"
+pytest-xdist = "^3.6.1"
 
 [build-system]
 requires = ["poetry-core"]

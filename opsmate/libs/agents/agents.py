@@ -9,30 +9,21 @@ from opsmate.libs.core.types import (
     Context,
     ContextSpec,
     ReactContext,
-    # BaseTaskOutput,
     ExecResult,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx, git_ctx, terraform_ctx
 from pydantic import BaseModel, Field
-from typing import List, Callable
+from typing import List
 
 
 class AgentCommand(BaseModel):
     agent: str = Field(..., description="The agent to execute")
     instruction: str = Field(..., description="The instruction to execute")
-    # ask: bool = Field(False, description="Whether to ask for confirmation")
 
 
-def supervisor_agent(
-    model: str = "gpt-4o",
-    max_depth: int = 10,
-    agents: List[Agent] = [],
-    extra_contexts: str | List[Context] = "",
-):
-    agent_map = {agent.metadata.name: agent for agent in agents}
-
-    agent_context = Context(
+def get_supervisor_agent_list_context(agents: List[Agent]):
+    return Context(
         metadata=Metadata(
             name="agent-supervisor",
             description="Supervisor to execute agent commands",
@@ -44,24 +35,34 @@ Here is the list of agents you are supervising:
 <agents>
 {agents}
 </agents>
-
 """.format(
                 agents="\n".join(
                     [
-                        f"- name: {agent.metadata.name}\ndescription: {agent.metadata.description}"
+                        f"- name: {agent.metadata.name}\n  description: {agent.metadata.description}"
                         for agent in agents
                     ]
                 )
             ),
         ),
     )
-    contexts = [agent_context]
+
+
+def supervisor_agent(
+    model: str = "gpt-4o",
+    max_depth: int = 10,
+    agents: List[Agent] = [],
+    extra_contexts: str | List[Context] = "",
+):
+    agent_map = {agent.metadata.name: agent for agent in agents}
+
+    supervisor_agent_list_context = get_supervisor_agent_list_context(agents)
+    contexts = [supervisor_agent_list_context]
     if isinstance(extra_contexts, str):
         if extra_contexts != "":
             ctx = Context(
                 metadata=Metadata(
-                    name="agent-supervisor",
-                    description="Supervisor to execute agent commands",
+                    name="extra-context",
+                    description="Extra context to use",
                 ),
                 spec=ContextSpec(
                     data=extra_contexts,

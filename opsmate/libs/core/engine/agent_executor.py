@@ -175,7 +175,7 @@ Please execute the action: {resp.output.action}
                     action=resp.output.action,
                     observation=outputs,
                 )
-                yield observation
+                yield ("@supervisor", observation)
 
                 logger.info(
                     "Observation",

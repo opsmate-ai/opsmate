@@ -1,106 +1,64 @@
-from pydantic import BaseModel, Field, field_validator
 import yaml
 from openai import OpenAI
 import instructor
 import jinja2
-from enum import Enum
+from eval.types import TroubleshootingQuestion, Category, pod_and_container_issues
+
+idea_prompt_template = """
+You are tasked to create some ideas for kubernetes related questionaires for SRE candidates.
+
+Here is the topic and description of the questionaire:
+
+<category>
+  <name>
+  {{name}}
+  </name>
+  <description>
+  {{description}}
+  </description>
+</category>
+
+Example:
+
+<category>
+  <name>pod scheduling</name>
+  <description>
+Pod Lifecycle: Examine Pod status, including Pending, CrashLoopBackOff, or Evicted.
+  </description>
+</category>
+
+Ideas:
+- name: pod cannot be scheduled due to anti-affinity rules
+- name: pod stuck in pending state due to resource request cannot be satisfied
+- name: deployment is not rolled out due to image pull issue
+- name: pod cannot be scheduled due to manually pinned nodeName does not exist
+...
+
+Please come up with {{n}} distinct ideas for questions for this category.
+"""
 
 
-# class Command(BaseModel):
-#     command: str = Field(description="The command to run")
-#     long_running: bool = Field(description="Whether the command is long running")
-
-
-class Category(BaseModel):
-    name: str = Field(description="The name of the category")
-    description: str = Field(description="The description of the category")
-
-
-node_issues = Category(
-    name="Node Issues",
-    description="""
-* Resource Exhaustion: Check for CPU, memory, or disk pressure on nodes.
-* Node Connectivity: Verify network connectivity between nodes and troubleshoot any network issues.
-* Node Status: Look for nodes that may be in NotReady or Unknown states due to issues with kubelet, systemd, or OS configuration.
-* Log Analysis: Inspect system logs (e.g., kubelet, Docker/container runtime logs).
-    """,
-)
-
-pod_and_container_issues = Category(
-    name="Pod and Container Issues",
-    description="""
-* Pod Lifecycle: Examine Pod status, including Pending, CrashLoopBackOff, or Evicted.
-* Container Logs: Use kubectl logs to access container logs for debugging.
-* Container Image Issues: Ensure containers can pull images correctly; look for authorization or registry issues.
-* Pod Resource Limits: Verify resource requests and limits to avoid resource starvation or throttling.
-* Readiness/Liveness Probes: Check if probes are misconfigured, causing Pod restarts or failures.
-    """,
-)
-
-network_issues = Category(
-    name="Network Issues",
-    description="""
-* Service Discovery: Ensure services are discoverable and accessible by checking DNS and kube-proxy configurations.
-* Network Policies: Review network policies that may be restricting traffic between Pods or namespaces.
-* Ingress/Egress Issues: Inspect Ingress controllers and verify firewall or security group settings for network traffic.
-* Service and Endpoint Issues: Verify that Services have corresponding Endpoints and that they point to healthy Pods.
-    """,
-)
-
-
-class VerificationStep(BaseModel):
-    command: str = Field(description="The command to run")
-    expected_output: str = Field(description="The expected output of the command")
-    exit_code: int = Field(description="The expected exit code of the command")
-
-
-class Step(BaseModel):
-    description: str = Field(description="The description of the step")
-    manifest: str = Field(description="The kubernetes manifest to apply")
-
-    @field_validator("manifest")
-    def validate_manifest(cls, v):
-        try:
-            yaml.safe_load(v)
-        except Exception as e:
-            raise ValueError("Invalid manifest") from e
-        return v
-
-
-class TroubleshootingQuestion(BaseModel):
-    """
-    Troubleshooting question for SRE candidates
-    """
-
-    steps_to_create_issue: list[Step] = Field(
-        description="A list of steps to create the issue"
-    )
-    question: str = Field(description="Question to ask the candidate")
-
-    verification: list[VerificationStep] = Field(
-        description="Command to verify the issue has been fixed"
-    )
-    root_cause: str = Field(description="The root cause of the issue")
-
-
-prompt = """
+prompt_template = """
 You are tasked to create kubernetes related questionaires for SRE candidates.
 
-Now you are asked to:
+based on the idea for testing, you are asked to:
 * Create a scenario that comes with an issue using kubernetes yaml
 * Ask a question about the issue
 * Provide commands to verify whether the issue has been fixed
 
-Here an example issue from the category Pod and Container Issues:
+Example:
+
+Idea: pod cannot be deployed due to image pull issue
 
 <example>
 steps_to_create_issue:
-- description: Create a deployment with 1 replica
+- namespace: aa062294-571e
   manifest: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: nginx-deployment
+      namespace: aa062294-571e
     spec:
       replicas: 1
       selector:
@@ -118,48 +76,84 @@ steps_to_create_issue:
               - containerPort: 80
 
 question: The nginx deployment is not ready, what is the issue?
-verification:
-- command: kubectl get pods -l app=nginx -o jsonpath='{.items[0].status.phase}' | grep -q Running
+issue_produced_verification:
+# no ready pods
+- command: kubectl -n aa062294-571e get deploy nginx-deployment -o jsonpath='{.status.readyReplicas}'
+  expected_output: 0
+  exit_code: 0
+fix_verification:
+- command: kubectl get pods -n aa062294-571e -l app=nginx -o jsonpath='{.items[0].status.phase}' | grep -q Running
   expected_output: Running
   exit_code: 0
 root_cause: The nginx deployment is not ready because the image is not found
 </example>
 
-Now here is your turn to create a new question for:
+A few things to note:
+* The namespace must be specified in the kubernetes manifest
+* kubectl command must have the namespace specified if applicable
+* namespace ideally follows the format of <random_name>-<short_unique_id> format, and **must not** reveal the root cause of the issue
+* the naming in the kubernetes manifest **must not** reveal the root cause of the issue
+* the question **must not** reveal the root cause of the issue
+* please do not use any placeholder image registry like `frontend:1.0`, use a real image registry instead
 
-<category>
-  <name>
-  {name}
-  </name>
-  <description>
-  {description}
-  </description>
-</category>
+=======
+
+Here is the idea for testing:
+
+<idea>
+{{idea}}
+</idea>
+
+Please create a scenario.
 """
 
 client = instructor.from_openai(OpenAI())
 
 
-def create_troubleshooting_question(category: Category):
-    prompt_template = jinja2.Template(prompt)
-    return client.chat.completions.create(
+def make_troubleshooting_questions(category: Category, count: int = 1):
+    idea_prompt = jinja2.Template(idea_prompt_template).render(
+        name=category.name, description=category.description, n=count
+    )
+
+    ideas = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {
                 "role": "system",
-                "content": prompt_template.render(
-                    name=category.name, description=category.description
-                ),
+                "content": idea_prompt,
             }
         ],
-        response_model=TroubleshootingQuestion,
+        response_model=list[str],
+        max_retries=5,
     )
 
+    ideas = ideas[:count]
 
-# print(create_troubleshooting_question())
+    for idea in ideas:
+        print(f"Creating issue for idea: {idea}")
+        jinja_prompt_template = jinja2.Template(prompt_template)
+        prompt = jinja_prompt_template.render(idea=idea)
 
-print(
-    yaml.dump(
-        create_troubleshooting_question(category=pod_and_container_issues).model_dump()
-    )
-)
+        yield client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt,
+                }
+            ],
+            response_model=TroubleshootingQuestion,
+            max_retries=5,
+        )
+
+
+def bootstrap(count: int = 3):
+    issues = [
+        issue
+        for category in [pod_and_container_issues]
+        for issue in make_troubleshooting_questions(category=category, count=count)
+    ]
+
+    with open("./eval/issues.yaml", "w") as f:
+        issues_dict = [issue.model_dump() for issue in issues]
+        yaml.safe_dump(issues_dict, f, default_flow_style=False, indent=4)

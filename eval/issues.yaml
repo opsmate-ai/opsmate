@@ -1,0 +1,31 @@
+-   fix_verification:
+    -   command: kubectl get pods -n app685-f3ce -l app=myapp -o jsonpath='{.items[0].status.phase}'
+        exit_code: 0
+        expected_output: Running
+    -   command: kubectl get pods -n app685-f3ce -l app=myapp -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}'
+        exit_code: 0
+        expected_output: '0'
+    issue_produced_verification:
+    -   command: kubectl -n app685-f3ce get pods -l app=myapp -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}'
+        exit_code: 0
+        expected_output: '1'
+    -   command: kubectl -n app685-f3ce describe pod -l app=myapp | grep 'Readiness
+            probe failed'
+        exit_code: 0
+        expected_output: Readiness probe failed
+    namespace: app685-f3ce
+    question: The pod within the app deployment is restarting frequently. What could
+        be the issue?
+    root_cause: The container has a misconfigured readiness probe that checks a path
+        on a different port, causing the container to be continuously restarted due
+        to failed probe checks.
+    steps_to_create_issue:
+    -   description: Apply misconfigured readiness probe deployment manifest
+        manifest: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-deployment\n\
+            \  namespace: app685-f3ce\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n\
+            \      app: myapp\n  template:\n    metadata:\n      labels:\n       \
+            \ app: myapp\n    spec:\n      containers:\n      - name: myapp\n    \
+            \    image: nginx:1.19\n        readinessProbe:\n          httpGet:\n\
+            \            path: /\n            port: 8080\n          initialDelaySeconds:\
+            \ 5\n          periodSeconds: 5\n        ports:\n        - containerPort:\
+            \ 80"

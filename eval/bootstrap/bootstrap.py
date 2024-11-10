@@ -2,7 +2,16 @@ import yaml
 from openai import OpenAI
 import instructor
 import jinja2
-from eval.types import TroubleshootingQuestion, Category, pod_and_container_issues
+from eval.types import (
+    TroubleshootingQuestion,
+    Category,
+    pod_and_container_issues,
+    VerificationStep,
+)
+import subprocess
+import tempfile
+import functools
+import time
 
 idea_prompt_template = """
 You are tasked to create some ideas for kubernetes related questionaires for SRE candidates.
@@ -157,3 +166,93 @@ def bootstrap(count: int = 3):
     with open("./eval/issues.yaml", "w") as f:
         issues_dict = [issue.model_dump() for issue in issues]
         yaml.safe_dump(issues_dict, f, default_flow_style=False, indent=4)
+
+
+def verify_issues():
+    with open("./eval/issues.yaml", "r") as f:
+        issues = [TroubleshootingQuestion(**issue) for issue in yaml.safe_load(f)]
+
+        for issue in issues:
+            print(f"Verifying issue: {issue.question}")
+            verify_issue(issue=issue)
+
+
+def with_namespace():
+    def decorator(func):
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            issue = kwargs.get("issue")
+            subprocess.run(
+                ["kubectl", "create", "namespace", issue.namespace], check=True
+            )
+            try:
+                return func(*args, **kwargs)
+            finally:
+                pass
+                # subprocess.run(
+                #     ["kubectl", "delete", "namespace", issue.namespace], check=True
+                # )
+
+        return wrapper
+
+    return decorator
+
+
+class VerificationError(Exception):
+    pass
+
+
+@with_namespace()
+def verify_issue(issue: TroubleshootingQuestion):
+    for step in issue.steps_to_create_issue:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            print(f"Running setup: {step.description}")
+            f.write(step.manifest.encode("utf-8"))
+            f.flush()
+            subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
+
+    print(f"Verifying issue: {issue.question}")
+    for verification in issue.issue_produced_verification:
+        print(f"Verifying: {verification.command}")
+
+        verified = False
+        for _ in wait_until():
+            if _verify_output(verification):
+                verified = True
+                break
+
+        if verified:
+            continue
+        else:
+            return False
+
+    return True
+
+
+def _verify_output(verification: VerificationStep):
+
+    result = subprocess.run(
+        verification.command.split(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    output = result.stdout
+    exit_code = result.returncode
+
+    if exit_code != verification.exit_code:
+        print(f"Exit code mismatch: {exit_code} != {verification.exit_code}")
+        return False
+    if verification.expected_output not in output:
+        print(f"Output mismatch: {verification.expected_output} not in {output}")
+        return False
+
+    return True
+
+
+def wait_until(timeout: int = 10, period: int = 1):
+    mustend = time.time() + timeout
+    while time.time() < mustend:
+        yield
+        time.sleep(period)

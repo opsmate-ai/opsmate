@@ -41,15 +41,19 @@ network_issues = Category(
 
 class Step(BaseModel):
     command: str = Field(description="The command to run")
-    expected_output: str = Field(description="The expected output of the command")
-    exit_code: int = Field(description="The expected exit code of the command")
+    expected_output: str | None = Field(
+        description="The expected output of the command", default=None
+    )
+    exit_code: int | None = Field(
+        description="The expected exit code of the command", default=None
+    )
 
 
 class VerificationStep(Step):
     pass
 
 
-class Step(BaseModel):
+class K8SStep(BaseModel):
     description: str = Field(description="The description of the step")
     manifest: str = Field(description="The kubernetes manifest to apply")
 
@@ -71,7 +75,7 @@ class TroubleshootingQuestion(BaseModel):
         description="The namespace to be created for the troubleshooting question",
     )
 
-    steps_to_create_issue: list[Step] = Field(
+    steps_to_create_issue: list[K8SStep] = Field(
         description="A list of steps to create the issue"
     )
     question: str = Field(description="Question to ask the candidate")

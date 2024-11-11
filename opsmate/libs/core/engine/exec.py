@@ -13,7 +13,7 @@ from queue import Queue
 logger = structlog.get_logger()
 
 
-@traceit(exclude=["client", "task"])
+@traceit(exclude=["client", "task", "stream_output"])
 def _exec_executables(
     client: Client,
     task: Task,
@@ -107,7 +107,7 @@ def exec_task(
     return resp
 
 
-@traceit(exclude=["client", "task", "historic_context"])
+@traceit(exclude=["client", "task", "historic_context", "stream_output"])
 def exec_react_task(
     client: Client,
     task: Task,
@@ -131,11 +131,6 @@ def exec_react_task(
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
-
-    # executables = []
-    # for ctx in task.spec.contexts:
-    #     for executable in ctx.all_executables():
-    #         executables.append(executable)
 
     messages = []
     messages.extend(
@@ -181,6 +176,7 @@ def exec_react_task(
                     ),
                     spec=TaskSpec(
                         instruction=f"""
+The goal: {task.spec.instruction}
 Here is the question: {output.question}
 Here is the thought: {output.thought}
 Please execute the action: {output.action}

@@ -5,7 +5,7 @@ from eval.types import TroubleshootingQuestion, QNA, VerificationStep
 import yaml
 import structlog
 import tempfile
-from opsmate.libs.core.engine.agent_executor import gen_agent_commands, AgentExecutor
+from opsmate.libs.core.engine.agent_executor import AgentExecutor
 from opsmate.libs.agents import (
     supervisor_agent,
     k8s_agent,
@@ -14,6 +14,14 @@ from opsmate.libs.core.types import Agent, ReactAnswer
 from openai import OpenAI
 import instructor
 from pydantic import BaseModel, Field
+import opentelemetry.trace as trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from openai_otel import OpenAIAutoInstrumentor
+from opsmate.libs.core.trace import traceit
+import os
 import time
 
 logger = structlog.get_logger()
@@ -22,6 +30,22 @@ logger = structlog.get_logger()
 def issues() -> list[TroubleshootingQuestion]:
     with open("./eval/q_n_a.yaml", "r") as f:
         return [QNA(**issue) for issue in yaml.safe_load(f)]
+
+
+resource = Resource(
+    attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate-eval")}
+)
+
+provider = TracerProvider(resource=resource)
+exporter = OTLPSpanExporter(
+    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+    insecure=True,
+)
+processor = BatchSpanProcessor(exporter)
+provider.add_span_processor(processor)
+trace.set_tracer_provider(provider)
+
+OpenAIAutoInstrumentor().instrument()
 
 
 @pytest.fixture
@@ -44,8 +68,8 @@ def with_env(issue: QNA):
     if issue.namespace is not None:
         subprocess.run(["kubectl", "create", "namespace", issue.namespace], check=True)
     yield
-    if issue.namespace is not None:
-        subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
+    # if issue.namespace is not None:
+    #     subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
 
     for step in issue.cleanup_steps:
         subprocess.run(step.command.split(), check=True)
@@ -54,6 +78,7 @@ def with_env(issue: QNA):
 @pytest.fixture
 def supervisor():
     return supervisor_agent(
+        extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
         agents=[
             k8s_agent(
                 react_mode=True,
@@ -109,6 +134,7 @@ Please give a score between 0 and 100 based on how similar the candidate's answe
 
 
 @pytest.mark.parametrize("issue", issues())
+@traceit(name="test_load_issues")
 def test_load_issues(
     issue: QNA,
     using_eval_cluster,

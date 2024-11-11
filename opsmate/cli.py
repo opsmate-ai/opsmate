@@ -274,7 +274,7 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
         opsmate_says("Goodbye!")
 
 
-@traceit(name="run_supervisor")
+@traceit(name="run_supervisor", exclude=["stream_output"])
 def run_supervisor(
     executor: AgentExecutor,
     supervisor: Agent,

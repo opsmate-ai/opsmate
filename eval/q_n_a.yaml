@@ -2,7 +2,7 @@
   description: "namespace question"
   question: "what are the namespaces in the cluster?"
   answer_command: "kubectl get namespaces"
-  similarity_threshold: 0.8
+  similarity_threshold: 0.6
 - type: q_n_a
   description: "pod creation question"
   question: |

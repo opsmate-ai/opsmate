@@ -75,7 +75,7 @@ def with_env(issue: QNA):
         subprocess.run(step.command.split(), check=True)
 
     if issue.namespace is not None:
-        subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
+        subprocess.run(["kubectl", "delete", "namespace", issue.namespace])
 
 
 @pytest.fixture

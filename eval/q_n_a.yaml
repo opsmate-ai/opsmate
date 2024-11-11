@@ -18,29 +18,35 @@
       expected_output: pod1-container
   cleanup_steps:
     - command: kubectl -n default delete pod pod1
-# - type: q_n_a
-#   description: "create a job"
-#   question: |
-#     Team foo needs to create a kubernetes job. This Job should run image `busybox:1.31.0` and execute `sleep 2 && echo done`.
-#     It should be in namespace `foo`, run a total of 3 times and should execute 2 runs in parallel.
+- type: q_n_a
+  description: "create a job"
+  question: |
+    Team foo needs to create a kubernetes job. This Job should run image `busybox:1.31.0` and execute `sleep 2 && echo done`.
+    It should be in namespace `foo`, run a total of 3 times and should execute 2 runs in parallel.
 
-#     Each pod created by the Job should have the label id: `awesome-job`.
-#     The job should be named `foo-new-job` and the container `foo-new-job-container`.
-#   namespace: foo
-#   answer_verification:
-#     # each pod has the label id: awesome-job
-#     - command: kubectl -n foo get pods -l id=awesome-job -o jsonpath="{.items[0].metadata.labels.id}"
-#       exit_code: 0
-#       expected_output: "awesome-job"
-#     # completions is set to 3
-#     - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.completions}"
-#       exit_code: 0
-#       expected_output: "3"
-#     # parallelism is set to 2
-#     - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.parallelism}"
-#       exit_code: 0
-#       expected_output: "2"
-#     # container name is foo-new-job-container
-#     - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.template.spec.containers[0].name}"
-#       exit_code: 0
-#       expected_output: "foo-new-job-container"
+    Each pod created by the Job should have the label id: `awesome-job`.
+    The job should be named `foo-new-job` and the container `foo-new-job-container`.
+
+    Please create the kubernetes job and verify the output.
+  namespace: foo
+  answer_verification:
+    # ensure foo-new-job is created
+    - command: kubectl -n foo get job foo-new-job
+      exit_code: 0
+      expected_output: "foo-new-job"
+    # ensure the awesome-job label is set
+    - command: kubectl -n foo get job -l id=awesome-job
+      exit_code: 0
+      expected_output: "foo-new-job"
+    # completions is set to 3
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.completions}"
+      exit_code: 0
+      expected_output: "3"
+    # parallelism is set to 2
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.parallelism}"
+      exit_code: 0
+      expected_output: "2"
+    # container name is foo-new-job-container
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.template.spec.containers[0].name}"
+      exit_code: 0
+      expected_output: "foo-new-job-container"

@@ -23,6 +23,8 @@ from openai_otel import OpenAIAutoInstrumentor
 from opsmate.libs.core.trace import traceit
 import os
 import time
+from datetime import timedelta
+from typing import Callable
 
 logger = structlog.get_logger()
 
@@ -68,8 +70,8 @@ def with_env(issue: QNA):
     if issue.namespace is not None:
         subprocess.run(["kubectl", "create", "namespace", issue.namespace], check=True)
     yield
-    # if issue.namespace is not None:
-    #     subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
+    if issue.namespace is not None:
+        subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
 
     for step in issue.cleanup_steps:
         subprocess.run(step.command.split(), check=True)
@@ -142,13 +144,7 @@ def test_load_issues(
     supervisor: Agent,
     executor: AgentExecutor,
 ):
-    # for step in issue.steps_to_create_issue:
-    #     # write the manifest to a temp file
-    #     with tempfile.NamedTemporaryFile(delete=False) as f:
-    #         f.write(step.manifest.encode("utf-8"))
-    #         f.flush()
-    #         subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
-
+    executor.clear_history(supervisor)
     supervisor_output = executor.supervise(
         supervisor,
         # f"In the {issue.namespace} namespace, {issue.question}",
@@ -177,17 +173,7 @@ def test_load_issues(
         assert score.score > issue.similarity_threshold * 100
 
     for verification in issue.answer_verification:
-        # execute the command and verify the output
-        # result = subprocess.run(
-        #     verification.command.split(),
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.STDOUT,
-        #     text=True,
-        # )
-        # assert result.returncode == verification.exit_code
-        # assert result.stdout == verification.expected_output
-        for _ in wait_until():
-            verify_output(verification)
+        wait_until(lambda: verify_output(verification), timeout=10, period=1)
 
 
 def verify_output(verification: VerificationStep):
@@ -206,13 +192,15 @@ def verify_output(verification: VerificationStep):
     return True
 
 
-def wait_until(timeout: int = 10, period: int = 1):
-    mustend = time.time() + timeout
+def wait_until(assertion: Callable, timeout: int = 10, period: int = 1):
+    mustend = time.time() + timedelta(seconds=timeout).total_seconds()
+
     while time.time() < mustend:
         try:
-            yield
+            assertion()
             return
         except AssertionError as e:
-            pass
-        time.sleep(period)
+            logger.error(f"AssertionError: {e}, retrying...")
+            time.sleep(period)
+            continue
     raise TimeoutError(f"Timeout after {timeout} seconds")

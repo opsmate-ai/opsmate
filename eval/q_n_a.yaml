@@ -1,0 +1,44 @@
+# - type: q_n_a
+#   description: "namespace question"
+#   question: "what are the namespaces in the cluster?"
+#   answer_command: "kubectl get namespaces"
+#   similarity_threshold: 0.8
+# - type: q_n_a
+#   description: "pod creation question"
+#   question: |
+#     create a single pod of image `httpd:2.4.41-alpine` in the namespace `default`.
+#     The pod should be named `pod1` and container should be named `pod1-container`.
+#   answer_verification:
+#     - command: kubectl -n default get pod pod1 -o jsonpath="{.status.phase}"
+#       exit_code: 0
+#       expected_output: Running
+#     # check the container name
+#     - command: kubectl -n default get pod pod1 -o jsonpath="{.spec.containers[0].name}"
+#       exit_code: 0
+#       expected_output: pod1-container
+- type: q_n_a
+  description: "create a job"
+  question: |
+    Team foo needs to create a kubernetes job. This Job should run image `busybox:1.31.0` and execute `sleep 2 && echo done`.
+    It should be in namespace `foo`, run a total of 3 times and should execute 2 runs in parallel.
+
+    Start the Job and check its history. Each pod created by the Job should have the label id: `awesome-job`.
+    The job should be named `foo-new-job` and the container `foo-new-job-container`.
+  namespace: foo
+  answer_verification:
+    # each pod has the label id: awesome-job
+    - command: kubectl -n foo get pods -l id=awesome-job -o jsonpath="{.items[0].metadata.labels.id}"
+      exit_code: 0
+      expected_output: "awesome-job"
+    # completions is set to 3
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.completions}"
+      exit_code: 0
+      expected_output: "3"
+    # parallelism is set to 2
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.parallelism}"
+      exit_code: 0
+      expected_output: "2"
+    # container name is foo-new-job-container
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.template.spec.containers[0].name}"
+      exit_code: 0
+      expected_output: "foo-new-job-container"

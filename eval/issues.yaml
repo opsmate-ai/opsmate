@@ -1,29 +1,41 @@
 -   fix_verification:
-    -   command: kubectl -n test-namespace-e5f1f get pods -l app=test-app -o jsonpath='{.items[0].status.phase}'
+    -   command: kubectl -n microapp-7d93f get pods -l app=backend-service -o jsonpath='{.items[0].status.containerStatuses[0].ready}'
+        exit_code: 0
+        expected_output: 'true'
+    -   command: kubectl -n microapp-7d93f get deployment backend-service -o jsonpath='{.spec.template.spec.containers[0].readinessProbe.timeoutSeconds}'
+        exit_code: 0
+        expected_output: '5'
+    issue_produced_verification:
+    -   command: kubectl get pods -n microapp-7d93f -l app=backend-service -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}'
+        exit_code: 0
+        expected_output: '2'
+    -   command: kubectl get pods -n microapp-7d93f -l app=backend-service -o jsonpath='{.items[0].status.phase}'
         exit_code: 0
         expected_output: Running
-    -   command: kubectl -n test-namespace-e5f1f describe pod -l app=test-app | grep
-            'Readiness probe'
+    -   command: kubectl -n microapp-7d93f describe pod -l app=backend-service | grep
+            -A 5 'Last State:'
         exit_code: 0
-        expected_output: 'Readiness probe failed: Get "http://10.1.0.1:80/healthy":
-            dial tcp 10.1.0.1:80: connect: connection refused'
-    issue_produced_verification:
-    -   command: kubectl -n test-namespace-e5f1f get pods -l app=test-app -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}'
-        exit_code: 0
-        expected_output: CrashLoopBackOff
-    namespace: test-namespace-e5f1f
-    question: The pod is not running properly and is in a CrashLoopBackOff state,
-        what could be the cause?
-    root_cause: The container is running a readiness probe that is failing, causing
-        the pod to crash and restart repeatedly. The probe is checking an endpoint
-        that does not return a successful response.
+        expected_output: 'Exit Code:    137'
+    namespace: microapp-7d93f
+    question: A Spring Boot application deployment is showing a CrashLoopBackOff status.
+        The application logs show that it's starting normally but pods keep restarting.
+        What could be the issue and how would you fix it?
+    root_cause: The readiness probe timeout is set to 1 second which is too short
+        for a Spring Boot application to warm up and respond to health checks. The
+        application typically needs 3-5 seconds to initialize, causing the probe to
+        fail and the container to crash. The solution is to increase the timeoutSeconds
+        value and possibly add an initialDelaySeconds to the readiness probe.
     steps_to_create_issue:
-    -   description: Create a Deployment with a container that has a failing readiness
-            probe
-        manifest: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: test-deployment\n\
-            \  namespace: test-namespace-e5f1f\nspec:\n  replicas: 1\n  selector:\n\
-            \    matchLabels:\n      app: test-app\n  template:\n    metadata:\n \
-            \     labels:\n        app: test-app\n    spec:\n      containers:\n \
-            \     - name: test-container\n        image: httpd:2.4\n        readinessProbe:\n\
-            \          httpGet:\n            path: /healthy\n            port: 80\n\
-            \          initialDelaySeconds: 2\n          periodSeconds: 5"
+    -   description: Create a deployment with Spring Boot application that has a misconfigured
+            readiness probe
+        manifest: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-service\n\
+            \  namespace: microapp-7d93f\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n\
+            \      app: backend-service\n  template:\n    metadata:\n      labels:\n\
+            \        app: backend-service\n    spec:\n      containers:\n      - name:\
+            \ backend\n        image: springguides/spring-boot-docker:latest\n   \
+            \     ports:\n        - containerPort: 8080\n        readinessProbe:\n\
+            \          httpGet:\n            path: /actuator/health\n            port:\
+            \ 8080\n          timeoutSeconds: 1\n          periodSeconds: 5\n    \
+            \    resources:\n          requests:\n            memory: \"256Mi\"\n\
+            \            cpu: \"100m\"\n          limits:\n            memory: \"\
+            512Mi\"\n            cpu: \"200m\""

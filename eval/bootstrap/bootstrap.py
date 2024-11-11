@@ -1,5 +1,7 @@
 import yaml
-from openai import OpenAI
+
+# from openai import OpenAI
+import anthropic
 import instructor
 import jinja2
 from eval.types import (
@@ -116,7 +118,14 @@ Here is the idea for testing:
 Please create a scenario.
 """
 
-client = instructor.from_openai(OpenAI())
+# client = instructor.from_openai(OpenAI())
+# client = instructor.from_anthropic(Anthropic())
+anthropic_client = instructor.from_anthropic(
+    # create=anthropic.Anthropic(),
+    client=anthropic.Anthropic(),
+)
+
+model_name = "claude-3-5-sonnet-20241022"
 
 
 def make_troubleshooting_questions(category: Category, count: int = 1):
@@ -124,15 +133,16 @@ def make_troubleshooting_questions(category: Category, count: int = 1):
         name=category.name, description=category.description, n=count
     )
 
-    ideas = client.chat.completions.create(
-        model="gpt-4o",
+    ideas = anthropic_client.messages.create(
+        model=model_name,
         messages=[
             {
-                "role": "system",
+                "role": "user",
                 "content": idea_prompt,
             }
         ],
         response_model=list[str],
+        max_tokens=4096,
         max_retries=5,
     )
 
@@ -143,14 +153,15 @@ def make_troubleshooting_questions(category: Category, count: int = 1):
         jinja_prompt_template = jinja2.Template(prompt_template)
         prompt = jinja_prompt_template.render(idea=idea)
 
-        yield client.chat.completions.create(
-            model="gpt-4o",
+        yield anthropic_client.messages.create(
+            model=model_name,
             messages=[
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": prompt,
                 }
             ],
+            max_tokens=4096,
             response_model=TroubleshootingQuestion,
             max_retries=5,
         )
@@ -183,6 +194,8 @@ def with_namespace():
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             issue = kwargs.get("issue")
+            if issue.namespace == "":
+                return
             subprocess.run(
                 ["kubectl", "create", "namespace", issue.namespace], check=True
             )
@@ -190,9 +203,9 @@ def with_namespace():
                 return func(*args, **kwargs)
             finally:
                 pass
-                # subprocess.run(
-                #     ["kubectl", "delete", "namespace", issue.namespace], check=True
-                # )
+                subprocess.run(
+                    ["kubectl", "delete", "namespace", issue.namespace], check=True
+                )
 
         return wrapper
 

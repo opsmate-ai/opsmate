@@ -39,10 +39,14 @@ network_issues = Category(
 )
 
 
-class VerificationStep(BaseModel):
+class Step(BaseModel):
     command: str = Field(description="The command to run")
     expected_output: str = Field(description="The expected output of the command")
     exit_code: int = Field(description="The expected exit code of the command")
+
+
+class VerificationStep(Step):
+    pass
 
 
 class Step(BaseModel):
@@ -79,3 +83,28 @@ class TroubleshootingQuestion(BaseModel):
         description="Commands to verify the issue has been fixed"
     )
     root_cause: str = Field(description="The root cause of the issue")
+
+
+class QNA(BaseModel):
+    description: str = Field(description="The description of the question")
+    question: str = Field(description="The question to ask the candidate")
+    answer_command: str | None = Field(
+        description="The command to verify the answer", default=None
+    )
+    answer_verification: list[VerificationStep] = Field(
+        description="Commands to verify the answer",
+        default=[],
+    )
+    similarity_threshold: float = Field(
+        description="The similarity threshold to use for the question",
+        ge=0.0,
+        le=1.0,
+        default=0.6,
+    )
+    namespace: str | None = Field(
+        description="The namespace to be created for the question",
+        default=None,
+    )
+    cleanup_steps: list[Step] = Field(
+        description="Steps to clean up the issue", default=[]
+    )

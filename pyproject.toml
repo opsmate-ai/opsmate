@@ -10,7 +10,7 @@ python = "^3.12"
 pydantic = "^2.8.2"
 openai = "^1.37.2"
 jinja2 = "^3.1.4"
-instructor = "^1.4.0"
+instructor = {extras = ["anthropic"], version = "^1.6.3"}
 structlog = "^24.4.0"
 pyyaml = "^6.0.2"
 click = "^8.1.7"

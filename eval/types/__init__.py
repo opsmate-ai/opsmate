@@ -99,6 +99,9 @@ class QNA(BaseModel):
         description="Commands to verify the answer",
         default=[],
     )
+    steps_to_create_issue: list[K8SStep] = Field(
+        description="A list of steps to create the issue", default=[]
+    )
     similarity_threshold: float = Field(
         description="The similarity threshold to use for the question",
         ge=0.0,

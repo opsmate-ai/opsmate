@@ -70,11 +70,12 @@ def with_env(issue: QNA):
     if issue.namespace is not None:
         subprocess.run(["kubectl", "create", "namespace", issue.namespace], check=True)
     yield
-    if issue.namespace is not None:
-        subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
 
     for step in issue.cleanup_steps:
         subprocess.run(step.command.split(), check=True)
+
+    if issue.namespace is not None:
+        subprocess.run(["kubectl", "delete", "namespace", issue.namespace], check=True)
 
 
 @pytest.fixture
@@ -144,6 +145,12 @@ def test_load_issues(
     supervisor: Agent,
     executor: AgentExecutor,
 ):
+    for step in issue.steps_to_create_issue:
+        # write the manifest to a temp file
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(step.manifest.encode("utf-8"))
+            f.flush()
+            subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
     executor.clear_history(supervisor)
     supervisor_output = executor.supervise(
         supervisor,
@@ -160,7 +167,7 @@ def test_load_issues(
     if issue.answer_command:
         # execute the command and verify the output
         expected_output = subprocess.run(
-            issue.answer_command.split(),
+            ["/bin/bash", "-c", issue.answer_command],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -168,7 +175,13 @@ def test_load_issues(
         score = verify_root_cause(
             question=issue.question,
             candidate_answer=output,
-            expected_output=expected_output,
+            expected_output=expected_output.stdout,
+        )
+        logger.info(
+            "output score",
+            score=score.score,
+            candidate_answer=output,
+            expected_output=expected_output.stdout,
         )
         assert score.score > issue.similarity_threshold * 100
 

@@ -61,7 +61,9 @@ Here are the namespaces available:
 A few things to keep in mind:
 - When you do `kubectl logs ...` do not log more than 50 lines.
 - When you execute `kubectl exec -it ...` use /bin/sh instead of bash.
-- Always make sure that you are using the right context and namespace. For example never do `kuebctl get po xxx` without specifying the namespace
+- Always use --show-labels for querying resources when -ojson or -oyaml are not being used.
+- When you move around a resource, always create a new one before deleting the old one.
+- Always make sure that you are using the right context and namespace. For example never do `kuebctl get po xxx` without specifying the namespace.
 """,
     ),
 )

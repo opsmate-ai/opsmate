@@ -189,10 +189,6 @@ cli_ctx = Context(
         executables=[ExecShell],
         data="""
         you are a sysadmin specialised in OS commands.
-
-        a few things to bare in mind:
-        - do not run any command that are unethical or harmful
-        - do not run any command that runs in interactive mode
         """,
     ),
 )

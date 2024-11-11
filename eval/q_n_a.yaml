@@ -150,3 +150,86 @@
       expected_output: "sleep 1d"
   cleanup_steps:
     - command: kubectl -n default delete pod pod6
+- type: q_n_a
+  description: "deploy and namespace"
+  question: |
+    The board of Team alpha decided to take over control of one e-commerce webserver from Team beta.
+    The administrator who once setup this webserver is not part of the organisation any longer. All information you could get was that the e-commerce system is called `my-happy-shop`.
+
+    Search for the correct deploy in Namespace alpha and move it to Namespace beta. It doesn't matter if you shut it down and spin it up again, it probably hasn't any customers anyways.
+
+    Please move the kubernetes deployment and verify the output.
+  namespace: alpha
+  answer_verification:
+    - command: kubectl -n beta get deploy --show-labels
+      exit_code: 0
+      expected_output: "my-happy-shop"
+  steps_to_create_issue:
+    - description: create namespaces alpha
+      manifest: |
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: alpha
+    - description: create namespace beta
+      manifest: |
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: beta
+    - description: create deployments my-happy-shop
+      manifest: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          namespace: alpha
+          name: foo-deploy
+          labels:
+            app: foo
+            id: my-happy-shop
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: foo
+          template:
+            metadata:
+              labels:
+                app: foo
+            spec:
+              containers:
+              - name: foo-container
+                image: nginx:latest
+    - description: create deployments foo-deploy-2
+      manifest: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          namespace: alpha
+          name: foo-deploy-2
+          labels:
+            app: foo
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: foo
+          template:
+            metadata:
+              labels:
+                app: foo
+            spec:
+              containers:
+              - name: foo-container
+                image: nginx:latest
+  answer_verification:
+    - command: kubectl -n beta get deploy --show-labels
+      exit_code: 0
+      expected_output: "my-happy-shop"
+    - command: kubectl -n alpha get deploy --show-labels
+  cleanup_steps:
+    - command: kubectl -n alpha delete deploy foo-deploy
+    - command: kubectl -n alpha delete deploy foo-deploy-2
+    - command: kubectl -n beta delete deploy my-happy-shop
+    - command: kubectl delete namespace alpha
+    - command: kubectl delete namespace beta

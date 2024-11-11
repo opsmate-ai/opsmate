@@ -69,10 +69,11 @@ def using_eval_cluster():
 def with_env(issue: QNA):
     if issue.namespace is not None:
         subprocess.run(["kubectl", "create", "namespace", issue.namespace], check=True)
+
     yield
 
     for step in issue.cleanup_steps:
-        subprocess.run(step.command.split(), check=True)
+        subprocess.run(step.command.split())
 
     if issue.namespace is not None:
         subprocess.run(["kubectl", "delete", "namespace", issue.namespace])

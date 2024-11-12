@@ -227,6 +227,8 @@
       exit_code: 0
       expected_output: "my-happy-shop"
     - command: kubectl -n alpha get deploy --show-labels
+      exit_code: 0
+      expected_output: ""
   cleanup_steps:
     - command: kubectl -n alpha delete deploy foo-deploy
     - command: kubectl -n alpha delete deploy foo-deploy-2

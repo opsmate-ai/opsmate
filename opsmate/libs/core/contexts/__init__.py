@@ -200,20 +200,17 @@ Use "Question" to describe the question you have been asked.
 Use "Thought" to describe your thoughts about the question you have been asked.
 Use "Action" to describe the action items you are going to take. action can be the question if the question is easy enough
 "Observation" is the result of running those action.
-If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 
-If you know the instructions of how to do something, please do not use it as an answer but instead specify it as an action. e.g.
+When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
 
-Instead of:
-
+BAD EXAMPLE:
 <react>
-answer: the name of the operating system can be found by `cat /etc/os-release`
+answer: To get the operating system name, use `cat /etc/os-release`
 </react>
 
-Do the following instead:
-
+GOOD EXAMPLE:
 <react>
-thought: the name of the operating system can be found by `cat /etc/os-release`
+thought: I can find the operating system name in the os-release file
 action: run `cat /etc/os-release`
 </react>
 

@@ -8,7 +8,7 @@ import tempfile
 from opsmate.libs.core.engine.agent_executor import AgentExecutor
 from opsmate.libs.agents import (
     supervisor_agent,
-    k8s_agent,
+    k8s_agent as _k8s_agent,
 )
 from opsmate.libs.core.types import Agent, ReactAnswer
 from openai import OpenAI
@@ -80,14 +80,15 @@ def with_env(issue: QNA):
 
 
 @pytest.fixture
-def supervisor():
+def k8s_agent():
+    return _k8s_agent(react_mode=True)
+
+
+@pytest.fixture
+def supervisor(k8s_agent):
     return supervisor_agent(
         extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-        agents=[
-            k8s_agent(
-                react_mode=True,
-            )
-        ],
+        agents=[k8s_agent],
         model="gpt-4o",
     )
 
@@ -144,6 +145,7 @@ def test_load_issues(
     using_eval_cluster,
     with_env,
     supervisor: Agent,
+    k8s_agent: Agent,
     executor: AgentExecutor,
 ):
     for step in issue.steps_to_create_issue:
@@ -153,16 +155,17 @@ def test_load_issues(
             f.flush()
             subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
     executor.clear_history(supervisor)
-    supervisor_output = executor.supervise(
-        supervisor,
-        # f"In the {issue.namespace} namespace, {issue.question}",
-        issue.question,
-    )
+    # supervisor_output = executor.supervise(
+    #     supervisor,
+    #     issue.question,
+    # )
 
-    for output in supervisor_output:
-        agent_name, output = output
-        if agent_name == "@supervisor" and isinstance(output, ReactAnswer):
-            break
+    # for output in supervisor_output:
+    #     agent_name, output = output
+    #     if agent_name == "@supervisor" and isinstance(output, ReactAnswer):
+    #         break
+    for output in executor.execute(k8s_agent, issue.question):
+        logger.info("output", output=output)
 
     # makes sure the output is similar to the root cause
     if issue.answer_command:

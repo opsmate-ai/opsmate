@@ -121,3 +121,26 @@ def test_exec_react_task_with_resolved_answer(client):
     # assert the pid has been killed
 
     assert process.poll() is not None
+
+
+def test_exec_react_task_make_sure_not_lazy(client):
+    task = Task(
+        metadata=Metadata(name="test-task"),
+        spec=TaskSpec(
+            contexts=[cli_ctx, react_ctx],
+            response_model=ReactOutput,
+            instruction="what's the current date?",
+        ),
+    )
+
+    historic_context = []
+    result = exec_react_task(client, task, historic_context=historic_context)
+    for output in result:
+        logger.info(output)
+
+    assert isinstance(output, ReactAnswer)
+
+    # test there is a ReactProcess in the historic context
+    assert any(isinstance(ctx, ReactProcess) for ctx in historic_context)
+    assert any(isinstance(ctx, Observation) for ctx in historic_context)
+    assert any(isinstance(ctx, ReactAnswer) for ctx in historic_context)

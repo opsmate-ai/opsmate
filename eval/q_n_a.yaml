@@ -1,0 +1,235 @@
+- type: q_n_a
+  description: "namespace question"
+  question: "what are the namespaces in the cluster?"
+  answer_command: "kubectl get namespaces"
+  similarity_threshold: 0.6
+- type: q_n_a
+  description: "pod creation question"
+  question: |
+    create a single pod of image `httpd:2.4.41-alpine` in the namespace `default`.
+    The pod should be named `pod1` and container should be named `pod1-container`.
+  answer_verification:
+    - command: kubectl -n default get pod pod1 -o jsonpath="{.status.phase}"
+      exit_code: 0
+      expected_output: Running
+    # check the container name
+    - command: kubectl -n default get pod pod1 -o jsonpath="{.spec.containers[0].name}"
+      exit_code: 0
+      expected_output: pod1-container
+  cleanup_steps:
+    - command: kubectl -n default delete pod pod1
+- type: q_n_a
+  description: "create a job"
+  question: |
+    Team foo needs to create a kubernetes job. This Job should run image `busybox:1.31.0` and execute `sleep 2 && echo done`.
+    It should be in namespace `foo`, run a total of 3 times and should execute 2 runs in parallel.
+
+    Each pod created by the Job should have the label id: `awesome-job`.
+    The job should be named `foo-new-job` and the container `foo-new-job-container`.
+
+    Please create the kubernetes job and verify the output.
+  namespace: foo
+  answer_verification:
+    # ensure foo-new-job is created
+    - command: kubectl -n foo get job foo-new-job
+      exit_code: 0
+      expected_output: "foo-new-job"
+    # ensure the awesome-job label is set
+    - command: kubectl -n foo get job -l id=awesome-job
+      exit_code: 0
+      expected_output: "foo-new-job"
+    # completions is set to 3
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.completions}"
+      exit_code: 0
+      expected_output: "3"
+    # parallelism is set to 2
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.parallelism}"
+      exit_code: 0
+      expected_output: "2"
+    # container name is foo-new-job-container
+    - command: kubectl -n foo get job foo-new-job -o jsonpath="{.spec.template.spec.containers[0].name}"
+      exit_code: 0
+      expected_output: "foo-new-job-container"
+- type: q_n_a
+  description: "create deploy with service account, resource requests and limits"
+  question: |
+    Team bar needs 3 Pods of image httpd:2.4-alpine, create a Deployment named bar-123 for this. The containers should be named bar-pod-123. Each container should have a memory request of 20Mi and a memory limit of 50Mi.
+
+    Team bar has its own ServiceAccount bar-sa-v2 under which the Pods should run. The Deployment should be in Namespace bar.
+
+    Please create the kubernetes deployment and verify the output.
+  namespace: bar
+  steps_to_create_issue:
+    - description: "create service account"
+      manifest: |
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          namespace: bar
+          name: bar-sa-v2
+  answer_verification:
+    - command: kubectl -n bar get deployment bar-123
+      exit_code: 0
+      expected_output: "bar-123"
+    # check replicas
+    - command: kubectl -n bar get deployment bar-123 -o jsonpath="{.spec.replicas}"
+      exit_code: 0
+      expected_output: "3"
+    # check service account
+    - command: kubectl -n bar get deployment bar-123 -o jsonpath="{.spec.template.spec.serviceAccount}"
+      exit_code: 0
+      expected_output: "bar-sa-v2"
+    # check memory requests
+    - command: kubectl -n bar get deployment bar-123 -o jsonpath="{.spec.template.spec.containers[0].resources.requests.memory}"
+      exit_code: 0
+      expected_output: "20Mi"
+    # check memory limits
+    - command: kubectl -n bar get deployment bar-123 -o jsonpath="{.spec.template.spec.containers[0].resources.limits.memory}"
+      exit_code: 0
+      expected_output: "50Mi"
+  cleanup_steps:
+    - command: kubectl -n bar delete deployment bar-123
+    - command: kubectl -n bar delete sa bar-sa-v2
+- type: q_n_a
+  description: "find out the secret data"
+  question: |
+    Team foo has its own ServiceAccount named da-sa in Namespace foo.
+    A coworker needs the token from the Secret that belongs to that ServiceAccount.
+
+    Please provide the base64 decoded token of the Secret to the coworker.
+  namespace: foo
+  steps_to_create_issue:
+    # create a service account with a service account token secret
+    - description: "create the service account"
+      manifest: |
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          namespace: foo
+          name: da-sa
+    - description: "create a secret for the service account"
+      manifest: |
+        apiVersion: v1
+        kind: Secret
+        type: kubernetes.io/service-account-token
+        metadata:
+          namespace: foo
+          name: da-sa-secret
+          annotations:
+            kubernetes.io/service-account.name: da-sa
+  answer_command: |
+    kubectl -n foo get secret da-sa-secret -o jsonpath="{.data.token}" | base64 -d
+  cleanup_steps:
+    - command: kubectl -n foo delete secret da-sa-secret
+    - command: kubectl -n foo delete sa da-sa
+- type: q_n_a
+  description: "create a pod with readiness probe"
+  question: |
+    Create a single Pod named pod6 in Namespace default of image busybox:1.31.0.
+    The Pod should have a readiness-probe executing cat /tmp/ready.
+    It should initially wait 5 and periodically wait 10 seconds.
+    This will set the container ready only if the file /tmp/ready exists.
+
+    The Pod should run the command touch `/tmp/ready && sleep 1d`, which will create the necessary file to be ready and then idles.
+    Create the Pod and confirm it starts.
+  answer_verification:
+    - command: kubectl -n default get pod pod6
+      exit_code: 0
+      expected_output: "pod6"
+    - command: kubectl -n default get pod pod6 -o jsonpath="{.status.containerStatuses[0].ready}"
+      exit_code: 0
+      expected_output: "true"
+    - command: kubectl -n default get pod pod6 -o jsonpath="{.status.phase}"
+      exit_code: 0
+      expected_output: "Running"
+    - command: kubectl -n default get pod pod6 -o jsonpath="{.spec.containers[0].command}"
+      exit_code: 0
+      expected_output: "touch /tmp/ready"
+    - command: kubectl -n default get pod pod6 -o jsonpath="{.spec.containers[0].command}"
+      exit_code: 0
+      expected_output: "sleep 1d"
+  cleanup_steps:
+    - command: kubectl -n default delete pod pod6
+- type: q_n_a
+  description: "deploy and namespace"
+  question: |
+    The board of Team alpha decided to take over control of one e-commerce webserver from Team beta.
+    The administrator who once setup this webserver is not part of the organisation any longer. All information you could get was that the e-commerce system is called `my-happy-shop`.
+
+    Search for the correct deploy in Namespace alpha and move it to Namespace beta. It doesn't matter if you shut it down and spin it up again, it probably hasn't any customers anyways.
+
+    Please move the kubernetes deployment and verify the output.
+  namespace: alpha
+  answer_verification:
+    - command: kubectl -n beta get deploy --show-labels
+      exit_code: 0
+      expected_output: "my-happy-shop"
+  steps_to_create_issue:
+    - description: create namespaces alpha
+      manifest: |
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: alpha
+    - description: create namespace beta
+      manifest: |
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: beta
+    - description: create deployments my-happy-shop
+      manifest: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          namespace: alpha
+          name: foo-deploy
+          labels:
+            app: foo
+            id: my-happy-shop
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: foo
+          template:
+            metadata:
+              labels:
+                app: foo
+            spec:
+              containers:
+              - name: foo-container
+                image: nginx:latest
+    - description: create deployments foo-deploy-2
+      manifest: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          namespace: alpha
+          name: foo-deploy-2
+          labels:
+            app: foo
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: foo
+          template:
+            metadata:
+              labels:
+                app: foo
+            spec:
+              containers:
+              - name: foo-container
+                image: nginx:latest
+  answer_verification:
+    - command: kubectl -n beta get deploy --show-labels
+      exit_code: 0
+      expected_output: "my-happy-shop"
+    - command: kubectl -n alpha get deploy --show-labels
+  cleanup_steps:
+    - command: kubectl -n alpha delete deploy foo-deploy
+    - command: kubectl -n alpha delete deploy foo-deploy-2
+    - command: kubectl -n beta delete deploy my-happy-shop
+    - command: kubectl delete namespace alpha
+    - command: kubectl delete namespace beta

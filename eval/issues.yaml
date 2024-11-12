@@ -1,0 +1,41 @@
+-   fix_verification:
+    -   command: kubectl -n microapp-7d93f get pods -l app=backend-service -o jsonpath='{.items[0].status.containerStatuses[0].ready}'
+        exit_code: 0
+        expected_output: 'true'
+    -   command: kubectl -n microapp-7d93f get deployment backend-service -o jsonpath='{.spec.template.spec.containers[0].readinessProbe.timeoutSeconds}'
+        exit_code: 0
+        expected_output: '5'
+    issue_produced_verification:
+    -   command: kubectl get pods -n microapp-7d93f -l app=backend-service -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}'
+        exit_code: 0
+        expected_output: '2'
+    -   command: kubectl get pods -n microapp-7d93f -l app=backend-service -o jsonpath='{.items[0].status.phase}'
+        exit_code: 0
+        expected_output: Running
+    -   command: kubectl -n microapp-7d93f describe pod -l app=backend-service | grep
+            -A 5 'Last State:'
+        exit_code: 0
+        expected_output: 'Exit Code:    137'
+    namespace: microapp-7d93f
+    question: A Spring Boot application deployment is showing a CrashLoopBackOff status.
+        The application logs show that it's starting normally but pods keep restarting.
+        What could be the issue and how would you fix it?
+    root_cause: The readiness probe timeout is set to 1 second which is too short
+        for a Spring Boot application to warm up and respond to health checks. The
+        application typically needs 3-5 seconds to initialize, causing the probe to
+        fail and the container to crash. The solution is to increase the timeoutSeconds
+        value and possibly add an initialDelaySeconds to the readiness probe.
+    steps_to_create_issue:
+    -   description: Create a deployment with Spring Boot application that has a misconfigured
+            readiness probe
+        manifest: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend-service\n\
+            \  namespace: microapp-7d93f\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n\
+            \      app: backend-service\n  template:\n    metadata:\n      labels:\n\
+            \        app: backend-service\n    spec:\n      containers:\n      - name:\
+            \ backend\n        image: springguides/spring-boot-docker:latest\n   \
+            \     ports:\n        - containerPort: 8080\n        readinessProbe:\n\
+            \          httpGet:\n            path: /actuator/health\n            port:\
+            \ 8080\n          timeoutSeconds: 1\n          periodSeconds: 5\n    \
+            \    resources:\n          requests:\n            memory: \"256Mi\"\n\
+            \            cpu: \"100m\"\n          limits:\n            memory: \"\
+            512Mi\"\n            cpu: \"200m\""

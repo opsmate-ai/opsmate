@@ -13,7 +13,7 @@ from queue import Queue
 logger = structlog.get_logger()
 
 
-@traceit(exclude=["client", "task"])
+@traceit(exclude=["client", "task", "stream_output", "historic_context"])
 def _exec_executables(
     client: Client,
     task: Task,
@@ -22,6 +22,7 @@ def _exec_executables(
     max_retries: int = 3,
     stream: bool = False,
     stream_output: Queue = None,
+    historic_context: List[ReactProcess | ReactAnswer] = [],
     span: Span = None,
 ):
 
@@ -31,8 +32,16 @@ def _exec_executables(
 
     messages = [
         {"role": "user", "content": prompt},
-        {"role": "user", "content": "instruction: " + task.spec.instruction},
     ]
+
+    messages.extend(
+        {"role": "user", "content": yaml.dump(ctx.model_dump())}
+        for ctx in historic_context
+    )
+
+    messages.append(
+        {"role": "user", "content": "instruction: " + task.spec.instruction}
+    )
 
     executables = []
     for ctx in task.spec.contexts:
@@ -107,12 +116,12 @@ def exec_task(
     return resp
 
 
-@traceit(exclude=["client", "task", "historic_context"])
+@traceit(exclude=["client", "task", "historic_context", "stream_output"])
 def exec_react_task(
     client: Client,
     task: Task,
     ask: bool = False,
-    historic_context: List[ReactProcess | ReactAnswer] = [],
+    historic_context: List[ReactProcess | Observation | ReactAnswer] = [],
     max_depth: int = 10,
     model: str = "gpt-4o",
     stream: bool = False,
@@ -131,11 +140,6 @@ def exec_react_task(
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
-
-    # executables = []
-    # for ctx in task.spec.contexts:
-    #     for executable in ctx.all_executables():
-    #         executables.append(executable)
 
     messages = []
     messages.extend(
@@ -168,23 +172,26 @@ def exec_react_task(
 
             messages.append(
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": yaml.dump(output.model_dump()),
                 }
             )
             if output.action is not None and len(task.spec.contexts) > 1:
                 ctx = task.spec.contexts.copy()
                 ctx.remove(react_ctx)
+
+                inst = {
+                    "goal": task.spec.instruction,
+                    "question": output.question,
+                    "thought": output.thought,
+                    "action": output.action,
+                }
                 action_task = Task(
                     metadata=Metadata(
                         name="action",
                     ),
                     spec=TaskSpec(
-                        instruction=f"""
-Here is the question: {output.question}
-Here is the thought: {output.thought}
-Please execute the action: {output.action}
-                        """,
+                        instruction=yaml.dump(inst),
                         response_model=Observation,
                         contexts=ctx,
                     ),
@@ -197,6 +204,7 @@ Please execute the action: {output.action}
                     model=model,
                     stream=stream,
                     stream_output=stream_output,
+                    historic_context=historic_context,
                 )
 
                 observation = Observation(
@@ -206,10 +214,11 @@ Please execute the action: {output.action}
 
                 yield exec_result
 
+                historic_context.append(observation)
                 if observation is not None:
                     messages.append(
                         {
-                            "role": "system",
+                            "role": "user",
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )

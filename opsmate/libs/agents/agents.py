@@ -30,7 +30,7 @@ def get_supervisor_agent_list_context(agents: List[Agent]):
         ),
         spec=ContextSpec(
             data="""
-Here is the list of agents you are supervising:
+Here is the list of agents you are supervising and delegate tasks to:
 
 <agents>
 {agents}

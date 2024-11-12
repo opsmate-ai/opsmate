@@ -18,7 +18,7 @@ from queue import Queue
 logger = structlog.get_logger()
 
 
-@traceit
+@traceit(exclude=["client"])
 def gen_agent_commands(
     client: Client, supervisor: Agent, action: str
 ) -> List[AgentCommand]:
@@ -82,7 +82,7 @@ class AgentExecutor:
         self.client = client
         self.ask = ask
 
-    @traceit
+    @traceit(exclude=["stream_output"])
     def supervise(
         self,
         supervisor: Agent,
@@ -134,11 +134,19 @@ class AgentExecutor:
             )
             yield ("@supervisor", resp.output)
             if resp.output.action is not None:
-                instruction = f"""
-Here is the question: {resp.output.question}
-Here is the thought: {resp.output.thought}
-Please execute the action: {resp.output.action}
-                        """
+                #                 instruction = f"""
+                # Here is the goal: {instruction}
+                # Here is the question: {resp.output.question}
+                # Here is the thought: {resp.output.thought}
+                # Please execute the action: {resp.output.action}
+                #                         """
+                instruction = yaml.dump(
+                    {
+                        "question": resp.output.question,
+                        "thought": resp.output.thought,
+                        "action": resp.output.action,
+                    }
+                )
                 commands = gen_agent_commands(self.client, supervisor, instruction)
                 for command in commands:
                     agent_name = (
@@ -186,7 +194,7 @@ Please execute the action: {resp.output.action}
                     {"role": "system", "content": yaml.dump(observation.model_dump())}
                 )
 
-    @traceit
+    @traceit(exclude=["stream_output"])
     def execute(
         self,
         agent: Agent,

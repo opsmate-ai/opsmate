@@ -15,7 +15,7 @@ def test_get_supervisor_agent_list_context():
     assert (
         context.spec.data
         == f"""
-Here is the list of agents you are supervising:
+Here is the list of agents you are supervising and delegate tasks to:
 
 <agents>
 - name: k8s-agent

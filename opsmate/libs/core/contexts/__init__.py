@@ -202,13 +202,24 @@ Use "Action" to describe the action items you are going to take. action can be t
 "Observation" is the result of running those action.
 If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 
-If you know the instructions of how to do something, please do not use it as an answer but instead specify it as an action.
-Returns answer if the question is meaningless.
+If you know the instructions of how to do something, please do not use it as an answer but instead specify it as an action. e.g.
+
+Instead of:
+
+<react>
+answer: the name of the operating system can be found by `cat /etc/os-release`
+</react>
+
+Do the following instead:
+
+<react>
+thought: the name of the operating system can be found by `cat /etc/os-release`
+action: run `cat /etc/os-release`
+</react>
 
 Notes you output must be in format as follows:
 
 <react>
-question: ...
 thought: ...
 action: ...
 </react>
@@ -226,7 +237,7 @@ user asks: how many cpu and memory does the machine have?
 <react>
 question: how many cpu and memory does the machine have?
 thought: i need to find out how many cpu and memory the machine has
-action: i need to find out how many cpu and memory the machine has
+action: runs `lscpu` and `free -m` to find out
 </react>
 
 <observation>
@@ -245,7 +256,7 @@ user asks: customers are reporting that the nginx service in the kubernetes clus
 <react>
 question: what is the status of the nginx service in the kubernetes cluster?
 thought: i need to check the status of the nginx service in the kubernetes cluster
-action: I need to find the nginx services and nginx deployement and check their status
+action: runs `kubectl get svc,deploy -n nginx` to check the status of the nginx service and nginx deployment
 </react>
 
 you carry out investigations and find out
@@ -255,9 +266,8 @@ nginx service is up and running just fine, the deployment is not ready
 </observation>
 
 <react>
-question: ""
-thought: "the nginx deployment does not appear to be ready, lets find out why"
-action: "I need to find out what's wrong with the nginx pod"
+thought: the nginx deployment does not appear to be ready, lets find out why
+action: runs `kubectl describe deploy nginx -n nginx` to find out what's wrong with the nginx pod
 </react>
 
 you carry out actions and find out

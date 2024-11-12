@@ -22,12 +22,15 @@ logger = structlog.get_logger()
 def gen_agent_commands(
     client: Client, supervisor: Agent, action: str
 ) -> List[AgentCommand]:
-    agents_context = []
+    agent_info = []
     for _, agent in supervisor.spec.agents.items():
-        agents_context.append(
+        agent_info.append(
             f"- name: {agent.metadata.name}\ndescription: {agent.metadata.description}\n"
         )
 
+    messages = []
+    for ctx in supervisor.status.historical_context:
+        messages.append({"role": "system", "content": yaml.dump(ctx.model_dump())})
     ctx = f"""
 based on the action, and available agents, comes up with a list of instructions for the agents to execute
 
@@ -50,7 +53,7 @@ Agent Commands:
 Now here are the available agents and action:
 
 <agents>
-{agents_context}
+{agent_info}
 </agents>
 
 <action>
@@ -59,10 +62,11 @@ Now here are the available agents and action:
 
 Come up with a list of agent commands to execute
 """
+    messages.append({"role": "user", "content": ctx})
     instructor_client = instructor.from_openai(client)
     resp = instructor_client.chat.completions.create(
         model=supervisor.spec.model,
-        messages=[{"role": "user", "content": ctx}],
+        messages=messages,
         response_model=List[AgentCommand],
     )
 
@@ -103,7 +107,12 @@ class AgentExecutor:
         )
 
         messages.append({"role": "user", "content": prompt})
-        messages.append({"role": "user", "content": "question: " + instruction})
+        messages.append(
+            {
+                "role": "user",
+                "content": yaml.dump({"question": instruction}),
+            }
+        )
 
         for _ in range(supervisor.spec.max_depth):
             resp = instructor_client.chat.completions.create(
@@ -124,7 +133,6 @@ class AgentExecutor:
 
             logger.info(
                 "ReactOutput",
-                question=resp.output.question,
                 thought=resp.output.thought,
                 action=resp.output.action,
             )
@@ -134,15 +142,8 @@ class AgentExecutor:
             )
             yield ("@supervisor", resp.output)
             if resp.output.action is not None:
-                #                 instruction = f"""
-                # Here is the goal: {instruction}
-                # Here is the question: {resp.output.question}
-                # Here is the thought: {resp.output.thought}
-                # Please execute the action: {resp.output.action}
-                #                         """
                 instruction = yaml.dump(
                     {
-                        "question": resp.output.question,
                         "thought": resp.output.thought,
                         "action": resp.output.action,
                     }

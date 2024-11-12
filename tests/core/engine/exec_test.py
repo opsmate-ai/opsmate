@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from openai import Client
 
 
-class TestOutputModel(BaseModel):
+class OutputModel(BaseModel):
     name: str
     age: int
 
@@ -22,7 +22,7 @@ def test_exec_react_task_with_non_react_output(client):
         metadata=Metadata(name="test-task"),
         spec=TaskSpec(
             contexts=[react_ctx],
-            response_model=TestOutputModel,
+            response_model=OutputModel,
             instruction="test",
         ),
     )

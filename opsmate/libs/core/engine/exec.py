@@ -39,7 +39,12 @@ def _exec_executables(
         for ctx in historic_context
     )
 
-    messages.append({"role": "user", "content": task.spec.instruction})
+    messages.append(
+        {
+            "role": "user",
+            "content": yaml.dump({"question": task.spec.instruction}),
+        }
+    )
 
     executables = []
     for ctx in task.spec.contexts:

@@ -22,7 +22,7 @@ def _exec_executables(
     max_retries: int = 3,
     stream: bool = False,
     stream_output: Queue = None,
-    historic_context: List[ReactProcess | ReactAnswer] = [],
+    historic_context: List[ReactProcess | ReactAnswer | Observation] = [],
     span: Span = None,
 ):
 
@@ -39,9 +39,7 @@ def _exec_executables(
         for ctx in historic_context
     )
 
-    messages.append(
-        {"role": "user", "content": "instruction: " + task.spec.instruction}
-    )
+    messages.append({"role": "user", "content": task.spec.instruction})
 
     executables = []
     for ctx in task.spec.contexts:
@@ -181,8 +179,6 @@ def exec_react_task(
                 ctx.remove(react_ctx)
 
                 inst = {
-                    "goal": task.spec.instruction,
-                    "question": output.question,
                     "thought": output.thought,
                     "action": output.action,
                 }

@@ -147,13 +147,11 @@ class Agent(BaseModel):
 
 
 class ReactProcess(BaseModel):
-    question: str = Field(title="question")
     thought: str = Field(title="thought")
     action: str = Field(title="action")
 
 
 class ReactAnswer(BaseModel):
-    # question: Annotated[Optional[str], Field(default=None)]
     answer: str = Field(title="answer")
 
 

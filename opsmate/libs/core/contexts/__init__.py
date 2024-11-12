@@ -208,7 +208,6 @@ Returns answer if the question is meaningless.
 Notes you output must be in format as follows:
 
 <react>
-question: ...
 thought: ...
 action: ...
 </react>
@@ -226,7 +225,7 @@ user asks: how many cpu and memory does the machine have?
 <react>
 question: how many cpu and memory does the machine have?
 thought: i need to find out how many cpu and memory the machine has
-action: i need to find out how many cpu and memory the machine has
+action: runs `lscpu` and `free -m` to find out
 </react>
 
 <observation>
@@ -245,7 +244,7 @@ user asks: customers are reporting that the nginx service in the kubernetes clus
 <react>
 question: what is the status of the nginx service in the kubernetes cluster?
 thought: i need to check the status of the nginx service in the kubernetes cluster
-action: I need to find the nginx services and nginx deployement and check their status
+action: runs `kubectl get svc,deploy -n nginx` to check the status of the nginx service and nginx deployment
 </react>
 
 you carry out investigations and find out
@@ -255,9 +254,8 @@ nginx service is up and running just fine, the deployment is not ready
 </observation>
 
 <react>
-question: ""
-thought: "the nginx deployment does not appear to be ready, lets find out why"
-action: "I need to find out what's wrong with the nginx pod"
+thought: the nginx deployment does not appear to be ready, lets find out why
+action: runs `kubectl describe deploy nginx -n nginx` to find out what's wrong with the nginx pod
 </react>
 
 you carry out actions and find out

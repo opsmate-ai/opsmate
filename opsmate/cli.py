@@ -319,7 +319,6 @@ def run_supervisor(
                     show_header=False,
                     show_lines=True,
                 )
-                table.add_row("Question", output.question)
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)
@@ -370,7 +369,6 @@ def run_supervisor(
                     show_header=False,
                     show_lines=True,
                 )
-                table.add_row("Question", output.question)
                 table.add_row("Thought", output.thought)
                 table.add_row("Action", output.action)
                 console.print(table)

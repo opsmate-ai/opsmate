@@ -124,7 +124,6 @@ class AgentExecutor:
 
             logger.info(
                 "ReactOutput",
-                question=resp.output.question,
                 thought=resp.output.thought,
                 action=resp.output.action,
             )
@@ -134,15 +133,8 @@ class AgentExecutor:
             )
             yield ("@supervisor", resp.output)
             if resp.output.action is not None:
-                #                 instruction = f"""
-                # Here is the goal: {instruction}
-                # Here is the question: {resp.output.question}
-                # Here is the thought: {resp.output.thought}
-                # Please execute the action: {resp.output.action}
-                #                         """
                 instruction = yaml.dump(
                     {
-                        "question": resp.output.question,
                         "thought": resp.output.thought,
                         "action": resp.output.action,
                     }

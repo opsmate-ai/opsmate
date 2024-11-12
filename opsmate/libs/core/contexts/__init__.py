@@ -202,8 +202,20 @@ Use "Action" to describe the action items you are going to take. action can be t
 "Observation" is the result of running those action.
 If you know the answer you can skip the Thought and action steps, and output the Answer directly.
 
-If you know the instructions of how to do something, please do not use it as an answer but instead specify it as an action.
-Returns answer if the question is meaningless.
+If you know the instructions of how to do something, please do not use it as an answer but instead specify it as an action. e.g.
+
+Instead of:
+
+<react>
+answer: the name of the operating system can be found by `cat /etc/os-release`
+</react>
+
+Do the following instead:
+
+<react>
+thought: the name of the operating system can be found by `cat /etc/os-release`
+action: run `cat /etc/os-release`
+</react>
 
 Notes you output must be in format as follows:
 

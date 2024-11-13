@@ -23,6 +23,7 @@ class CapabilityType(str, Enum):
 
 class Metadata(BaseModel):
     name: str = Field(title="name")
+    namespace: str = Field(title="namespace", default="default")
     labels: Dict[str, str] = Field(title="labels", default={})
     description: str = Field(title="description", default="")
 
@@ -195,3 +196,15 @@ class SupervisorSpec(BaseModel):
     max_depth: int = Field(title="max depth", default=10)
     contexts: List[Context] = Field(title="contexts")
     agents: List[Agent] = Field(title="agents")
+
+
+class DocumentIngestion(BaseModel):
+    metadata: Metadata = Field(title="metadata")
+    spec: DocumentIngestionSpec = Field(title="spec")
+
+
+class DocumentIngestionSpec(BaseModel):
+    local_path: str = Field(
+        title="local path",
+        description="absolute path to the directory to ingest, glob patterns are supported",
+    )

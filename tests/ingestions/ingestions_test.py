@@ -1,5 +1,5 @@
 from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Metadata
-from opsmate.libs.ingestions import DocumentIngester
+from opsmate.libs.ingestions import DocumentIngester, runbooks_table, Runbook
 import os
 import structlog
 from opsmate.libs.core.trace import traceit
@@ -26,8 +26,8 @@ provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
 
-@traceit(name="test_document_ingestion")
-def test_document_ingestion(span: Span = None):
+@traceit(name="test_document_discovery")
+def test_document_discovery(span: Span = None):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     full_path = os.path.join(current_dir, "fixtures/*.md")
 
@@ -37,7 +37,10 @@ def test_document_ingestion(span: Span = None):
     )
 
     ingester = DocumentIngester()
-    docs = [doc for doc in ingester.document_ingestion(ingestion)]
+    docs = []
+    for doc in ingester.document_discovery(ingestion):
+        for d in ingester.split_text(doc):
+            docs.append(d)
 
     assert len(docs) == 5
     assert "heading 1" in docs[0].metadata
@@ -61,3 +64,24 @@ def test_document_ingestion(span: Span = None):
     assert "heading 1" in docs[4].metadata
     assert "heading 2" in docs[4].metadata
     assert "nginx-service" in docs[4].page_content
+
+
+@traceit(name="test_document_ingestion")
+def test_document_ingestion(span: Span = None):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    full_path = os.path.join(current_dir, "fixtures/*.md")
+
+    ingestion = DocumentIngestion(
+        metadata=Metadata(name="test"),
+        spec=DocumentIngestionSpec(local_path=full_path),
+    )
+
+    ingester = DocumentIngester()
+    ingester.document_ingestion(ingestion)
+
+    runbooks = runbooks_table.search("kubernetes").limit(1).to_pydantic(Runbook)
+    assert len(runbooks) == 1
+
+    assert runbooks[0].filename.endswith("fixtures/TEST.md")
+    assert "test 3" in runbooks[0].heading
+    assert "nginx-service" in runbooks[0].content

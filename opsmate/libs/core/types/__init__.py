@@ -29,9 +29,15 @@ class Metadata(BaseModel):
 
 
 class Executable(BaseModel):
+    @property
+    def streamable(self):
+        return False
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError("Executable must implement __call__")
+
+    def stream(self, *args, **kwargs):
+        raise NotImplementedError("Executable can optionally implement stream")
 
 
 class ContextSpec(BaseModel):
@@ -52,19 +58,6 @@ class Context(BaseModel):
         for ctx in self.spec.contexts:
             yield from ctx.all_executables()
         yield from self.spec.executables
-
-
-# class TaskState(str, Enum):
-#     PENDING = "pending"
-#     RUNNING = "running"
-#     SUCCESS = "success"
-#     FAILED = "failed"
-
-
-# class TaskStatus(BaseModel):
-#     state: TaskState = Field(title="state")
-#     result: Optional[T] = Field(title="result", default=None)
-#     error: str = Field(title="error", default="")
 
 
 class TaskSpecTemplate(BaseModel):
@@ -164,18 +157,58 @@ ReactContext = List[ReactProcess | ReactAnswer]
 
 
 class ExecOutput(BaseModel):
+    def table_title(self):
+        raise NotImplementedError("ExecOutput must implement table_title")
+
+    def table_column_names(self):
+        raise NotImplementedError("ExecOutput must implement table_column_names")
+
+    def table_columns(self):
+        return NotADirectoryError("ExecOutput must implement table_columns")
+
+
+class ShellExecOutput(ExecOutput):
+    command: str = Field(title="command")
     stdout: str = Field(title="stdout")
     stderr: str = Field(title="stderr")
     exit_code: int = Field(title="exit_code")
 
+    def table_title(self):
+        return "Command Execution"
 
-class ExecCall(BaseModel):
-    command: str
-    output: ExecOutput
+    def table_column_names(self):
+        return [
+            ("Command", "cyan"),
+            ("Stdout", "green"),
+            ("Stderr", "red"),
+            ("Exit Code", "magenta"),
+        ]
+
+    def table_columns(self):
+        return [
+            self.command,
+            self.stdout,
+            self.stderr,
+            str(self.exit_code),
+        ]
 
 
-class ExecResult(BaseModel):
-    calls: List[ExecCall]
+class SearchOutput(ExecOutput):
+    results: list[str] = Field(title="searchresults")
+
+    def table_title(self):
+        return "Search Results"
+
+    def table_column_names(self):
+        return [("Results", "cyan")]
+
+
+class ExecResults(BaseModel):
+    results: List[ExecOutput] = Field(title="results")
+
+    # xxx: it's a hack
+    def model_dump(self):
+        return [result.model_dump() for result in self.results]
 
 
 class Observation(BaseModel):

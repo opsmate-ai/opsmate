@@ -3,7 +3,7 @@ from opsmate.libs.core.types import (
     ContextSpec,
     Metadata,
     Executable,
-    ExecOutput,
+    ShellExecOutput,
 )
 from opsmate.libs.knowledge import runbooks_table, Runbook
 from pydantic import Field
@@ -30,13 +30,17 @@ class ExecShell(Executable):
 
     command: str = Field(title="command to execute")
 
+    @property
+    def streamable(self):
+        return True
+
     @traceit(name="exec_shell")
     def __call__(
         self,
         ask: bool = False,
         stream: bool = False,
         span: Span = None,
-    ) -> ExecOutput:
+    ):
         """
         Execute a shell script
 
@@ -50,8 +54,11 @@ class ExecShell(Executable):
         logger.info("ExecShell", command=self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
-                return ExecOutput(
-                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                return ShellExecOutput(
+                    command=self.command,
+                    stdout="",
+                    stderr="Execution cancelled by user",
+                    exit_code=1,
                 )
 
         process = subprocess.Popen(
@@ -62,12 +69,14 @@ class ExecShell(Executable):
 
         logger.info(
             "ExecShell.result",
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
         )
 
-        return ExecOutput(
+        return ShellExecOutput(
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
@@ -78,7 +87,7 @@ class ExecShell(Executable):
         self,
         ask: bool = False,
         span: Span = None,
-    ) -> Generator[ExecOutput, None, None]:
+    ) -> Generator[dict, None, None]:
         """
         Execute a shell script
 
@@ -92,8 +101,11 @@ class ExecShell(Executable):
         logger.info("ExecShell", command=self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
-                return ExecOutput(
-                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                return ShellExecOutput(
+                    command=self.command,
+                    stdout="",
+                    stderr="Execution cancelled by user",
+                    exit_code=1,
                 )
 
         process = subprocess.Popen(
@@ -132,7 +144,8 @@ class ExecShell(Executable):
             try:
                 out = stdout_queue.get_nowait()
                 stdout += out
-                yield ExecOutput(
+                yield ShellExecOutput(
+                    command=self.command,
                     stdout=out.decode().strip(),
                     stderr="",
                     exit_code=-1,
@@ -143,7 +156,8 @@ class ExecShell(Executable):
             try:
                 err = stderr_queue.get_nowait()
                 stderr += err
-                yield ExecOutput(
+                yield ShellExecOutput(
+                    command=self.command,
                     stdout="",
                     stderr=err.decode().strip(),
                     exit_code=-1,
@@ -156,7 +170,8 @@ class ExecShell(Executable):
 
         process.wait()
 
-        yield ExecOutput(
+        yield ShellExecOutput(
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
@@ -170,6 +185,10 @@ class KnowledgeBaseQuery(Executable):
 
     query: str = Field(title="question to ask")
 
+    @property
+    def streamable(self):
+        return False
+
     @traceit(name="knowledge_query")
     def __call__(
         self,
@@ -177,24 +196,7 @@ class KnowledgeBaseQuery(Executable):
         span: Span = None,
         limit: int = 3,
     ):
-        runbooks = runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
-        return runbooks
-
-    @traceit(name="knowledge_base_query_stream")
-    def stream(
-        self,
-        ask: bool = False,
-        span: Span = None,
-        limit: int = 3,
-    ) -> Generator[ExecOutput, None, None]:  # xxx: questionable need refactoring
-        for runbook in (
-            runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
-        ):
-            yield ExecOutput(
-                stdout=runbook.content,
-                stderr="",
-                exit_code=0,
-            )
+        return runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
 
 
 built_in_helpers = {
@@ -224,7 +226,7 @@ cli_ctx = Context(
         contexts=[os_ctx],
         executables=[ExecShell],
         data="""
-        you are a sysadmin specialised in OS commands.
+        you are a sysadmin specialised in sysadmin task and problem solving.
         """,
     ),
 )

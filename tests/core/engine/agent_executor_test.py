@@ -9,7 +9,7 @@ from opsmate.libs.agents import (
     AgentCommand,
 )
 from opsmate.libs.core.types import (
-    ExecResult,
+    ExecResults,
     ReactAnswer,
     ReactProcess,
     ExecOutput,
@@ -38,7 +38,7 @@ def openai_client():
 
 @pytest.fixture
 def model():
-    return "gpt-4o-mini"
+    return "gpt-4o"
 
 
 def test_gen_agent_command_single_agent(openai_client, model):
@@ -67,14 +67,10 @@ def test_gen_agent_command_multiple_agents(openai_client, model):
 def test_executor_execute(openai_client, model):
     executor = AgentExecutor(client=openai_client)
     agent = cli_agent(model=model)
-    result = executor.execute(
+    output = executor.execute(
         agent=agent, instruction="what's the name of the OS distro"
     )
-    assert len(result.calls) == 1
-    exec_call = result.calls[0]
-    assert exec_call.command != ""
 
-    output = exec_call.output
     assert output.exit_code == 0
     assert output.stdout != ""
     assert output.stderr == ""
@@ -108,7 +104,7 @@ def test_executor_execute_react(openai_client, model):
 
     last = None
     for chunk in output:
-        assert isinstance(chunk, (ReactAnswer, ReactProcess, ExecResult))
+        assert isinstance(chunk, (ReactAnswer, ReactProcess, ExecResults))
         last = chunk
 
     assert isinstance(last, ReactAnswer)
@@ -127,7 +123,7 @@ def test_executor_execute_react_stream(openai_client, model):
     )
 
     for chunk in output:
-        assert isinstance(chunk, (ReactAnswer, ReactProcess, ExecResult))
+        assert isinstance(chunk, (ReactAnswer, ReactProcess, ExecResults))
 
     assert queue.qsize() > 0
     while not queue.empty():
@@ -236,7 +232,5 @@ def test_supervisor_agent_reasoning(openai_client, math_agent, model):
         elif agent_name == "@math-agent":
             assert isinstance(
                 output,
-                (AgentCommand, ReactAnswer, ReactProcess, ExecResult, Observation),
+                (AgentCommand, ReactAnswer, ReactProcess, ExecResults, Observation),
             )
-
-        # assert isinstance(output, (ReactAnswer, ReactProcess, ExecResult))

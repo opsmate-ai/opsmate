@@ -144,3 +144,19 @@ def test_exec_react_task_make_sure_not_lazy(client):
     assert any(isinstance(ctx, ReactProcess) for ctx in historic_context)
     assert any(isinstance(ctx, Observation) for ctx in historic_context)
     assert any(isinstance(ctx, ReactAnswer) for ctx in historic_context)
+
+
+# def test_exec_react_task_with_knowledge_base_query(client):
+#     task = Task(
+#         metadata=Metadata(name="test-task"),
+#         spec=TaskSpec(
+#             contexts=[cli_ctx, react_ctx],
+#             response_model=ReactOutput,
+#             instruction="how to install xyz based on the knowledge base?",
+#         ),
+#     )
+
+#     historic_context = []
+#     result = exec_react_task(client, task, historic_context=historic_context)
+#     for output in result:
+#         logger.info(output)

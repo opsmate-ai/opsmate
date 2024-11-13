@@ -1,5 +1,5 @@
 from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Metadata
-from opsmate.libs.ingestions import DocumentIngester, runbooks_table, Runbook
+from opsmate.libs.knowledge import DocumentIngester, runbooks_table, Runbook
 import os
 import structlog
 

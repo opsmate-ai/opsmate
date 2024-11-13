@@ -2,32 +2,11 @@ from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Me
 from opsmate.libs.ingestions import DocumentIngester, runbooks_table, Runbook
 import os
 import structlog
-from opsmate.libs.core.trace import traceit
-from opentelemetry.trace import Span
-import opentelemetry.trace as trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 logger = structlog.get_logger()
 
-resource = Resource(
-    attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate-eval")}
-)
 
-provider = TracerProvider(resource=resource)
-exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-processor = BatchSpanProcessor(exporter)
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
-
-
-@traceit(name="test_document_discovery")
-def test_document_discovery(span: Span = None):
+def test_document_discovery():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     full_path = os.path.join(current_dir, "fixtures/*.md")
 
@@ -66,8 +45,7 @@ def test_document_discovery(span: Span = None):
     assert "nginx-service" in docs[4].page_content
 
 
-@traceit(name="test_document_ingestion")
-def test_document_ingestion(span: Span = None):
+def test_document_ingestion():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     full_path = os.path.join(current_dir, "fixtures/*.md")
 

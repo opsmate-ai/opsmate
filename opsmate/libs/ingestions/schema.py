@@ -5,6 +5,7 @@ from pydantic import Field
 from opsmate.libs.config import config
 
 db = lancedb.connect(config.embeddings_db_path)
+
 func = (
     get_registry()
     .get(config.embedding_registry_name)

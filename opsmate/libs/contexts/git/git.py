@@ -42,6 +42,9 @@ class ExecGit(ExecShell):
 
     @traceit(name="exec_git_stream")
     def stream(self, *args, **kwargs):
+        if not self.command.startswith("git"):
+            self.command = f"git {self.command}"
+
         return super().stream(*args, **kwargs)
 
 

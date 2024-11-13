@@ -5,10 +5,12 @@ from opsmate.libs.core.types import (
     Executable,
     ExecOutput,
 )
-from pydantic import Field, BaseModel
+from opsmate.libs.knowledge import runbooks_table, Runbook
+from pydantic import Field
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
 from typing import Generator
+
 import structlog
 
 logger = structlog.get_logger()
@@ -161,6 +163,40 @@ class ExecShell(Executable):
         )
 
 
+class KnowledgeBaseQuery(Executable):
+    """
+    Query the knowledge base
+    """
+
+    query: str = Field(title="question to ask")
+
+    @traceit(name="knowledge_query")
+    def __call__(
+        self,
+        ask: bool = False,
+        span: Span = None,
+        limit: int = 3,
+    ):
+        runbooks = runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
+        return runbooks
+
+    @traceit(name="knowledge_base_query_stream")
+    def stream(
+        self,
+        ask: bool = False,
+        span: Span = None,
+        limit: int = 3,
+    ) -> Generator[ExecOutput, None, None]:  # xxx: questionable need refactoring
+        for runbook in (
+            runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
+        ):
+            yield ExecOutput(
+                stdout=runbook.content,
+                stderr="",
+                exit_code=0,
+            )
+
+
 built_in_helpers = {
     "get_current_os": CurrentOS(),
 }
@@ -201,19 +237,6 @@ Use "Thought" to describe your thoughts about the question you have been asked.
 Use "Action" to describe the action items you are going to take. action can be the question if the question is easy enough
 "Observation" is the result of running those action.
 
-When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
-
-BAD EXAMPLE:
-<react>
-answer: To get the operating system name, use `cat /etc/os-release`
-</react>
-
-GOOD EXAMPLE:
-<react>
-thought: I can find the operating system name in the os-release file
-action: run `cat /etc/os-release`
-</react>
-
 Notes you output must be in format as follows:
 
 <react>
@@ -225,6 +248,19 @@ Or
 
 <react>
 answer: ...
+</react>
+
+When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
+
+BAD EXAMPLE:
+<react>
+answer: To get the operating system name, use `cat /etc/os-release`
+</react>
+
+GOOD EXAMPLE:
+<react>
+thought: I can find the operating system name in the os-release file
+action: run `cat /etc/os-release`
 </react>
 
 Example 1:

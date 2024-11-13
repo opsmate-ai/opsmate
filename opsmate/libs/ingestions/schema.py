@@ -2,10 +2,14 @@ import lancedb
 from lancedb.pydantic import LanceModel, Vector
 from lancedb.embeddings import get_registry
 from pydantic import Field
+from opsmate.libs.config import config
 
-
-db = lancedb.connect("./data/opsmate-embeddings")
-func = get_registry().get("openai").create(name="text-embedding-ada-002")
+db = lancedb.connect(config.embeddings_db_path)
+func = (
+    get_registry()
+    .get(config.embedding_registry_name)
+    .create(name=config.embedding_model_name)
+)
 
 
 class Runbook(LanceModel):

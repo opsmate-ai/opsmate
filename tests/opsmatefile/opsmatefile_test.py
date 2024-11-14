@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 from opsmate.libs.opsmatefile import load_opsmatefile
-from opsmate.libs.core.types import Context, Supervisor, Agent
+from opsmate.libs.core.types import Context, Supervisor, Agent, DocumentIngestion
 
 fixture = """
 kind: Context
@@ -47,6 +47,13 @@ spec:
   contexts:
   - sre-manager
   - the-infra-repo
+---
+kind: DocumentIngestion
+apiVersion: v1
+metadata:
+  name: runbooks
+spec:
+  local_path: ./runbooks
 """
 
 
@@ -113,3 +120,7 @@ def test_load_opsmatefile(opsmatefile):
     assert "react" in context_names
     assert "sre-manager" in context_names
     assert "the-infra-repo" in context_names
+
+    assert "runbooks" in world.document_ingestions
+    assert isinstance(world.document_ingestions["runbooks"], DocumentIngestion)
+    assert world.document_ingestions["runbooks"].spec.local_path == "./runbooks"

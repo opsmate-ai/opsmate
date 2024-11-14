@@ -12,7 +12,7 @@ from opsmate.libs.core.types import (
 from opsmate.libs.core.engine.exec import exec_react_task
 from opsmate.libs.core.contexts import react_ctx, os_ctx, cli_ctx
 from pydantic import BaseModel
-from opsmate.libs.knowledge.schema import Runbook, runbooks_table
+from opsmate.libs.knowledge.schema import Runbook, get_runbooks_table
 from openai import Client
 import structlog
 import subprocess
@@ -157,7 +157,7 @@ def test_exec_react_task_with_knowledge_base_query(client):
         ),
     )
 
-    runbooks_table.add(
+    get_runbooks_table().add(
         [
             {
                 "filename": "xyz-manual.txt",

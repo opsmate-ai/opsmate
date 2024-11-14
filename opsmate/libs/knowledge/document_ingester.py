@@ -1,7 +1,7 @@
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from opentelemetry import trace
 from opsmate.libs.core.types import DocumentIngestion
-from .schema import runbooks_table as _runbooks_table
+from .schema import get_runbooks_table
 from lancedb.table import Table
 from langchain_core.documents import Document
 import glob
@@ -10,8 +10,12 @@ tracer = trace.get_tracer(__name__)
 
 
 class DocumentIngester:
-    def __init__(self, table: Table = _runbooks_table):
-        self.runbooks_table = table
+    def __init__(self, table: Table = None):
+        if table is None:
+            self.runbooks_table = get_runbooks_table()
+        else:
+            self.runbooks_table = table
+
         self.text_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=[
                 ("#", "heading 1"),

@@ -6,7 +6,7 @@ from opsmate.libs.core.types import (
     ShellExecOutput,
     SearchOutput,
 )
-from opsmate.libs.knowledge import runbooks_table, Runbook
+from opsmate.libs.knowledge import get_runbooks_table, Runbook
 from pydantic import Field
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
@@ -199,7 +199,9 @@ class KnowledgeBaseQuery(Executable):
     ):
         span.set_attribute("query", self.query)
 
-        runbooks = runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
+        runbooks = (
+            get_runbooks_table().search(self.query).limit(limit).to_pydantic(Runbook)
+        )
 
         results = [
             {

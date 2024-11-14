@@ -3,8 +3,32 @@ from lancedb.pydantic import LanceModel, Vector
 from lancedb.embeddings import get_registry
 from pydantic import Field
 from opsmate.libs.config import config
+import threading
 
-db = lancedb.connect(config.embeddings_db_path)
+
+class DatabaseConnection:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __init__(self):
+        if DatabaseConnection._instance is not None:
+            raise RuntimeError("use get_instance() to get the instance")
+        self.db = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls.__new__(cls)
+                    cls._instance.db = lancedb.connect(config.embeddings_db_path)
+                    cls.init_db(cls._instance.db)
+        return cls._instance.db
+
+    @classmethod
+    def init_db(cls, db: lancedb.DBConnection):
+        db.create_table("runbooks", schema=Runbook, mode="overwrite")
+
 
 func = (
     get_registry()
@@ -20,4 +44,10 @@ class Runbook(LanceModel):
     vector: Vector(func.ndims()) = func.VectorField()
 
 
-runbooks_table = db.create_table("runbooks", schema=Runbook, mode="overwrite")
+def get_runbooks_table():
+    """
+    Get the runbooks table
+    """
+
+    db = DatabaseConnection.get_instance()
+    return db.open_table("runbooks")

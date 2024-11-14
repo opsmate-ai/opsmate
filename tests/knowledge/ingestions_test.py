@@ -1,5 +1,5 @@
 from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Metadata
-from opsmate.libs.knowledge import DocumentIngester, runbooks_table, Runbook
+from opsmate.libs.knowledge import DocumentIngester, get_runbooks_table, Runbook
 import os
 import structlog
 
@@ -57,7 +57,7 @@ def test_document_ingestion():
     ingester = DocumentIngester()
     ingester.document_ingestion(ingestion)
 
-    runbooks = runbooks_table.search("kubernetes").limit(1).to_pydantic(Runbook)
+    runbooks = get_runbooks_table().search("kubernetes").limit(1).to_pydantic(Runbook)
     assert len(runbooks) == 1
 
     assert runbooks[0].filename.endswith("fixtures/TEST.md")

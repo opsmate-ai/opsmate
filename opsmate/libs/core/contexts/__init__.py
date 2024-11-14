@@ -4,13 +4,14 @@ from opsmate.libs.core.types import (
     Metadata,
     Executable,
     ShellExecOutput,
+    SearchOutput,
 )
 from opsmate.libs.knowledge import runbooks_table, Runbook
 from pydantic import Field
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
 from typing import Generator
-
+import yaml
 import structlog
 
 logger = structlog.get_logger()
@@ -196,7 +197,24 @@ class KnowledgeBaseQuery(Executable):
         span: Span = None,
         limit: int = 3,
     ):
-        return runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
+        span.set_attribute("query", self.query)
+
+        runbooks = runbooks_table.search(self.query).limit(limit).to_pydantic(Runbook)
+
+        results = [
+            {
+                "filename": runbook.filename,
+                "content": runbook.content,
+            }
+            for runbook in runbooks
+        ]
+        span.set_attributes(
+            {
+                "results.length": len(runbooks),
+                "results": results,
+            }
+        )
+        return SearchOutput(results=results)
 
 
 built_in_helpers = {
@@ -224,7 +242,7 @@ cli_ctx = Context(
     spec=ContextSpec(
         params={},
         contexts=[os_ctx],
-        executables=[ExecShell],
+        executables=[ExecShell, KnowledgeBaseQuery],
         data="""
         you are a sysadmin specialised in sysadmin task and problem solving.
         """,

@@ -12,6 +12,7 @@ from opsmate.libs.core.types import (
 from opsmate.libs.core.engine.exec import exec_react_task
 from opsmate.libs.core.contexts import react_ctx, os_ctx, cli_ctx
 from pydantic import BaseModel
+from opsmate.libs.knowledge.schema import Runbook, runbooks_table
 from openai import Client
 import structlog
 import subprocess
@@ -146,17 +147,43 @@ def test_exec_react_task_make_sure_not_lazy(client):
     assert any(isinstance(ctx, ReactAnswer) for ctx in historic_context)
 
 
-# def test_exec_react_task_with_knowledge_base_query(client):
-#     task = Task(
-#         metadata=Metadata(name="test-task"),
-#         spec=TaskSpec(
-#             contexts=[cli_ctx, react_ctx],
-#             response_model=ReactOutput,
-#             instruction="how to install xyz based on the knowledge base?",
-#         ),
-#     )
+def test_exec_react_task_with_knowledge_base_query(client):
+    task = Task(
+        metadata=Metadata(name="test-task"),
+        spec=TaskSpec(
+            contexts=[cli_ctx, react_ctx],
+            response_model=ReactOutput,
+            instruction="temporarily store the xyz parameter based on the knowledge base?",
+        ),
+    )
 
-#     historic_context = []
-#     result = exec_react_task(client, task, historic_context=historic_context)
-#     for output in result:
-#         logger.info(output)
+    runbooks_table.add(
+        [
+            {
+                "filename": "xyz-manual.txt",
+                "heading": "how to store xyz",
+                "content": """
+                ```bash
+                echo "xyz" > /tmp/xyz
+                ```
+                """,
+            }
+        ]
+    )
+    historic_context = []
+    result = exec_react_task(client, task, historic_context=historic_context)
+
+    for output in result:
+        logger.info(output)
+
+    assert isinstance(output, ReactAnswer)
+
+    # find observation in the historic_context
+    found_observation = False
+    for ctx in historic_context:
+        if isinstance(ctx, Observation):
+            found_observation = True
+            assert "echo" in ctx.observation
+            assert "/tmp/xyz" in ctx.observation
+            break
+    assert found_observation

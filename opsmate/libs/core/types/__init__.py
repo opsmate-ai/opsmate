@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 from enum import Enum
 from typing import Dict, Optional, Type, TypeVar, Iterable, List, Callable
-
+from pydantic import ConfigDict
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -194,7 +194,9 @@ class ShellExecOutput(ExecOutput):
 
 
 class SearchOutput(ExecOutput):
-    results: list[str] = Field(title="searchresults")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    results: list[Dict[str, any]] = Field(title="searchresults")
 
     def table_title(self):
         return "Search Results"

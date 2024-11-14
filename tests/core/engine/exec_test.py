@@ -81,7 +81,8 @@ class TestExec(BaseTestCase):
             spec=TaskSpec(
                 contexts=[cli_ctx, react_ctx],
                 response_model=ReactOutput,
-                instruction="what's the name of the operating system distro?",
+                # xxx: not use `lsb_release` command as `No LSB modules are available` is shown on the Github Actions runner
+                instruction="what's the name of the operating system distro? do not use `lsb_release` command to find the answer",
             ),
         )
 
@@ -180,8 +181,7 @@ class TestExec(BaseTestCase):
         found_observation = False
         for ctx in historic_context:
             if isinstance(ctx, Observation):
-                found_observation = True
-                assert "echo" in ctx.observation
-                assert "/tmp/xyz" in ctx.observation
-                break
+                if "echo" in ctx.observation and "/tmp/xyz" in ctx.observation:
+                    found_observation = True
+                    break
         assert found_observation

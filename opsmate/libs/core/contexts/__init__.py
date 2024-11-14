@@ -3,9 +3,11 @@ from opsmate.libs.core.types import (
     ContextSpec,
     Metadata,
     Executable,
-    ExecOutput,
+    ShellExecOutput,
+    SearchOutput,
 )
-from pydantic import Field, BaseModel
+from opsmate.libs.knowledge import get_runbooks_table, Runbook
+from pydantic import Field
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
 from typing import Generator
@@ -28,13 +30,17 @@ class ExecShell(Executable):
 
     command: str = Field(title="command to execute")
 
+    @property
+    def streamable(self):
+        return True
+
     @traceit(name="exec_shell")
     def __call__(
         self,
         ask: bool = False,
         stream: bool = False,
         span: Span = None,
-    ) -> ExecOutput:
+    ):
         """
         Execute a shell script
 
@@ -48,8 +54,11 @@ class ExecShell(Executable):
         logger.info("ExecShell", command=self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
-                return ExecOutput(
-                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                return ShellExecOutput(
+                    command=self.command,
+                    stdout="",
+                    stderr="Execution cancelled by user",
+                    exit_code=1,
                 )
 
         process = subprocess.Popen(
@@ -60,12 +69,14 @@ class ExecShell(Executable):
 
         logger.info(
             "ExecShell.result",
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
         )
 
-        return ExecOutput(
+        return ShellExecOutput(
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
@@ -76,7 +87,7 @@ class ExecShell(Executable):
         self,
         ask: bool = False,
         span: Span = None,
-    ) -> Generator[ExecOutput, None, None]:
+    ) -> Generator[dict, None, None]:
         """
         Execute a shell script
 
@@ -90,8 +101,11 @@ class ExecShell(Executable):
         logger.info("ExecShell", command=self.command)
         if ask:
             if input("Proceed? (yes/no): ").strip().lower() != "yes":
-                return ExecOutput(
-                    stdout="", stderr="Execution cancelled by user", exit_code=1
+                return ShellExecOutput(
+                    command=self.command,
+                    stdout="",
+                    stderr="Execution cancelled by user",
+                    exit_code=1,
                 )
 
         process = subprocess.Popen(
@@ -130,7 +144,8 @@ class ExecShell(Executable):
             try:
                 out = stdout_queue.get_nowait()
                 stdout += out
-                yield ExecOutput(
+                yield ShellExecOutput(
+                    command=self.command,
                     stdout=out.decode().strip(),
                     stderr="",
                     exit_code=-1,
@@ -141,7 +156,8 @@ class ExecShell(Executable):
             try:
                 err = stderr_queue.get_nowait()
                 stderr += err
-                yield ExecOutput(
+                yield ShellExecOutput(
+                    command=self.command,
                     stdout="",
                     stderr=err.decode().strip(),
                     exit_code=-1,
@@ -154,11 +170,52 @@ class ExecShell(Executable):
 
         process.wait()
 
-        yield ExecOutput(
+        yield ShellExecOutput(
+            command=self.command,
             stdout=stdout.decode().strip(),
             stderr=stderr.decode().strip(),
             exit_code=process.returncode,
         )
+
+
+class KnowledgeBaseQuery(Executable):
+    """
+    Query the knowledge base
+    """
+
+    query: str = Field(title="question to ask")
+
+    @property
+    def streamable(self):
+        return False
+
+    @traceit(name="knowledge_query")
+    def __call__(
+        self,
+        ask: bool = False,
+        span: Span = None,
+        limit: int = 3,
+    ):
+        span.set_attribute("query", self.query)
+
+        runbooks = (
+            get_runbooks_table().search(self.query).limit(limit).to_pydantic(Runbook)
+        )
+
+        results = [
+            {
+                "filename": runbook.filename,
+                "content": runbook.content,
+            }
+            for runbook in runbooks
+        ]
+        span.set_attributes(
+            {
+                "results.length": len(runbooks),
+                "results": results,
+            }
+        )
+        return SearchOutput(results=results)
 
 
 built_in_helpers = {
@@ -186,9 +243,9 @@ cli_ctx = Context(
     spec=ContextSpec(
         params={},
         contexts=[os_ctx],
-        executables=[ExecShell],
+        executables=[ExecShell, KnowledgeBaseQuery],
         data="""
-        you are a sysadmin specialised in OS commands.
+        you are a sysadmin specialised in sysadmin task and problem solving.
         """,
     ),
 )
@@ -201,19 +258,6 @@ Use "Thought" to describe your thoughts about the question you have been asked.
 Use "Action" to describe the action items you are going to take. action can be the question if the question is easy enough
 "Observation" is the result of running those action.
 
-When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
-
-BAD EXAMPLE:
-<react>
-answer: To get the operating system name, use `cat /etc/os-release`
-</react>
-
-GOOD EXAMPLE:
-<react>
-thought: I can find the operating system name in the os-release file
-action: run `cat /etc/os-release`
-</react>
-
 Notes you output must be in format as follows:
 
 <react>
@@ -225,6 +269,19 @@ Or
 
 <react>
 answer: ...
+</react>
+
+When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
+
+BAD EXAMPLE:
+<react>
+answer: To get the operating system name, use `cat /etc/os-release`
+</react>
+
+GOOD EXAMPLE:
+<react>
+thought: I can find the operating system name in the os-release file
+action: run `cat /etc/os-release`
 </react>
 
 Example 1:

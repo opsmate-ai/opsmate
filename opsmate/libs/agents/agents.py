@@ -9,12 +9,12 @@ from opsmate.libs.core.types import (
     Context,
     ContextSpec,
     ReactContext,
-    ExecResult,
+    ShellExecOutput,
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx, git_ctx, terraform_ctx
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Iterable
 
 
 class AgentCommand(BaseModel):
@@ -109,7 +109,7 @@ def cli_agent(
     contexts = []
     contexts.extend(extra_contexts)
     contexts.append(cli_ctx)
-    response_model = ExecResult
+    response_model = ShellExecOutput
 
     if react_mode:
         contexts.append(react_ctx)
@@ -152,7 +152,7 @@ def k8s_agent(
     contexts = []
     contexts.extend(extra_contexts)
     contexts.append(k8s_ctx)
-    response_model = ExecResult
+    response_model = ShellExecOutput
 
     if react_mode:
         contexts.append(react_ctx)
@@ -195,7 +195,7 @@ def git_agent(
     contexts = []
     contexts.extend(extra_contexts)
     contexts.append(git_ctx)
-    response_model = ExecResult
+    response_model = ShellExecOutput
 
     if react_mode:
         contexts.append(react_ctx)
@@ -238,7 +238,7 @@ def terraform_agent(
     contexts = []
     contexts.extend(extra_contexts)
     contexts.append(terraform_ctx)
-    response_model = ExecResult
+    response_model = ShellExecOutput
 
     if react_mode:
         contexts.append(react_ctx)

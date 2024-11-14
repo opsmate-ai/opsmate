@@ -5,7 +5,7 @@ from opsmate.libs.core.types import (
     ReactOutput,
     ReactProcess,
     ReactAnswer,
-    ExecResult,
+    ExecResults,
     Context,
     ExecOutput,
     Agent,
@@ -111,7 +111,7 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
             input={},
             contexts=selected_contexts,
             instruction=instruction,
-            response_model=ExecResult,
+            response_model=ExecResults,
         ),
     )
 
@@ -121,7 +121,7 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
     table.add_column("Stdout", style="green")
     table.add_column("Stderr", style="red")
     table.add_column("Exit Code", style="magenta")
-    for call in output.calls:
+    for call in output.results:
         table.add_row(
             call.command,
             call.output.stdout,
@@ -247,6 +247,10 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
         world = load_opsmatefile("Opsmatefile")
         supervisor = world.supervisor_agent()
 
+        console.print("Ingesting documents", style="green")
+        world.ingest_documents()
+        console.print("Documents ingested", style="green")
+
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
@@ -329,29 +333,20 @@ def run_supervisor(
                 table.add_row("Answer", output.answer)
                 console.print(table)
         else:
-            if isinstance(output, ExecResult):
-                table = Table(
-                    title="Command Execution", show_header=True, show_lines=True
-                )
-                table.add_column("Agent", style="cyan")
-                table.add_column("Command", style="cyan")
-                table.add_column("Stdout", style="green")
-                table.add_column("Stderr", style="red")
-                table.add_column("Exit Code", style="magenta")
-                for call in output.calls:
+            if isinstance(output, ExecResults):
+                for result in output.results:
+                    table = Table(
+                        title=result.table_title(), show_header=True, show_lines=True
+                    )
+                    table.add_column("Agent", style="cyan")
+                    for column in result.table_column_names():
+                        table.add_column(column[0], style=column[1])
+
                     table.add_row(
                         actor,
-                        call.command,
-                        call.output.stdout,
-                        call.output.stderr,
-                        str(call.output.exit_code),
+                        *result.table_columns(),
                     )
-                console.print(table)
-            # elif isinstance(output, ExecOutput):
-            #     if output.stdout != "":
-            #         console.print(output.stdout)
-            #     if output.stderr != "":
-            #         console.print(output.stderr)
+                    console.print(table)
             elif isinstance(output, AgentCommand):
                 table = Table(title="Agent Command", show_header=False, show_lines=True)
                 table.add_row("Agent", output.agent)

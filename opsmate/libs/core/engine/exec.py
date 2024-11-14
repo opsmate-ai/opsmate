@@ -61,28 +61,27 @@ def _exec_executables(
         response_model=Iterable[Union[tuple(executables)]],
     )
 
-    exec_result = ExecResult(calls=[])
+    exec_results = ExecResults(results=[])
+
     try:
         for exec_call in exec_calls:
-            if not stream:
+            if not stream or not exec_call.streamable:
                 output = exec_call(ask=ask)
-                exec_result.calls.append(
-                    ExecCall(command=exec_call.command, output=output)
-                )
+                logger.info(f"output: {output}")
+                exec_results.results.append(output)
             else:
-                output = exec_call.stream(ask=ask)
+                outputs = exec_call.stream(ask=ask)
                 stream_output.put(exec_call)
-                for out in output:
-                    stream_output.put(out)
-                    if out.exit_code != -1:
-                        exec_result.calls.append(
-                            ExecCall(command=exec_call.command, output=out)
-                        )
+                for output in outputs:
+                    stream_output.put(output)
+                    if output.exit_code != -1:
+                        exec_results.results.append(output)
 
+        span.set_attribute("exec_results.len", len(exec_results.results))
     except Exception as e:
-        logger.error(f"Error executing {exec_calls}: {e}")
+        logger.error(f"Error executing {exec_calls}: {e}", exc_info=True)
 
-    return exec_result, messages
+    return exec_results, messages
 
 
 @traceit(exclude=["client", "task"])
@@ -198,7 +197,7 @@ def exec_react_task(
                     ),
                 )
 
-                exec_result, _ = _exec_executables(
+                exec_results, _ = _exec_executables(
                     client,
                     action_task,
                     ask=ask,
@@ -210,10 +209,10 @@ def exec_react_task(
 
                 observation = Observation(
                     action=output.action,
-                    observation=yaml.dump(exec_result.model_dump()),
+                    observation=yaml.dump(exec_results.model_dump()),
                 )
 
-                yield exec_result
+                yield exec_results
 
                 historic_context.append(observation)
                 if observation is not None:

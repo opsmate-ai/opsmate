@@ -1,11 +1,13 @@
 from opsmate.libs.core.types import *
 from opsmate.libs.contexts import available_contexts as _available_contexts
+from opsmate.libs.knowledge import DocumentIngester
 from opsmate.libs.agents import (
     available_agents as _available_agents,
     AgentFactory,
     supervisor_agent as _supervisor_agent,
 )
 from typing import Optional
+from opsmate.libs.core.trace import traceit
 import yaml
 
 
@@ -24,6 +26,7 @@ class World(BaseModel):
     contexts: Dict[str, Context] = Field(
         default_factory=lambda: {ctx.metadata.name: ctx for ctx in _available_contexts}
     )
+    document_ingestions: Dict[str, DocumentIngestion] = Field(default={})
     supervisor: Optional[Supervisor] = None
 
     def add_context(self, manifest: Dict):
@@ -38,6 +41,16 @@ class World(BaseModel):
 
         ctx = Context(**manifest)
         self.contexts[ctx.metadata.name] = ctx
+
+    def add_document_ingestion(self, manifest: Dict):
+        if "metadata" not in manifest:
+            raise ValueError("Document ingestion is invalid, missing 'metadata' field")
+        if "spec" not in manifest:
+            raise ValueError("Document ingestion is invalid, missing 'spec' field")
+
+        self.document_ingestions[manifest["metadata"]["name"]] = DocumentIngestion(
+            **manifest
+        )
 
     def add_supervisor(self, manifest: Dict):
         if self.supervisor is not None:
@@ -80,6 +93,12 @@ class World(BaseModel):
             extra_contexts=self.supervisor.spec.contexts,
         )
 
+    @traceit(name="ingest_documents")
+    def ingest_documents(self):
+        ingester = DocumentIngester()
+        for document_ingestion in self.document_ingestions.values():
+            ingester.document_ingestion(document_ingestion)
+
 
 def load_opsmatefile(path: str = "Opsmatefile"):
     with open(path, "r") as f:
@@ -94,5 +113,7 @@ def load_opsmatefile(path: str = "Opsmatefile"):
                 world.add_context(manifest)
             elif manifest["kind"] == "Supervisor":
                 world.add_supervisor(manifest)
+            elif manifest["kind"] == "DocumentIngestion":
+                world.add_document_ingestion(manifest)
 
     return world

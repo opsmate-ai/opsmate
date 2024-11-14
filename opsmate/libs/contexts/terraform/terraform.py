@@ -4,6 +4,7 @@ from opsmate.libs.core.contexts import (
     Metadata,
     Executable,
     ExecShell,
+    KnowledgeBaseQuery,
 )
 from opsmate.libs.core.contexts import os_ctx
 import shutil
@@ -38,6 +39,9 @@ class ExecTerraform(ExecShell):
 
         :return: The stdout, stderr, and exit code
         """
+        if not self.command.startswith("terraform"):
+            self.command = f"terraform {self.command}"
+
         return super().__call__(*args, **kwargs)
 
     @traceit(name="terraform_exec_stream")
@@ -58,7 +62,7 @@ terraform_ctx = Context(
             "terraform_commands": Terraform(),
             "terraform_help": TerraformHelp(),
         },
-        executables=[ExecTerraform],
+        executables=[ExecTerraform, KnowledgeBaseQuery],
         data="""
 You are a terraform CLI specialist.
 

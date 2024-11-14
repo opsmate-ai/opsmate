@@ -4,6 +4,9 @@ from lancedb.embeddings import get_registry
 from pydantic import Field
 from opsmate.libs.config import config
 import threading
+import structlog
+
+logger = structlog.get_logger()
 
 
 class DatabaseConnection:
@@ -23,10 +26,13 @@ class DatabaseConnection:
                     cls._instance = cls.__new__(cls)
                     cls._instance.db = lancedb.connect(config.embeddings_db_path)
                     cls.init_db(cls._instance.db)
+
+                    return cls._instance.db
         return cls._instance.db
 
     @classmethod
     def init_db(cls, db: lancedb.DBConnection):
+        logger.info("creating runbooks table")
         db.create_table("runbooks", schema=Runbook, mode="overwrite")
 
 

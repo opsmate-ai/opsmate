@@ -4,6 +4,7 @@ from typing_extensions import Annotated
 from enum import Enum
 from typing import Dict, Optional, Type, TypeVar, Iterable, List, Callable
 from pydantic import ConfigDict
+import yaml
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -196,10 +197,13 @@ class ShellExecOutput(ExecOutput):
 class SearchOutput(ExecOutput):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    results: list[Dict[str, any]] = Field(title="searchresults")
+    results: list[Dict[str, str]] = Field(title="searchresults")
 
     def table_title(self):
         return "Search Results"
+
+    def table_columns(self):
+        return [yaml.dump(self.results) for result in self.results]
 
     def table_column_names(self):
         return [("Results", "cyan")]

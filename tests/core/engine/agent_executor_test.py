@@ -65,11 +65,15 @@ class TestAgentExecutor(BaseTestCase):
         assert any(agent_cmd.agent == "k8s-agent" for agent_cmd in agent_commands)
         assert any(agent_cmd.agent == "git-agent" for agent_cmd in agent_commands)
 
+    def distro_question(self):
+        return "what's the name of the OS distro? do not use `lsb_release` command to find the answer"
+
     def test_executor_execute(self, openai_client, model):
         executor = AgentExecutor(client=openai_client)
         agent = cli_agent(model=model)
         output = executor.execute(
-            agent=agent, instruction="what's the name of the OS distro"
+            agent=agent,
+            instruction=self.distro_question(),
         )
 
         assert output.exit_code == 0
@@ -82,7 +86,7 @@ class TestAgentExecutor(BaseTestCase):
         queue = Queue()
         output = executor.execute(
             agent=agent,
-            instruction="what's the name of the OS distro",
+            instruction=self.distro_question(),
             stream=True,
             stream_output=queue,
         )
@@ -96,7 +100,8 @@ class TestAgentExecutor(BaseTestCase):
         executor = AgentExecutor(client=openai_client)
         agent = cli_agent(react_mode=True, model=model)
         output = executor.execute(
-            agent=agent, instruction="what's the name of the OS distro"
+            agent=agent,
+            instruction=self.distro_question(),
         )
 
         assert isinstance(output, Generator)

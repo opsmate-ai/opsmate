@@ -1,11 +1,13 @@
 from opsmate.libs.core.types import *
 from opsmate.libs.contexts import available_contexts as _available_contexts
+from opsmate.libs.knowledge import DocumentIngester
 from opsmate.libs.agents import (
     available_agents as _available_agents,
     AgentFactory,
     supervisor_agent as _supervisor_agent,
 )
 from typing import Optional
+from opsmate.libs.core.trace import traceit
 import yaml
 
 
@@ -90,6 +92,12 @@ class World(BaseModel):
             agents=self.supervisor.spec.agents,
             extra_contexts=self.supervisor.spec.contexts,
         )
+
+    @traceit(name="ingest_documents")
+    def ingest_documents(self):
+        ingester = DocumentIngester()
+        for document_ingestion in self.document_ingestions.values():
+            ingester.document_ingestion(document_ingestion)
 
 
 def load_opsmatefile(path: str = "Opsmatefile"):

@@ -247,6 +247,10 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
         world = load_opsmatefile("Opsmatefile")
         supervisor = world.supervisor_agent()
 
+        console.print("Ingesting documents", style="green")
+        world.ingest_documents()
+        console.print("Documents ingested", style="green")
+
     try:
         opsmate_says("Howdy! How can I help you?\n" + help_msg)
 

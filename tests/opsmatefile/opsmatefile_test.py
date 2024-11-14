@@ -124,3 +124,12 @@ def test_load_opsmatefile(opsmatefile):
     assert "runbooks" in world.document_ingestions
     assert isinstance(world.document_ingestions["runbooks"], DocumentIngestion)
     assert world.document_ingestions["runbooks"].spec.local_path == "./runbooks"
+
+
+def test_ingest_documents(opsmatefile):
+    world = load_opsmatefile(opsmatefile)
+
+    try:
+        world.ingest_documents()
+    except Exception as e:
+        assert False, f"ingest_documents raised an exception: {e}"

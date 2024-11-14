@@ -1,14 +1,11 @@
 name: Publish
 
 on:
-  # push:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - 'pyproject.toml'
-  pull_request:
+  push:
     branches:
       - main
+    paths:
+      - 'pyproject.toml'
 
 jobs:
   build:

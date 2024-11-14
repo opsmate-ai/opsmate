@@ -4,6 +4,7 @@ from opsmate.libs.core.contexts import (
     Metadata,
     Executable,
     ExecShell,
+    KnowledgeBaseQuery,
 )
 from opsmate.libs.core.contexts import os_ctx
 import shutil
@@ -61,7 +62,7 @@ terraform_ctx = Context(
             "terraform_commands": Terraform(),
             "terraform_help": TerraformHelp(),
         },
-        executables=[ExecTerraform],
+        executables=[ExecTerraform, KnowledgeBaseQuery],
         data="""
 You are a terraform CLI specialist.
 

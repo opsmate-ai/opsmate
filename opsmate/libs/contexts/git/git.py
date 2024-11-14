@@ -6,6 +6,7 @@ from opsmate.libs.core.contexts import (
     Executable,
     ExecShell,
     os_ctx,
+    KnowledgeBaseQuery,
 )
 from opsmate.libs.core.trace import traceit
 
@@ -62,7 +63,7 @@ git_ctx = Context(
             "git_branches": GitBranches(),
             "git_remote": GitRemote(),
         },
-        executables=[ExecGit],
+        executables=[ExecGit, KnowledgeBaseQuery],
         data="""
 You are a git CLI specialist.
 

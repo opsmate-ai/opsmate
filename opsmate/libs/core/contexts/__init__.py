@@ -11,7 +11,6 @@ from pydantic import Field
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
 from typing import Generator
-import yaml
 import structlog
 
 logger = structlog.get_logger()

@@ -24,17 +24,10 @@ jobs:
           pipx install poetry --python $(which python3.12)
       - name: Install project
         run: poetry install
-      # - name: Run tests
-      #   env:
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      #   run: |
-      #     poetry run pytest
       - name: Build package
         run: |
           poetry build
       - name: Publish package
-        env:
-          TWINE_PASSWORD: ${{ secrets.TWINE_TOKEN }}
         run: |
           poetry config repositories.gcp https://europe-west1-python.pkg.dev/hjktech-metal/opsmate/
           poetry config http-basic.gcp _json_key_base64 ${{ secrets.GCP_PYPI_PASSWORD }}

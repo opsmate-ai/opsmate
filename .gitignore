@@ -162,3 +162,6 @@ cython_debug/
 #.idea/
 /.bin/
 /data/
+
+eval/notebooks/website
+eval/notebooks/opsmate-embedding

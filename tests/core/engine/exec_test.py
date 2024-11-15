@@ -17,6 +17,7 @@ from openai import Client
 import structlog
 import subprocess
 from tests.base import BaseTestCase
+import uuid
 
 
 class OutputModel(BaseModel):
@@ -159,6 +160,7 @@ class TestExec(BaseTestCase):
         get_runbooks_table().add(
             [
                 {
+                    "uuid": str(uuid.uuid4()),
                     "filename": "xyz-manual.txt",
                     "heading": "how to store xyz",
                     "content": """

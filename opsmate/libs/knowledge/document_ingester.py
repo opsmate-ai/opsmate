@@ -5,7 +5,10 @@ from .schema import get_runbooks_table
 from lancedb.table import Table
 from langchain_core.documents import Document
 import glob
+import structlog
+import uuid
 
+logger = structlog.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
@@ -24,7 +27,7 @@ class DocumentIngester:
             ]
         )
 
-    def document_ingestion(self, ingestion: DocumentIngestion):
+    def document_ingestion(self, ingestion: DocumentIngestion, batch_size: int = 100):
         """
         Ingest the documents into the backend storage.
 
@@ -35,18 +38,30 @@ class DocumentIngester:
             The documents.
         """
 
+        batch = []
+
         with tracer.start_as_current_span("document_ingestion") as span:
             for file in self.document_discovery(ingestion):
                 for doc in self.split_text(file):
-                    self.runbooks_table.add(
-                        [
-                            {
-                                "filename": file,
-                                "heading": self.chunk_header(doc),
-                                "content": self.chunk_content(doc),
-                            }
-                        ]
+                    batch.append(
+                        {
+                            "uuid": str(uuid.uuid4()),
+                            "filename": file,
+                            "heading": self.chunk_header(doc),
+                            "content": self.chunk_content(doc),
+                        }
                     )
+
+                    if len(batch) == batch_size:
+                        logger.info("batch ingest runbooks", batch_size=batch_size)
+                        span.add_event("ingesting_batch", {"batch_size": batch_size})
+                        self.runbooks_table.add(batch)
+                        batch = []
+
+            if len(batch) > 0:
+                logger.info("batch ingest runbooks", batch_size=len(batch))
+                span.add_event("ingesting_batch", {"batch_size": len(batch)})
+                self.runbooks_table.add(batch)
 
     def document_discovery(self, ingestion: DocumentIngestion):
         """

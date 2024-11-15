@@ -5,6 +5,7 @@ from pydantic import Field
 from opsmate.libs.config import config
 import threading
 import structlog
+import uuid
 
 logger = structlog.get_logger()
 
@@ -33,7 +34,7 @@ class DatabaseConnection:
     @classmethod
     def init_db(cls, db: lancedb.DBConnection):
         logger.info("creating runbooks table")
-        db.create_table("runbooks", schema=Runbook, mode="overwrite")
+        db.create_table("runbooks", schema=Runbook, exist_ok=True)
 
 
 func = (
@@ -44,6 +45,7 @@ func = (
 
 
 class Runbook(LanceModel):
+    uuid: str = Field(description="The uuid of the runbook", default_factory=uuid.uuid4)
     filename: str = Field(description="The name of the file")
     heading: str = Field(description="The heading of the file")
     content: str = func.SourceField()

@@ -162,6 +162,18 @@ def exec_react_task(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
+    executables = []
+    for ctx in task.spec.contexts:
+        for executable in ctx.all_executables():
+            executables.append(executable)
+
+    prompt += f"""
+    Here are the available tools you can use:
+    <tools>
+    {_render_tools(executables)}
+    </tools>
+    """
+
     messages = []
     messages.extend(
         {"role": "assistant", "content": yaml.dump(ctx.model_dump())}

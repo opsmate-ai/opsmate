@@ -75,6 +75,11 @@ class Task(BaseModel):
     metadata: Metadata = Field(title="metadata")
     spec: TaskSpec = Field(title="spec")
 
+    @property
+    def all_executables(self) -> Iterable[Type[Executable]]:
+        for ctx in self.spec.contexts:
+            yield from ctx.all_executables()
+
 
 class TaskTemplate(BaseModel):
     metadata: Metadata = Field(title="metadata")

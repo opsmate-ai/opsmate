@@ -6,7 +6,7 @@ from opentelemetry.trace import Span
 from openai import Client
 import instructor
 import structlog
-from .render import render_context
+from .render import render_context, render_tools
 import yaml
 from queue import Queue
 
@@ -39,22 +39,7 @@ def _exec_executables(
         for ctx in historic_context
     )
 
-    executables = []
-    for ctx in task.spec.contexts:
-        for executable in ctx.all_executables():
-            executables.append(executable)
-
-        messages.append(
-            {
-                "role": "system",
-                "content": f"""
-    Here are the available tools:
-    <tools>
-    {_render_tools(executables)}
-    </tools>
-                """,
-            }
-        )
+    messages.append({"role": "system", "content": render_tools(task)})
 
     messages.append(
         {
@@ -62,6 +47,8 @@ def _exec_executables(
             "content": yaml.dump({"question": task.spec.instruction}),
         }
     )
+
+    executables = list(task.all_executables)
 
     instructor_client = instructor.from_openai(
         client, mode=instructor.Mode.PARALLEL_TOOLS
@@ -94,13 +81,6 @@ def _exec_executables(
         logger.error(f"Error executing {exec_calls}: {e}", exc_info=True)
 
     return exec_results, messages
-
-
-def _render_tools(executables: list[Type[Executable]]):
-    kv = {}
-    for executable in executables:
-        kv[executable.__name__] = executable.__doc__
-    return yaml.dump(kv)
 
 
 @traceit(exclude=["client", "task"])
@@ -162,17 +142,7 @@ def exec_react_task(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    executables = []
-    for ctx in task.spec.contexts:
-        for executable in ctx.all_executables():
-            executables.append(executable)
-
-    prompt += f"""
-    Here are the available tools you can use:
-    <tools>
-    {_render_tools(executables)}
-    </tools>
-    """
+    prompt += render_tools(task)
 
     messages = []
     messages.extend(

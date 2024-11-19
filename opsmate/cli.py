@@ -78,6 +78,11 @@ def opsmate_cli():
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
 )
 @click.option(
+    "--provider",
+    default="openai",
+    help="Provider to use. To list providers available please run the list-providers command.",
+)
+@click.option(
     "--model",
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
@@ -98,7 +103,7 @@ def opsmate_cli():
     help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
 )
 @traceit
-def run(instruction, ask, model, max_depth, answer_only, contexts):
+def run(instruction, ask, provider, model, max_depth, answer_only, contexts):
     """
     Run a task with the OpsMate.
     """
@@ -116,20 +121,22 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
         ),
     )
 
-    output = exec_task(OpenAI(), task, ask=ask, model=model)
-    table = Table(title="Command Execution", show_header=True, show_lines=True)
-    table.add_column("Command", style="cyan")
-    table.add_column("Stdout", style="green")
-    table.add_column("Stderr", style="red")
-    table.add_column("Exit Code", style="magenta")
-    for call in output.results:
+    output = exec_task(
+        clients=ProviderClient.clients_from_env(),
+        task=task,
+        ask=ask,
+        model=model,
+        provider=provider,
+    )
+    for result in output.results:
+        table = Table(title=result.table_title(), show_header=True, show_lines=True)
+        for column in result.table_column_names():
+            table.add_column(column[0], style=column[1])
+
         table.add_row(
-            call.command,
-            call.output.stdout,
-            call.output.stderr,
-            str(call.output.exit_code),
+            *result.table_columns(),
         )
-    console.print(table)
+        console.print(table)
 
 
 @opsmate_cli.command()
@@ -138,9 +145,13 @@ def list_models():
     """
     List all the models available in OpenAI.
     """
-    model_names = ProviderClient.from_env().models()
-    for model_name in model_names:
-        console.print(model_name)
+    client_bags = ProviderClient.clients_from_env()
+
+    for provider, _ in client_bags.items():
+        provider_client = ProviderClient(client_bags, provider)
+        model_names = provider_client.models()
+        for model_name in model_names:
+            console.print(model_name)
 
 
 @opsmate_cli.command()
@@ -220,7 +231,7 @@ Commands:
 )
 @traceit
 def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
-    executor = AgentExecutor(OpenAI())
+    executor = AgentExecutor(ProviderClient.clients_from_env(), ask=ask)
     # check if Opsmatefile exists in the cwd
     if skip_opsmatefile or not os.path.exists("Opsmatefile"):
         if skip_opsmatefile:

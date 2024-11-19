@@ -1,4 +1,3 @@
-from openai import Client
 from opsmate.libs.core.types import (
     ReactOutput,
     Agent,
@@ -6,6 +5,7 @@ from opsmate.libs.core.types import (
     Observation,
 )
 from opsmate.libs.core.contexts import react_ctx
+from opsmate.libs.providers import ClientBag, Client as ProviderClient
 from opsmate.libs.core.engine.exec import exec_task, exec_react_task, render_context
 from opsmate.libs.agents import AgentCommand
 from opsmate.libs.core.trace import traceit
@@ -20,17 +20,19 @@ logger = structlog.get_logger()
 
 @traceit(exclude=["client"])
 def gen_agent_commands(
-    client: Client, supervisor: Agent, action: str
+    clientBag: ClientBag, supervisor: Agent, action: str
 ) -> List[AgentCommand]:
+    provider_client = ProviderClient(clientBag, supervisor.spec.provider)
+
     agent_info = []
     for _, agent in supervisor.spec.agents.items():
         agent_info.append(
             f"- name: {agent.metadata.name}\ndescription: {agent.metadata.description}\n"
         )
 
-    messages = []
+    # messages = []
     for ctx in supervisor.status.historical_context:
-        messages.append({"role": "assistant", "content": yaml.dump(ctx.model_dump())})
+        provider_client.assistant_content(yaml.dump(ctx.model_dump()))
     ctx = f"""
 based on the action, and available agents, comes up with a list of instructions for the agents to execute
 
@@ -62,11 +64,9 @@ Now here are the available agents and action:
 
 Come up with a list of agent commands to execute
 """
-    messages.append({"role": "system", "content": ctx})
-    instructor_client = instructor.from_openai(client)
-    resp = instructor_client.chat.completions.create(
+    provider_client.system_content(ctx)
+    resp = provider_client.chat_completion(
         model=supervisor.spec.model,
-        messages=messages,
         response_model=List[AgentCommand],
     )
 
@@ -82,8 +82,8 @@ Come up with a list of agent commands to execute
 
 
 class AgentExecutor:
-    def __init__(self, client: Client, ask: bool = False):
-        self.client = client
+    def __init__(self, clientBag: ClientBag, ask: bool = False):
+        self.clientBag = clientBag
         self.ask = ask
 
     @traceit(exclude=["stream_output"])
@@ -94,30 +94,21 @@ class AgentExecutor:
         stream: bool = False,
         stream_output: Queue = None,
     ):
-        instructor_client = instructor.from_openai(self.client)
+        provider_client = ProviderClient(self.clientBag, supervisor.spec.provider)
 
         prompt = "\n".join(
             render_context(ctx) for ctx in supervisor.spec.task_template.spec.contexts
         )
 
-        messages = []
-        messages.extend(
-            {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
-            for ctx in supervisor.status.historical_context
-        )
+        for ctx in supervisor.status.historical_context:
+            provider_client.assistant_content(yaml.dump(ctx.model_dump()))
 
-        messages.append({"role": "system", "content": prompt})
-        messages.append(
-            {
-                "role": "user",
-                "content": yaml.dump({"question": instruction}),
-            }
-        )
+        provider_client.system_content(prompt)
+        provider_client.user_content(yaml.dump({"question": instruction}))
 
         for _ in range(supervisor.spec.max_depth):
-            resp = instructor_client.chat.completions.create(
+            resp = provider_client.chat_completion(
                 model=supervisor.spec.model,
-                messages=messages,
                 response_model=ReactOutput,
             )
 
@@ -137,9 +128,7 @@ class AgentExecutor:
                 action=resp.output.action,
             )
 
-            messages.append(
-                {"role": "user", "content": yaml.dump(resp.output.model_dump())}
-            )
+            provider_client.user_content(yaml.dump(resp.output.model_dump()))
             yield ("@supervisor", resp.output)
             if resp.output.action is not None:
                 instruction = yaml.dump(
@@ -148,7 +137,7 @@ class AgentExecutor:
                         "action": resp.output.action,
                     }
                 )
-                commands = gen_agent_commands(self.client, supervisor, instruction)
+                commands = gen_agent_commands(self.clientBag, supervisor, instruction)
                 for command in commands:
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"
@@ -191,9 +180,7 @@ class AgentExecutor:
                     action=observation.action,
                     observation=observation.observation,
                 )
-                messages.append(
-                    {"role": "user", "content": yaml.dump(observation.model_dump())}
-                )
+                provider_client.user_content(yaml.dump(observation.model_dump()))
 
     @traceit(exclude=["stream_output"])
     def execute(
@@ -205,20 +192,22 @@ class AgentExecutor:
     ):
         if agent.spec.react_mode:
             return exec_react_task(
-                self.client,
+                self.clientBag,
                 agent.task(instruction),
                 ask=self.ask,
                 historic_context=agent.status.historical_context,
                 max_depth=agent.spec.max_depth,
+                provider=agent.spec.provider,
                 model=agent.spec.model,
                 stream=stream,
                 stream_output=stream_output,
             )
         else:
             return exec_task(
-                self.client,
+                self.clientBag,
                 agent.task(instruction),
                 ask=self.ask,
+                provider=agent.spec.provider,
                 model=agent.spec.model,
                 stream=stream,
                 stream_output=stream_output,

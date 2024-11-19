@@ -7,6 +7,9 @@ from anthropic import Anthropic
 from anthropic.types import Model as AnthropicModel
 import os
 
+Provider = Literal["openai", "anthropic"]
+ClientBag = Dict[Provider, OpenAI | Anthropic]
+
 
 class Client:
     @classmethod
@@ -18,54 +21,51 @@ class Client:
             clients["openai"] = OpenAI()
         return clients
 
-    @classmethod
-    def from_env(cls):
-        return cls(cls.clients_from_env())
-
-    def __init__(self, clients: Dict[str, OpenAI | Anthropic]):
-        self.clients = clients
+    def __init__(
+        self,
+        clients: ClientBag,
+        provider: Provider,
+        mode: Mode | None = None,
+    ):
         self.messages = []
         self.system_prompt = ""
+        self.provider = provider
 
-    def _instructor_client(
-        self,
-        provider: str,
-        mode: Mode | None = None,
-    ) -> instructor.Instructor:
-        if provider == "anthropic":
-            if mode is None:
-                mode = Mode.ANTHROPIC_TOOLS
-            return instructor.from_anthropic(self.clients[provider], mode=mode)
-        elif provider == "openai":
+        if provider == "openai":
             if mode is None:
                 mode = Mode.TOOLS
-            return instructor.from_openai(self.clients[provider], mode=mode)
-        else:
-            raise ValueError(f"Invalid provider: {provider}")
+            self.client = clients[provider]
+            self.instructor_client = instructor.from_openai(self.client, mode=mode)
+        elif provider == "anthropic":
+            if mode is None:
+                mode = Mode.ANTHROPIC_TOOLS
+            self.client = clients[provider]
+            self.instructor_client = instructor.from_anthropic(self.client, mode=mode)
 
     def chat_completion(
         self,
-        provider: str,
         model: str,
         response_model: type[T],
-        messages: List[ChatCompletionMessageParam],
         max_retries: int = 3,
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
         max_tokens: int = 4096,
     ):
-        instructor_client = self._instructor_client(provider)
-        return instructor_client.chat.completions.create(
+        return self.instructor_client.chat.completions.create(
             model=model,
             response_model=response_model,
-            messages=messages,
+            messages=self.messages,
             max_retries=max_retries,
             validation_context=validation_context,
             context=context,
             max_tokens=max_tokens,
             strict=strict,
         )
+
+    def append_messages(self, messages: List[ChatCompletionMessageParam]):
+        for message in messages:
+            self.messages.append(message)
 
     def assistant_content(self, content: str):
         self.messages.append({"role": "assistant", "content": content})
@@ -74,23 +74,25 @@ class Client:
         self.messages.append({"role": "user", "content": content})
 
     def system_content(self, content: str):
-        if isinstance(self.client, OpenAI):
+        if self.provider == "openai":
             self.messages.append({"role": "system", "content": content})
-        elif isinstance(self.client, Anthropic):
+        elif self.provider == "anthropic":
             self.system_prompt += content
 
     def models(self):
+        # if "openai" in self.clients:
         models = []
-        if "openai" in self.clients:
+        if self.provider == "openai":
             model_names = [
                 model.id
-                for model in self.clients["openai"].models.list().data
+                for model in self.client.models.list().data
                 if model.id.startswith("gpt")
             ]
             models.extend(model_names)
 
-        if "anthropic" in self.clients:
+        if self.provider == "anthropic":
             for arg in get_args(AnthropicModel):
                 if hasattr(arg, "__origin__") and arg.__origin__ is Literal:
                     models.extend(get_args(arg))
+
         return models

@@ -44,6 +44,13 @@ class ExecShell(Executable):
         """
         Execute a shell script
 
+        Example Usage:
+
+        ```
+        ExecShell:
+            command: ls -l /etc/os-release
+        ```
+
         :return: The stdout, stderr, and exit code
         """
 
@@ -181,6 +188,14 @@ class ExecShell(Executable):
 class KnowledgeBaseQuery(Executable):
     """
     Query the knowledge base
+
+    Example Usage:
+
+    ```
+    KnowledgeBaseQuery:
+        query: how does dirty write back work on Linux?
+    ```
+
     """
 
     query: str = Field(title="question to ask")
@@ -234,6 +249,21 @@ os_ctx = Context(
     ),
 )
 
+kb_ctx = Context(
+    metadata=Metadata(
+        name="knowledgebase-query",
+        labels={"type": "system"},
+        description="Knowledge Base Query",
+    ),
+    spec=ContextSpec(
+        params={},
+        executables=[KnowledgeBaseQuery],
+        data="""
+You can query the knowledge base for information.
+        """,
+    ),
+)
+
 cli_ctx = Context(
     metadata=Metadata(
         name="cli",
@@ -242,8 +272,8 @@ cli_ctx = Context(
     ),
     spec=ContextSpec(
         params={},
-        contexts=[os_ctx],
-        executables=[ExecShell, KnowledgeBaseQuery],
+        contexts=[os_ctx, kb_ctx],
+        executables=[ExecShell],
         data="""
         you are a sysadmin specialised in sysadmin task and problem solving.
         """,

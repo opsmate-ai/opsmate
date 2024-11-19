@@ -31,13 +31,30 @@ def _exec_executables(
         prompt += render_context(ctx) + "\n"
 
     messages = [
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": prompt},
     ]
 
     messages.extend(
-        {"role": "user", "content": yaml.dump(ctx.model_dump())}
+        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
         for ctx in historic_context
     )
+
+    executables = []
+    for ctx in task.spec.contexts:
+        for executable in ctx.all_executables():
+            executables.append(executable)
+
+        messages.append(
+            {
+                "role": "system",
+                "content": f"""
+    Here are the available tools:
+    <tools>
+    {_render_tools(executables)}
+    </tools>
+                """,
+            }
+        )
 
     messages.append(
         {
@@ -45,11 +62,6 @@ def _exec_executables(
             "content": yaml.dump({"question": task.spec.instruction}),
         }
     )
-
-    executables = []
-    for ctx in task.spec.contexts:
-        for executable in ctx.all_executables():
-            executables.append(executable)
 
     instructor_client = instructor.from_openai(
         client, mode=instructor.Mode.PARALLEL_TOOLS
@@ -82,6 +94,13 @@ def _exec_executables(
         logger.error(f"Error executing {exec_calls}: {e}", exc_info=True)
 
     return exec_results, messages
+
+
+def _render_tools(executables: list[Type[Executable]]):
+    kv = {}
+    for executable in executables:
+        kv[executable.__name__] = executable.__doc__
+    return yaml.dump(kv)
 
 
 @traceit(exclude=["client", "task"])
@@ -145,12 +164,14 @@ def exec_react_task(
 
     messages = []
     messages.extend(
-        {"role": "user", "content": yaml.dump(ctx.model_dump())}
+        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
         for ctx in historic_context
     )
 
-    messages.append({"role": "user", "content": prompt})
-    messages.append({"role": "user", "content": "question: " + task.spec.instruction})
+    messages.append({"role": "system", "content": prompt})
+    messages.append(
+        {"role": "user", "content": yaml.dump({"question": task.spec.instruction})}
+    )
 
     instructor_client = instructor.from_openai(client)
 
@@ -174,7 +195,7 @@ def exec_react_task(
 
             messages.append(
                 {
-                    "role": "user",
+                    "role": "assistant",
                     "content": yaml.dump(output.model_dump()),
                 }
             )
@@ -218,7 +239,7 @@ def exec_react_task(
                 if observation is not None:
                     messages.append(
                         {
-                            "role": "user",
+                            "role": "assistant",
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )

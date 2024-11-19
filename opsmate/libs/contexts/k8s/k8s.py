@@ -4,9 +4,9 @@ from opsmate.libs.core.contexts import (
     Metadata,
     Executable,
     ExecShell,
-    KnowledgeBaseQuery,
+    os_ctx,
+    kb_ctx,
 )
-from opsmate.libs.core.contexts import os_ctx
 import shutil
 import subprocess
 
@@ -40,13 +40,13 @@ k8s_ctx = Context(
     ),
     spec=ContextSpec(
         params={},
-        contexts=[os_ctx],
+        contexts=[os_ctx, kb_ctx],
         helpers={
             "kube_commands": KubeCommands(),
             "kube_contexts": KubeContext(),
             "kube_namespaces": Namespaces(),
         },
-        executables=[ExecShell, KnowledgeBaseQuery],
+        executables=[ExecShell],
         data="""
 You are a kubernetes cluster administrator.
 

@@ -4,9 +4,9 @@ from opsmate.libs.core.contexts import (
     Metadata,
     Executable,
     ExecShell,
-    KnowledgeBaseQuery,
+    kb_ctx,
+    os_ctx,
 )
-from opsmate.libs.core.contexts import os_ctx
 import shutil
 import subprocess
 from opsmate.libs.core.trace import traceit
@@ -28,6 +28,14 @@ class TerraformHelp(Executable):
 class ExecTerraform(ExecShell):
     """
     Execute a terraform command
+
+    Example Usage:
+
+    ```
+    ExecTerraform:
+        command: terraform plan
+    ```
+
     """
 
     command: str = Field(title="terraform command to execute")
@@ -57,12 +65,12 @@ terraform_ctx = Context(
     ),
     spec=ContextSpec(
         params={},
-        contexts=[os_ctx],
+        contexts=[os_ctx, kb_ctx],
         helpers={
             "terraform_commands": Terraform(),
             "terraform_help": TerraformHelp(),
         },
-        executables=[ExecTerraform, KnowledgeBaseQuery],
+        executables=[ExecTerraform],
         data="""
 You are a terraform CLI specialist.
 

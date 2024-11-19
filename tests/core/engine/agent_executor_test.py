@@ -26,7 +26,8 @@ from opsmate.libs.core.types import (
     Observation,
 )
 from opsmate.libs.core.contexts import ExecShell, react_ctx
-from openai import Client
+
+from opsmate.libs.providers.providers import Client as ProviderClient
 from typing import Generator
 from queue import Queue
 from tests.base import BaseTestCase
@@ -35,17 +36,17 @@ from tests.base import BaseTestCase
 class TestAgentExecutor(BaseTestCase):
 
     @pytest.fixture
-    def openai_client(self):
-        return Client()
+    def client_bag(self):
+        return ProviderClient.clients_from_env()
 
     @pytest.fixture
     def model(self):
         return "gpt-4o"
 
-    def test_gen_agent_command_single_agent(self, openai_client, model):
+    def test_gen_agent_command_single_agent(self, client_bag, model):
         supervisor = supervisor_agent(agents=[k8s_agent(), git_agent()], model=model)
         agent_commands = gen_agent_commands(
-            openai_client,
+            client_bag,
             supervisor,
             "Investigate the OOMKilled error in the k8s cluster",
         )
@@ -53,10 +54,10 @@ class TestAgentExecutor(BaseTestCase):
 
         assert any(agent_cmd.agent == "k8s-agent" for agent_cmd in agent_commands)
 
-    def test_gen_agent_command_multiple_agents(self, openai_client, model):
+    def test_gen_agent_command_multiple_agents(self, client_bag, model):
         supervisor = supervisor_agent(agents=[k8s_agent(), git_agent()], model=model)
         agent_commands = gen_agent_commands(
-            openai_client,
+            client_bag,
             supervisor,
             "find all the namespaces and use them as the commit message",
         )
@@ -68,20 +69,21 @@ class TestAgentExecutor(BaseTestCase):
     def distro_question(self):
         return "what's the name of the OS distro? do not use `lsb_release` command to find the answer"
 
-    def test_executor_execute(self, openai_client, model):
-        executor = AgentExecutor(client=openai_client)
+    def test_executor_execute(self, client_bag, model):
+        executor = AgentExecutor(client_bag=client_bag)
         agent = cli_agent(model=model)
         output = executor.execute(
             agent=agent,
             instruction=self.distro_question(),
         )
 
-        assert output.exit_code == 0
-        assert output.stdout != ""
-        assert output.stderr == ""
+        for result in output.results:
+            assert result.exit_code == 0
+            assert result.stdout != ""
+            assert result.stderr == ""
 
-    def test_executor_execute_stream(self, openai_client, model):
-        executor = AgentExecutor(client=openai_client)
+    def test_executor_execute_stream(self, client_bag, model):
+        executor = AgentExecutor(client_bag=client_bag)
         agent = cli_agent(model=model)
         queue = Queue()
         output = executor.execute(
@@ -96,8 +98,8 @@ class TestAgentExecutor(BaseTestCase):
             chunk = queue.get()
             assert isinstance(chunk, (ExecOutput, ExecShell))
 
-    def test_executor_execute_react(self, openai_client, model):
-        executor = AgentExecutor(client=openai_client)
+    def test_executor_execute_react(self, client_bag, model):
+        executor = AgentExecutor(client_bag=client_bag)
         agent = cli_agent(react_mode=True, model=model)
         output = executor.execute(
             agent=agent,
@@ -114,8 +116,8 @@ class TestAgentExecutor(BaseTestCase):
         assert isinstance(last, ReactAnswer)
         assert last.answer != ""
 
-    def test_executor_execute_react_stream(self, openai_client, model):
-        executor = AgentExecutor(client=openai_client)
+    def test_executor_execute_react_stream(self, client_bag, model):
+        executor = AgentExecutor(client_bag=client_bag)
         agent = cli_agent(react_mode=True, model=model)
         queue = Queue()
         output = executor.execute(
@@ -133,8 +135,8 @@ class TestAgentExecutor(BaseTestCase):
             chunk = queue.get()
             assert isinstance(chunk, (ExecOutput, ExecShell))
 
-    def test_executor_clear_history(self, openai_client, model):
-        executor = AgentExecutor(client=openai_client)
+    def test_executor_clear_history(self, client_bag, model):
+        executor = AgentExecutor(client_bag=client_bag)
         agent = cli_agent(model=model, react_mode=True)
         output = executor.execute(
             agent=agent, instruction="what's the name of the OS distro"
@@ -177,13 +179,13 @@ class TestAgentExecutor(BaseTestCase):
             status=AgentStatus(historical_context=[]),
         )
 
-    def test_supervisor_agent_reasoning(self, openai_client, math_agent, model):
+    def test_supervisor_agent_reasoning(self, client_bag, math_agent, model):
         supervisor = supervisor_agent(
             agents=[math_agent],
             model=model,
         )
 
-        executor = AgentExecutor(client=openai_client)
+        executor = AgentExecutor(client_bag=client_bag)
         result = executor.supervise(
             supervisor, "a = 1, b = 2, a + b = ?, delegate the task to the agent"
         )

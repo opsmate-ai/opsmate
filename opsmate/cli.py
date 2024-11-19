@@ -11,7 +11,6 @@ from opsmate.libs.core.types import (
     Agent,
 )
 from typing import List
-from openai import OpenAI
 from opsmate.libs.core.engine import exec_task
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.core.contexts import ExecShell
@@ -37,6 +36,7 @@ import logging
 import queue
 import threading
 import time
+from opsmate.libs.providers import Client as ProviderClient
 
 loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
 structlog.configure(
@@ -77,6 +77,11 @@ def opsmate_cli():
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
 )
 @click.option(
+    "--provider",
+    default="openai",
+    help="Provider to use. To list providers available please run the list-providers command.",
+)
+@click.option(
     "--model",
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
@@ -97,7 +102,7 @@ def opsmate_cli():
     help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
 )
 @traceit
-def run(instruction, ask, model, max_depth, answer_only, contexts):
+def run(instruction, ask, provider, model, max_depth, answer_only, contexts):
     """
     Run a task with the OpsMate.
     """
@@ -115,20 +120,22 @@ def run(instruction, ask, model, max_depth, answer_only, contexts):
         ),
     )
 
-    output = exec_task(OpenAI(), task, ask=ask, model=model)
-    table = Table(title="Command Execution", show_header=True, show_lines=True)
-    table.add_column("Command", style="cyan")
-    table.add_column("Stdout", style="green")
-    table.add_column("Stderr", style="red")
-    table.add_column("Exit Code", style="magenta")
-    for call in output.results:
+    output = exec_task(
+        clients=ProviderClient.clients_from_env(),
+        task=task,
+        ask=ask,
+        model=model,
+        provider=provider,
+    )
+    for result in output.results:
+        table = Table(title=result.table_title(), show_header=True, show_lines=True)
+        for column in result.table_column_names():
+            table.add_column(column[0], style=column[1])
+
         table.add_row(
-            call.command,
-            call.output.stdout,
-            call.output.stderr,
-            str(call.output.exit_code),
+            *result.table_columns(),
         )
-    console.print(table)
+        console.print(table)
 
 
 @opsmate_cli.command()
@@ -137,12 +144,13 @@ def list_models():
     """
     List all the models available in OpenAI.
     """
-    client = OpenAI()
-    model_names = [
-        model.id for model in client.models.list().data if model.id.startswith("gpt")
-    ]
-    for model_name in model_names:
-        console.print(model_name)
+    client_bags = ProviderClient.clients_from_env()
+
+    for provider, _ in client_bags.items():
+        provider_client = ProviderClient(client_bags, provider)
+        model_names = provider_client.models()
+        for model_name in model_names:
+            console.print(model_name)
 
 
 @opsmate_cli.command()
@@ -191,6 +199,11 @@ Commands:
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
 )
 @click.option(
+    "--provider",
+    default="openai",
+    help="Provider to use. To list providers available please run the list-providers command.",
+)
+@click.option(
     "--model",
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
@@ -221,8 +234,8 @@ Commands:
     help="Skip loading OpsMatefile",
 )
 @traceit
-def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
-    executor = AgentExecutor(OpenAI())
+def chat(ask, provider, model, max_depth, agents, skip_opsmatefile, stream):
+    executor = AgentExecutor(ProviderClient.clients_from_env(), ask=ask)
     # check if Opsmatefile exists in the cwd
     if skip_opsmatefile or not os.path.exists("Opsmatefile"):
         if skip_opsmatefile:
@@ -231,10 +244,12 @@ def chat(ask, model, max_depth, agents, skip_opsmatefile, stream):
             console.print("OpsMatefile not found", style="red")
 
         selected_agents = get_agents(
-            agents, react_mode=True, max_depth=max_depth, model=model
+            agents, react_mode=True, max_depth=max_depth, model=model, provider=provider
         )
 
         supervisor = supervisor_agent(
+            model=model,
+            provider=provider,
             extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
             agents=selected_agents,
         )
@@ -396,7 +411,11 @@ def get_contexts(contexts: str, with_react: bool = True):
 
 
 def get_agents(
-    agents: str, react_mode: bool = False, max_depth: int = 10, model: str = "gpt-4o"
+    agents: str,
+    react_mode: bool = False,
+    max_depth: int = 10,
+    model: str = "gpt-4o",
+    provider: str = "openai",
 ):
     agent_list = agents.split(",")
 
@@ -412,7 +431,12 @@ def get_agents(
             exit(1)
 
     agents: List[Agent] = [
-        fn(react_mode=react_mode, max_depth=max_depth, model=model)
+        fn(
+            react_mode=react_mode,
+            max_depth=max_depth,
+            model=model,
+            provider=provider,
+        )
         for fn in selected_agent_fns
     ]
 

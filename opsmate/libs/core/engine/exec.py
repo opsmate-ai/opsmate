@@ -3,8 +3,9 @@ from typing import Union, Callable
 from opsmate.libs.core.contexts import react_ctx
 from opsmate.libs.core.trace import traceit
 from opentelemetry.trace import Span
-from openai import Client
+from opsmate.libs.providers import Client as ProviderClient, ClientBag
 import instructor
+from instructor import Mode
 import structlog
 from .render import render_context, render_tools
 import yaml
@@ -13,11 +14,12 @@ from queue import Queue
 logger = structlog.get_logger()
 
 
-@traceit(exclude=["client", "task", "stream_output", "historic_context"])
+@traceit(exclude=["clients", "task", "stream_output", "historic_context"])
 def _exec_executables(
-    client: Client,
+    clients: ClientBag,
     task: Task,
     ask: bool = False,
+    provider: str = "openai",
     model: str = "gpt-4o",
     max_retries: int = 3,
     stream: bool = False,
@@ -25,38 +27,26 @@ def _exec_executables(
     historic_context: List[ReactProcess | ReactAnswer | Observation] = [],
     span: Span = None,
 ):
+    provider_client = ProviderClient(clients, provider, mode=Mode.PARALLEL_TOOLS)
 
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
-    messages = [
-        {"role": "system", "content": prompt},
-    ]
+    provider_client.system_content(prompt)
 
-    messages.extend(
-        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
-        for ctx in historic_context
-    )
+    for ctx in historic_context:
+        provider_client.assistant_content(yaml.dump(ctx.model_dump()))
 
-    messages.append({"role": "system", "content": render_tools(task)})
+    provider_client.system_content(render_tools(task))
 
-    messages.append(
-        {
-            "role": "user",
-            "content": yaml.dump({"question": task.spec.instruction}),
-        }
-    )
+    provider_client.user_content(yaml.dump({"question": task.spec.instruction}))
 
     executables = list(task.all_executables)
 
-    instructor_client = instructor.from_openai(
-        client, mode=instructor.Mode.PARALLEL_TOOLS
-    )
-
-    exec_calls = instructor_client.chat.completions.create(
+    exec_calls = provider_client.chat_completion(
         model=model,
-        messages=messages,
+        max_retries=max_retries,
         response_model=Iterable[Union[tuple(executables)]],
     )
 
@@ -80,14 +70,15 @@ def _exec_executables(
     except Exception as e:
         logger.error(f"Error executing {exec_calls}: {e}", exc_info=True)
 
-    return exec_results, messages
+    return exec_results, provider_client.messages
 
 
 @traceit(exclude=["client", "task"])
 def exec_task(
-    client: Client,
+    clients: ClientBag,
     task: Task,
     ask: bool = False,
+    provider: str = "openai",
     model: str = "gpt-4o",
     stream: bool = False,
     stream_output: Queue = None,
@@ -95,35 +86,27 @@ def exec_task(
 ):
     span.set_attribute("instruction", task.spec.instruction)
 
-    exec_result, messages = _exec_executables(
-        client, task, ask, model, stream=stream, stream_output=stream_output
-    )
-
-    instructor_client = instructor.from_openai(client)
-
-    messages.append(
-        {
-            "role": "user",
-            "content": yaml.dump(exec_result.model_dump()),
-        }
-    )
-
-    resp = instructor_client.chat.completions.create(
+    exec_result, _ = _exec_executables(
+        clients=clients,
+        task=task,
+        ask=ask,
+        provider=provider,
         model=model,
-        messages=messages,
-        response_model=task.spec.response_model,
+        stream=stream,
+        stream_output=stream_output,
     )
 
-    return resp
+    return exec_result
 
 
 @traceit(exclude=["client", "task", "historic_context", "stream_output"])
 def exec_react_task(
-    client: Client,
+    clients: ClientBag,
     task: Task,
     ask: bool = False,
     historic_context: List[ReactProcess | Observation | ReactAnswer] = [],
     max_depth: int = 10,
+    provider: str = "openai",
     model: str = "gpt-4o",
     stream: bool = False,
     stream_output: Queue = None,
@@ -138,30 +121,23 @@ def exec_react_task(
     if max_depth <= 0:
         raise ValueError("Max depth must be greater than 0")
 
+    provider_client = ProviderClient(clients, provider)
+    for ctx in historic_context:
+        provider_client.assistant_content(yaml.dump(ctx.model_dump()))
+
     prompt = ""
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
     prompt += render_tools(task)
 
-    messages = []
-    messages.extend(
-        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
-        for ctx in historic_context
-    )
-
-    messages.append({"role": "system", "content": prompt})
-    messages.append(
-        {"role": "user", "content": yaml.dump({"question": task.spec.instruction})}
-    )
-
-    instructor_client = instructor.from_openai(client)
+    provider_client.system_content(prompt)
+    provider_client.user_content(yaml.dump({"question": task.spec.instruction}))
 
     answered = False
     for _ in range(max_depth):
-        resp = instructor_client.chat.completions.create(
+        resp = provider_client.chat_completion(
             model=model,
-            messages=messages,
             response_model=ReactOutput,
         )
 
@@ -175,12 +151,7 @@ def exec_react_task(
             historic_context.append(output)
             yield output
 
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": yaml.dump(output.model_dump()),
-                }
-            )
+            provider_client.assistant_content(yaml.dump(output.model_dump()))
             if output.action is not None and len(task.spec.contexts) > 1:
                 ctx = task.spec.contexts.copy()
                 ctx.remove(react_ctx)
@@ -201,9 +172,10 @@ def exec_react_task(
                 )
 
                 exec_results, _ = _exec_executables(
-                    client,
-                    action_task,
+                    clients=clients,
+                    task=action_task,
                     ask=ask,
+                    provider=provider,
                     model=model,
                     stream=stream,
                     stream_output=stream_output,
@@ -219,11 +191,8 @@ def exec_react_task(
 
                 historic_context.append(observation)
                 if observation is not None:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "content": yaml.dump(observation.model_dump()),
-                        },
+                    provider_client.assistant_content(
+                        yaml.dump(observation.model_dump())
                     )
 
     if not answered:

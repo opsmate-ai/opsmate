@@ -96,6 +96,11 @@ class AgentSpec(BaseModel):
         default=False,
         description="if true, the agent will use react mode",
     )
+    provider: str = Field(
+        title="provider",
+        default="openai",
+        description="provider to use for the agent",
+    )
     model: str = Field(
         title="model",
         default="gpt-4o",
@@ -236,6 +241,7 @@ AgentFactory = Callable[[str, bool, int, ReactContext, List[Context]], Agent]
 
 
 class SupervisorSpec(BaseModel):
+    provider: str = Field(title="provider", default="openai")
     model: str = Field(title="model", default="gpt-4o")
     max_depth: int = Field(title="max depth", default=10)
     contexts: List[Context] = Field(title="contexts")

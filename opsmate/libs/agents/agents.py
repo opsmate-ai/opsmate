@@ -13,6 +13,7 @@ from opsmate.libs.core.types import (
 )
 from opsmate.libs.core.contexts import react_ctx, cli_ctx
 from opsmate.libs.contexts import k8s_ctx, git_ctx, terraform_ctx
+from opsmate.libs.providers.providers import Provider
 from pydantic import BaseModel, Field
 from typing import List, Iterable
 
@@ -48,6 +49,7 @@ Here is the list of agents you are supervising and delegate tasks to:
 
 
 def supervisor_agent(
+    provider: Provider = "openai",
     model: str = "gpt-4o",
     max_depth: int = 10,
     agents: List[Agent] = [],
@@ -81,6 +83,7 @@ def supervisor_agent(
         status=AgentStatus(),
         spec=AgentSpec(
             react_mode=True,
+            provider=provider,
             model=model,
             max_depth=max_depth,
             agents=agent_map,
@@ -100,6 +103,7 @@ def supervisor_agent(
 
 
 def cli_agent(
+    provider: Provider = "openai",
     model: str = "gpt-4o",
     react_mode: bool = False,
     max_depth: int = 10,
@@ -125,6 +129,7 @@ def cli_agent(
         ),
         spec=AgentSpec(
             react_mode=react_mode,
+            provider=provider,
             model=model,
             max_depth=max_depth,
             description="Agent to run CLI commands",
@@ -143,6 +148,7 @@ def cli_agent(
 
 
 def k8s_agent(
+    provider: Provider = "openai",
     model: str = "gpt-4o",
     react_mode: bool = False,
     max_depth: int = 10,
@@ -168,6 +174,7 @@ def k8s_agent(
         ),
         spec=AgentSpec(
             react_mode=react_mode,
+            provider=provider,
             model=model,
             max_depth=max_depth,
             description="Agent to run K8S commands",
@@ -186,6 +193,7 @@ def k8s_agent(
 
 
 def git_agent(
+    provider: Provider = "openai",
     model: str = "gpt-4o",
     react_mode: bool = False,
     max_depth: int = 10,
@@ -211,6 +219,7 @@ def git_agent(
         ),
         spec=AgentSpec(
             react_mode=react_mode,
+            provider=provider,
             model=model,
             max_depth=max_depth,
             description="Agent to run git commands",
@@ -229,6 +238,7 @@ def git_agent(
 
 
 def terraform_agent(
+    provider: Provider = "openai",
     model: str = "gpt-4o",
     react_mode: bool = False,
     max_depth: int = 10,
@@ -254,6 +264,7 @@ def terraform_agent(
         ),
         spec=AgentSpec(
             react_mode=react_mode,
+            provider=provider,
             model=model,
             max_depth=max_depth,
             description="Agent to run terraform commands",

@@ -37,7 +37,7 @@ class Client:
             self.client = clients[provider]
             self.instructor_client = instructor.from_openai(self.client, mode=mode)
         elif provider == "anthropic":
-            if mode is None:
+            if mode is None or mode == Mode.PARALLEL_TOOLS:
                 mode = Mode.ANTHROPIC_TOOLS
             self.client = clients[provider]
             self.instructor_client = instructor.from_anthropic(self.client, mode=mode)
@@ -68,7 +68,10 @@ class Client:
             self.messages.append(message)
 
     def assistant_content(self, content: str):
-        self.messages.append({"role": "assistant", "content": content.strip()})
+        if self.provider == "openai":
+            self.messages.append({"role": "assistant", "content": content.strip()})
+        elif self.provider == "anthropic":
+            self.messages.append({"role": "user", "content": content.strip()})
 
     def user_content(self, content: str):
         self.messages.append({"role": "user", "content": content.strip()})

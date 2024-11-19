@@ -190,6 +190,7 @@ def exec_react_task(
                     clients=clients,
                     task=action_task,
                     ask=ask,
+                    provider=provider,
                     model=model,
                     stream=stream,
                     stream_output=stream_output,

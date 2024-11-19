@@ -32,7 +32,7 @@ def gen_agent_commands(
 
     # messages = []
     for ctx in supervisor.status.historical_context:
-        provider_client.assistant_content(yaml.dump(ctx.model_dump()))
+        provider_client.user_content(yaml.dump(ctx.model_dump()))
     ctx = f"""
 based on the action, and available agents, comes up with a list of instructions for the agents to execute
 
@@ -64,7 +64,7 @@ Now here are the available agents and action:
 
 Come up with a list of agent commands to execute
 """
-    provider_client.system_content(ctx)
+    provider_client.user_content(ctx)
     resp = provider_client.chat_completion(
         model=supervisor.spec.model,
         response_model=List[AgentCommand],

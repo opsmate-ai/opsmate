@@ -98,21 +98,6 @@ def exec_task(
 
     return exec_result
 
-    # provider_client = ProviderClient(clients, provider)
-
-    # provider_client.append_messages(messages)
-    # provider_client.user_content(yaml.dump(exec_result.model_dump()))
-
-    # executables = list(task.all_executables)
-
-    # resp = provider_client.chat_completion(
-    #     model=model,
-    #     response_model=task.spec.response_model,
-    # )
-
-    # print(resp)
-    # return resp
-
 
 @traceit(exclude=["client", "task", "historic_context", "stream_output"])
 def exec_react_task(

@@ -6,7 +6,7 @@ from opentelemetry.trace import Span
 from openai import Client
 import instructor
 import structlog
-from .render import render_context
+from .render import render_context, render_tools
 import yaml
 from queue import Queue
 
@@ -31,13 +31,15 @@ def _exec_executables(
         prompt += render_context(ctx) + "\n"
 
     messages = [
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": prompt},
     ]
 
     messages.extend(
-        {"role": "user", "content": yaml.dump(ctx.model_dump())}
+        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
         for ctx in historic_context
     )
+
+    messages.append({"role": "system", "content": render_tools(task)})
 
     messages.append(
         {
@@ -46,10 +48,7 @@ def _exec_executables(
         }
     )
 
-    executables = []
-    for ctx in task.spec.contexts:
-        for executable in ctx.all_executables():
-            executables.append(executable)
+    executables = list(task.all_executables)
 
     instructor_client = instructor.from_openai(
         client, mode=instructor.Mode.PARALLEL_TOOLS
@@ -143,14 +142,18 @@ def exec_react_task(
     for ctx in task.spec.contexts:
         prompt += render_context(ctx) + "\n"
 
+    prompt += render_tools(task)
+
     messages = []
     messages.extend(
-        {"role": "user", "content": yaml.dump(ctx.model_dump())}
+        {"role": "assistant", "content": yaml.dump(ctx.model_dump())}
         for ctx in historic_context
     )
 
-    messages.append({"role": "user", "content": prompt})
-    messages.append({"role": "user", "content": "question: " + task.spec.instruction})
+    messages.append({"role": "system", "content": prompt})
+    messages.append(
+        {"role": "user", "content": yaml.dump({"question": task.spec.instruction})}
+    )
 
     instructor_client = instructor.from_openai(client)
 
@@ -174,7 +177,7 @@ def exec_react_task(
 
             messages.append(
                 {
-                    "role": "user",
+                    "role": "assistant",
                     "content": yaml.dump(output.model_dump()),
                 }
             )
@@ -218,7 +221,7 @@ def exec_react_task(
                 if observation is not None:
                     messages.append(
                         {
-                            "role": "user",
+                            "role": "assistant",
                             "content": yaml.dump(observation.model_dump()),
                         },
                     )

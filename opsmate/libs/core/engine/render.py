@@ -18,3 +18,21 @@ def render_context(context: Context):
     template = env.from_string(context.spec.data)
 
     return output + template.render()
+
+
+def render_tools(task: Task):
+    executables = task.all_executables
+
+    return f"""
+Here are the available tools you can use:
+<tools>
+{_render_tools(executables)}
+</tools>
+"""
+
+
+def _render_tools(executables: list[Type[Executable]]):
+    kv = {}
+    for executable in executables:
+        kv[executable.__name__] = executable.__doc__
+    return yaml.dump(kv)

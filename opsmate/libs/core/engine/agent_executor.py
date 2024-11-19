@@ -20,9 +20,9 @@ logger = structlog.get_logger()
 
 @traceit(exclude=["client"])
 def gen_agent_commands(
-    clientBag: ClientBag, supervisor: Agent, action: str
+    client_bag: ClientBag, supervisor: Agent, action: str
 ) -> List[AgentCommand]:
-    provider_client = ProviderClient(clientBag, supervisor.spec.provider)
+    provider_client = ProviderClient(client_bag, supervisor.spec.provider)
 
     agent_info = []
     for _, agent in supervisor.spec.agents.items():
@@ -82,8 +82,8 @@ Come up with a list of agent commands to execute
 
 
 class AgentExecutor:
-    def __init__(self, clientBag: ClientBag, ask: bool = False):
-        self.clientBag = clientBag
+    def __init__(self, client_bag: ClientBag, ask: bool = False):
+        self.client_bag = client_bag
         self.ask = ask
 
     @traceit(exclude=["stream_output"])
@@ -94,7 +94,7 @@ class AgentExecutor:
         stream: bool = False,
         stream_output: Queue = None,
     ):
-        provider_client = ProviderClient(self.clientBag, supervisor.spec.provider)
+        provider_client = ProviderClient(self.client_bag, supervisor.spec.provider)
 
         prompt = "\n".join(
             render_context(ctx) for ctx in supervisor.spec.task_template.spec.contexts
@@ -137,7 +137,7 @@ class AgentExecutor:
                         "action": resp.output.action,
                     }
                 )
-                commands = gen_agent_commands(self.clientBag, supervisor, instruction)
+                commands = gen_agent_commands(self.client_bag, supervisor, instruction)
                 for command in commands:
                     agent_name = (
                         f"@{supervisor.spec.agents[command.agent].metadata.name}"
@@ -192,7 +192,7 @@ class AgentExecutor:
     ):
         if agent.spec.react_mode:
             return exec_react_task(
-                self.clientBag,
+                self.client_bag,
                 agent.task(instruction),
                 ask=self.ask,
                 historic_context=agent.status.historical_context,
@@ -204,7 +204,7 @@ class AgentExecutor:
             )
         else:
             return exec_task(
-                self.clientBag,
+                self.client_bag,
                 agent.task(instruction),
                 ask=self.ask,
                 provider=agent.spec.provider,

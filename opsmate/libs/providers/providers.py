@@ -68,16 +68,16 @@ class Client:
             self.messages.append(message)
 
     def assistant_content(self, content: str):
-        self.messages.append({"role": "assistant", "content": content})
+        self.messages.append({"role": "assistant", "content": content.strip()})
 
     def user_content(self, content: str):
-        self.messages.append({"role": "user", "content": content})
+        self.messages.append({"role": "user", "content": content.strip()})
 
     def system_content(self, content: str):
         if self.provider == "openai":
-            self.messages.append({"role": "system", "content": content})
+            self.messages.append({"role": "system", "content": content.strip()})
         elif self.provider == "anthropic":
-            self.system_prompt += content
+            self.system_prompt += content.strip()
 
     def models(self):
         # if "openai" in self.clients:

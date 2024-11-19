@@ -37,6 +37,7 @@ import logging
 import queue
 import threading
 import time
+from opsmate.libs.providers import Client as ProviderClient
 
 loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
 structlog.configure(
@@ -137,10 +138,7 @@ def list_models():
     """
     List all the models available in OpenAI.
     """
-    client = OpenAI()
-    model_names = [
-        model.id for model in client.models.list().data if model.id.startswith("gpt")
-    ]
+    model_names = ProviderClient.from_env().models()
     for model_name in model_names:
         console.print(model_name)
 

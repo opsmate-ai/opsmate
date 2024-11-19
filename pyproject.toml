@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opsmate"
-version = "0.1.2.alpha"
+version = "0.1.2.alpha1"
 description = "opsmate is a SRE AI assistant"
 authors = ["Jingkai <jingkai@hey.com>"]
 readme = "README.md"

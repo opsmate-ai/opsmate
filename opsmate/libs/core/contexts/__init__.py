@@ -230,7 +230,10 @@ class KnowledgeBaseQuery(Executable):
                 "results": results,
             }
         )
-        return SearchOutput(results=results)
+        return SearchOutput(
+            query=self.query,
+            results=results,
+        )
 
 
 built_in_helpers = {
@@ -272,10 +275,10 @@ cli_ctx = Context(
     ),
     spec=ContextSpec(
         params={},
-        contexts=[os_ctx, kb_ctx],
-        executables=[ExecShell],
+        contexts=[os_ctx],
+        executables=[ExecShell, KnowledgeBaseQuery],
         data="""
-        you are a sysadmin specialised in sysadmin task and problem solving.
+        you are a sysadmin specialised in sysadmin task and problem solving. DO NOT run any command in interactive mode.
         """,
     ),
 )
@@ -284,8 +287,8 @@ react_prompt = """
 You run in a loop of question, thought, action.
 At the end of the loop you output an answer.
 Use "Question" to describe the question you have been asked.
-Use "Thought" to describe your thoughts about the question you have been asked.
-Use "Action" to describe the action items you are going to take. action can be the question if the question is easy enough
+Use "Thought" to describe your thoughts about the question you have been asked. Make sure that the thought is descriptive and detailed.
+Use "Action" to describe the action items you are going to take based on the thought. action can be the question if the question is easy enough
 "Observation" is the result of running those action.
 
 Notes you output must be in format as follows:
@@ -303,68 +306,25 @@ answer: ...
 
 When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
 
+question: can you kill process with pid 1234?
+
 BAD EXAMPLE:
 <react>
-answer: To get the operating system name, use `cat /etc/os-release`
+answer: to kill process with pid 1234, use `kill -TERM 1234`
 </react>
 
-GOOD EXAMPLE:
-<react>
-thought: I can find the operating system name in the os-release file
-action: run `cat /etc/os-release`
-</react>
-
-Example 1:
-
-user asks: how many cpu and memory does the machine have?
+GOOD EXAMPLES:
 
 <react>
-question: how many cpu and memory does the machine have?
-thought: i need to find out how many cpu and memory the machine has
-action: runs `lscpu` and `free -m` to find out
+thought: I need to kill process using the kill command
+action: run `kill -TERM 1234`
 </react>
 
-<observation>
-cpu: 2 vcpu
-memory: 12Gi
-</observation>
-
-<answer>
-the machine has 2 cpu and 12Gi memory
-</answer>
-
-Example 2:
-
-user asks: customers are reporting that the nginx service in the kubernetes cluster is down, can you check on it?
+// user provides observation: the process with pid 1234 is killed
 
 <react>
-question: what is the status of the nginx service in the kubernetes cluster?
-thought: i need to check the status of the nginx service in the kubernetes cluster
-action: runs `kubectl get svc,deploy -n nginx` to check the status of the nginx service and nginx deployment
+answer: the process with pid 1234 is killed
 </react>
-
-you carry out investigations and find out
-
-<observation>
-nginx service is up and running just fine, the deployment is not ready
-</observation>
-
-<react>
-thought: the nginx deployment does not appear to be ready, lets find out why
-action: runs `kubectl describe deploy nginx -n nginx` to find out what's wrong with the nginx pod
-</react>
-
-you carry out actions and find out
-
-<observation>
-the image is `image: nginx:doesnotexist` which does not exist
-</observation>
-
-You can then give the answer:
-
-<answer>
-the nginx service is now working via applying the new image
-</answer>
 """
 
 react_ctx = Context(

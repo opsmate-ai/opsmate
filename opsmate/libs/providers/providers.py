@@ -52,6 +52,10 @@ class Client:
         strict: bool = True,
         max_tokens: int = 4096,
     ):
+        if model == "gpt-o1" and self.provider == "openai":
+            self.instructor_client = instructor.from_openai(
+                self.client, mode=Mode.JSON_O1
+            )
         return self.instructor_client.chat.completions.create(
             model=model,
             response_model=response_model,

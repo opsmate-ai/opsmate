@@ -10,6 +10,7 @@ from opsmate.libs.agents import (
     supervisor_agent,
     k8s_agent as _k8s_agent,
 )
+from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.core.types import Agent, ReactAnswer
 from openai import OpenAI
 import instructor
@@ -95,7 +96,7 @@ def supervisor(k8s_agent):
 
 @pytest.fixture
 def executor():
-    return AgentExecutor(client=OpenAI())
+    return AgentExecutor(client_bag=ProviderClient.clients_from_env())
 
 
 class OutputScore(BaseModel):

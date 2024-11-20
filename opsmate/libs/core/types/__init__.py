@@ -207,6 +207,7 @@ class ShellExecOutput(ExecOutput):
 class SearchOutput(ExecOutput):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    query: str = Field(title="query")
     results: list[Dict[str, str]] = Field(title="searchresults")
 
     def table_title(self):
@@ -216,7 +217,7 @@ class SearchOutput(ExecOutput):
         return [yaml.dump(self.results) for result in self.results]
 
     def table_column_names(self):
-        return [("Results", "cyan")]
+        return [("Query", "cyan"), ("Results", "cyan")]
 
 
 class ExecResults(BaseModel):

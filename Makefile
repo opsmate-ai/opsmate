@@ -48,5 +48,5 @@ python-sdk-codegen: # generate the python sdk
 		--api-package api \
 		--model-package models \
 		-l python \
-		--additional-properties packageName=opsmatesdk version=0.1.0 \
+		--additional-properties packageName=opsmatesdk \
 		-o /local/sdk/python

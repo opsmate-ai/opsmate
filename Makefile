@@ -5,6 +5,8 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+VERSION=0.1.2.alpha3
+
 
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
@@ -41,12 +43,31 @@ python-sdk-codegen: # generate the python sdk
 	echo "Generating the python sdk..."
 	sudo rm -rf sdk/python
 	mkdir -p sdk/python
+	cp .openapi-generator-ignore sdk/python/.openapi-generator-ignore
 	docker run --rm \
 		-v $(PWD)/sdk:/local/sdk \
-		swaggerapi/swagger-codegen-cli-v3:3.0.64 generate \
+		openapitools/openapi-generator-cli:v7.10.0 generate \
 		-i /local/sdk/spec/apiserver/openapi.json \
 		--api-package api \
 		--model-package models \
-		-l python \
-		--additional-properties packageName=opsmatesdk \
-		-o /local/sdk/python
+		-g python \
+		--package-name opsmatesdk \
+		-o /local/sdk/python \
+		--additional-properties=packageVersion=$(VERSION)
+
+.PHONY: go-sdk-codegen
+go-sdk-codegen: # generate the go sdk
+	echo "Generating the go sdk..."
+	sudo rm -rf sdk/go
+	mkdir -p sdk/go
+	cp .openapi-generator-ignore sdk/go/.openapi-generator-ignore
+	docker run --rm \
+		-v $(PWD)/sdk:/local/sdk \
+		openapitools/openapi-generator-cli:v7.10.0 generate \
+		-i /local/sdk/spec/apiserver/openapi.json \
+		--api-package api \
+		--model-package models \
+		-g go \
+		--package-name opsmatesdk \
+		-o /local/sdk/go \
+		--additional-properties=packageVersion=$(VERSION)

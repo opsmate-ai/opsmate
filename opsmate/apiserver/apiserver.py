@@ -12,11 +12,15 @@ class Health(BaseModel):
     status: Literal["ok", "faulty"] = Field(title="status", default="ok")
 
 
+class Session(BaseModel):
+    uuid: str = Field(title="uuid")
+
+
 @app.get("/api/v1/health", response_model=Health)
-def health():
+async def health():
     return Health(status="ok")
 
 
 @app.get("/api/v1/models", response_model=List[Model])
-def models():
+async def models():
     return ProviderClient.models_from_clientbag(client_bag)

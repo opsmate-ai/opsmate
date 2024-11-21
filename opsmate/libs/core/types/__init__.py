@@ -259,3 +259,8 @@ class DocumentIngestionSpec(BaseModel):
         title="local path",
         description="absolute path to the directory to ingest, glob patterns are supported",
     )
+
+
+class Model(BaseModel):
+    provider: str = Field(title="provider")
+    model: str = Field(title="model")

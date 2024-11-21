@@ -1,6 +1,7 @@
 import instructor
 from instructor import Mode
 from instructor.client import T, ChatCompletionMessageParam
+from opsmate.libs.core.types import Model
 from typing import List, Any, Dict, Literal, get_args
 from openai import OpenAI
 from anthropic import Anthropic
@@ -102,4 +103,27 @@ class Client:
                 if hasattr(arg, "__origin__") and arg.__origin__ is Literal:
                     models.extend(get_args(arg))
 
+        return models
+
+    @classmethod
+    def models_from_clientbag(cls, clientbag: ClientBag) -> List[Model]:
+        models = []
+        for name, client in clientbag.items():
+            if name == "openai":
+                models.extend(
+                    [
+                        Model(provider=name, model=model.id)
+                        for model in client.models.list().data
+                        if model.id.startswith("gpt")
+                    ]
+                )
+            elif name == "anthropic":
+                for arg in get_args(AnthropicModel):
+                    if hasattr(arg, "__origin__") and arg.__origin__ is Literal:
+                        models.extend(
+                            [
+                                Model(provider=name, model=model)
+                                for model in get_args(arg)
+                            ]
+                        )
         return models

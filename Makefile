@@ -29,3 +29,9 @@ kind-cluster: kind
 .PHONY: kind-destroy
 kind-destroy: kind
 	$(KIND) delete cluster --name troubleshooting-eval
+
+
+.PHONY: api-gen
+api-gen: # generate the api spec
+	echo "Generating the api spec..."
+	poetry run python scripts/api-gen.py

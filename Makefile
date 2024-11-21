@@ -35,3 +35,18 @@ kind-destroy: kind
 api-gen: # generate the api spec
 	echo "Generating the api spec..."
 	poetry run python scripts/api-gen.py
+
+.PHONY: python-sdk-codegen
+python-sdk-codegen: # generate the python sdk
+	echo "Generating the python sdk..."
+	sudo rm -rf sdk/python
+	mkdir -p sdk/python
+	docker run --rm \
+		-v $(PWD)/sdk:/local/sdk \
+		swaggerapi/swagger-codegen-cli-v3:3.0.64 generate \
+		-i /local/sdk/spec/apiserver/openapi.json \
+		--api-package api \
+		--model-package models \
+		-l python \
+		--additional-properties packageName=opsmatesdk version=0.1.0 \
+		-o /local/sdk/python

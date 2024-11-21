@@ -58,16 +58,19 @@ python-sdk-codegen: # generate the python sdk
 .PHONY: go-sdk-codegen
 go-sdk-codegen: # generate the go sdk
 	echo "Generating the go sdk..."
-	sudo rm -rf sdk/go
-	mkdir -p sdk/go
-	cp .openapi-generator-ignore sdk/go/.openapi-generator-ignore
+	sudo rm -rf cli/sdk
+	mkdir -p cli/sdk
+	cp .openapi-generator-ignore cli/sdk/.openapi-generator-ignore
 	docker run --rm \
-		-v $(PWD)/sdk:/local/sdk \
+		-v $(PWD)/cli/sdk:/local/cli/sdk \
+		-v $(PWD)/sdk/spec/apiserver/openapi.json:/local/openapi.json \
 		openapitools/openapi-generator-cli:v7.10.0 generate \
-		-i /local/sdk/spec/apiserver/openapi.json \
+		-i /local/openapi.json \
 		--api-package api \
 		--model-package models \
 		-g go \
 		--package-name opsmatesdk \
-		-o /local/sdk/go \
-		--additional-properties=packageVersion=$(VERSION)
+		--git-user-id jingkaihe \
+		--git-repo-id opsmate/cli/sdk \
+		-o /local/cli/sdk \
+		--additional-properties=packageVersion=$(VERSION),withGoMod=false

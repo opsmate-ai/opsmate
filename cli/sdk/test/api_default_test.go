@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	openapiclient "github.com/GIT_USER_ID/GIT_REPO_ID"
+	openapiclient "github.com/jingkaihe/opsmate/cli/sdk"
 )
 
 func Test_opsmatesdk_DefaultAPIService(t *testing.T) {

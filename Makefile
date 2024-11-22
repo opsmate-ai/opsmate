@@ -39,7 +39,7 @@ api-gen: # generate the api spec
 	poetry run python scripts/api-gen.py
 
 .PHONY: python-sdk-codegen
-python-sdk-codegen: # generate the python sdk
+python-sdk-codegen: api-gen # generate the python sdk
 	echo "Generating the python sdk..."
 	sudo rm -rf sdk/python
 	mkdir -p sdk/python

@@ -31,5 +31,9 @@ from opsmatesdk.exceptions import ApiAttributeError
 from opsmatesdk.exceptions import ApiException
 
 # import models into sdk package
+from opsmatesdk.models.http_validation_error import HTTPValidationError
 from opsmatesdk.models.health import Health
 from opsmatesdk.models.model import Model
+from opsmatesdk.models.run_request import RunRequest
+from opsmatesdk.models.validation_error import ValidationError
+from opsmatesdk.models.validation_error_loc_inner import ValidationErrorLocInner

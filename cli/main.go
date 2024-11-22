@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -43,6 +44,16 @@ func main() {
 				Name:  "inventory-ttl",
 				Usage: "how long the inventory is valid",
 				Value: 10 * time.Minute,
+			},
+			&cli.StringFlag{
+				Name:  "provider",
+				Usage: "provider to use",
+				Value: "openai",
+			},
+			&cli.StringFlag{
+				Name:  "model",
+				Usage: "model to use",
+				Value: "gpt-4o",
 			},
 		},
 		Before: func(c *cli.Context) error {
@@ -101,6 +112,43 @@ func main() {
 					return nil
 				},
 			},
+			{
+				Name:        "run",
+				Usage:       "opsmate run <instruction>",
+				Description: "execute commands based on the instruction in natural language",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:  "contexts",
+						Usage: "contexts to use",
+						Value: cli.NewStringSlice("cli"),
+					},
+				},
+				Args: true,
+				Action: func(c *cli.Context) error {
+					var (
+						client      = c.Context.Value(clientCtxKey{}).(*opsmatesdk.APIClient)
+						provider    = c.String("provider")
+						model       = c.String("model")
+						contexts    = c.StringSlice("contexts")
+						instruction = c.Args().First()
+					)
+
+					req := client.DefaultAPI.RunApiV1RunPost(c.Context)
+					req = req.RunRequest(opsmatesdk.RunRequest{
+						Provider:    provider,
+						Model:       model,
+						Instruction: instruction,
+						Contexts:    contexts,
+					})
+					results, resp, err := req.Execute()
+					if err != nil {
+						return err
+					}
+					defer resp.Body.Close()
+					fmt.Println(results)
+					return nil
+				},
+			},
 		},
 	}
 
@@ -150,27 +198,28 @@ func RecordInventory(inventoryDir string, inventoryTTL time.Duration) error {
 }
 
 // osInventory returns a map of os inventory information
-func osInventory() (map[string]string, error) {
+func osInventory() (map[string]interface{}, error) {
 	memInGB, err := getMemInfo()
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{
+	return map[string]interface{}{
 		"os":      runtime.GOOS,
 		"arch":    runtime.GOARCH,
-		"cpus":    fmt.Sprintf("%d", runtime.NumCPU()),
+		"cpus":    runtime.NumCPU(),
 		"memInGB": memInGB,
 	}, nil
 }
 
-func getMemInfo() (string, error) {
+func getMemInfo() (float64, error) {
 	var info syscall.Sysinfo_t
 	err := syscall.Sysinfo(&info)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	totalRam := info.Totalram * uint64(info.Unit) // Total RAM in bytes
 	memInGB := float64(totalRam) / (1024 * 1024 * 1024)
-	return fmt.Sprintf("%.2f", memInGB), nil
+	// round to 2 decimal places
+	return math.Round(memInGB*100) / 100, nil
 }

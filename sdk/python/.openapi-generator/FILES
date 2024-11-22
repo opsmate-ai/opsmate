@@ -10,7 +10,11 @@ opsmatesdk/configuration.py
 opsmatesdk/exceptions.py
 opsmatesdk/models/__init__.py
 opsmatesdk/models/health.py
+opsmatesdk/models/http_validation_error.py
 opsmatesdk/models/model.py
+opsmatesdk/models/run_request.py
+opsmatesdk/models/validation_error.py
+opsmatesdk/models/validation_error_loc_inner.py
 opsmatesdk/py.typed
 opsmatesdk/rest.py
 pyproject.toml
@@ -21,5 +25,9 @@ test-requirements.txt
 test/__init__.py
 test/test_default_api.py
 test/test_health.py
+test/test_http_validation_error.py
 test/test_model.py
+test/test_run_request.py
+test/test_validation_error.py
+test/test_validation_error_loc_inner.py
 tox.ini

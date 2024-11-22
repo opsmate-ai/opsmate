@@ -86,12 +86,17 @@ Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *DefaultApi* | [**health_api_v1_health_get**](docs/DefaultApi.md#health_api_v1_health_get) | **GET** /api/v1/health | Health
 *DefaultApi* | [**models_api_v1_models_get**](docs/DefaultApi.md#models_api_v1_models_get) | **GET** /api/v1/models | Models
+*DefaultApi* | [**run_api_v1_run_post**](docs/DefaultApi.md#run_api_v1_run_post) | **POST** /api/v1/run | Run
 
 
 ## Documentation For Models
 
+ - [HTTPValidationError](docs/HTTPValidationError.md)
  - [Health](docs/Health.md)
  - [Model](docs/Model.md)
+ - [RunRequest](docs/RunRequest.md)
+ - [ValidationError](docs/ValidationError.md)
+ - [ValidationErrorLocInner](docs/ValidationErrorLocInner.md)
 
 
 <a id="documentation-for-authorization"></a>

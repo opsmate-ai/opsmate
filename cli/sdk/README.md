@@ -80,12 +80,17 @@ Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *DefaultAPI* | [**HealthApiV1HealthGet**](docs/DefaultAPI.md#healthapiv1healthget) | **Get** /api/v1/health | Health
 *DefaultAPI* | [**ModelsApiV1ModelsGet**](docs/DefaultAPI.md#modelsapiv1modelsget) | **Get** /api/v1/models | Models
+*DefaultAPI* | [**RunApiV1RunPost**](docs/DefaultAPI.md#runapiv1runpost) | **Post** /api/v1/run | Run
 
 
 ## Documentation For Models
 
+ - [HTTPValidationError](docs/HTTPValidationError.md)
  - [Health](docs/Health.md)
  - [Model](docs/Model.md)
+ - [RunRequest](docs/RunRequest.md)
+ - [ValidationError](docs/ValidationError.md)
+ - [ValidationErrorLocInner](docs/ValidationErrorLocInner.md)
 
 
 ## Documentation For Authorization

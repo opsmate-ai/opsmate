@@ -40,6 +40,13 @@ class TestDefaultApi(unittest.TestCase):
         """
         pass
 
+    def test_run_api_v1_run_post(self) -> None:
+        """Test case for run_api_v1_run_post
+
+        Run
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

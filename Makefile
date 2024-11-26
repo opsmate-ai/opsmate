@@ -6,7 +6,8 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 VERSION=0.1.2.alpha3
-
+IMAGE_NAME=opsmate
+CONTAINER_REGISTRY=europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images
 
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
@@ -19,6 +20,12 @@ KIND ?= $(LOCALBIN)/kind
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
+
+docker-build:
+	docker build -t $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION) .
+
+docker-push:
+	docker push $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION)
 
 .PHONY: kind
 kind: $(LOCALBIN)

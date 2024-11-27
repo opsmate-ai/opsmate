@@ -145,7 +145,20 @@ func main() {
 						return err
 					}
 					defer resp.Body.Close()
-					fmt.Println(results)
+
+					for _, result := range results {
+						table := tablewriter.NewWriter(os.Stdout)
+						// Extract keys and values from the map
+						keys := make([]string, 0, len(result))
+						values := make([]string, 0, len(result))
+						for k, v := range result {
+							keys = append(keys, k)
+							values = append(values, fmt.Sprintf("%v", v))
+						}
+						table.SetHeader(keys)
+						table.Append(values)
+						table.Render()
+					}
 					return nil
 				},
 			},

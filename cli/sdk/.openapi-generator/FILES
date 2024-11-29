@@ -1,0 +1,15 @@
+.gitignore
+README.md
+api/openapi.yaml
+api_default.go
+client.go
+configuration.go
+model_health.go
+model_http_validation_error.go
+model_model.go
+model_run_request.go
+model_validation_error.go
+model_validation_error_loc_inner.go
+response.go
+test/api_default_test.go
+utils.go

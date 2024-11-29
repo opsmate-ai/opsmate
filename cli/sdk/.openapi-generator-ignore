@@ -1,0 +1,5 @@
+.travis.yml
+.gitlab-ci.yml
+.github
+git_push.sh
+docs/

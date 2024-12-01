@@ -5,6 +5,7 @@ from opsmate.libs.core.engine import exec_task
 from pydantic import BaseModel, Field
 from opsmate.libs.providers import Client as ProviderClient, ClientBag
 from opsmate.libs.contexts import available_contexts
+from opsmate.apiserver.gui import app as fasthtml_app
 
 client_bag = ProviderClient.clients_from_env()
 app = FastAPI()
@@ -88,3 +89,6 @@ def get_contexts(contexts: List[str]):
             raise ContextNotFound(f"Context {ctx_name} not found")
 
     return selected_contexts
+
+
+app.mount("/", fasthtml_app)

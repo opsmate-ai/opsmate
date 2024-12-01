@@ -1,13 +1,10 @@
 from fasthtml.common import *
 from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.core.types import (
-    Model,
     ExecResults,
-    Task,
-    Metadata,
-    TaskSpec,
     ReactProcess,
     ReactAnswer,
+    Observation,
 )
 from opsmate.libs.core.engine import exec_task
 from opsmate.libs.agents import supervisor_agent, k8s_agent
@@ -49,10 +46,15 @@ messages = []
 # Now with a unique ID for the content and the message
 def ChatMessage(msg_idx, **kwargs):
     msg = messages[msg_idx]
-    bubble_class = "chat-bubble" if msg["role"] == "user" else "chat-bubble-secondary"
+    # bubble_class = "chat-bubble" if msg["role"] == "user" else "chat-bubble-secondary"
+    bubble_class = "chat-bubble"
     chat_class = "chat-end" if msg["role"] == "user" else "chat-start"
+
+    assistant_name = msg["role"]
+    if "agent_name" in msg:
+        assistant_name = msg["agent_name"]
     return Div(
-        Div(msg["role"], cls="chat-header"),
+        Div(assistant_name, cls="chat-header"),
         Div(
             msg["content"],
             id=f"chat-content-{msg_idx}",  # Target if updating the content
@@ -113,27 +115,21 @@ async def ws(msg: str, send):
     execution = executor.supervise(supervisor, msg.rstrip())
     async for step in async_wrapper(execution):
         messages.append({"role": "assistant", "content": ""})
-        await send(Div(ChatMessage(len(messages) - 1), hx_swap_oob=swap, id="chatlist"))
+
         actor, output = step
-        if actor == "@supervisor":
-            if isinstance(output, ReactProcess):
-                messages[-1]["content"] = react_table(actor, output)
-            elif isinstance(output, ReactAnswer):
-                messages[-1]["content"] = react_answer_table(actor, output)
-        else:
-            if isinstance(output, ExecResults):
-                messages[-1]["content"] = exec_results_table(actor, output)
-            elif isinstance(output, AgentCommand):
-                messages[-1]["content"] = agent_command_table(actor, output)
-            elif isinstance(output, ReactProcess):
-                messages[-1]["content"] = react_table(actor, output)
-        await send(
-            Div(
-                messages[-1]["content"],
-                id=f"chat-content-{len(messages)-1}",
-                hx_swap_oob=swap,
-            )
-        )
+        print(actor, output.__class__)
+        messages[-1]["agent_name"] = actor
+        if isinstance(output, ExecResults):
+            messages[-1]["content"] = render_exec_results_table(output)
+        elif isinstance(output, AgentCommand):
+            messages[-1]["content"] = render_agent_command_table(output)
+        elif isinstance(output, ReactProcess):
+            messages[-1]["content"] = render_react_table(output)
+        elif isinstance(output, ReactAnswer):
+            messages[-1]["content"] = render_react_answer_table(output)
+        elif isinstance(output, Observation):
+            messages[-1]["content"] = render_observation_table(output)
+        await send(Div(ChatMessage(len(messages) - 1), hx_swap_oob=swap, id="chatlist"))
 
 
 async def async_wrapper(generator: Generator):
@@ -142,37 +138,41 @@ async def async_wrapper(generator: Generator):
         yield step
 
 
-def react_table(actor: str, output: ReactProcess):
+def render_react_table(output: ReactProcess):
     return Table(
-        Tr(Th("Actor"), Td(actor)),
         Tr(Th("Action"), Td(output.action)),
         Tr(Th("Thought"), Td(output.thought)),
         cls="table",
     )
 
 
-def react_answer_table(actor: str, output: ReactAnswer):
+def render_react_answer_table(output: ReactAnswer):
     return Table(
-        Tr(Th("Actor"), Td(actor)),
         Tr(Th("Answer"), Td(output.answer)),
         cls="table",
     )
 
 
-def agent_command_table(actor: str, output: AgentCommand):
+def render_agent_command_table(output: AgentCommand):
     return Table(
-        Tr(Th("Actor"), Td(actor)),
         Tr(Th("Command"), Td(output.instruction)),
         cls="table",
     )
 
 
-def exec_results_table(actor: str, output: ExecResults):
+def render_observation_table(output: Observation):
+    return Table(
+        Tr(Th("Observation"), Td(output.observation)),
+        cls="table",
+    )
+
+
+def render_exec_results_table(output: ExecResults):
     tables = []
     for result in output.results:
         table = Table(
-            Tr(Th("Actor"), *[Td(col[0]) for col in result.table_column_names()]),
-            Tr(Td(actor), *[Td(ele) for ele in result.table_columns()]),
+            Tr(*[Td(col[0]) for col in result.table_column_names()]),
+            Tr(*[Td(ele) for ele in result.table_columns()]),
             cls="table",
         )
         tables.append(table)

@@ -61,7 +61,17 @@ dlink = Link(
     rel="stylesheet",
     href="https://cdn.jsdelivr.net/npm/daisyui@4.11.1/dist/full.min.css",
 )
-app = FastHTML(hdrs=(tlink, dlink, picolink, nav), exts="ws")
+
+
+def before(req, session):
+    if os.environ.get("OPSMATE_TOKEN"):
+        if req.query_params.get("token") != os.environ.get("OPSMATE_TOKEN"):
+            return Response("unauthorized", status_code=401)
+
+
+bware = Beforeware(before)
+
+app = FastHTML(hdrs=(tlink, dlink, picolink, nav), exts="ws", before=bware)
 
 client_bag = ProviderClient.clients_from_env()
 

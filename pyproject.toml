@@ -22,6 +22,7 @@ lancedb = "^0.15.0"
 pydantic-settings = "^2.6.1"
 fastapi = {extras = ["standard"], version = "^0.115.5"}
 python-fasthtml = "^0.10.0"
+sqlmodel = "^0.0.22"
 
 [tool.poetry.scripts]
 opsmate = "opsmate.cli:opsmate_cli"

@@ -162,8 +162,10 @@ def CellComponent(cell, index):
                     cls="btn btn-ghost btn-xs",
                 ),
                 Ul(
-                    Li(Button("Insert Above", hx_post=f"/cell/add/{index}")),
-                    Li(Button("Insert Below", hx_post=f"/cell/add/{index + 1}")),
+                    Li(Button("Insert Above", hx_post=f"/cell/add/{index}?above=true")),
+                    Li(
+                        Button("Insert Below", hx_post=f"/cell/add/{index}?above=false")
+                    ),
                     tabindex="0",
                     cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
                 ),
@@ -230,12 +232,6 @@ async def get():
                 # Header
                 Div(
                     H1(session_name, cls="text-2xl font-bold"),
-                    Button(
-                        add_cell_svg,
-                        "Add Cell",
-                        hx_post="/cell/add/0",
-                        cls="btn btn-primary btn-sm flex items-center gap-2",
-                    ),
                     cls="mb-4 flex justify-between items-center pt-16",
                 ),
                 # Cells Container
@@ -253,10 +249,13 @@ async def get():
 
 # Add cell manipulation routes
 @app.route("/cell/add/{index}")
-async def post(index: int):
+async def post(index: int, above: bool = False):
     new_id = max(c["id"] for c in cells) + 1
     new_cell = {"id": new_id, "content": "", "output": "", "type": "code"}
-    cells.insert(index, new_cell)
+    if above:
+        cells.insert(index, new_cell)
+    else:
+        cells.insert(index + 1, new_cell)
     return Div(
         *[CellComponent(cell, i) for i, cell in enumerate(cells)],
         id="cells-container",

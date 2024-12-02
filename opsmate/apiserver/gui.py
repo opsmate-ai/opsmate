@@ -155,7 +155,7 @@ def cell_component(cell, index):
                 Textarea(
                     cell["input"],
                     cls="w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-                    placeholder="Enter your code here...",
+                    placeholder="Enter your instruction here...",
                     hx_post=f"/cell/update/{cell['id']}",
                     name="input",
                     # hx_trigger="keyup changed delay:500ms",

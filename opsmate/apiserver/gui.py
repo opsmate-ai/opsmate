@@ -150,6 +150,17 @@ messages = []
 cells = [{"id": 1, "content": "", "output": "", "type": "code"}]
 
 
+def output_cell(cell):
+    return Div(
+        Span(f"Out [{cell['id']}]:", cls="text-gray-500 text-sm"),
+        Div(
+            *cell["output"],
+            id=f"cell-output-{cell['id']}",
+        ),
+        cls="px-4 py-2 bg-gray-50 border-t",
+    )
+
+
 def CellComponent(cell, index):
     """Renders a single cell component"""
     return Div(
@@ -185,10 +196,15 @@ def CellComponent(cell, index):
                         cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
                         disabled=len(cells) == 1,
                     ),
-                    Button(
-                        run_icon_svg,
-                        hx_post=f"/cell/run/{cell['id']}",
-                        cls="btn btn-ghost btn-sm",
+                    Form(
+                        Input(type="hidden", value=cell["id"], name="cell_id"),
+                        Button(
+                            run_icon_svg,
+                            cls="btn btn-ghost btn-sm",
+                        ),
+                        ws_connect=f"/cell/run/ws/",
+                        ws_send=True,
+                        hx_ext="ws",
                     ),
                     cls="ml-auto flex items-center gap-2",
                 ),
@@ -202,24 +218,30 @@ def CellComponent(cell, index):
                     placeholder="Enter your code here...",
                     hx_post=f"/cell/update/{cell['id']}",
                     name="content",
-                    hx_trigger="keyup changed delay:500ms",
+                    # hx_trigger="keyup changed delay:500ms",
                 ),
                 cls="p-4",
             ),
             # Cell Output (if any)
-            (
-                Div(
-                    Span(f"Out [{cell['id']}]:", cls="text-gray-500 text-sm"),
-                    Pre(cell["output"], cls="mt-1 text-sm"),
-                    cls="px-4 py-2 bg-gray-50 border-t",
-                )
-                if cell["output"]
-                else ""
-            ),
+            output_cell(cell),
+            # (
+            #     Div(
+            #         Span(f"Out [{cell['id']}]:", cls="text-gray-500 text-sm"),
+            #         Pre(
+            #             cell["output"],
+            #             cls="mt-1 text-sm",
+            #             id=f"cell-output-{cell['id']}",
+            #         ),
+            #         cls="px-4 py-2 bg-gray-50 border-t",
+            #     )
+            #     if cell["output"]
+            #     else ""
+            # ),
             cls="rounded-lg shadow-sm border",
         ),
         cls="group relative",
         key=cell["id"],
+        id=f"cell-component-{cell['id']}",
     )
 
 
@@ -283,52 +305,43 @@ async def post(cell_id: int, content: str):
     return ""
 
 
-@app.route("/cell/run/{cell_id}")
-async def post(cell_id: int):
+@app.ws("/cell/run/ws/")
+async def ws(cell_id: int, send):
     for cell in cells:
         if cell["id"] == cell_id:
-            try:
-                # Here you would actually run the code - this is just a mock
-                cell["output"] = f"Output for: {cell['content']}"
-            except Exception as e:
-                cell["output"] = str(e)
+            swap = "beforeend"
+            cell["output"] = []
+            await send(
+                Div(
+                    *cell["output"],
+                    hx_swap_oob="true",
+                    id=f"cell-output-{cell['id']}",
+                )
+            )
+            msg = cell["content"].rstrip()
+            execution = executor.supervise(supervisor, msg)
+
+            async for step in async_wrapper(execution):
+                actor, output = step
+                if isinstance(output, ExecResults):
+                    partial = render_exec_results_table(output)
+                elif isinstance(output, AgentCommand):
+                    partial = render_agent_command_table(output)
+                elif isinstance(output, ReactProcess):
+                    partial = render_react_table(output)
+                elif isinstance(output, ReactAnswer):
+                    partial = render_react_answer_table(output)
+                elif isinstance(output, Observation):
+                    partial = render_observation_table(output)
+                cell["output"].append(partial)
+                await send(
+                    Div(
+                        partial,
+                        hx_swap_oob=swap,
+                        id=f"cell-output-{cell['id']}",
+                    )
+                )
             break
-    return Div(
-        *[CellComponent(cell, i) for i, cell in enumerate(cells)],
-        id="cells-container",
-        hx_swap_oob="true",
-    )
-
-
-@app.ws("/wscon")
-async def ws(msg: str, send):
-    messages.append({"role": "user", "content": msg.rstrip()})
-    swap = "beforeend"
-
-    # Send the user message to the user (updates the UI right away)
-    await send(Div(ChatMessage(len(messages) - 1), hx_swap_oob=swap, id="chatlist"))
-
-    # Send the clear input field command to the user
-    await send(ChatInput())
-
-    execution = executor.supervise(supervisor, msg.rstrip())
-    async for step in async_wrapper(execution):
-        messages.append({"role": "assistant", "content": ""})
-
-        actor, output = step
-        print(actor, output.__class__)
-        messages[-1]["agent_name"] = actor
-        if isinstance(output, ExecResults):
-            messages[-1]["content"] = render_exec_results_table(output)
-        elif isinstance(output, AgentCommand):
-            messages[-1]["content"] = render_agent_command_table(output)
-        elif isinstance(output, ReactProcess):
-            messages[-1]["content"] = render_react_table(output)
-        elif isinstance(output, ReactAnswer):
-            messages[-1]["content"] = render_react_answer_table(output)
-        elif isinstance(output, Observation):
-            messages[-1]["content"] = render_observation_table(output)
-        await send(Div(ChatMessage(len(messages) - 1), hx_swap_oob=swap, id="chatlist"))
 
 
 async def async_wrapper(generator: Generator):

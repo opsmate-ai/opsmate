@@ -158,7 +158,7 @@ def cell_component(cell, index):
                     placeholder="Enter your instruction here...",
                     hx_post=f"/cell/update/{cell['id']}",
                     name="input",
-                    # hx_trigger="keyup changed delay:500ms",
+                    hx_trigger="keyup changed delay:500ms",
                 ),
                 cls="p-4",
             ),
@@ -185,6 +185,21 @@ def cell_component(cell, index):
     )
 
 
+add_cell_button = (
+    Div(
+        Button(
+            add_cell_svg,
+            "Add Cell",
+            hx_post="/cell/add/bottom",
+            cls="btn btn-primary btn-sm flex items-center gap-2",
+        ),
+        id="add-cell-button",
+        hx_swap_oob="true",
+        cls="flex justify-end",
+    ),
+)
+
+
 # Update the main screen route
 @app.route("/")
 async def get():
@@ -194,6 +209,7 @@ async def get():
                 # Header
                 Div(
                     H1(session_name, cls="text-2xl font-bold"),
+                    add_cell_button,
                     cls="mb-4 flex justify-between items-center pt-16",
                 ),
                 # Cells Container
@@ -207,6 +223,23 @@ async def get():
         )
     )
     return Title(session_name), page
+
+
+@app.route("/cell/add/bottom")
+async def post():
+    new_id = max(c["id"] for c in cells) + 1
+    new_cell = {"id": new_id, "input": "", "output": "", "type": "code"}
+    cells.append(new_cell)
+    return (
+        # Return the new cell to be added
+        Div(
+            cell_component(new_cell, new_id),
+            id="cells-container",
+            hx_swap_oob="beforeend",
+        ),
+        # Return the button to preserve it
+        add_cell_button,
+    )
 
 
 # Add cell manipulation routes

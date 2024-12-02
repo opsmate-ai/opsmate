@@ -884,6 +884,23 @@ uvicorn = {version = ">=0.15.0", extras = ["standard"]}
 standard = ["uvicorn[standard] (>=0.15.0)"]
 
 [[package]]
+name = "fastcore"
+version = "1.7.20"
+description = "Python supercharged for fastai development"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "fastcore-1.7.20-py3-none-any.whl", hash = "sha256:7d81f2a0da27d10df6d0b0050b08ea3eb2b1bb2894e8970f246be49c9a593c01"},
+    {file = "fastcore-1.7.20.tar.gz", hash = "sha256:316dcb0e2d5e338e069f338b3c136ca9eb4ce950ca433da2a80952fc5928ddab"},
+]
+
+[package.dependencies]
+packaging = "*"
+
+[package.extras]
+dev = ["llms-txt", "matplotlib", "nbclassic", "nbdev (>=0.2.39)", "numpy", "pandas", "pillow", "pysymbol-llm", "torch"]
+
+[[package]]
 name = "fastjsonschema"
 version = "2.20.0"
 description = "Fastest Python implementation of JSON schema"
@@ -896,6 +913,21 @@ files = [
 
 [package.extras]
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
+
+[[package]]
+name = "fastlite"
+version = "0.0.13"
+description = "A bit of extra usability for sqlite"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "fastlite-0.0.13-py3-none-any.whl", hash = "sha256:8a8fac42ff71cdebd03272a8a2d8564c266dda1510b8d3e2dfaeae8a69c3e834"},
+    {file = "fastlite-0.0.13.tar.gz", hash = "sha256:e3039dd3ef144953691ea93ed902e46885a7d904feae92a11c835196693ad370"},
+]
+
+[package.dependencies]
+fastcore = ">=1.7.1"
+sqlite-minutils = ">=3.37.0.post4"
 
 [[package]]
 name = "filelock"
@@ -1483,6 +1515,17 @@ files = [
 
 [package.dependencies]
 arrow = ">=0.15.0"
+
+[[package]]
+name = "itsdangerous"
+version = "2.2.0"
+description = "Safely pass data to untrusted environments and back."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "itsdangerous-2.2.0-py3-none-any.whl", hash = "sha256:c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"},
+    {file = "itsdangerous-2.2.0.tar.gz", hash = "sha256:e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173"},
+]
 
 [[package]]
 name = "jedi"
@@ -2386,6 +2429,22 @@ files = [
     {file = "numpy-1.26.4-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:7e50d0a0cc3189f9cb0aeb3a6a6af18c16f59f004b866cd2be1c14b36134a4a0"},
     {file = "numpy-1.26.4.tar.gz", hash = "sha256:2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010"},
 ]
+
+[[package]]
+name = "oauthlib"
+version = "3.2.2"
+description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "oauthlib-3.2.2-py3-none-any.whl", hash = "sha256:8139f29aac13e25d502680e9e19963e83f16838d48a0d71c287fe40e7067fbca"},
+    {file = "oauthlib-3.2.2.tar.gz", hash = "sha256:9859c40929662bec5d64f34d01c99e093149682a3f38915dc0655d5a633dd918"},
+]
+
+[package.extras]
+rsa = ["cryptography (>=3.0.0)"]
+signals = ["blinker (>=1.4.0)"]
+signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "openai"
@@ -3364,6 +3423,32 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "python-fasthtml"
+version = "0.10.0"
+description = "The fastest way to create an HTML app"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "python-fasthtml-0.10.0.tar.gz", hash = "sha256:b74bbb41a4c89b8348ef9caaa1a7bde5549ce3a996395a2e3dcf0b31d5c6b628"},
+    {file = "python_fasthtml-0.10.0-py3-none-any.whl", hash = "sha256:44bdd34e8ad56b86980f0b054d791dd7f48d10113f5b760db6e35d7412e54e75"},
+]
+
+[package.dependencies]
+beautifulsoup4 = "*"
+fastcore = ">=1.7.18"
+fastlite = ">=0.0.9"
+httpx = "*"
+itsdangerous = "*"
+oauthlib = "*"
+python-dateutil = "*"
+python-multipart = "*"
+starlette = ">0.33"
+uvicorn = {version = ">=0.30", extras = ["standard"]}
+
+[package.extras]
+dev = ["ipython", "lxml", "pysymbol-llm"]
+
+[[package]]
 name = "python-json-logger"
 version = "2.0.7"
 description = "A python library adding a json log formatter"
@@ -3892,6 +3977,20 @@ files = [
     {file = "soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9"},
     {file = "soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb"},
 ]
+
+[[package]]
+name = "sqlite-minutils"
+version = "4.0.2"
+description = "A fork of sqlite-utils with CLI etc removed"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "sqlite-minutils-4.0.2.tar.gz", hash = "sha256:4ed01ff525ffded7c43fa8c963b2566733943b769be5cb408acd97feff626fac"},
+    {file = "sqlite_minutils-4.0.2-py3-none-any.whl", hash = "sha256:bfccb8fc842f4a40cbf909afd0f843d28958a8f6826216db132627c6e6902d57"},
+]
+
+[package.dependencies]
+fastcore = "*"
 
 [[package]]
 name = "stack-data"
@@ -4783,4 +4882,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "85509c6cc18c33b5d025b955b7b5a061b5a1ba5301d39a5ac18ee0af632960f1"
+content-hash = "f8b911dd55138a7d874a086a0218d6a47dd6fceec853cdb9eaf97e7de0bfa457"

@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from typing import List, Literal, Dict, Any
 from opsmate.libs.core.types import Model, ExecResults, Task, Metadata, TaskSpec
 from opsmate.libs.core.engine import exec_task
 from pydantic import BaseModel, Field
 from opsmate.libs.providers import Client as ProviderClient, ClientBag
 from opsmate.libs.contexts import available_contexts
+from opsmate.apiserver.gui import app as fasthtml_app
+import os
 
 client_bag = ProviderClient.clients_from_env()
 app = FastAPI()
@@ -16,6 +18,17 @@ class Health(BaseModel):
 
 class Session(BaseModel):
     uuid: str = Field(title="uuid")
+
+
+@app.middleware("http")
+async def token_verification(request: Request, call_next):
+    if request.url.path == "/api/v1/health":
+        return await call_next(request)
+
+    if os.environ.get("OPSMATE_TOKEN"):
+        if request.query_params.get("token") != os.environ.get("OPSMATE_TOKEN"):
+            return Response("unauthorized", status_code=401)
+    return await call_next(request)
 
 
 @app.get("/api/v1/health", response_model=Health)
@@ -88,3 +101,6 @@ def get_contexts(contexts: List[str]):
             raise ContextNotFound(f"Context {ctx_name} not found")
 
     return selected_contexts
+
+
+app.mount("/", fasthtml_app)

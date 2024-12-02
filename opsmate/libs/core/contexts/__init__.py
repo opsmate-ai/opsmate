@@ -304,7 +304,7 @@ Or
 answer: ...
 </react>
 
-When you know how to do something, provide the steps as an action rather than giving them as an answer. For example:
+When you know how to perform a task, provide the steps as an action rather than giving them as an answer. For example:
 
 question: can you kill process with pid 1234?
 
@@ -313,7 +313,7 @@ BAD EXAMPLE:
 answer: to kill process with pid 1234, use `kill -TERM 1234`
 </react>
 
-GOOD EXAMPLES:
+GOOD EXAMPLE:
 
 <react>
 thought: I need to kill process using the kill command
@@ -324,6 +324,38 @@ action: run `kill -TERM 1234`
 
 <react>
 answer: the process with pid 1234 is killed
+</react>
+
+Do not give the answer as a thought or is unspecific.
+
+question: what are the pods in the cluster?
+
+BAD EXAMPLE:
+
+<react>
+thought: I need to get the pods in the cluster
+action: run `kubectl get pods -A`
+</react>
+
+// output: pod1, pod2, pod3
+
+<react>
+answer: Pod has been listed
+</react>
+
+GOOD EXAMPLE:
+
+question: what are the pods in the cluster?
+
+<react>
+thought: I need to get the pods in the cluster
+action: run `kubectl get pods -A`
+</react>
+
+// output: pod1, pod2, pod3
+
+<react>
+answer: pods are pod1, pod2, pod3
 </react>
 """
 

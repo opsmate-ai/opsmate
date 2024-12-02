@@ -46,7 +46,7 @@ nav = (
                 cls="swap swap-rotate",
             ),
         ),
-        cls="navbar bg-base-100 shadow-lg mb-4 fixed top-0 left-0 right-0",
+        cls="navbar bg-base-100 shadow-lg mb-4 fixed top-0 left-0 right-0 z-50",
     ),
 )
 
@@ -263,6 +263,7 @@ async def ws(cell_id: int, send):
 
             async for step in async_wrapper(execution):
                 actor, output = step
+                partial = None
                 if isinstance(output, ExecResults):
                     partial = render_exec_results_marakdown(actor, output)
                 elif isinstance(output, AgentCommand):
@@ -270,17 +271,19 @@ async def ws(cell_id: int, send):
                 elif isinstance(output, ReactProcess):
                     partial = render_react_markdown(actor, output)
                 elif isinstance(output, ReactAnswer):
-                    partial = render_react_answer_marakdown(actor, output)
-                elif isinstance(output, Observation):
-                    partial = render_observation_marakdown(actor, output)
-                cell["output"].append(partial)
-                await send(
-                    Div(
-                        partial,
-                        hx_swap_oob=swap,
-                        id=f"cell-output-{cell['id']}",
+                    if actor == "@supervisor":
+                        partial = render_react_answer_marakdown(actor, output)
+                # elif isinstance(output, Observation):
+                #     partial = render_observation_marakdown(actor, output)
+                if partial:
+                    cell["output"].append(partial)
+                    await send(
+                        Div(
+                            partial,
+                            hx_swap_oob=swap,
+                            id=f"cell-output-{cell['id']}",
+                        )
                     )
-                )
             break
 
 
@@ -293,15 +296,11 @@ async def async_wrapper(generator: Generator):
 def render_react_markdown(agent: str, output: ReactProcess):
     return Div(
         f"""
-# {agent}
+**{agent} Thought Process**
 
-**Action**
-
-{output.action}
-
-**Thought**
-
-{output.thought}
+| Thought | Action |
+| --- | --- |
+| {output.thought} | {output.action} |
 """,
         cls="marked",
     )
@@ -310,9 +309,7 @@ def render_react_markdown(agent: str, output: ReactProcess):
 def render_react_answer_marakdown(agent: str, output: ReactAnswer):
     return Div(
         f"""
-# {agent}
-
-**Answer**
+**{agent} Answer**
 
 {output.answer}
 """,
@@ -323,11 +320,11 @@ def render_react_answer_marakdown(agent: str, output: ReactAnswer):
 def render_agent_command_marakdown(agent: str, output: AgentCommand):
     return Div(
         f"""
-# {agent}
-
-**Command**
+**{agent} Task Delegation**
 
 {output.instruction}
+
+<br>
 """,
         cls="marked",
     )
@@ -336,9 +333,7 @@ def render_agent_command_marakdown(agent: str, output: AgentCommand):
 def render_observation_marakdown(agent: str, output: Observation):
     return Div(
         f"""
-# {agent}
-
-**Observation**
+**{agent} Observation**
 
 {output.observation}
 """,
@@ -351,9 +346,7 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
     markdown_outputs.append(
         Div(
             f"""
-# {agent}
-
-**Results**
+**{agent} Results**
 """,
             cls="marked",
         )
@@ -375,11 +368,6 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
 """
 
         markdown_outputs.append(Div(output, cls="marked"))
-        # headers = " | ".join(col[0] for col in result.table_column_names())
-        # separator = "|".join("---" for _ in result.table_column_names())
-        # row = " | ".join(str(ele) for ele in result.table_columns())
-        # table = f"| {headers} |\n| {separator} |\n| {row} |"
-        # markdown_outputs.append(Div(table, cls="marked"))
     return Div(*markdown_outputs)
 
 

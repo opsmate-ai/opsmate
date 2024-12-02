@@ -264,15 +264,15 @@ async def ws(cell_id: int, send):
             async for step in async_wrapper(execution):
                 actor, output = step
                 if isinstance(output, ExecResults):
-                    partial = render_exec_results_table(output)
+                    partial = render_exec_results_marakdown(actor, output)
                 elif isinstance(output, AgentCommand):
-                    partial = render_agent_command_table(output)
+                    partial = render_agent_command_marakdown(actor, output)
                 elif isinstance(output, ReactProcess):
-                    partial = render_react_table(output)
+                    partial = render_react_markdown(actor, output)
                 elif isinstance(output, ReactAnswer):
-                    partial = render_react_answer_table(output)
+                    partial = render_react_answer_marakdown(actor, output)
                 elif isinstance(output, Observation):
-                    partial = render_observation_table(output)
+                    partial = render_observation_marakdown(actor, output)
                 cell["output"].append(partial)
                 await send(
                     Div(
@@ -290,45 +290,97 @@ async def async_wrapper(generator: Generator):
         yield step
 
 
-def render_react_table(output: ReactProcess):
-    return Table(
-        Tr(Th("Action"), Td(output.action)),
-        Tr(Th("Thought"), Td(output.thought)),
-        cls="table",
+def render_react_markdown(agent: str, output: ReactProcess):
+    return Div(
+        f"""
+# {agent}
+
+**Action**
+
+{output.action}
+
+**Thought**
+
+{output.thought}
+""",
+        cls="marked",
     )
 
 
-def render_react_answer_table(output: ReactAnswer):
-    return Table(
-        Tr(Th("Answer"), Td(output.answer)),
-        cls="table",
+def render_react_answer_marakdown(agent: str, output: ReactAnswer):
+    return Div(
+        f"""
+# {agent}
+
+**Answer**
+
+{output.answer}
+""",
+        cls="marked",
     )
 
 
-def render_agent_command_table(output: AgentCommand):
-    return Table(
-        Tr(Th("Command"), Td(output.instruction)),
-        cls="table",
+def render_agent_command_marakdown(agent: str, output: AgentCommand):
+    return Div(
+        f"""
+# {agent}
+
+**Command**
+
+{output.instruction}
+""",
+        cls="marked",
     )
 
 
-def render_observation_table(output: Observation):
-    return Table(
-        Tr(Th("Observation"), Td(output.observation)),
-        cls="table",
+def render_observation_marakdown(agent: str, output: Observation):
+    return Div(
+        f"""
+# {agent}
+
+**Observation**
+
+{output.observation}
+""",
+        cls="marked",
     )
 
 
-def render_exec_results_table(output: ExecResults):
-    tables = []
-    for result in output.results:
-        table = Table(
-            Tr(*[Td(col[0]) for col in result.table_column_names()]),
-            Tr(*[Td(ele) for ele in result.table_columns()]),
-            cls="table",
+def render_exec_results_marakdown(agent: str, output: ExecResults):
+    markdown_outputs = []
+    markdown_outputs.append(
+        Div(
+            f"""
+# {agent}
+
+**Results**
+""",
+            cls="marked",
         )
-        tables.append(table)
-    return Div(*tables)
+    )
+    for result in output.results:
+        output = ""
+        column_names = result.table_column_names()
+        columns = result.table_columns()
+
+        for idx, column in enumerate(columns):
+            output += f"""
+**{column_names[idx][0]}**
+
+```
+{column}
+```
+---
+
+"""
+
+        markdown_outputs.append(Div(output, cls="marked"))
+        # headers = " | ".join(col[0] for col in result.table_column_names())
+        # separator = "|".join("---" for _ in result.table_column_names())
+        # row = " | ".join(str(ele) for ele in result.table_columns())
+        # table = f"| {headers} |\n| {separator} |\n| {row} |"
+        # markdown_outputs.append(Div(table, cls="marked"))
+    return Div(*markdown_outputs)
 
 
 if __name__ == "__main__":

@@ -235,6 +235,7 @@ def cell_component(cell: Cell, cell_size: int):
                     ),
                     cls="ml-auto flex items-center gap-2",
                 ),
+                id=f"cell-header-{cell.id}",
                 cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between",
             ),
             # Cell Input - Updated with conditional styling
@@ -254,7 +255,6 @@ def cell_component(cell: Cell, cell_size: int):
                         me(document).on('keydown', ev => {
                             if (ev.shiftKey && ev.key === 'Enter') {
                                 ev.preventDefault();
-                                console.log('submit');
                                 ev.target.form.requestSubmit();
                             }
                         });
@@ -315,7 +315,14 @@ async def get():
                 Div(
                     # Header
                     Div(
-                        H1(config.session_name, cls="text-2xl font-bold"),
+                        Div(
+                            H1(config.session_name, cls="text-2xl font-bold"),
+                            Span(
+                                "Press Shift+Enter to run cell",
+                                cls="text-sm text-gray-500",
+                            ),
+                            cls="flex flex-col",
+                        ),
                         add_cell_button,
                         cls="mb-4 flex justify-between items-center pt-16",
                     ),

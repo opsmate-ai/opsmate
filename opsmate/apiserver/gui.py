@@ -245,7 +245,7 @@ def cell_component(cell: Cell, cell_size: int):
                     placeholder="Enter your instruction here...",
                     hx_post=f"/cell/update/input/{cell.id}",
                     name="input",
-                    hx_trigger="keyup changed delay:500ms",
+                    hx_trigger="keyup changed delay:200ms",
                 ),
                 cls="p-4",
             ),

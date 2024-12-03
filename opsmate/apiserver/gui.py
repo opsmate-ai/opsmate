@@ -58,6 +58,7 @@ class Cell(sqlmodel.SQLModel, table=True):
     )
     sequence: int = sqlmodel.Field(default=0)
     execution_sequence: int = sqlmodel.Field(default=0)
+    active: bool = sqlmodel.Field(default=False)
 
     class Config:
         arbitrary_types_allowed = True
@@ -112,7 +113,7 @@ async def startup():
     with sqlmodel.Session(engine) as session:
         cell = session.exec(sqlmodel.select(Cell)).first()
         if cell is None:
-            cell = Cell(input="", type=CellType.TEXT)
+            cell = Cell(input="", type=CellType.TEXT, active=True)
             session.add(cell)
             session.commit()
 
@@ -153,6 +154,9 @@ def output_cell(cell: Cell):
 
 def cell_component(cell: Cell, cell_size: int):
     """Renders a single cell component"""
+    # Determine if the cell is active
+    active_class = "border-green-500" if cell.active else "border-gray-300"
+
     return Div(
         # Add Cell Button Menu
         Div(
@@ -240,7 +244,7 @@ def cell_component(cell: Cell, cell_size: int):
             ),
             # Cell Output (if any)
             output_cell(cell),
-            cls="rounded-lg shadow-sm border",
+            cls=f"rounded-lg shadow-sm border {active_class}",  # Apply the active class here
         ),
         cls="group relative",
         key=cell.id,
@@ -308,28 +312,34 @@ async def get():
 async def post():
     with sqlmodel.Session(engine) as session:
         cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        # update all cells to inactive
+        session.exec(sqlmodel.update(Cell).values(active=False))
+        session.commit()
+
         # get the highest sequence number
         max_sequence = max(cell.sequence for cell in cells) if cells else 0
         # get the higest execution sequence number
         max_execution_sequence = (
             max(cell.execution_sequence for cell in cells) if cells else 0
         )
+
         new_cell = Cell(
             input="",
             type=CellType.TEXT,
             sequence=max_sequence + 1,
             execution_sequence=max_execution_sequence + 1,
+            active=True,
         )
         session.add(new_cell)
         session.commit()
 
-        session.refresh(new_cell)
+        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
         return (
             # Return the new cell to be added
             Div(
-                cell_component(new_cell, len(cells) + 1),
+                *[cell_component(cell, len(cells)) for cell in cells],
                 id="cells-container",
-                hx_swap_oob="beforeend",
+                hx_swap_oob="true",
             ),
             # Return the button to preserve it
             add_cell_button,
@@ -345,7 +355,12 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         ).first()
         cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
 
-        new_cell = Cell(input="", type=CellType.TEXT)
+        # update all cells to inactive
+        session.exec(sqlmodel.update(Cell).values(active=False))
+        session.commit()
+
+        new_cell = Cell(input="", type=CellType.TEXT, active=True)
+
         # get the highest execution sequence number
         max_execution_sequence = (
             max(cell.execution_sequence for cell in cells) if cells else 0
@@ -416,6 +431,12 @@ async def post(cell_id: int, input: str = None, type: str = None):
         ).first()
         if selected_cell is None:
             return ""
+
+        # update all cells to inactive
+        session.exec(sqlmodel.update(Cell).values(active=False))
+        session.commit()
+
+        selected_cell.active = True
         if input is not None:
             selected_cell.input = input
         if type is not None:
@@ -427,11 +448,11 @@ async def post(cell_id: int, input: str = None, type: str = None):
         session.add(selected_cell)
         session.commit()
 
-        # xxx: use proper count statement later...
-        cells_len = len(session.exec(sqlmodel.select(Cell)).all())
+        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+
         return Div(
-            cell_component(selected_cell, cells_len),
-            id=f"cell-component-{selected_cell.id}",
+            *[cell_component(cell, len(cells)) for cell in cells],
+            id="cells-container",
             hx_swap_oob="true",
         )
 
@@ -444,7 +465,13 @@ async def post(cell_id: int, input: str):
         ).first()
     if selected_cell is None:
         return ""
+
+    # xxx: need to refresh other cells to inactive
+    session.exec(sqlmodel.update(Cell).values(active=False))
+    session.commit()
+
     selected_cell.input = input
+    selected_cell.active = True
     session.add(selected_cell)
     session.commit()
     return ""
@@ -453,7 +480,15 @@ async def post(cell_id: int, input: str):
 @app.ws("/cell/run/ws/")
 async def ws(cell_id: int, send):
     with sqlmodel.Session(engine) as session:
+        # update all cells to inactive
+        session.exec(sqlmodel.update(Cell).values(active=False))
+        session.commit()
+
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
+        cell.active = True
+        session.add(cell)
+        session.commit()
+
         if cell is None:
             return
 

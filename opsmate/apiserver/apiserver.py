@@ -26,7 +26,12 @@ async def token_verification(request: Request, call_next):
         return await call_next(request)
 
     if os.environ.get("OPSMATE_TOKEN"):
-        if request.query_params.get("token") != os.environ.get("OPSMATE_TOKEN"):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return Response("unauthorized", status_code=401)
+
+        token = auth_header.split(" ")[1]
+        if token != os.environ.get("OPSMATE_TOKEN"):
             return Response("unauthorized", status_code=401)
     return await call_next(request)
 

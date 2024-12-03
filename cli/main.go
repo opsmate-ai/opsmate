@@ -55,11 +55,20 @@ func main() {
 				Usage: "model to use",
 				Value: "gpt-4o",
 			},
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "token to use",
+				EnvVars: []string{"OPSMATE_TOKEN"},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			client, err := getClient(c.String("endpoint"))
 			if err != nil {
 				return err
+			}
+
+			if c.String("token") != "" {
+				client.GetConfig().AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", c.String("token")))
 			}
 			c.Context = context.WithValue(c.Context, clientCtxKey{}, client)
 

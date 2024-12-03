@@ -96,9 +96,13 @@ dlink = Link(
 
 
 def before(req, session):
-    if config.token != "":
-        if req.query_params.get("token") != config.token:
-            return Response("unauthorized", status_code=401)
+    if config.token == "":
+        return
+    if req.query_params.get("token") is not None:
+        session["token"] = req.query_params.get("token")
+
+    if session.get("token") != config.token:
+        return Response("unauthorized", status_code=401)
 
 
 bware = Beforeware(before)

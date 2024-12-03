@@ -7,17 +7,31 @@ from opsmate.libs.core.types import (
     ReactAnswer,
     Observation,
 )
-from opsmate.libs.agents import supervisor_agent, k8s_agent
+from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 import asyncio
 import sqlmodel
+from pydantic_settings import BaseSettings
+from pydantic import Field
 import subprocess
 import enum
 import pickle
+import structlog
+
+logger = structlog.get_logger()
+
+
+class Config(BaseSettings):
+    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
+    session_name: str = Field(default="session", alias="OPSMATE_SESSION_NAME")
+    token: str = Field(default="", alias="OPSMATE_TOKEN")
+
+
+config = Config()
 
 # start a sqlite database
 engine = sqlmodel.create_engine(
-    "sqlite:///:memory:", connect_args={"check_same_thread": False}
+    config.db_url, connect_args={"check_same_thread": False}
 )
 
 
@@ -49,8 +63,6 @@ class Cell(sqlmodel.SQLModel, table=True):
         arbitrary_types_allowed = True
 
 
-session_name = os.environ.get("OPSMATE_SESSION_NAME", "session")
-
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = (Script(src="https://cdn.tailwindcss.com"),)
 nav = (
@@ -80,8 +92,8 @@ dlink = Link(
 
 
 def before(req, session):
-    if os.environ.get("OPSMATE_TOKEN"):
-        if req.query_params.get("token") != os.environ.get("OPSMATE_TOKEN"):
+    if config.token != "":
+        if req.query_params.get("token") != config.token:
             return Response("unauthorized", status_code=401)
 
 
@@ -109,18 +121,18 @@ client_bag = ProviderClient.clients_from_env()
 
 executor = AgentExecutor(client_bag, ask=False)
 
+k8s_agent = _k8s_agent(
+    model="gpt-4o",
+    provider="openai",
+    react_mode=True,
+    max_depth=10,
+)
+
 supervisor = supervisor_agent(
     model="gpt-4o",
     provider="openai",
     extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-    agents=[
-        k8s_agent(
-            model="gpt-4o",
-            provider="openai",
-            react_mode=True,
-            max_depth=10,
-        ),
-    ],
+    agents=[],
 )
 
 
@@ -275,7 +287,7 @@ async def get():
                 Div(
                     # Header
                     Div(
-                        H1(session_name, cls="text-2xl font-bold"),
+                        H1(config.session_name, cls="text-2xl font-bold"),
                         add_cell_button,
                         cls="mb-4 flex justify-between items-center pt-16",
                     ),
@@ -289,7 +301,7 @@ async def get():
                 )
             )
         )
-        return Title(session_name), page
+        return Title(config.session_name), page
 
 
 @app.route("/cell/add/bottom")
@@ -455,6 +467,8 @@ async def ws(cell_id: int, send):
 async def execute_llm_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
+    logger.info("executing llm instruction", cell_id=cell.id)
+
     outputs = []
     await send(
         Div(
@@ -464,10 +478,12 @@ async def execute_llm_instruction(
         )
     )
     msg = cell.input.rstrip()
-    execution = executor.supervise(supervisor, msg)
+    # execution = executor.supervise(supervisor, msg)
+    execution = executor.execute(k8s_agent, msg)
 
     async for step in async_wrapper(execution):
-        actor, output = step
+        actor = k8s_agent.metadata.name
+        output = step
         partial = None
         if isinstance(output, ExecResults):
             partial = render_exec_results_marakdown(actor, output)
@@ -476,8 +492,7 @@ async def execute_llm_instruction(
         elif isinstance(output, ReactProcess):
             partial = render_react_markdown(actor, output)
         elif isinstance(output, ReactAnswer):
-            if actor == "@supervisor":
-                partial = render_react_answer_marakdown(actor, output)
+            partial = render_react_answer_marakdown(actor, output)
         # elif isinstance(output, Observation):
         #     partial = render_observation_marakdown(actor, output)
         if partial:

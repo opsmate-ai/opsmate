@@ -11,6 +11,7 @@ from opsmate.libs.agents import supervisor_agent, k8s_agent
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 import asyncio
 import sqlmodel
+import subprocess
 
 
 class Cell(sqlmodel.SQLModel, table=True):
@@ -87,7 +88,7 @@ supervisor = supervisor_agent(
 )
 
 # Add cell state management
-cells = [{"id": 1, "input": "", "output": "", "type": "code"}]
+cells = [{"id": 1, "input": "", "output": "", "type": "text"}]
 
 
 def output_cell(cell):
@@ -128,8 +129,20 @@ def cell_component(cell, index):
         Div(
             # Cell Header
             Div(
-                Span(f"In [{cell['id']}]:", cls="text-gray-500 text-sm"),
                 Div(
+                    Span(f"In [{cell['id']}]:", cls="text-gray-500 text-sm"),
+                    # Add cell type selector
+                    cls="flex items-center gap-2",
+                ),
+                Div(
+                    Select(
+                        Option("Text", value="text", selected=cell["type"] == "text"),
+                        Option("Bash", value="bash", selected=cell["type"] == "bash"),
+                        name="type",
+                        hx_post=f"/cell/update/{cell['id']}",
+                        hx_trigger="change",
+                        cls="select select-sm ml-2",
+                    ),
                     Button(
                         trash_icon_svg,
                         hx_post=f"/cell/delete/{cell['id']}",
@@ -148,15 +161,15 @@ def cell_component(cell, index):
                     ),
                     cls="ml-auto flex items-center gap-2",
                 ),
-                cls="flex items-center px-4 py-2 bg-gray-100 border-b",
+                cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between",
             ),
-            # Cell Input
+            # Cell Input - Updated with conditional styling
             Div(
                 Textarea(
                     cell["input"],
-                    cls="w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
+                    cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
                     placeholder="Enter your instruction here...",
-                    hx_post=f"/cell/update/{cell['id']}",
+                    hx_post=f"/cell/update/input/{cell['id']}",
                     name="input",
                     hx_trigger="keyup changed delay:500ms",
                 ),
@@ -164,19 +177,6 @@ def cell_component(cell, index):
             ),
             # Cell Output (if any)
             output_cell(cell),
-            # (
-            #     Div(
-            #         Span(f"Out [{cell['id']}]:", cls="text-gray-500 text-sm"),
-            #         Pre(
-            #             cell["output"],
-            #             cls="mt-1 text-sm",
-            #             id=f"cell-output-{cell['id']}",
-            #         ),
-            #         cls="px-4 py-2 bg-gray-50 border-t",
-            #     )
-            #     if cell["output"]
-            #     else ""
-            # ),
             cls="rounded-lg shadow-sm border",
         ),
         cls="group relative",
@@ -228,7 +228,7 @@ async def get():
 @app.route("/cell/add/bottom")
 async def post():
     new_id = max(c["id"] for c in cells) + 1
-    new_cell = {"id": new_id, "input": "", "output": "", "type": "code"}
+    new_cell = {"id": new_id, "input": "", "output": "", "type": "text"}
     cells.append(new_cell)
     return (
         # Return the new cell to be added
@@ -246,7 +246,7 @@ async def post():
 @app.route("/cell/add/{index}")
 async def post(index: int, above: bool = False):
     new_id = max(c["id"] for c in cells) + 1
-    new_cell = {"id": new_id, "input": "", "output": "", "type": "code"}
+    new_cell = {"id": new_id, "input": "", "output": "", "type": "text"}
     if above:
         cells.insert(index, new_cell)
     else:
@@ -270,54 +270,138 @@ async def post(cell_id: int):
 
 
 @app.route("/cell/update/{cell_id}")
-async def post(cell_id: int, input: str):
+async def post(cell_id: int, input: str = None, type: str = None):
+    selected_cell = None
     for cell in cells:
         if cell["id"] == cell_id:
-            cell["input"] = input
+            selected_cell = cell
             break
+    if selected_cell is None:
+        return ""
+    if input is not None:
+        selected_cell["input"] = input
+    if type is not None:
+        selected_cell["type"] = type
+
+    return Div(
+        cell_component(selected_cell, selected_cell["id"]),
+        id=f"cell-component-{selected_cell['id']}",
+        hx_swap_oob="true",
+    )
+
+
+@app.route("/cell/update/input/{cell_id}")
+async def post(cell_id: int, input: str):
+    selected_cell = next((c for c in cells if c["id"] == cell_id), None)
+    if selected_cell is None:
+        return ""
+    selected_cell["input"] = input
     return ""
 
 
 @app.ws("/cell/run/ws/")
 async def ws(cell_id: int, send):
-    for cell in cells:
-        if cell["id"] == cell_id:
-            swap = "beforeend"
-            cell["output"] = []
+    cell = next((c for c in cells if c["id"] == cell_id), None)
+    if cell is None:
+        return
+
+    swap = "beforeend"
+    if cell["type"] == "instruction":
+        await execute_llm_instruction(cell, swap, send)
+    elif cell["type"] == "bash":
+        await execute_bash_instruction(cell, swap, send)
+
+
+async def execute_llm_instruction(cell: dict, swap: str, send):
+    cell["output"] = []
+    await send(
+        Div(
+            *cell["output"],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell['id']}",
+        )
+    )
+    msg = cell["input"].rstrip()
+    execution = executor.supervise(supervisor, msg)
+
+    async for step in async_wrapper(execution):
+        actor, output = step
+        partial = None
+        if isinstance(output, ExecResults):
+            partial = render_exec_results_marakdown(actor, output)
+        elif isinstance(output, AgentCommand):
+            partial = render_agent_command_marakdown(actor, output)
+        elif isinstance(output, ReactProcess):
+            partial = render_react_markdown(actor, output)
+        elif isinstance(output, ReactAnswer):
+            if actor == "@supervisor":
+                partial = render_react_answer_marakdown(actor, output)
+        # elif isinstance(output, Observation):
+        #     partial = render_observation_marakdown(actor, output)
+        if partial:
+            cell["output"].append(partial)
             await send(
                 Div(
-                    *cell["output"],
-                    hx_swap_oob="true",
+                    partial,
+                    hx_swap_oob=swap,
                     id=f"cell-output-{cell['id']}",
                 )
             )
-            msg = cell["input"].rstrip()
-            execution = executor.supervise(supervisor, msg)
 
-            async for step in async_wrapper(execution):
-                actor, output = step
-                partial = None
-                if isinstance(output, ExecResults):
-                    partial = render_exec_results_marakdown(actor, output)
-                elif isinstance(output, AgentCommand):
-                    partial = render_agent_command_marakdown(actor, output)
-                elif isinstance(output, ReactProcess):
-                    partial = render_react_markdown(actor, output)
-                elif isinstance(output, ReactAnswer):
-                    if actor == "@supervisor":
-                        partial = render_react_answer_marakdown(actor, output)
-                # elif isinstance(output, Observation):
-                #     partial = render_observation_marakdown(actor, output)
-                if partial:
-                    cell["output"].append(partial)
-                    await send(
-                        Div(
-                            partial,
-                            hx_swap_oob=swap,
-                            id=f"cell-output-{cell['id']}",
-                        )
-                    )
+
+async def execute_bash_instruction(cell: dict, swap: str, send):
+    cell["output"] = []
+    await send(
+        Div(
+            *cell["output"],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell['id']}",
+        )
+    )
+
+    script = cell["input"].rstrip()
+    # execute the script using subprocess with combined output
+    process = subprocess.Popen(
+        script,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        bufsize=1,
+    )
+
+    combined_output = ""
+    while True:
+        output = process.stdout.readline()
+        error = process.stderr.readline()
+
+        if output == "" and error == "" and process.poll() is not None:
             break
+
+        if output:
+            combined_output += output
+        if error:
+            combined_output += error
+
+    output = Div(
+        Div(
+            f"""**Output**
+```
+{combined_output}
+```
+""",
+            cls="marked",
+        ),
+    )
+    cell["output"].append(output)
+
+    await send(
+        Div(
+            cell["output"][-1],
+            hx_swap_oob=swap,
+            id=f"cell-output-{cell['id']}",
+        )
+    )
 
 
 async def async_wrapper(generator: Generator):
@@ -329,7 +413,7 @@ async def async_wrapper(generator: Generator):
 def render_react_markdown(agent: str, output: ReactProcess):
     return Div(
         f"""
-**{agent} Thought Process**
+**{agent} thought process**
 
 | Thought | Action |
 | --- | --- |
@@ -342,7 +426,7 @@ def render_react_markdown(agent: str, output: ReactProcess):
 def render_react_answer_marakdown(agent: str, output: ReactAnswer):
     return Div(
         f"""
-**{agent} Answer**
+**{agent} answer**
 
 {output.answer}
 """,
@@ -353,7 +437,7 @@ def render_react_answer_marakdown(agent: str, output: ReactAnswer):
 def render_agent_command_marakdown(agent: str, output: AgentCommand):
     return Div(
         f"""
-**{agent} Task Delegation**
+**{agent} task delegation**
 
 {output.instruction}
 
@@ -366,7 +450,7 @@ def render_agent_command_marakdown(agent: str, output: AgentCommand):
 def render_observation_marakdown(agent: str, output: Observation):
     return Div(
         f"""
-**{agent} Observation**
+**{agent} observation**
 
 {output.observation}
 """,
@@ -379,7 +463,7 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
     markdown_outputs.append(
         Div(
             f"""
-**{agent} Results**
+**{agent} results**
 """,
             cls="marked",
         )

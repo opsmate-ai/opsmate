@@ -239,13 +239,30 @@ def cell_component(cell: Cell, cell_size: int):
             ),
             # Cell Input - Updated with conditional styling
             Div(
-                Textarea(
-                    cell.input,
-                    cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-                    placeholder="Enter your instruction here...",
-                    hx_post=f"/cell/update/input/{cell.id}",
-                    name="input",
-                    hx_trigger="keyup changed delay:200ms",
+                Form(
+                    Textarea(
+                        cell.input,
+                        cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
+                        placeholder="Enter your instruction here...",
+                        hx_post=f"/cell/update/input/{cell.id}",
+                        name="input",
+                        hx_trigger="keyup changed delay:200ms",
+                    ),
+                    Input(type="hidden", name="cell_id", value=cell.id),
+                    Script(
+                        """
+                        me(document).on('keydown', ev => {
+                            if (ev.shiftKey && ev.key === 'Enter') {
+                                ev.preventDefault();
+                                console.log('submit');
+                                ev.target.form.requestSubmit();
+                            }
+                        });
+                        """
+                    ),
+                    ws_connect=f"/cell/run/ws/",
+                    ws_send=True,
+                    hx_ext="ws",
                 ),
                 cls="p-4",
             ),

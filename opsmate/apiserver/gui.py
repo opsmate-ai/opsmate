@@ -40,7 +40,7 @@ def on_startup():
 
 
 class CellType(enum.Enum):
-    TEXT = "text"
+    TEXT_INSTRUCTION = "text instruction"
     BASH = "bash"
 
 
@@ -53,7 +53,10 @@ class Cell(sqlmodel.SQLModel, table=True):
     output: bytes = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.LargeBinary))
     type: CellType = sqlmodel.Field(
         sa_column=sqlmodel.Column(
-            sqlmodel.Enum(CellType), default=CellType.TEXT, nullable=True, index=False
+            sqlmodel.Enum(CellType),
+            default=CellType.TEXT_INSTRUCTION,
+            nullable=True,
+            index=False,
         )
     )
     sequence: int = sqlmodel.Field(default=0)
@@ -113,7 +116,7 @@ async def startup():
     with sqlmodel.Session(engine) as session:
         cell = session.exec(sqlmodel.select(Cell)).first()
         if cell is None:
-            cell = Cell(input="", type=CellType.TEXT, active=True)
+            cell = Cell(input="", type=CellType.TEXT_INSTRUCTION, active=True)
             session.add(cell)
             session.commit()
 
@@ -200,10 +203,14 @@ def cell_component(cell: Cell, cell_size: int):
                 Div(
                     Select(
                         Option(
-                            "Text", value="text", selected=cell.type == CellType.TEXT
+                            "Text Instruction",
+                            value=CellType.TEXT_INSTRUCTION.value,
+                            selected=cell.type == CellType.TEXT_INSTRUCTION,
                         ),
                         Option(
-                            "Bash", value="bash", selected=cell.type == CellType.BASH
+                            "Bash",
+                            value=CellType.BASH.value,
+                            selected=cell.type == CellType.BASH,
                         ),
                         name="type",
                         hx_post=f"/cell/update/{cell.id}",
@@ -325,7 +332,7 @@ async def post():
 
         new_cell = Cell(
             input="",
-            type=CellType.TEXT,
+            type=CellType.TEXT_INSTRUCTION,
             sequence=max_sequence + 1,
             execution_sequence=max_execution_sequence + 1,
             active=True,
@@ -359,7 +366,7 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         session.exec(sqlmodel.update(Cell).values(active=False))
         session.commit()
 
-        new_cell = Cell(input="", type=CellType.TEXT, active=True)
+        new_cell = Cell(input="", type=CellType.TEXT_INSTRUCTION, active=True)
 
         # get the highest execution sequence number
         max_execution_sequence = (
@@ -425,6 +432,8 @@ async def post(cell_id: int):
 
 @app.route("/cell/update/{cell_id}")
 async def post(cell_id: int, input: str = None, type: str = None):
+    logger.info("updating cell", cell_id=cell_id, input=input, type=type)
+
     with sqlmodel.Session(engine) as session:
         selected_cell = session.exec(
             sqlmodel.select(Cell).where(Cell.id == cell_id)
@@ -440,9 +449,9 @@ async def post(cell_id: int, input: str = None, type: str = None):
         if input is not None:
             selected_cell.input = input
         if type is not None:
-            if type == "text":
-                selected_cell.type = CellType.TEXT
-            elif type == "bash":
+            if type == CellType.TEXT_INSTRUCTION.value:
+                selected_cell.type = CellType.TEXT_INSTRUCTION
+            elif type == CellType.BASH.value:
                 selected_cell.type = CellType.BASH
 
         session.add(selected_cell)
@@ -485,6 +494,12 @@ async def ws(cell_id: int, send):
         session.commit()
 
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
+        logger.info(
+            "selected cell",
+            cell_id=cell_id,
+            input=cell.input,
+            type=cell.type,
+        )
         cell.active = True
         session.add(cell)
         session.commit()
@@ -493,7 +508,7 @@ async def ws(cell_id: int, send):
             return
 
         swap = "beforeend"
-        if cell.type == CellType.TEXT:
+        if cell.type == CellType.TEXT_INSTRUCTION:
             await execute_llm_instruction(cell, swap, send, session)
         elif cell.type == CellType.BASH:
             await execute_bash_instruction(cell, swap, send, session)

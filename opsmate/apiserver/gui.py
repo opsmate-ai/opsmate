@@ -99,9 +99,9 @@ def before(req, session):
     if config.token == "":
         return
     if req.query_params.get("token") is not None:
-        session["token"] = req.query_params.get("token")
+        session["token"] = req.query_params.get("token", "")
 
-    if session.get("token") != config.token:
+    if session.get("token", "") != config.token:
         return Response("unauthorized", status_code=401)
 
 
@@ -516,8 +516,9 @@ async def post(cell_id: int, input: str):
 
 @app.ws("/cell/run/ws/")
 async def ws(cell_id: int, send, session):
+    logger.info("running cell", cell_id=cell_id)
     # Check authentication token
-    if session.get("token") != config.token:
+    if session.get("token", "") != config.token:
         return  # Exit if unauthorized
 
     with sqlmodel.Session(engine) as session:

@@ -61,6 +61,7 @@ python-sdk-codegen: api-gen # generate the python sdk
 		--package-name opsmatesdk \
 		-o /local/sdk/python \
 		--additional-properties=packageVersion=$(VERSION)
+	sudo chown -R $(USER):$(USER) sdk
 
 .PHONY: go-sdk-codegen
 go-sdk-codegen: # generate the go sdk
@@ -81,3 +82,4 @@ go-sdk-codegen: # generate the go sdk
 		--git-repo-id opsmate/cli/sdk \
 		-o /local/cli/sdk \
 		--additional-properties=packageVersion=$(VERSION),withGoMod=false
+	sudo chown -R $(USER):$(USER) cli/sdk

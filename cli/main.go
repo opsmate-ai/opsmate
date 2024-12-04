@@ -33,7 +33,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "endpoint",
 				Usage: "endpoint to use",
-				Value: "http://127.0.0.1:8000",
+				Value: "http://127.0.0.1:8000/api",
 			},
 			&cli.StringFlag{
 				Name:  "inventory-dir",
@@ -55,11 +55,25 @@ func main() {
 				Usage: "model to use",
 				Value: "gpt-4o",
 			},
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "token to use",
+				EnvVars: []string{"OPSMATE_TOKEN"},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			client, err := getClient(c.String("endpoint"))
 			if err != nil {
 				return err
+			}
+
+			if c.String("token") != "" {
+				client.GetConfig().AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", c.String("token")))
+			}
+			client.GetConfig().Servers = []opsmatesdk.ServerConfiguration{
+				{
+					URL: c.String("endpoint"),
+				},
 			}
 			c.Context = context.WithValue(c.Context, clientCtxKey{}, client)
 
@@ -75,7 +89,7 @@ func main() {
 				Action: func(c *cli.Context) error {
 					client := c.Context.Value(clientCtxKey{}).(*opsmatesdk.APIClient)
 
-					req := client.DefaultAPI.ModelsApiV1ModelsGet(c.Context)
+					req := client.DefaultAPI.ModelsV1ModelsGet(c.Context)
 
 					models, resp, err := req.Execute()
 					if err != nil {
@@ -102,7 +116,7 @@ func main() {
 				Usage: "get the status of the server",
 				Action: func(c *cli.Context) error {
 					client := c.Context.Value(clientCtxKey{}).(*opsmatesdk.APIClient)
-					req := client.DefaultAPI.HealthApiV1HealthGet(c.Context)
+					req := client.DefaultAPI.HealthV1HealthGet(c.Context)
 					health, resp, err := req.Execute()
 					if err != nil {
 						return err
@@ -133,7 +147,7 @@ func main() {
 						instruction = c.Args().First()
 					)
 
-					req := client.DefaultAPI.RunApiV1RunPost(c.Context)
+					req := client.DefaultAPI.RunV1RunPost(c.Context)
 					req = req.RunRequest(opsmatesdk.RunRequest{
 						Provider:    provider,
 						Model:       model,

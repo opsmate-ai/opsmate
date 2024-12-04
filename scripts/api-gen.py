@@ -1,8 +1,8 @@
 import os
 import json
-from opsmate.apiserver import app
+from opsmate.apiserver import api_app
 
-schema = app.openapi()
+schema = api_app.openapi()
 
 
 spec_dir = os.path.join("sdk", "spec", "apiserver")

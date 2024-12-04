@@ -26,22 +26,22 @@ class TestDefaultApi(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_health_api_v1_health_get(self) -> None:
-        """Test case for health_api_v1_health_get
+    def test_health_v1_health_get(self) -> None:
+        """Test case for health_v1_health_get
 
         Health
         """
         pass
 
-    def test_models_api_v1_models_get(self) -> None:
-        """Test case for models_api_v1_models_get
+    def test_models_v1_models_get(self) -> None:
+        """Test case for models_v1_models_get
 
         Models
         """
         pass
 
-    def test_run_api_v1_run_post(self) -> None:
-        """Test case for run_api_v1_run_post
+    def test_run_v1_run_post(self) -> None:
+        """Test case for run_v1_run_post
 
         Run
         """

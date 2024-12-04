@@ -40,7 +40,7 @@ class DefaultApi:
 
 
     @validate_call
-    def health_api_v1_health_get(
+    def health_v1_health_get(
         self,
         _request_timeout: Union[
             None,
@@ -80,7 +80,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._health_api_v1_health_get_serialize(
+        _param = self._health_v1_health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -102,7 +102,7 @@ class DefaultApi:
 
 
     @validate_call
-    def health_api_v1_health_get_with_http_info(
+    def health_v1_health_get_with_http_info(
         self,
         _request_timeout: Union[
             None,
@@ -142,7 +142,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._health_api_v1_health_get_serialize(
+        _param = self._health_v1_health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -164,7 +164,7 @@ class DefaultApi:
 
 
     @validate_call
-    def health_api_v1_health_get_without_preload_content(
+    def health_v1_health_get_without_preload_content(
         self,
         _request_timeout: Union[
             None,
@@ -204,7 +204,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._health_api_v1_health_get_serialize(
+        _param = self._health_v1_health_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -221,7 +221,7 @@ class DefaultApi:
         return response_data.response
 
 
-    def _health_api_v1_health_get_serialize(
+    def _health_v1_health_get_serialize(
         self,
         _request_auth,
         _content_type,
@@ -265,7 +265,7 @@ class DefaultApi:
 
         return self.api_client.param_serialize(
             method='GET',
-            resource_path='/api/v1/health',
+            resource_path='/v1/health',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -282,7 +282,7 @@ class DefaultApi:
 
 
     @validate_call
-    def models_api_v1_models_get(
+    def models_v1_models_get(
         self,
         _request_timeout: Union[
             None,
@@ -322,7 +322,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._models_api_v1_models_get_serialize(
+        _param = self._models_v1_models_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -344,7 +344,7 @@ class DefaultApi:
 
 
     @validate_call
-    def models_api_v1_models_get_with_http_info(
+    def models_v1_models_get_with_http_info(
         self,
         _request_timeout: Union[
             None,
@@ -384,7 +384,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._models_api_v1_models_get_serialize(
+        _param = self._models_v1_models_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -406,7 +406,7 @@ class DefaultApi:
 
 
     @validate_call
-    def models_api_v1_models_get_without_preload_content(
+    def models_v1_models_get_without_preload_content(
         self,
         _request_timeout: Union[
             None,
@@ -446,7 +446,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._models_api_v1_models_get_serialize(
+        _param = self._models_v1_models_get_serialize(
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -463,7 +463,7 @@ class DefaultApi:
         return response_data.response
 
 
-    def _models_api_v1_models_get_serialize(
+    def _models_v1_models_get_serialize(
         self,
         _request_auth,
         _content_type,
@@ -507,7 +507,7 @@ class DefaultApi:
 
         return self.api_client.param_serialize(
             method='GET',
-            resource_path='/api/v1/models',
+            resource_path='/v1/models',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -524,7 +524,7 @@ class DefaultApi:
 
 
     @validate_call
-    def run_api_v1_run_post(
+    def run_v1_run_post(
         self,
         run_request: RunRequest,
         _request_timeout: Union[
@@ -567,7 +567,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._run_api_v1_run_post_serialize(
+        _param = self._run_v1_run_post_serialize(
             run_request=run_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -591,7 +591,7 @@ class DefaultApi:
 
 
     @validate_call
-    def run_api_v1_run_post_with_http_info(
+    def run_v1_run_post_with_http_info(
         self,
         run_request: RunRequest,
         _request_timeout: Union[
@@ -634,7 +634,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._run_api_v1_run_post_serialize(
+        _param = self._run_v1_run_post_serialize(
             run_request=run_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -658,7 +658,7 @@ class DefaultApi:
 
 
     @validate_call
-    def run_api_v1_run_post_without_preload_content(
+    def run_v1_run_post_without_preload_content(
         self,
         run_request: RunRequest,
         _request_timeout: Union[
@@ -701,7 +701,7 @@ class DefaultApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._run_api_v1_run_post_serialize(
+        _param = self._run_v1_run_post_serialize(
             run_request=run_request,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -720,7 +720,7 @@ class DefaultApi:
         return response_data.response
 
 
-    def _run_api_v1_run_post_serialize(
+    def _run_v1_run_post_serialize(
         self,
         run_request,
         _request_auth,
@@ -780,7 +780,7 @@ class DefaultApi:
 
         return self.api_client.param_serialize(
             method='POST',
-            resource_path='/api/v1/run',
+            resource_path='/v1/run',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

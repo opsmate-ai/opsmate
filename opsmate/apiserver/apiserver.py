@@ -9,7 +9,9 @@ from opsmate.apiserver.gui import app as fasthtml_app
 import os
 
 client_bag = ProviderClient.clients_from_env()
+
 app = FastAPI()
+api_app = FastAPI()
 
 
 class Health(BaseModel):
@@ -20,23 +22,28 @@ class Session(BaseModel):
     uuid: str = Field(title="uuid")
 
 
-@app.middleware("http")
+@api_app.middleware("http")
 async def token_verification(request: Request, call_next):
-    if request.url.path == "/api/v1/health":
+    if request.url.path == "/v1/health":
         return await call_next(request)
 
     if os.environ.get("OPSMATE_TOKEN"):
-        if request.query_params.get("token") != os.environ.get("OPSMATE_TOKEN"):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return Response("unauthorized", status_code=401)
+
+        token = auth_header.split(" ")[1]
+        if token != os.environ.get("OPSMATE_TOKEN"):
             return Response("unauthorized", status_code=401)
     return await call_next(request)
 
 
-@app.get("/api/v1/health", response_model=Health)
+@api_app.get("/v1/health", response_model=Health)
 async def health():
     return Health(status="ok")
 
 
-@app.get("/api/v1/models", response_model=List[Model])
+@api_app.get("/v1/models", response_model=List[Model])
 async def models():
     return ProviderClient.models_from_clientbag(client_bag)
 
@@ -49,7 +56,7 @@ class RunRequest(BaseModel):
     ask: bool = Field(title="ask", default=False)
 
 
-@app.post("/api/v1/run", response_model=List[Dict[str, Any]])
+@api_app.post("/v1/run", response_model=List[Dict[str, Any]])
 async def run(request: RunRequest):
 
     selected_contexts = get_contexts(request.contexts)
@@ -103,4 +110,5 @@ def get_contexts(contexts: List[str]):
     return selected_contexts
 
 
+app.mount("/api", api_app)
 app.mount("/", fasthtml_app)

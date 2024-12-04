@@ -5,7 +5,7 @@ from opsmate.libs.core.engine import exec_task
 from pydantic import BaseModel, Field
 from opsmate.libs.providers import Client as ProviderClient, ClientBag
 from opsmate.libs.contexts import available_contexts
-from opsmate.apiserver.gui import app as fasthtml_app
+from opsmate.apiserver.gui import app as fasthtml_app, startup
 import os
 
 client_bag = ProviderClient.clients_from_env()
@@ -112,3 +112,5 @@ def get_contexts(contexts: List[str]):
 
 app.mount("/api", api_app)
 app.mount("/", fasthtml_app)
+
+app.add_event_handler("startup", startup)

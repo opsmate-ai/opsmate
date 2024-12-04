@@ -1,3 +1,3 @@
-from opsmate.apiserver.apiserver import app
+from opsmate.apiserver.apiserver import app, api_app
 
-__all__ = ["app"]
+__all__ = ["app", "api_app"]

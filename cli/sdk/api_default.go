@@ -22,23 +22,23 @@ import (
 // DefaultAPIService DefaultAPI service
 type DefaultAPIService service
 
-type ApiHealthApiV1HealthGetRequest struct {
+type ApiHealthV1HealthGetRequest struct {
 	ctx context.Context
 	ApiService *DefaultAPIService
 }
 
-func (r ApiHealthApiV1HealthGetRequest) Execute() (*Health, *http.Response, error) {
-	return r.ApiService.HealthApiV1HealthGetExecute(r)
+func (r ApiHealthV1HealthGetRequest) Execute() (*Health, *http.Response, error) {
+	return r.ApiService.HealthV1HealthGetExecute(r)
 }
 
 /*
-HealthApiV1HealthGet Health
+HealthV1HealthGet Health
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @return ApiHealthApiV1HealthGetRequest
+ @return ApiHealthV1HealthGetRequest
 */
-func (a *DefaultAPIService) HealthApiV1HealthGet(ctx context.Context) ApiHealthApiV1HealthGetRequest {
-	return ApiHealthApiV1HealthGetRequest{
+func (a *DefaultAPIService) HealthV1HealthGet(ctx context.Context) ApiHealthV1HealthGetRequest {
+	return ApiHealthV1HealthGetRequest{
 		ApiService: a,
 		ctx: ctx,
 	}
@@ -46,7 +46,7 @@ func (a *DefaultAPIService) HealthApiV1HealthGet(ctx context.Context) ApiHealthA
 
 // Execute executes the request
 //  @return Health
-func (a *DefaultAPIService) HealthApiV1HealthGetExecute(r ApiHealthApiV1HealthGetRequest) (*Health, *http.Response, error) {
+func (a *DefaultAPIService) HealthV1HealthGetExecute(r ApiHealthV1HealthGetRequest) (*Health, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
@@ -54,12 +54,12 @@ func (a *DefaultAPIService) HealthApiV1HealthGetExecute(r ApiHealthApiV1HealthGe
 		localVarReturnValue  *Health
 	)
 
-	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.HealthApiV1HealthGet")
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.HealthV1HealthGet")
 	if err != nil {
 		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/api/v1/health"
+	localVarPath := localBasePath + "/v1/health"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -119,23 +119,23 @@ func (a *DefaultAPIService) HealthApiV1HealthGetExecute(r ApiHealthApiV1HealthGe
 	return localVarReturnValue, localVarHTTPResponse, nil
 }
 
-type ApiModelsApiV1ModelsGetRequest struct {
+type ApiModelsV1ModelsGetRequest struct {
 	ctx context.Context
 	ApiService *DefaultAPIService
 }
 
-func (r ApiModelsApiV1ModelsGetRequest) Execute() ([]Model, *http.Response, error) {
-	return r.ApiService.ModelsApiV1ModelsGetExecute(r)
+func (r ApiModelsV1ModelsGetRequest) Execute() ([]Model, *http.Response, error) {
+	return r.ApiService.ModelsV1ModelsGetExecute(r)
 }
 
 /*
-ModelsApiV1ModelsGet Models
+ModelsV1ModelsGet Models
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @return ApiModelsApiV1ModelsGetRequest
+ @return ApiModelsV1ModelsGetRequest
 */
-func (a *DefaultAPIService) ModelsApiV1ModelsGet(ctx context.Context) ApiModelsApiV1ModelsGetRequest {
-	return ApiModelsApiV1ModelsGetRequest{
+func (a *DefaultAPIService) ModelsV1ModelsGet(ctx context.Context) ApiModelsV1ModelsGetRequest {
+	return ApiModelsV1ModelsGetRequest{
 		ApiService: a,
 		ctx: ctx,
 	}
@@ -143,7 +143,7 @@ func (a *DefaultAPIService) ModelsApiV1ModelsGet(ctx context.Context) ApiModelsA
 
 // Execute executes the request
 //  @return []Model
-func (a *DefaultAPIService) ModelsApiV1ModelsGetExecute(r ApiModelsApiV1ModelsGetRequest) ([]Model, *http.Response, error) {
+func (a *DefaultAPIService) ModelsV1ModelsGetExecute(r ApiModelsV1ModelsGetRequest) ([]Model, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
@@ -151,12 +151,12 @@ func (a *DefaultAPIService) ModelsApiV1ModelsGetExecute(r ApiModelsApiV1ModelsGe
 		localVarReturnValue  []Model
 	)
 
-	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.ModelsApiV1ModelsGet")
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.ModelsV1ModelsGet")
 	if err != nil {
 		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/api/v1/models"
+	localVarPath := localBasePath + "/v1/models"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -216,29 +216,29 @@ func (a *DefaultAPIService) ModelsApiV1ModelsGetExecute(r ApiModelsApiV1ModelsGe
 	return localVarReturnValue, localVarHTTPResponse, nil
 }
 
-type ApiRunApiV1RunPostRequest struct {
+type ApiRunV1RunPostRequest struct {
 	ctx context.Context
 	ApiService *DefaultAPIService
 	runRequest *RunRequest
 }
 
-func (r ApiRunApiV1RunPostRequest) RunRequest(runRequest RunRequest) ApiRunApiV1RunPostRequest {
+func (r ApiRunV1RunPostRequest) RunRequest(runRequest RunRequest) ApiRunV1RunPostRequest {
 	r.runRequest = &runRequest
 	return r
 }
 
-func (r ApiRunApiV1RunPostRequest) Execute() ([]map[string]interface{}, *http.Response, error) {
-	return r.ApiService.RunApiV1RunPostExecute(r)
+func (r ApiRunV1RunPostRequest) Execute() ([]map[string]interface{}, *http.Response, error) {
+	return r.ApiService.RunV1RunPostExecute(r)
 }
 
 /*
-RunApiV1RunPost Run
+RunV1RunPost Run
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @return ApiRunApiV1RunPostRequest
+ @return ApiRunV1RunPostRequest
 */
-func (a *DefaultAPIService) RunApiV1RunPost(ctx context.Context) ApiRunApiV1RunPostRequest {
-	return ApiRunApiV1RunPostRequest{
+func (a *DefaultAPIService) RunV1RunPost(ctx context.Context) ApiRunV1RunPostRequest {
+	return ApiRunV1RunPostRequest{
 		ApiService: a,
 		ctx: ctx,
 	}
@@ -246,7 +246,7 @@ func (a *DefaultAPIService) RunApiV1RunPost(ctx context.Context) ApiRunApiV1RunP
 
 // Execute executes the request
 //  @return []map[string]interface{}
-func (a *DefaultAPIService) RunApiV1RunPostExecute(r ApiRunApiV1RunPostRequest) ([]map[string]interface{}, *http.Response, error) {
+func (a *DefaultAPIService) RunV1RunPostExecute(r ApiRunV1RunPostRequest) ([]map[string]interface{}, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodPost
 		localVarPostBody     interface{}
@@ -254,12 +254,12 @@ func (a *DefaultAPIService) RunApiV1RunPostExecute(r ApiRunApiV1RunPostRequest) 
 		localVarReturnValue  []map[string]interface{}
 	)
 
-	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.RunApiV1RunPost")
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.RunV1RunPost")
 	if err != nil {
 		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/api/v1/run"
+	localVarPath := localBasePath + "/v1/run"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

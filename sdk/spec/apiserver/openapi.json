@@ -5,10 +5,10 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/api/v1/health": {
+    "/v1/health": {
       "get": {
         "summary": "Health",
-        "operationId": "health_api_v1_health_get",
+        "operationId": "health_v1_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -23,10 +23,10 @@
         }
       }
     },
-    "/api/v1/models": {
+    "/v1/models": {
       "get": {
         "summary": "Models",
-        "operationId": "models_api_v1_models_get",
+        "operationId": "models_v1_models_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -37,7 +37,7 @@
                     "$ref": "#/components/schemas/Model"
                   },
                   "type": "array",
-                  "title": "Response Models Api V1 Models Get"
+                  "title": "Response Models V1 Models Get"
                 }
               }
             }
@@ -45,10 +45,10 @@
         }
       }
     },
-    "/api/v1/run": {
+    "/v1/run": {
       "post": {
         "summary": "Run",
-        "operationId": "run_api_v1_run_post",
+        "operationId": "run_v1_run_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -69,7 +69,7 @@
                     "type": "object"
                   },
                   "type": "array",
-                  "title": "Response Run Api V1 Run Post"
+                  "title": "Response Run V1 Run Post"
                 }
               }
             }

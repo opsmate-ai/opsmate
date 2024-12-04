@@ -515,7 +515,11 @@ async def post(cell_id: int, input: str):
 
 
 @app.ws("/cell/run/ws/")
-async def ws(cell_id: int, send):
+async def ws(cell_id: int, send, session):
+    # Check authentication token
+    if session.get("token") != config.token:
+        return  # Exit if unauthorized
+
     with sqlmodel.Session(engine) as session:
         # update all cells to inactive
         session.exec(sqlmodel.update(Cell).values(active=False))

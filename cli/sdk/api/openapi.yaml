@@ -5,9 +5,9 @@ info:
 servers:
 - url: /
 paths:
-  /api/v1/health:
+  /v1/health:
     get:
-      operationId: health_api_v1_health_get
+      operationId: health_v1_health_get
       responses:
         "200":
           content:
@@ -16,9 +16,9 @@ paths:
                 $ref: '#/components/schemas/Health'
           description: Successful Response
       summary: Health
-  /api/v1/models:
+  /v1/models:
     get:
-      operationId: models_api_v1_models_get
+      operationId: models_v1_models_get
       responses:
         "200":
           content:
@@ -29,9 +29,9 @@ paths:
                 type: array
           description: Successful Response
       summary: Models
-  /api/v1/run:
+  /v1/run:
     post:
-      operationId: run_api_v1_run_post
+      operationId: run_v1_run_post
       requestBody:
         content:
           application/json:

@@ -321,29 +321,28 @@ def cell_component(cell: Cell, cell_size: int):
                 Form(
                     Textarea(
                         cell.input,
+                        name="input",
                         cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
                         placeholder="Enter your instruction here...",
+                        id=f"cell-input-{cell.id}",
+                    ),
+                    Div(
                         hx_post=f"/cell/update/input/{cell.id}",
-                        name="input",
-                        hx_trigger="keyup changed delay:200ms",
+                        hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:200ms from:#cell-input-{cell.id}",
+                        hx_swap=f"#cell-input-form-{cell.id}",
                     ),
-                    Input(type="hidden", name="cell_id", value=cell.id),
-                    Script(
-                        # XXX: this seems to be subscribing to all the textareas
-                        #      and not just the one we want
-                        """
-                        me(document).on('keydown', ev => {
-                            if (ev.shiftKey && ev.key === 'Enter') {
-                                ev.preventDefault();
-                                ev.target.form.requestSubmit();
-                            }
-                        });
-                        """
+                    # xxx: shift+enter is being registered as a newline
+                    Div(
+                        Input(type="hidden", value=cell.id, name="cell_id"),
+                        ws_connect=f"/cell/run/ws/",
+                        ws_send=True,
+                        hx_ext="ws",
+                        hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{cell.id}",
+                        hx_swap=f"#cell-input-form-{cell.id}",
                     ),
-                    ws_connect=f"/cell/run/ws/",
-                    ws_send=True,
-                    hx_ext="ws",
+                    id=f"cell-input-form-{cell.id}",
                 ),
+                hx_include="input",
                 cls="p-4",
             ),
             # Cell Output (if any)

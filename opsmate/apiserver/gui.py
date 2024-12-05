@@ -44,6 +44,73 @@ class CellType(enum.Enum):
     BASH = "bash"
 
 
+class StepType(str, enum.Enum):
+    UNDERSTANDING = "understanding"
+    PLANNING = "planning"
+    EXECUTION = "execution"
+    REVIEW = "review"
+
+
+tabs = [
+    {
+        "id": StepType.UNDERSTANDING.value,
+        "title": "1. Understanding",
+        "description": """
+Let's understand the problem together:
+
+1. What exactly is unknown or what are we trying to find?
+2. What data or information do we have?
+3. What are the conditions or constraints?
+4. Can you draw or visualize any part of this problem?
+
+Please share your thoughts on these points.
+        """,
+    },
+    {
+        "id": StepType.PLANNING.value,
+        "title": "2. Planning",
+        "description": """
+Now that we understand the problem, let's develop a strategy:
+
+1. Have you seen similar problems before?
+2. Can we break this into smaller sub-problems?
+3. What mathematical techniques might be relevant?
+4. Should we try solving a simpler version first?
+
+Share your thoughts on possible approaches.
+        """,
+    },
+    {
+        "id": StepType.EXECUTION.value,
+        "title": "3. Execution",
+        "description": """
+Let's execute our plan step by step:
+
+1. Write out each step clearly
+2. Verify each step as you go
+3. Keep track of your progress
+4. Note any obstacles or insights
+
+Begin implementing your solution below.
+        """,
+    },
+    {
+        "id": StepType.REVIEW.value,
+        "title": "4. Looking Back",
+        "description": """
+Let's reflect on our solution:
+
+1. Does the answer make sense?
+2. Can we verify the result?
+3. Is there a simpler way?
+4. What did we learn from this?
+
+Share your reflections below.
+        """,
+    },
+]
+
+
 class Cell(sqlmodel.SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
@@ -62,6 +129,7 @@ class Cell(sqlmodel.SQLModel, table=True):
     sequence: int = sqlmodel.Field(default=0)
     execution_sequence: int = sqlmodel.Field(default=0)
     active: bool = sqlmodel.Field(default=False)
+    step: StepType = sqlmodel.Field(default=StepType.UNDERSTANDING)
 
     class Config:
         arbitrary_types_allowed = True
@@ -121,7 +189,12 @@ async def startup():
     with sqlmodel.Session(engine) as session:
         cell = session.exec(sqlmodel.select(Cell)).first()
         if cell is None:
-            cell = Cell(input="", type=CellType.TEXT_INSTRUCTION, active=True)
+            cell = Cell(
+                input="",
+                type=CellType.TEXT_INSTRUCTION,
+                active=True,
+                step=StepType.UNDERSTANDING,
+            )
             session.add(cell)
             session.commit()
 
@@ -256,6 +329,8 @@ def cell_component(cell: Cell, cell_size: int):
                     ),
                     Input(type="hidden", name="cell_id", value=cell.id),
                     Script(
+                        # XXX: this seems to be subscribing to all the textareas
+                        #      and not just the one we want
                         """
                         me(document).on('keydown', ev => {
                             if (ev.shiftKey && ev.key === 'Enter') {
@@ -296,25 +371,15 @@ add_cell_button = (
 )
 
 
-def with_session(func):
-    async def wrapper(*args, **kwargs):
-        with sqlmodel.Session(engine) as session:
-            try:
-                # Remove session from kwargs if it exists to avoid duplicate argument
-                kwargs.pop("session", None)
-                return await func(*args, session=session, **kwargs)
-            except Exception as e:
-                session.rollback()
-                raise e
-
-    return wrapper
-
-
 # Update the main screen route
-@app.route("/")
-async def get():
+@app.route("/step/{step}")
+async def get(step: str):
+    # convert step to StepType
+    step = StepType(step)
     with sqlmodel.Session(engine) as session:
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = session.exec(
+            sqlmodel.select(Cell).where(Cell.step == step).order_by(Cell.sequence)
+        ).all()
         page = Body(
             Div(
                 Div(
@@ -341,7 +406,7 @@ async def get():
                 )
             )
         )
-        return Title(config.session_name), page
+        return Title(f"{config.session_name} - {step.value}"), page
 
 
 @app.route("/cell/add/bottom")
@@ -389,13 +454,18 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         current_cell = session.exec(
             sqlmodel.select(Cell).where(Cell.id == index)
         ).first()
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+
+        cells = await all_cells_ordered(current_cell.step, session)
 
         # update all cells to inactive
-        session.exec(sqlmodel.update(Cell).values(active=False))
-        session.commit()
+        await mark_cell_inactive(current_cell.step, session)
 
-        new_cell = Cell(input="", type=CellType.TEXT_INSTRUCTION, active=True)
+        new_cell = Cell(
+            input="",
+            type=CellType.TEXT_INSTRUCTION,
+            active=True,
+            step=current_cell.step,
+        )
 
         # get the highest execution sequence number
         max_execution_sequence = (
@@ -421,7 +491,7 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         session.commit()
 
         # reload the cells
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = await all_cells_ordered(current_cell.step, session)
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
             id="cells-container",
@@ -432,16 +502,16 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
 @app.route("/cell/delete/{cell_id}")
 async def post(cell_id: int):
     with sqlmodel.Session(engine) as session:
-        current_cell = session.exec(
-            sqlmodel.select(Cell).where(Cell.id == cell_id)
-        ).first()
+        current_cell = await find_cell_by_id(cell_id, session)
 
         if current_cell is None:
             return ""
 
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
-            sqlmodel.select(Cell).where(Cell.sequence > current_cell.sequence)
+            sqlmodel.select(Cell)
+            .where(Cell.step == current_cell.step)
+            .where(Cell.sequence > current_cell.sequence)
         ).all()
         for cell in cells_to_shift:
             cell.sequence -= 1
@@ -450,7 +520,7 @@ async def post(cell_id: int):
         session.delete(current_cell)
         session.commit()
 
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = await all_cells_ordered(current_cell.step, session)
 
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
@@ -464,15 +534,12 @@ async def post(cell_id: int, input: str = None, type: str = None):
     logger.info("updating cell", cell_id=cell_id, input=input, type=type)
 
     with sqlmodel.Session(engine) as session:
-        selected_cell = session.exec(
-            sqlmodel.select(Cell).where(Cell.id == cell_id)
-        ).first()
+        selected_cell = await find_cell_by_id(cell_id, session)
         if selected_cell is None:
             return ""
 
         # update all cells to inactive
-        session.exec(sqlmodel.update(Cell).values(active=False))
-        session.commit()
+        await mark_cell_inactive(selected_cell.step, session)
 
         selected_cell.active = True
         if input is not None:
@@ -486,7 +553,7 @@ async def post(cell_id: int, input: str = None, type: str = None):
         session.add(selected_cell)
         session.commit()
 
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = await all_cells_ordered(selected_cell.step, session)
 
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
@@ -498,15 +565,11 @@ async def post(cell_id: int, input: str = None, type: str = None):
 @app.route("/cell/update/input/{cell_id}")
 async def post(cell_id: int, input: str):
     with sqlmodel.Session(engine) as session:
-        selected_cell = session.exec(
-            sqlmodel.select(Cell).where(Cell.id == cell_id)
-        ).first()
+        selected_cell = await find_cell_by_id(cell_id, session)
     if selected_cell is None:
         return ""
 
-    # xxx: need to refresh other cells to inactive
-    session.exec(sqlmodel.update(Cell).values(active=False))
-    session.commit()
+    await mark_cell_inactive(selected_cell.step, session)
 
     selected_cell.input = input
     selected_cell.active = True
@@ -740,6 +803,27 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
 
         markdown_outputs.append(Div(output, cls="marked"))
     return Div(*markdown_outputs)
+
+
+async def mark_cell_inactive(step: StepType, session: sqlmodel.Session):
+    # update all cells to inactive
+    session.exec(sqlmodel.update(Cell).where(Cell.step == step).values(active=False))
+    session.commit()
+
+
+async def mark_cell_active(cell_id: int, session: sqlmodel.Session):
+    session.exec(sqlmodel.update(Cell).where(Cell.id == cell_id).values(active=True))
+    session.commit()
+
+
+async def all_cells_ordered(step: StepType, session: sqlmodel.Session):
+    return session.exec(
+        sqlmodel.select(Cell).where(Cell.step == step).order_by(Cell.sequence)
+    ).all()
+
+
+async def find_cell_by_id(cell_id: int, session: sqlmodel.Session):
+    return session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
 
 
 if __name__ == "__main__":

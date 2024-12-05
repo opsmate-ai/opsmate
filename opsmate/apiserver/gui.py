@@ -437,9 +437,9 @@ async def get():
                     render_stage_panel(stages),
                     # Cells Container
                     render_cell_container(cells),
-                    cls="overflow-hidden",
+                    # cls="overflow-hidden",
                 ),
-                cls="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen",
+                cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
             )
         )
         return Title(f"{config.session_name}"), page

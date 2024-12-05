@@ -97,6 +97,7 @@ dlink = Link(
 
 def before(req, session):
     if config.token == "":
+        session["token"] = ""
         return
     if req.query_params.get("token") is not None:
         session["token"] = req.query_params.get("token", "")
@@ -519,6 +520,7 @@ async def ws(cell_id: int, send, session):
     logger.info("running cell", cell_id=cell_id)
     # Check authentication token
     if session.get("token", "") != config.token:
+        logger.error("unauthorized", token=session.get("token"))
         return  # Exit if unauthorized
 
     with sqlmodel.Session(engine) as session:
@@ -538,6 +540,7 @@ async def ws(cell_id: int, send, session):
         session.commit()
 
         if cell is None:
+            logger.error("cell not found", cell_id=cell_id)
             return
 
         swap = "beforeend"
@@ -545,6 +548,8 @@ async def ws(cell_id: int, send, session):
             await execute_llm_instruction(cell, swap, send, session)
         elif cell.type == CellType.BASH:
             await execute_bash_instruction(cell, swap, send, session)
+        else:
+            logger.error("unknown cell type", cell_id=cell.id, type=cell.type)
 
 
 async def execute_llm_instruction(
@@ -596,6 +601,7 @@ async def execute_llm_instruction(
 async def execute_bash_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
+    logger.info("executing bash instruction", cell_id=cell.id)
     outputs = []
     await send(
         Div(

@@ -65,6 +65,7 @@ Let's understand the problem together:
 
 Please share your thoughts on these points.
         """,
+        "active": True,
     },
     {
         "id": StepType.PLANNING.value,
@@ -79,6 +80,7 @@ Now that we understand the problem, let's develop a strategy:
 
 Share your thoughts on possible approaches.
         """,
+        "active": False,
     },
     {
         "id": StepType.EXECUTION.value,
@@ -93,6 +95,7 @@ Let's execute our plan step by step:
 
 Begin implementing your solution below.
         """,
+        "active": False,
     },
     {
         "id": StepType.REVIEW.value,
@@ -107,6 +110,7 @@ Let's reflect on our solution:
 
 Share your reflections below.
         """,
+        "active": False,
     },
 ]
 
@@ -229,14 +233,14 @@ def output_cell(cell: Cell):
             *outputs,
             id=f"cell-output-{cell.id}",
         ),
-        cls="px-4 py-2 bg-gray-50 border-t",
+        cls="px-4 py-2 bg-gray-50 border-t rounded-b-lg overflow-hidden",
     )
 
 
 def cell_component(cell: Cell, cell_size: int):
     """Renders a single cell component"""
     # Determine if the cell is active
-    active_class = "border-green-500" if cell.active else "border-gray-300"
+    active_class = "border-green-500 bg-white" if cell.active else "border-gray-300"
 
     return Div(
         # Add Cell Button Menu
@@ -314,7 +318,7 @@ def cell_component(cell: Cell, cell_size: int):
                     cls="ml-auto flex items-center gap-2",
                 ),
                 id=f"cell-header-{cell.id}",
-                cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between",
+                cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between rounded-t-lg overflow-hidden",
             ),
             # Cell Input - Updated with conditional styling
             Div(
@@ -368,6 +372,99 @@ add_cell_button = (
         cls="flex justify-end",
     ),
 )
+
+reset_button = (
+    Div(
+        Button(
+            "Reset",
+            cls="btn btn-secondary btn-sm flex items-center gap-1",
+        ),
+        hx_post="/reset",
+        hx_swap_oob="true",
+        cls="flex",
+    ),
+)
+
+
+def tab_button(tab: dict, active: bool):
+    cls = "px-6 py-3 text-sm font-medium border-0"
+    if active:
+        cls += " bg-white border-b-2 border-b-blue-500 text-blue-600"
+    else:
+        cls += " bg-gray-50 text-gray-600 hover:bg-gray-100"
+    return Button(
+        tab["title"],
+        cls=cls,
+    )
+
+
+@app.route("/")
+async def get():
+    # step = StepType(step)
+    with sqlmodel.Session(engine) as session:
+        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        page = Body(
+            Div(
+                Card(
+                    # Header
+                    Div(
+                        Div(
+                            H1(config.session_name, cls="text-2xl font-bold"),
+                            Span(
+                                "Press Shift+Enter to run cell",
+                                cls="text-sm text-gray-500",
+                            ),
+                            cls="flex flex-col",
+                        ),
+                        Div(
+                            reset_button,
+                            add_cell_button,
+                            cls="flex gap-2 justify-start",
+                        ),
+                        cls="mb-4 flex justify-between items-start pt-16",
+                    ),
+                    Div(
+                        *[tab_button(tab, tab["active"]) for tab in tabs],
+                        cls="flex border-t",
+                    ),
+                    # Tab Panels
+                    Div(
+                        Div(
+                            Div(
+                                Span("Current Phase: understanding", cls="font-medium"),
+                                cls="flex items-center gap-2 text-sm text-gray-500",
+                            ),
+                            cls="space-y-6",
+                        ),
+                        cls="block p-4",
+                    ),
+                    # tab description
+                    Div(
+                        Div(
+                            # Div(
+                            #     MessageSquare
+                            #     cls="w-5 h-5 text-blue-500 mt-1"
+                            # ),
+                            Div(
+                                tabs[0]["description"],
+                                cls="text-sm text-gray-700 marked",
+                            ),
+                            cls="flex items-center gap-2",
+                        ),
+                        cls="bg-blue-50 p-4 rounded-lg border border-blue-100",
+                    ),
+                    # Cells Container
+                    Div(
+                        *[cell_component(cell, len(cells)) for cell in cells],
+                        cls="space-y-4 mt-4",
+                        id="cells-container",
+                    ),
+                    cls="overflow-hidden",
+                ),
+                cls="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen",
+            )
+        )
+        return Title(f"{config.session_name}"), page
 
 
 # Update the main screen route

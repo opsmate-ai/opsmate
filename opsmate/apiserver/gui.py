@@ -328,7 +328,7 @@ def cell_component(cell: Cell, cell_size: int):
                     ),
                     Div(
                         hx_post=f"/cell/update/input/{cell.id}",
-                        hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:200ms from:#cell-input-{cell.id}",
+                        hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
                         hx_swap=f"#cell-input-form-{cell.id}",
                     ),
                     # xxx: shift+enter is being registered as a newline
@@ -578,8 +578,8 @@ async def post(cell_id: int, input: str):
 
 
 @app.ws("/cell/run/ws/")
-async def ws(cell_id: int, send, session):
-    logger.info("running cell", cell_id=cell_id)
+async def ws(cell_id: int, input: str, send, session):
+    logger.info("running cell", cell_id=cell_id, input=input)
     # Check authentication token
     if session.get("token", "") != config.token:
         logger.error("unauthorized", token=session.get("token"))

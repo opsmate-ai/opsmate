@@ -39,21 +39,21 @@ def on_startup():
     sqlmodel.SQLModel.metadata.create_all(engine)
 
 
-class CellType(enum.Enum):
+class CellEnum(enum.Enum):
     TEXT_INSTRUCTION = "text instruction"
     BASH = "bash"
 
 
-class StepType(str, enum.Enum):
+class StageEnum(str, enum.Enum):
     UNDERSTANDING = "understanding"
     PLANNING = "planning"
     EXECUTION = "execution"
     REVIEW = "review"
 
 
-tabs = [
+stages = [
     {
-        "id": StepType.UNDERSTANDING.value,
+        "id": StageEnum.UNDERSTANDING.value,
         "title": "1. Understanding",
         "description": """
 Let's understand the problem together:
@@ -68,7 +68,7 @@ Please share your thoughts on these points.
         "active": True,
     },
     {
-        "id": StepType.PLANNING.value,
+        "id": StageEnum.PLANNING.value,
         "title": "2. Planning",
         "description": """
 Now that we understand the problem, let's develop a strategy:
@@ -83,13 +83,13 @@ Share your thoughts on possible approaches.
         "active": False,
     },
     {
-        "id": StepType.EXECUTION.value,
+        "id": StageEnum.EXECUTION.value,
         "title": "3. Execution",
         "description": """
-Let's execute our plan step by step:
+Let's execute our plan stage by stage:
 
-1. Write out each step clearly
-2. Verify each step as you go
+1. Write out each stage clearly
+2. Verify each stage as you go
 3. Keep track of your progress
 4. Note any obstacles or insights
 
@@ -98,7 +98,7 @@ Begin implementing your solution below.
         "active": False,
     },
     {
-        "id": StepType.REVIEW.value,
+        "id": StageEnum.REVIEW.value,
         "title": "4. Looking Back",
         "description": """
 Let's reflect on our solution:
@@ -115,6 +115,13 @@ Share your reflections below.
 ]
 
 
+def get_active_stage():
+    stage = next(stage for stage in stages if stage["active"])
+    if stage is None:
+        return stages[0]
+    return stage
+
+
 class Cell(sqlmodel.SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
@@ -122,10 +129,10 @@ class Cell(sqlmodel.SQLModel, table=True):
     input: str = sqlmodel.Field(default="")
     # output: dict = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.JSON))
     output: bytes = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.LargeBinary))
-    type: CellType = sqlmodel.Field(
+    type: CellEnum = sqlmodel.Field(
         sa_column=sqlmodel.Column(
-            sqlmodel.Enum(CellType),
-            default=CellType.TEXT_INSTRUCTION,
+            sqlmodel.Enum(CellEnum),
+            default=CellEnum.TEXT_INSTRUCTION,
             nullable=True,
             index=False,
         )
@@ -133,7 +140,7 @@ class Cell(sqlmodel.SQLModel, table=True):
     sequence: int = sqlmodel.Field(default=0)
     execution_sequence: int = sqlmodel.Field(default=0)
     active: bool = sqlmodel.Field(default=False)
-    step: StepType = sqlmodel.Field(default=StepType.UNDERSTANDING)
+    stage: StageEnum = sqlmodel.Field(default=StageEnum.UNDERSTANDING)
 
     class Config:
         arbitrary_types_allowed = True
@@ -191,16 +198,18 @@ async def startup():
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
-        cell = session.exec(sqlmodel.select(Cell)).first()
-        if cell is None:
-            cell = Cell(
-                input="",
-                type=CellType.TEXT_INSTRUCTION,
-                active=True,
-                step=StepType.UNDERSTANDING,
-            )
-            session.add(cell)
-            session.commit()
+        for stage in stages:
+            cell = session.exec(
+                sqlmodel.select(Cell).where(Cell.stage == stage["id"])
+            ).first()
+            if cell is None:
+                cell = Cell(
+                    input="",
+                    active=True,
+                    stage=stage["id"],
+                )
+                session.add(cell)
+        session.commit()
 
 
 client_bag = ProviderClient.clients_from_env()
@@ -286,13 +295,13 @@ def cell_component(cell: Cell, cell_size: int):
                     Select(
                         Option(
                             "Text Instruction",
-                            value=CellType.TEXT_INSTRUCTION.value,
-                            selected=cell.type == CellType.TEXT_INSTRUCTION,
+                            value=CellEnum.TEXT_INSTRUCTION.value,
+                            selected=cell.type == CellEnum.TEXT_INSTRUCTION,
                         ),
                         Option(
                             "Bash",
-                            value=CellType.BASH.value,
-                            selected=cell.type == CellType.BASH,
+                            value=CellEnum.BASH.value,
+                            selected=cell.type == CellEnum.BASH,
                         ),
                         name="type",
                         hx_post=f"/cell/update/{cell.id}",
@@ -386,23 +395,25 @@ reset_button = (
 )
 
 
-def tab_button(tab: dict, active: bool):
+def stage_button(stage: dict):
     cls = "px-6 py-3 text-sm font-medium border-0"
-    if active:
+    if stage["active"]:
         cls += " bg-white border-b-2 border-b-blue-500 text-blue-600"
     else:
         cls += " bg-gray-50 text-gray-600 hover:bg-gray-100"
     return Button(
-        tab["title"],
+        stage["title"],
+        hx_put=f"/stage/{stage['id']}/switch",
         cls=cls,
     )
 
 
 @app.route("/")
 async def get():
-    # step = StepType(step)
+    active_stage = get_active_stage()
     with sqlmodel.Session(engine) as session:
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        # cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = await all_cells_ordered(active_stage["id"], session)
         page = Body(
             Div(
                 Card(
@@ -423,36 +434,7 @@ async def get():
                         ),
                         cls="mb-4 flex justify-between items-start pt-16",
                     ),
-                    Div(
-                        *[tab_button(tab, tab["active"]) for tab in tabs],
-                        cls="flex border-t",
-                    ),
-                    # Tab Panels
-                    Div(
-                        Div(
-                            Div(
-                                Span("Current Phase: understanding", cls="font-medium"),
-                                cls="flex items-center gap-2 text-sm text-gray-500",
-                            ),
-                            cls="space-y-6",
-                        ),
-                        cls="block p-4",
-                    ),
-                    # tab description
-                    Div(
-                        Div(
-                            # Div(
-                            #     MessageSquare
-                            #     cls="w-5 h-5 text-blue-500 mt-1"
-                            # ),
-                            Div(
-                                tabs[0]["description"],
-                                cls="text-sm text-gray-700 marked",
-                            ),
-                            cls="flex items-center gap-2",
-                        ),
-                        cls="bg-blue-50 p-4 rounded-lg border border-blue-100",
-                    ),
+                    render_stage_panel(stages),
                     # Cells Container
                     Div(
                         *[cell_component(cell, len(cells)) for cell in cells],
@@ -467,51 +449,13 @@ async def get():
         return Title(f"{config.session_name}"), page
 
 
-# Update the main screen route
-@app.route("/step/{step}")
-async def get(step: str):
-    # convert step to StepType
-    step = StepType(step)
-    with sqlmodel.Session(engine) as session:
-        cells = session.exec(
-            sqlmodel.select(Cell).where(Cell.step == step).order_by(Cell.sequence)
-        ).all()
-        page = Body(
-            Div(
-                Div(
-                    # Header
-                    Div(
-                        Div(
-                            H1(config.session_name, cls="text-2xl font-bold"),
-                            Span(
-                                "Press Shift+Enter to run cell",
-                                cls="text-sm text-gray-500",
-                            ),
-                            cls="flex flex-col",
-                        ),
-                        add_cell_button,
-                        cls="mb-4 flex justify-between items-center pt-16",
-                    ),
-                    # Cells Container
-                    Div(
-                        *[cell_component(cell, len(cells)) for cell in cells],
-                        cls="space-y-4",
-                        id="cells-container",
-                    ),
-                    cls="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen",
-                )
-            )
-        )
-        return Title(f"{config.session_name} - {step.value}"), page
-
-
 @app.route("/cell/add/bottom")
 async def post():
     with sqlmodel.Session(engine) as session:
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        active_stage = get_active_stage()
+        cells = await all_cells_ordered(active_stage["id"], session)
         # update all cells to inactive
-        session.exec(sqlmodel.update(Cell).values(active=False))
-        session.commit()
+        await mark_cell_inactive(active_stage["id"], session)
 
         # get the highest sequence number
         max_sequence = max(cell.sequence for cell in cells) if cells else 0
@@ -522,15 +466,15 @@ async def post():
 
         new_cell = Cell(
             input="",
-            type=CellType.TEXT_INSTRUCTION,
             sequence=max_sequence + 1,
             execution_sequence=max_execution_sequence + 1,
+            stage=active_stage["id"],
             active=True,
         )
         session.add(new_cell)
         session.commit()
 
-        cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        cells = await all_cells_ordered(active_stage["id"], session)
         return (
             # Return the new cell to be added
             Div(
@@ -551,16 +495,15 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
             sqlmodel.select(Cell).where(Cell.id == index)
         ).first()
 
-        cells = await all_cells_ordered(current_cell.step, session)
+        cells = await all_cells_ordered(current_cell.stage, session)
 
         # update all cells to inactive
-        await mark_cell_inactive(current_cell.step, session)
+        await mark_cell_inactive(current_cell.stage, session)
 
         new_cell = Cell(
             input="",
-            type=CellType.TEXT_INSTRUCTION,
             active=True,
-            step=current_cell.step,
+            stage=current_cell.stage,
         )
 
         # get the highest execution sequence number
@@ -587,7 +530,7 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         session.commit()
 
         # reload the cells
-        cells = await all_cells_ordered(current_cell.step, session)
+        cells = await all_cells_ordered(current_cell.stage, session)
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
             id="cells-container",
@@ -606,7 +549,7 @@ async def post(cell_id: int):
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
             sqlmodel.select(Cell)
-            .where(Cell.step == current_cell.step)
+            .where(Cell.stage == current_cell.stage)
             .where(Cell.sequence > current_cell.sequence)
         ).all()
         for cell in cells_to_shift:
@@ -616,7 +559,7 @@ async def post(cell_id: int):
         session.delete(current_cell)
         session.commit()
 
-        cells = await all_cells_ordered(current_cell.step, session)
+        cells = await all_cells_ordered(current_cell.stage, session)
 
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
@@ -635,21 +578,21 @@ async def post(cell_id: int, input: str = None, type: str = None):
             return ""
 
         # update all cells to inactive
-        await mark_cell_inactive(selected_cell.step, session)
+        await mark_cell_inactive(selected_cell.stage, session)
 
         selected_cell.active = True
         if input is not None:
             selected_cell.input = input
         if type is not None:
-            if type == CellType.TEXT_INSTRUCTION.value:
-                selected_cell.type = CellType.TEXT_INSTRUCTION
-            elif type == CellType.BASH.value:
-                selected_cell.type = CellType.BASH
+            if type == CellEnum.TEXT_INSTRUCTION.value:
+                selected_cell.type = CellEnum.TEXT_INSTRUCTION
+            elif type == CellEnum.BASH.value:
+                selected_cell.type = CellEnum.BASH
 
         session.add(selected_cell)
         session.commit()
 
-        cells = await all_cells_ordered(selected_cell.step, session)
+        cells = await all_cells_ordered(selected_cell.stage, session)
 
         return Div(
             *[cell_component(cell, len(cells)) for cell in cells],
@@ -665,13 +608,36 @@ async def post(cell_id: int, input: str):
     if selected_cell is None:
         return ""
 
-    await mark_cell_inactive(selected_cell.step, session)
+    await mark_cell_inactive(selected_cell.stage, session)
 
     selected_cell.input = input
     selected_cell.active = True
     session.add(selected_cell)
     session.commit()
     return ""
+
+
+@app.route("/stage/{stage_id}/switch")
+async def put(stage_id: str):
+    logger.info("switching stage", stage_id=stage_id)
+    # mark all stages as inactive
+    [stage.update({"active": False}) for stage in stages]
+    # mark the selected stage as active
+    for stage in stages:
+        if stage["id"] == stage_id:
+            stage["active"] = True
+
+    with sqlmodel.Session(engine) as session:
+        cells = await all_cells_ordered(stage_id, session)
+
+        return (
+            render_stage_panel(stages),
+            Div(
+                *[cell_component(cell, len(cells)) for cell in cells],
+                id="cells-container",
+                hx_swap_oob="true",
+            ),
+        )
 
 
 @app.ws("/cell/run/ws/")
@@ -703,9 +669,9 @@ async def ws(cell_id: int, input: str, send, session):
             return
 
         swap = "beforeend"
-        if cell.type == CellType.TEXT_INSTRUCTION:
+        if cell.type == CellEnum.TEXT_INSTRUCTION:
             await execute_llm_instruction(cell, swap, send, session)
-        elif cell.type == CellType.BASH:
+        elif cell.type == CellEnum.BASH:
             await execute_bash_instruction(cell, swap, send, session)
         else:
             logger.error("unknown cell type", cell_id=cell.id, type=cell.type)
@@ -728,9 +694,9 @@ async def execute_llm_instruction(
     # execution = executor.supervise(supervisor, msg)
     execution = executor.execute(k8s_agent, msg)
 
-    async for step in async_wrapper(execution):
+    async for stage in async_wrapper(execution):
         actor = k8s_agent.metadata.name
-        output = step
+        output = stage
         partial = None
         if isinstance(output, ExecResults):
             partial = render_exec_results_marakdown(actor, output)
@@ -818,9 +784,46 @@ async def execute_bash_instruction(
 
 
 async def async_wrapper(generator: Generator):
-    for step in generator:
+    for stage in generator:
         await asyncio.sleep(0)
-        yield step
+        yield stage
+
+
+def render_stage_panel(stages: list[dict]):
+    active_stage = get_active_stage()
+    return Div(
+        Div(
+            *[stage_button(stage) for stage in stages],
+            cls="flex border-t",
+        ),
+        # stage Panels
+        Div(
+            Div(
+                Div(
+                    Span(
+                        f"Current Phase: {active_stage['title']}",
+                        cls="font-medium",
+                    ),
+                    cls="flex items-center gap-2 text-sm text-gray-500",
+                ),
+                cls="space-y-6",
+            ),
+            cls="block p-4",
+        ),
+        # stage description
+        Div(
+            Div(
+                Div(
+                    active_stage["description"],
+                    cls="text-sm text-gray-700 marked",
+                ),
+                cls="flex items-center gap-2",
+            ),
+            cls="bg-blue-50 p-4 rounded-lg border border-blue-100",
+        ),
+        hx_swap_oob="true",
+        id="stage-panel",
+    )
 
 
 def render_react_markdown(agent: str, output: ReactProcess):
@@ -901,9 +904,9 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
     return Div(*markdown_outputs)
 
 
-async def mark_cell_inactive(step: StepType, session: sqlmodel.Session):
+async def mark_cell_inactive(stage: StageEnum, session: sqlmodel.Session):
     # update all cells to inactive
-    session.exec(sqlmodel.update(Cell).where(Cell.step == step).values(active=False))
+    session.exec(sqlmodel.update(Cell).where(Cell.stage == stage).values(active=False))
     session.commit()
 
 
@@ -912,9 +915,9 @@ async def mark_cell_active(cell_id: int, session: sqlmodel.Session):
     session.commit()
 
 
-async def all_cells_ordered(step: StepType, session: sqlmodel.Session):
+async def all_cells_ordered(stage: StageEnum, session: sqlmodel.Session):
     return session.exec(
-        sqlmodel.select(Cell).where(Cell.step == step).order_by(Cell.sequence)
+        sqlmodel.select(Cell).where(Cell.stage == stage).order_by(Cell.sequence)
     ).all()
 
 

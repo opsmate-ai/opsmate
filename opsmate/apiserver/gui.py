@@ -264,13 +264,13 @@ def cell_component(cell: Cell, cell_size: int):
                     Li(
                         Button(
                             "Insert Above",
-                            hx_post=f"/cell/add/{cell.id}?above=true",
+                            hx_post=f"/cell/{cell.id}?above=true",
                         )
                     ),
                     Li(
                         Button(
                             "Insert Below",
-                            hx_post=f"/cell/add/{cell.id}?above=false",
+                            hx_post=f"/cell/{cell.id}?above=false",
                         )
                     ),
                     tabindex="0",
@@ -304,13 +304,13 @@ def cell_component(cell: Cell, cell_size: int):
                             selected=cell.type == CellEnum.BASH,
                         ),
                         name="type",
-                        hx_post=f"/cell/update/{cell.id}",
+                        hx_put=f"/cell/{cell.id}",
                         hx_trigger="change",
                         cls="select select-sm ml-2",
                     ),
                     Button(
                         trash_icon_svg,
-                        hx_post=f"/cell/delete/{cell.id}",
+                        hx_delete=f"/cell/{cell.id}",
                         cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
                         disabled=cell_size == 1,
                     ),
@@ -340,7 +340,7 @@ def cell_component(cell: Cell, cell_size: int):
                         id=f"cell-input-{cell.id}",
                     ),
                     Div(
-                        hx_post=f"/cell/update/input/{cell.id}",
+                        hx_put=f"/cell/input/{cell.id}",
                         hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
                         hx_swap=f"#cell-input-form-{cell.id}",
                     ),
@@ -373,7 +373,7 @@ add_cell_button = (
         Button(
             add_cell_svg,
             "Add Cell",
-            hx_post="/cell/add/bottom",
+            hx_post="/cell/bottom",
             cls="btn btn-primary btn-sm flex items-center gap-2",
         ),
         id="add-cell-button",
@@ -388,8 +388,9 @@ reset_button = (
             "Reset",
             cls="btn btn-secondary btn-sm flex items-center gap-1",
         ),
-        hx_post="/reset",
+        hx_post="/cells/reset",
         hx_swap_oob="true",
+        id="reset-button",
         cls="flex",
     ),
 )
@@ -445,7 +446,7 @@ async def get():
         return Title(f"{config.session_name}"), page
 
 
-@app.route("/cell/add/bottom")
+@app.route("/cell/bottom")
 async def post():
     with sqlmodel.Session(engine) as session:
         active_stage = get_active_stage()
@@ -480,7 +481,7 @@ async def post():
 
 
 # Add cell manipulation routes
-@app.route("/cell/add/{index}")
+@app.route("/cell/{index}")
 async def post(index: int, above: bool = False, session: sqlmodel.Session = None):
     with sqlmodel.Session(engine) as session:
         current_cell = session.exec(
@@ -526,8 +527,8 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/delete/{cell_id}")
-async def post(cell_id: int):
+@app.route("/cell/{cell_id}")
+async def delete(cell_id: int):
     with sqlmodel.Session(engine) as session:
         current_cell = await find_cell_by_id(cell_id, session)
 
@@ -552,8 +553,8 @@ async def post(cell_id: int):
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/update/{cell_id}")
-async def post(cell_id: int, input: str = None, type: str = None):
+@app.route("/cell/{cell_id}")
+async def put(cell_id: int, input: str = None, type: str = None):
     logger.info("updating cell", cell_id=cell_id, input=input, type=type)
 
     with sqlmodel.Session(engine) as session:
@@ -581,8 +582,8 @@ async def post(cell_id: int, input: str = None, type: str = None):
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/update/input/{cell_id}")
-async def post(cell_id: int, input: str):
+@app.route("/cell/input/{cell_id}")
+async def put(cell_id: int, input: str):
     with sqlmodel.Session(engine) as session:
         selected_cell = await find_cell_by_id(cell_id, session)
     if selected_cell is None:
@@ -616,6 +617,26 @@ async def put(stage_id: str):
         )
 
 
+@app.route("/cells/reset")
+async def post():
+    active_stage = get_active_stage()
+    with sqlmodel.Session(engine) as session:
+        session.exec(sqlmodel.delete(Cell).where(Cell.stage == active_stage["id"]))
+        session.commit()
+        # create new cells
+        cell = Cell(
+            input="",
+            active=True,
+            stage=active_stage["id"],
+        )
+        session.add(cell)
+        session.commit()
+        return (
+            render_cell_container([cell], hx_swap_oob="true"),
+            reset_button,
+        )
+
+
 @app.ws("/cell/run/ws/")
 async def ws(cell_id: int, input: str, send, session):
     logger.info("running cell", cell_id=cell_id, input=input)
@@ -624,10 +645,9 @@ async def ws(cell_id: int, input: str, send, session):
         logger.error("unauthorized", token=session.get("token"))
         return  # Exit if unauthorized
 
+    active_stage = get_active_stage()
     with sqlmodel.Session(engine) as session:
-        # update all cells to inactive
-        session.exec(sqlmodel.update(Cell).values(active=False))
-        session.commit()
+        await mark_cell_inactive(active_stage["id"], session)
 
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
         logger.info(

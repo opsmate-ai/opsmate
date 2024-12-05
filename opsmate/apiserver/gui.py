@@ -436,11 +436,7 @@ async def get():
                     ),
                     render_stage_panel(stages),
                     # Cells Container
-                    Div(
-                        *[cell_component(cell, len(cells)) for cell in cells],
-                        cls="space-y-4 mt-4",
-                        id="cells-container",
-                    ),
+                    render_cell_container(cells),
                     cls="overflow-hidden",
                 ),
                 cls="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen",
@@ -477,11 +473,7 @@ async def post():
         cells = await all_cells_ordered(active_stage["id"], session)
         return (
             # Return the new cell to be added
-            Div(
-                *[cell_component(cell, len(cells)) for cell in cells],
-                id="cells-container",
-                hx_swap_oob="true",
-            ),
+            render_cell_container(cells, hx_swap_oob="true"),
             # Return the button to preserve it
             add_cell_button,
         )
@@ -531,11 +523,7 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
 
         # reload the cells
         cells = await all_cells_ordered(current_cell.stage, session)
-        return Div(
-            *[cell_component(cell, len(cells)) for cell in cells],
-            id="cells-container",
-            hx_swap_oob="true",
-        )
+        return render_cell_container(cells, hx_swap_oob="true")
 
 
 @app.route("/cell/delete/{cell_id}")
@@ -561,11 +549,7 @@ async def post(cell_id: int):
 
         cells = await all_cells_ordered(current_cell.stage, session)
 
-        return Div(
-            *[cell_component(cell, len(cells)) for cell in cells],
-            id="cells-container",
-            hx_swap_oob="true",
-        )
+        return render_cell_container(cells, hx_swap_oob="true")
 
 
 @app.route("/cell/update/{cell_id}")
@@ -594,11 +578,7 @@ async def post(cell_id: int, input: str = None, type: str = None):
 
         cells = await all_cells_ordered(selected_cell.stage, session)
 
-        return Div(
-            *[cell_component(cell, len(cells)) for cell in cells],
-            id="cells-container",
-            hx_swap_oob="true",
-        )
+        return render_cell_container(cells, hx_swap_oob="true")
 
 
 @app.route("/cell/update/input/{cell_id}")
@@ -632,11 +612,7 @@ async def put(stage_id: str):
 
         return (
             render_stage_panel(stages),
-            Div(
-                *[cell_component(cell, len(cells)) for cell in cells],
-                id="cells-container",
-                hx_swap_oob="true",
-            ),
+            render_cell_container(cells, hx_swap_oob="true"),
         )
 
 
@@ -787,6 +763,17 @@ async def async_wrapper(generator: Generator):
     for stage in generator:
         await asyncio.sleep(0)
         yield stage
+
+
+def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
+    div = Div(
+        *[cell_component(cell, len(cells)) for cell in cells],
+        cls="space-y-4 mt-4",
+        id="cells-container",
+    )
+    if hx_swap_oob:
+        div.hx_swap_oob = hx_swap_oob
+    return div
 
 
 def render_stage_panel(stages: list[dict]):

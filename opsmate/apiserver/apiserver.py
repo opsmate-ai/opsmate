@@ -3,9 +3,9 @@ from typing import List, Literal, Dict, Any
 from opsmate.libs.core.types import Model, ExecResults, Task, Metadata, TaskSpec
 from opsmate.libs.core.engine import exec_task
 from pydantic import BaseModel, Field
-from opsmate.libs.providers import Client as ProviderClient, ClientBag
+from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.contexts import available_contexts
-from opsmate.apiserver.gui import app as fasthtml_app, startup
+from opsmate.gui.app import app as fasthtml_app, startup
 import os
 
 client_bag = ProviderClient.clients_from_env()

@@ -53,6 +53,10 @@ dlink = Link(
 def output_cell(cell: Cell):
     if cell.output:
         outputs = pickle.loads(cell.output)
+        outputs = [
+            cell_render_funcs[output["type"]](k8s_agent.metadata.name, output["output"])
+            for output in outputs
+        ]
     else:
         outputs = []
     return Div(
@@ -250,17 +254,22 @@ async def execute_llm_instruction(
         output = stage
         partial = None
         if isinstance(output, ExecResults):
-            partial = render_exec_results_marakdown(actor, output)
+            partial = render_exec_results_markdown(actor, output)
         elif isinstance(output, AgentCommand):
-            partial = render_agent_command_marakdown(actor, output)
+            partial = render_agent_command_markdown(actor, output)
         elif isinstance(output, ReactProcess):
             partial = render_react_markdown(actor, output)
         elif isinstance(output, ReactAnswer):
-            partial = render_react_answer_marakdown(actor, output)
+            partial = render_react_answer_markdown(actor, output)
         # elif isinstance(output, Observation):
-        #     partial = render_observation_marakdown(actor, output)
+        #     partial = render_observation_markdown(actor, output)
         if partial:
-            outputs.append(partial)
+            outputs.append(
+                {
+                    "type": type(output).__name__,
+                    "output": output,
+                }
+            )
             await send(
                 Div(
                     partial,
@@ -311,23 +320,19 @@ async def execute_bash_instruction(
         if error:
             combined_output += error
 
-    output = Div(
-        Div(
-            f"""**Output**
-```
-{combined_output}
-```
-""",
-            cls="marked",
-        ),
+    partial = render_bash_output_markdown(k8s_agent.metadata.name, combined_output)
+    outputs.append(
+        {
+            "type": "BashOutput",
+            "output": combined_output,
+        }
     )
-    outputs.append(output)
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
     await send(
         Div(
-            *outputs,
+            partial,
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -401,7 +406,7 @@ def render_react_markdown(agent: str, output: ReactProcess):
     )
 
 
-def render_react_answer_marakdown(agent: str, output: ReactAnswer):
+def render_react_answer_markdown(agent: str, output: ReactAnswer):
     return Div(
         f"""
 **{agent} answer**
@@ -412,7 +417,7 @@ def render_react_answer_marakdown(agent: str, output: ReactAnswer):
     )
 
 
-def render_agent_command_marakdown(agent: str, output: AgentCommand):
+def render_agent_command_markdown(agent: str, output: AgentCommand):
     return Div(
         f"""
 **{agent} task delegation**
@@ -425,7 +430,7 @@ def render_agent_command_marakdown(agent: str, output: AgentCommand):
     )
 
 
-def render_observation_marakdown(agent: str, output: Observation):
+def render_observation_markdown(agent: str, output: Observation):
     return Div(
         f"""
 **{agent} observation**
@@ -436,7 +441,7 @@ def render_observation_marakdown(agent: str, output: Observation):
     )
 
 
-def render_exec_results_marakdown(agent: str, output: ExecResults):
+def render_exec_results_markdown(agent: str, output: ExecResults):
     markdown_outputs = []
     markdown_outputs.append(
         Div(
@@ -464,3 +469,26 @@ def render_exec_results_marakdown(agent: str, output: ExecResults):
 
         markdown_outputs.append(Div(output, cls="marked"))
     return Div(*markdown_outputs)
+
+
+def render_bash_output_markdown(agent: str, output: str):
+    return Div(
+        f"""
+**{agent} results**
+
+```bash
+{output}
+```
+""",
+        cls="marked",
+    )
+
+
+cell_render_funcs = {
+    "ReactProcess": render_react_markdown,
+    "AgentCommand": render_agent_command_markdown,
+    "ReactAnswer": render_react_answer_markdown,
+    "Observation": render_observation_markdown,
+    "ExecResults": render_exec_results_markdown,
+    "BashOutput": render_bash_output_markdown,
+}

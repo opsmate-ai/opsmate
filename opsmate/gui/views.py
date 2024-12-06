@@ -50,7 +50,7 @@ dlink = Link(
 )
 
 
-def output_cell(cell: Cell):
+def cell_output(cell: Cell):
     if cell.output:
         outputs = pickle.loads(cell.output)
         outputs = [
@@ -76,113 +76,15 @@ def cell_component(cell: Cell, cell_size: int):
 
     return Div(
         # Add Cell Button Menu
-        Div(
-            Div(
-                Button(
-                    plus_icon_svg,
-                    tabindex="0",
-                    cls="btn btn-ghost btn-xs",
-                ),
-                Ul(
-                    Li(
-                        Button(
-                            "Insert Above",
-                            hx_post=f"/cell/{cell.id}?above=true",
-                        )
-                    ),
-                    Li(
-                        Button(
-                            "Insert Below",
-                            hx_post=f"/cell/{cell.id}?above=false",
-                        )
-                    ),
-                    tabindex="0",
-                    cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
-                ),
-                cls="dropdown dropdown-right",
-            ),
-            cls="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
-        ),
+        cell_insert_dropdown(cell),
         # Main Cell Content
         Div(
             # Cell Header
-            Div(
-                Div(
-                    Span(
-                        f"In [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"
-                    ),
-                    # Add cell type selector
-                    cls="flex items-center gap-2",
-                ),
-                Div(
-                    Select(
-                        Option(
-                            "Text Instruction",
-                            value=CellLangEnum.TEXT_INSTRUCTION.value,
-                            selected=cell.lang == CellLangEnum.TEXT_INSTRUCTION,
-                        ),
-                        Option(
-                            "Bash",
-                            value=CellLangEnum.BASH.value,
-                            selected=cell.lang == CellLangEnum.BASH,
-                        ),
-                        name="lang",
-                        hx_put=f"/cell/{cell.id}",
-                        hx_trigger="change",
-                        cls="select select-sm ml-2",
-                    ),
-                    Button(
-                        trash_icon_svg,
-                        hx_delete=f"/cell/{cell.id}",
-                        cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
-                        disabled=cell_size == 1,
-                    ),
-                    Form(
-                        Input(type="hidden", value=cell.id, name="cell_id"),
-                        Button(
-                            run_icon_svg,
-                            cls="btn btn-ghost btn-sm",
-                        ),
-                        ws_connect=f"/cell/run/ws/",
-                        ws_send=True,
-                        hx_ext="ws",
-                    ),
-                    cls="ml-auto flex items-center gap-2",
-                ),
-                id=f"cell-header-{cell.id}",
-                cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between rounded-t-lg overflow-hidden",
-            ),
+            cell_header(cell, cell_size),
             # Cell Input - Updated with conditional styling
-            Div(
-                Form(
-                    Textarea(
-                        cell.input,
-                        name="input",
-                        cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-                        placeholder="Enter your instruction here...",
-                        id=f"cell-input-{cell.id}",
-                    ),
-                    Div(
-                        hx_put=f"/cell/input/{cell.id}",
-                        hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
-                        hx_swap=f"#cell-input-form-{cell.id}",
-                    ),
-                    # xxx: shift+enter is being registered as a newline
-                    Div(
-                        Input(type="hidden", value=cell.id, name="cell_id"),
-                        ws_connect=f"/cell/run/ws/",
-                        ws_send=True,
-                        hx_ext="ws",
-                        hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{cell.id}",
-                        hx_swap=f"#cell-input-form-{cell.id}",
-                    ),
-                    id=f"cell-input-form-{cell.id}",
-                ),
-                hx_include="input",
-                cls="p-4",
-            ),
+            cell_input_form(cell),
             # Cell Output (if any)
-            output_cell(cell),
+            cell_output(cell),
             cls=f"rounded-lg shadow-sm border {active_class}",  # Apply the active class here
         ),
         cls="group relative",
@@ -217,6 +119,120 @@ reset_button = (
         cls="flex",
     ),
 )
+
+
+def cell_header(cell: Cell, cell_size: int):
+    return (
+        Div(
+            Div(
+                Span(f"In [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"),
+                # Add cell type selector
+                cls="flex items-center gap-2",
+            ),
+            Div(
+                Select(
+                    Option(
+                        "Text Instruction",
+                        value=CellLangEnum.TEXT_INSTRUCTION.value,
+                        selected=cell.lang == CellLangEnum.TEXT_INSTRUCTION,
+                    ),
+                    Option(
+                        "Bash",
+                        value=CellLangEnum.BASH.value,
+                        selected=cell.lang == CellLangEnum.BASH,
+                    ),
+                    name="lang",
+                    hx_put=f"/cell/{cell.id}",
+                    hx_trigger="change",
+                    cls="select select-sm ml-2",
+                ),
+                Button(
+                    trash_icon_svg,
+                    hx_delete=f"/cell/{cell.id}",
+                    cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
+                    disabled=cell_size == 1,
+                ),
+                Form(
+                    Input(type="hidden", value=cell.id, name="cell_id"),
+                    Button(
+                        run_icon_svg,
+                        cls="btn btn-ghost btn-sm",
+                    ),
+                    ws_connect=f"/cell/run/ws/",
+                    ws_send=True,
+                    hx_ext="ws",
+                ),
+                cls="ml-auto flex items-center gap-2",
+            ),
+            id=f"cell-header-{cell.id}",
+            cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between rounded-t-lg overflow-hidden",
+        ),
+    )
+
+
+def cell_insert_dropdown(cell: Cell):
+    return (
+        Div(
+            Div(
+                Button(
+                    plus_icon_svg,
+                    tabindex="0",
+                    cls="btn btn-ghost btn-xs",
+                ),
+                Ul(
+                    Li(
+                        Button(
+                            "Insert Above",
+                            hx_post=f"/cell/{cell.id}?above=true",
+                        )
+                    ),
+                    Li(
+                        Button(
+                            "Insert Below",
+                            hx_post=f"/cell/{cell.id}?above=false",
+                        )
+                    ),
+                    tabindex="0",
+                    cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
+                ),
+                cls="dropdown dropdown-right",
+            ),
+            cls="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
+        ),
+    )
+
+
+def cell_input_form(cell: Cell):
+    return (
+        Div(
+            Form(
+                Textarea(
+                    cell.input,
+                    name="input",
+                    cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
+                    placeholder="Enter your instruction here...",
+                    id=f"cell-input-{cell.id}",
+                ),
+                Div(
+                    hx_put=f"/cell/input/{cell.id}",
+                    hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
+                    hx_swap=f"#cell-input-form-{cell.id}",
+                ),
+                # xxx: shift+enter is being registered as a newline
+                Div(
+                    Input(type="hidden", value=cell.id, name="cell_id"),
+                    ws_connect=f"/cell/run/ws/",
+                    ws_send=True,
+                    hx_ext="ws",
+                    hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{cell.id}",
+                    hx_swap=f"#cell-input-form-{cell.id}",
+                ),
+                id=f"cell-input-form-{cell.id}",
+            ),
+            hx_include="input",
+            cls="p-4",
+        ),
+    )
 
 
 def stage_button(stage: dict):

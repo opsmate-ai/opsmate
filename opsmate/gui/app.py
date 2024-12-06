@@ -23,6 +23,7 @@ from opsmate.gui.views import (
     render_stage_panel,
     execute_llm_instruction,
     execute_bash_instruction,
+    home_body,
 )
 
 logger = structlog.get_logger()
@@ -87,38 +88,11 @@ async def startup():
 
 @app.route("/")
 async def get():
-    active_stage = get_active_stage()
     with sqlmodel.Session(engine) as session:
         # cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
+        active_stage = get_active_stage()
         cells = await all_cells_ordered(active_stage["id"], session)
-        page = Body(
-            Div(
-                Card(
-                    # Header
-                    Div(
-                        Div(
-                            H1(config.session_name, cls="text-2xl font-bold"),
-                            Span(
-                                "Press Shift+Enter to run cell",
-                                cls="text-sm text-gray-500",
-                            ),
-                            cls="flex flex-col",
-                        ),
-                        Div(
-                            reset_button,
-                            add_cell_button,
-                            cls="flex gap-2 justify-start",
-                        ),
-                        cls="mb-4 flex justify-between items-start pt-16",
-                    ),
-                    render_stage_panel(stages),
-                    # Cells Container
-                    render_cell_container(cells),
-                    # cls="overflow-hidden",
-                ),
-                cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
-            )
-        )
+        page = home_body(config.session_name, cells, stages)
         return Title(f"{config.session_name}"), page
 
 

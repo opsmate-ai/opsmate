@@ -339,6 +339,38 @@ async def execute_bash_instruction(
     )
 
 
+def home_body(session_name: str, cells: list[Cell], stages: list[dict]):
+    active_stage = get_active_stage()
+    return Body(
+        Div(
+            Card(
+                # Header
+                Div(
+                    Div(
+                        H1(session_name, cls="text-2xl font-bold"),
+                        Span(
+                            "Press Shift+Enter to run cell",
+                            cls="text-sm text-gray-500",
+                        ),
+                        cls="flex flex-col",
+                    ),
+                    Div(
+                        reset_button,
+                        add_cell_button,
+                        cls="flex gap-2 justify-start",
+                    ),
+                    cls="mb-4 flex justify-between items-start pt-16",
+                ),
+                render_stage_panel(stages),
+                # Cells Container
+                render_cell_container(cells),
+                # cls="overflow-hidden",
+            ),
+            cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
+        )
+    )
+
+
 async def async_wrapper(generator: Generator):
     for stage in generator:
         await asyncio.sleep(0)

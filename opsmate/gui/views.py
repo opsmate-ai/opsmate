@@ -2,7 +2,7 @@ from fasthtml.common import *
 from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
-    CellEnum,
+    CellLangEnum,
     get_active_stage,
     executor,
     k8s_agent,
@@ -114,15 +114,15 @@ def cell_component(cell: Cell, cell_size: int):
                     Select(
                         Option(
                             "Text Instruction",
-                            value=CellEnum.TEXT_INSTRUCTION.value,
-                            selected=cell.type == CellEnum.TEXT_INSTRUCTION,
+                            value=CellLangEnum.TEXT_INSTRUCTION.value,
+                            selected=cell.lang == CellLangEnum.TEXT_INSTRUCTION,
                         ),
                         Option(
                             "Bash",
-                            value=CellEnum.BASH.value,
-                            selected=cell.type == CellEnum.BASH,
+                            value=CellLangEnum.BASH.value,
+                            selected=cell.lang == CellLangEnum.BASH,
                         ),
-                        name="type",
+                        name="lang",
                         hx_put=f"/cell/{cell.id}",
                         hx_trigger="change",
                         cls="select select-sm ml-2",

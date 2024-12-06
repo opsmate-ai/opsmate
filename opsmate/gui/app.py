@@ -5,10 +5,9 @@ import sqlmodel
 from fasthtml.common import *
 from opsmate.gui.models import (
     Cell,
-    CellEnum,
+    CellLangEnum,
     stages,
     mark_cell_inactive,
-    mark_cell_active,
     all_cells_ordered,
     find_cell_by_id,
     get_active_stage,
@@ -231,8 +230,8 @@ async def delete(cell_id: int):
 
 
 @app.route("/cell/{cell_id}")
-async def put(cell_id: int, input: str = None, type: str = None):
-    logger.info("updating cell", cell_id=cell_id, input=input, type=type)
+async def put(cell_id: int, input: str = None, lang: str = None):
+    logger.info("updating cell", cell_id=cell_id, input=input, lang=lang)
 
     with sqlmodel.Session(engine) as session:
         selected_cell = await find_cell_by_id(cell_id, session)
@@ -245,11 +244,11 @@ async def put(cell_id: int, input: str = None, type: str = None):
         selected_cell.active = True
         if input is not None:
             selected_cell.input = input
-        if type is not None:
-            if type == CellEnum.TEXT_INSTRUCTION.value:
-                selected_cell.type = CellEnum.TEXT_INSTRUCTION
-            elif type == CellEnum.BASH.value:
-                selected_cell.type = CellEnum.BASH
+        if lang is not None:
+            if lang == CellLangEnum.TEXT_INSTRUCTION.value:
+                selected_cell.lang = CellLangEnum.TEXT_INSTRUCTION
+            elif lang == CellLangEnum.BASH.value:
+                selected_cell.lang = CellLangEnum.BASH
 
         session.add(selected_cell)
         session.commit()
@@ -331,7 +330,7 @@ async def ws(cell_id: int, input: str, send, session):
             "selected cell",
             cell_id=cell_id,
             input=cell.input,
-            type=cell.type,
+            cell_lang=cell.lang,
         )
         cell.active = True
         session.add(cell)
@@ -342,12 +341,12 @@ async def ws(cell_id: int, input: str, send, session):
             return
 
         swap = "beforeend"
-        if cell.type == CellEnum.TEXT_INSTRUCTION:
+        if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
             await execute_llm_instruction(cell, swap, send, session)
-        elif cell.type == CellEnum.BASH:
+        elif cell.lang == CellLangEnum.BASH:
             await execute_bash_instruction(cell, swap, send, session)
         else:
-            logger.error("unknown cell type", cell_id=cell.id, type=cell.type)
+            logger.error("unknown cell type", cell_id=cell.id, cell_lang=cell.lang)
 
 
 if __name__ == "__main__":

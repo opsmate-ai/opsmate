@@ -23,7 +23,7 @@ supervisor = supervisor_agent(
 )
 
 
-class CellEnum(enum.Enum):
+class CellLangEnum(enum.Enum):
     TEXT_INSTRUCTION = "text instruction"
     BASH = "bash"
 
@@ -113,10 +113,10 @@ class Cell(sqlmodel.SQLModel, table=True):
     input: str = sqlmodel.Field(default="")
     # output: dict = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.JSON))
     output: bytes = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.LargeBinary))
-    type: CellEnum = sqlmodel.Field(
+    lang: CellLangEnum = sqlmodel.Field(
         sa_column=sqlmodel.Column(
-            sqlmodel.Enum(CellEnum),
-            default=CellEnum.TEXT_INSTRUCTION,
+            sqlmodel.Enum(CellLangEnum),
+            default=CellLangEnum.TEXT_INSTRUCTION,
             nullable=True,
             index=False,
         )

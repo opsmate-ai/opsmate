@@ -6,6 +6,7 @@ from opsmate.gui.models import (
     get_active_stage,
     executor,
     k8s_agent,
+    ThinkingSystemEnum,
 )
 from opsmate.libs.core.types import (
     ExecResults,
@@ -145,6 +146,22 @@ def cell_header(cell: Cell, cell_size: int):
                     hx_put=f"/cell/{cell.id}",
                     hx_trigger="change",
                     cls="select select-sm ml-2",
+                ),
+                Select(
+                    Option(
+                        "Type 1 - Fast",
+                        value=ThinkingSystemEnum.TYPE1.value,
+                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE1,
+                    ),
+                    Option(
+                        "Type 2 - Slow but thorough",
+                        value=ThinkingSystemEnum.TYPE2.value,
+                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE2,
+                    ),
+                    name="thinking_system",
+                    hx_put=f"/cell/{cell.id}",
+                    hx_trigger="change",
+                    cls="select select-sm ml-2 min-w-[240px]",
                 ),
                 Button(
                     trash_icon_svg,

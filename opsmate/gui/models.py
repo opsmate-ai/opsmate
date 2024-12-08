@@ -35,6 +35,11 @@ class StageEnum(str, enum.Enum):
     REVIEW = "review"
 
 
+class ThinkingSystemEnum(str, enum.Enum):
+    TYPE1 = "type-1"
+    TYPE2 = "type-2"
+
+
 stages = [
     {
         "id": StageEnum.UNDERSTANDING.value,
@@ -120,6 +125,9 @@ class Cell(sqlmodel.SQLModel, table=True):
             nullable=True,
             index=False,
         )
+    )
+    thinking_system: ThinkingSystemEnum = sqlmodel.Field(
+        default=ThinkingSystemEnum.TYPE1
     )
     sequence: int = sqlmodel.Field(default=0)
     execution_sequence: int = sqlmodel.Field(default=0)

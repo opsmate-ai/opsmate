@@ -6,6 +6,7 @@ from fasthtml.common import *
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
+    ThinkingSystemEnum,
     stages,
     mark_cell_inactive,
     all_cells_ordered,
@@ -204,8 +205,16 @@ async def delete(cell_id: int):
 
 
 @app.route("/cell/{cell_id}")
-async def put(cell_id: int, input: str = None, lang: str = None):
-    logger.info("updating cell", cell_id=cell_id, input=input, lang=lang)
+async def put(
+    cell_id: int, input: str = None, lang: str = None, thinking_system: str = None
+):
+    logger.info(
+        "updating cell",
+        cell_id=cell_id,
+        input=input,
+        lang=lang,
+        thinking_system=thinking_system,
+    )
 
     with sqlmodel.Session(engine) as session:
         selected_cell = await find_cell_by_id(cell_id, session)
@@ -223,6 +232,14 @@ async def put(cell_id: int, input: str = None, lang: str = None):
                 selected_cell.lang = CellLangEnum.TEXT_INSTRUCTION
             elif lang == CellLangEnum.BASH.value:
                 selected_cell.lang = CellLangEnum.BASH
+
+        if thinking_system is not None:
+            if thinking_system == ThinkingSystemEnum.TYPE1.value:
+                logger.info("setting thinking system to type 1")
+                selected_cell.thinking_system = ThinkingSystemEnum.TYPE1
+            elif thinking_system == ThinkingSystemEnum.TYPE2.value:
+                logger.info("setting thinking system to type 2")
+                selected_cell.thinking_system = ThinkingSystemEnum.TYPE2
 
         session.add(selected_cell)
         session.commit()

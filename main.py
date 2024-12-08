@@ -1,6 +1,6 @@
 import instructor
 from anthropic import Anthropic
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from typing import List
 import subprocess

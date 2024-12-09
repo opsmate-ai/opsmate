@@ -22,7 +22,8 @@ from opsmate.gui.views import (
     add_cell_button,
     render_cell_container,
     render_stage_panel,
-    execute_llm_instruction,
+    execute_llm_react_instruction,
+    execute_llm_type2_instruction,
     execute_bash_instruction,
     home_body,
 )
@@ -333,7 +334,10 @@ async def ws(cell_id: int, input: str, send, session):
 
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
-            await execute_llm_instruction(cell, swap, send, session)
+            if cell.thinking_system == ThinkingSystemEnum.TYPE1:
+                await execute_llm_react_instruction(cell, swap, send, session)
+            elif cell.thinking_system == ThinkingSystemEnum.TYPE2:
+                await execute_llm_type2_instruction(cell, swap, send, session)
         elif cell.lang == CellLangEnum.BASH:
             await execute_bash_instruction(cell, swap, send, session)
         else:

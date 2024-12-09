@@ -15,6 +15,16 @@ from opsmate.libs.core.types import (
     ReactAnswer,
 )
 from opsmate.libs.core.engine.agent_executor import AgentCommand
+from opsmate.polya.understanding import (
+    initial_understanding,
+    info_gathering,
+    finding,
+    Output,
+    UnderstandingResponse,
+    OutputSummary,
+    Report,
+    generate_report,
+)
 import pickle
 import sqlmodel
 import structlog
@@ -151,7 +161,8 @@ def cell_header(cell: Cell, cell_size: int):
                     Option(
                         "Type 1 - Fast",
                         value=ThinkingSystemEnum.TYPE1.value,
-                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE1,
+                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE1
+                        or cell.lang == CellLangEnum.BASH,
                     ),
                     Option(
                         "Type 2 - Slow but thorough",
@@ -162,6 +173,7 @@ def cell_header(cell: Cell, cell_size: int):
                     hx_put=f"/cell/{cell.id}",
                     hx_trigger="change",
                     cls="select select-sm ml-2 min-w-[240px]",
+                    hidden=cell.lang == CellLangEnum.BASH,
                 ),
                 Button(
                     trash_icon_svg,
@@ -265,10 +277,10 @@ def stage_button(stage: dict):
     )
 
 
-async def execute_llm_instruction(
+async def execute_llm_react_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
-    logger.info("executing llm instruction", cell_id=cell.id)
+    logger.info("executing llm react instruction", cell_id=cell.id)
 
     outputs = []
     await send(
@@ -314,6 +326,128 @@ async def execute_llm_instruction(
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
+
+
+async def execute_llm_type2_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
+):
+    msg = cell.input.rstrip()
+    logger.info("executing llm type 2 instruction", cell_id=cell.id, input=msg)
+
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    iu = await initial_understanding(msg)
+
+    outputs.append(
+        {
+            "type": "InitialUnderstanding",
+            "output": UnderstandingResponse(**iu.model_dump()),
+        }
+    )
+    await send(
+        Div(
+            render_initial_understanding_markdown(k8s_agent.metadata.name, iu),
+            hx_swap_oob=swap,
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    commands = await info_gathering(iu)
+    finding_tasks = [finding(iu.summary, command) for command in commands]
+    findings = []
+    for i, task in enumerate(finding_tasks):
+        output_summary = await task
+        output = Output(
+            command=commands[i],
+            output_summary=OutputSummary(summary=output_summary.summary),
+        )
+        outputs.append(
+            {
+                "type": "Output",
+                "output": output,
+            }
+        )
+        findings.append(output)
+        await send(
+            Div(
+                render_output_markdown(k8s_agent.metadata.name, output),
+                hx_swap_oob=swap,
+                id=f"cell-output-{cell.id}",
+            )
+        )
+
+    report = await generate_report(iu.summary, mode="executor", outputs=findings)
+    outputs.append(
+        {
+            "type": "Report",
+            "output": Report(**report.model_dump()),
+        }
+    )
+    await send(
+        Div(
+            render_report_markdown(k8s_agent.metadata.name, report),
+            hx_swap_oob=swap,
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+
+def render_output_markdown(agent: str, output: Output):
+    return Div(
+        f"""
+**Information Gathering**
+
+**Command:**
+
+```
+# {output.command.description}
+{output.command.command}
+```
+
+**Summary:**
+
+> {output.output_summary.summary}
+
+""",
+        cls="marked",
+    )
+
+
+def render_report_markdown(agent: str, report: Report):
+    return Div(
+        f"""
+**Report**
+
+```
+{report.content}
+```
+""",
+        cls="marked",
+    )
+
+
+def render_initial_understanding_markdown(agent: str, iu: UnderstandingResponse):
+    return Div(
+        f"""
+**Initial understanding**
+
+{iu.summary}
+
+{ "**Questions**" if iu.questions else "" }
+{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
+""",
+        cls="marked",
+    )
 
 
 async def execute_bash_instruction(
@@ -556,4 +690,7 @@ cell_render_funcs = {
     "Observation": render_observation_markdown,
     "ExecResults": render_exec_results_markdown,
     "BashOutput": render_bash_output_markdown,
+    "InitialUnderstanding": render_initial_understanding_markdown,
+    "Output": render_output_markdown,
+    "Report": render_report_markdown,
 }

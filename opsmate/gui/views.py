@@ -21,6 +21,7 @@ from opsmate.polya.understanding import (
     finding,
     Output,
     UnderstandingResponse,
+    NonTechnicalQuery,
     OutputSummary,
     Report,
     generate_report,
@@ -344,6 +345,26 @@ async def execute_llm_type2_instruction(
     )
 
     iu = await initial_understanding(msg)
+    if isinstance(iu, NonTechnicalQuery):
+        outputs.append(
+            {
+                "type": "NonTechnicalQuery",
+                "output": NonTechnicalQuery(),
+            }
+        )
+        await send(
+            Div(
+                UnderstandingRenderer.render_non_technical_query_markdown(
+                    k8s_agent.metadata.name, iu
+                ),
+                hx_swap_oob=swap,
+                id=f"cell-output-{cell.id}",
+            )
+        )
+        cell.output = pickle.dumps(outputs)
+        session.add(cell)
+        session.commit()
+        return
 
     outputs.append(
         {
@@ -353,7 +374,9 @@ async def execute_llm_type2_instruction(
     )
     await send(
         Div(
-            render_initial_understanding_markdown(k8s_agent.metadata.name, iu),
+            UnderstandingRenderer.render_initial_understanding_markdown(
+                k8s_agent.metadata.name, iu
+            ),
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -376,7 +399,9 @@ async def execute_llm_type2_instruction(
         findings.append(output)
         await send(
             Div(
-                render_output_markdown(k8s_agent.metadata.name, output),
+                UnderstandingRenderer.render_output_markdown(
+                    k8s_agent.metadata.name, output
+                ),
                 hx_swap_oob=swap,
                 id=f"cell-output-{cell.id}",
             )
@@ -391,7 +416,9 @@ async def execute_llm_type2_instruction(
     )
     await send(
         Div(
-            render_report_markdown(k8s_agent.metadata.name, report),
+            UnderstandingRenderer.render_report_markdown(
+                k8s_agent.metadata.name, report
+            ),
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -400,54 +427,6 @@ async def execute_llm_type2_instruction(
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
-
-
-def render_output_markdown(agent: str, output: Output):
-    return Div(
-        f"""
-**Information Gathering**
-
-**Command:**
-
-```
-# {output.command.description}
-{output.command.command}
-```
-
-**Summary:**
-
-> {output.output_summary.summary}
-
-""",
-        cls="marked",
-    )
-
-
-def render_report_markdown(agent: str, report: Report):
-    return Div(
-        f"""
-**Report**
-
-```
-{report.content}
-```
-""",
-        cls="marked",
-    )
-
-
-def render_initial_understanding_markdown(agent: str, iu: UnderstandingResponse):
-    return Div(
-        f"""
-**Initial understanding**
-
-{iu.summary}
-
-{ "**Questions**" if iu.questions else "" }
-{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
-""",
-        cls="marked",
-    )
 
 
 async def execute_bash_instruction(
@@ -683,6 +662,67 @@ def render_bash_output_markdown(agent: str, output: str):
     )
 
 
+class UnderstandingRenderer:
+    @staticmethod
+    def render_initial_understanding_markdown(agent: str, iu: UnderstandingResponse):
+        return Div(
+            f"""
+**Initial understanding**
+
+{iu.summary}
+
+{ "**Questions**" if iu.questions else "" }
+{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
+""",
+            cls="marked",
+        )
+
+    @staticmethod
+    def render_output_markdown(agent: str, output: Output):
+        return Div(
+            f"""
+**Information Gathering**
+
+**Command:**
+
+```
+# {output.command.description}
+{output.command.command}
+```
+
+**Summary:**
+
+> {output.output_summary.summary}
+
+    """,
+            cls="marked",
+        )
+
+    @staticmethod
+    def render_report_markdown(agent: str, report: Report):
+        return Div(
+            f"""
+**Report**
+
+```
+{report.content}
+```
+""",
+            cls="marked",
+        )
+
+    @staticmethod
+    def render_non_technical_query_markdown(
+        agent: str, non_technical_query: NonTechnicalQuery
+    ):
+        return Div(
+            f"""
+This is a non-technical query, thus I don't know how to answer it.
+""",
+            cls="marked",
+        )
+
+
 cell_render_funcs = {
     "ReactProcess": render_react_markdown,
     "AgentCommand": render_agent_command_markdown,
@@ -690,7 +730,8 @@ cell_render_funcs = {
     "Observation": render_observation_markdown,
     "ExecResults": render_exec_results_markdown,
     "BashOutput": render_bash_output_markdown,
-    "InitialUnderstanding": render_initial_understanding_markdown,
-    "Output": render_output_markdown,
-    "Report": render_report_markdown,
+    "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
+    "Output": UnderstandingRenderer.render_output_markdown,
+    "Report": UnderstandingRenderer.render_report_markdown,
+    "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
 }

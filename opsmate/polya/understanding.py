@@ -2,7 +2,7 @@ import instructor
 from anthropic import Anthropic
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Union
 import subprocess
 from jinja2 import Template
 import asyncio
@@ -15,6 +15,7 @@ You are a world class SRE who is good at solving problems. You are tasked to sum
 
 <rules>
 You will receive a user question that may include a problem description, command line output, logs as the context.
+*DO NOT* answer non-technical topics from user, just answer I don't know.
 Please maintain a concise and methodical tone in your responses:
 - Clearly identify what you are being asked to do.
 - Gather all available information
@@ -88,6 +89,12 @@ extra_sys_prompt = """
 3. You have read only access to the cluster
 </assistant-context>
 """
+
+
+class NonTechnicalQuery(BaseModel):
+    """
+    The non-technical query from user
+    """
 
 
 class UnderstandingResponse(BaseModel):
@@ -184,16 +191,18 @@ async def initial_understanding(question: str, mode: str = "planner"):
         "content": question,
     }
 
-    response: UnderstandingResponse = await openai.messages.create(
-        messages=[
-            {
-                "role": "user",
-                "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
-            },
-            question,
-        ],
-        model=modes[mode]["model"],
-        response_model=UnderstandingResponse,
+    response: Union[UnderstandingResponse, NonTechnicalQuery] = (
+        await openai.messages.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
+                },
+                question,
+            ],
+            model=modes[mode]["model"],
+            response_model=Union[UnderstandingResponse, NonTechnicalQuery],
+        )
     )
 
     return response

@@ -1,9 +1,10 @@
 from fasthtml.common import *
+from sqlmodel import Session
 from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
-    get_active_stage,
+    Stages,
     executor,
     k8s_agent,
     ThinkingSystemEnum,
@@ -485,8 +486,10 @@ async def execute_bash_instruction(
     )
 
 
-def home_body(session_name: str, cells: list[Cell], stages: list[dict]):
-    active_stage = get_active_stage()
+def home_body(
+    db_session: Session, session_name: str, cells: list[Cell], stages: list[dict]
+):
+    active_stage = Stages.active(db_session)
     return Body(
         Div(
             Card(
@@ -507,7 +510,7 @@ def home_body(session_name: str, cells: list[Cell], stages: list[dict]):
                     ),
                     cls="mb-4 flex justify-between items-start pt-16",
                 ),
-                render_stage_panel(stages),
+                render_stage_panel(stages, active_stage),
                 # Cells Container
                 render_cell_container(cells),
                 # cls="overflow-hidden",
@@ -534,8 +537,7 @@ def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
     return div
 
 
-def render_stage_panel(stages: list[dict]):
-    active_stage = get_active_stage()
+def render_stage_panel(stages: list[dict], active_stage: dict):
     return Div(
         Div(
             *[stage_button(stage) for stage in stages],

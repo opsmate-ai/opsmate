@@ -1,8 +1,20 @@
 import enum
-import sqlmodel
+from sqlmodel import (
+    SQLModel,
+    Field,
+    Column,
+    Enum,
+    LargeBinary,
+    insert,
+    update,
+    select,
+    Session,
+    JSON,
+)
 from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
+from datetime import datetime
 
 client_bag = ProviderClient.clients_from_env()
 
@@ -104,56 +116,96 @@ Share your reflections below.
 ]
 
 
-def get_active_stage():
-    stage = next(stage for stage in stages if stage["active"])
-    if stage is None:
-        return stages[0]
-    return stage
-
-
-class Cell(sqlmodel.SQLModel, table=True):
+class KVStore(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = sqlmodel.Field(primary_key=True)
-    input: str = sqlmodel.Field(default="")
-    # output: dict = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.JSON))
-    output: bytes = sqlmodel.Field(sa_column=sqlmodel.Column(sqlmodel.LargeBinary))
-    lang: CellLangEnum = sqlmodel.Field(
-        sa_column=sqlmodel.Column(
-            sqlmodel.Enum(CellLangEnum),
-            default=CellLangEnum.TEXT_INSTRUCTION,
-            nullable=True,
-            index=False,
-        )
-    )
-    thinking_system: ThinkingSystemEnum = sqlmodel.Field(
-        default=ThinkingSystemEnum.TYPE1
-    )
-    sequence: int = sqlmodel.Field(default=0)
-    execution_sequence: int = sqlmodel.Field(default=0)
-    active: bool = sqlmodel.Field(default=False)
-    stage: StageEnum = sqlmodel.Field(default=StageEnum.UNDERSTANDING)
+    id: int = Field(primary_key=True)
+    key: str = Field(unique=True, index=True)
+    value: JSON = Field(sa_column=Column(JSON))
+    created_at: datetime = Field(default=datetime.now())
+    updated_at: datetime = Field(default=datetime.now())
 
     class Config:
         arbitrary_types_allowed = True
 
 
-async def mark_cell_inactive(stage: StageEnum, session: sqlmodel.Session):
+class Cell(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(primary_key=True)
+    input: str = Field(default="")
+    output: bytes = Field(sa_column=Column(LargeBinary))
+    lang: CellLangEnum = Field(
+        sa_column=Column(
+            Enum(CellLangEnum),
+            default=CellLangEnum.TEXT_INSTRUCTION,
+            nullable=True,
+            index=False,
+        )
+    )
+    thinking_system: ThinkingSystemEnum = Field(default=ThinkingSystemEnum.TYPE1)
+    sequence: int = Field(default=0)
+    execution_sequence: int = Field(default=0)
+    active: bool = Field(default=False)
+    stage: StageEnum = Field(default=StageEnum.UNDERSTANDING)
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class Stages:
+    @classmethod
+    def init_stages_in_kvstore(cls, session: Session):
+        session.exec(insert(KVStore).values(key="stages", value=stages))
+        session.commit()
+
+    @classmethod
+    def all(cls, session: Session):
+        stages = session.exec(select(KVStore).where(KVStore.key == "stages")).first()
+        return stages.value
+
+    @classmethod
+    def active(cls, session: Session):
+        stages = cls.all(session)
+        stage = next(stage for stage in stages if stage["active"])
+        if stage is None:
+            return stages[0]
+        return stage
+
+    @classmethod
+    def save(cls, session: Session, stages: dict):
+        session.exec(
+            update(KVStore).where(KVStore.key == "stages").values(value=stages)
+        )
+        session.commit()
+
+    @classmethod
+    def activate(cls, session: Session, stage_id: str):
+        stages = cls.all(session)
+        for stage in stages:
+            stage["active"] = False
+        for stage in stages:
+            if stage["id"] == stage_id:
+                stage["active"] = True
+        cls.save(session, stages)
+
+
+async def mark_cell_inactive(stage: StageEnum, session: Session):
     # update all cells to inactive
-    session.exec(sqlmodel.update(Cell).where(Cell.stage == stage).values(active=False))
+    session.exec(update(Cell).where(Cell.stage == stage).values(active=False))
     session.commit()
 
 
-async def mark_cell_active(cell_id: int, session: sqlmodel.Session):
-    session.exec(sqlmodel.update(Cell).where(Cell.id == cell_id).values(active=True))
+async def mark_cell_active(cell_id: int, session: Session):
+    session.exec(update(Cell).where(Cell.id == cell_id).values(active=True))
     session.commit()
 
 
-async def all_cells_ordered(stage: StageEnum, session: sqlmodel.Session):
+async def all_cells_ordered(stage: StageEnum, session: Session):
     return session.exec(
-        sqlmodel.select(Cell).where(Cell.stage == stage).order_by(Cell.sequence)
+        select(Cell).where(Cell.stage == stage).order_by(Cell.sequence)
     ).all()
 
 
-async def find_cell_by_id(cell_id: int, session: sqlmodel.Session):
-    return session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
+async def find_cell_by_id(cell_id: int, session: Session):
+    return session.exec(select(Cell).where(Cell.id == cell_id)).first()

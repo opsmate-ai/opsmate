@@ -7,11 +7,10 @@ from opsmate.gui.models import (
     Cell,
     CellLangEnum,
     ThinkingSystemEnum,
-    stages,
     mark_cell_inactive,
     all_cells_ordered,
     find_cell_by_id,
-    get_active_stage,
+    Stages,
 )
 from opsmate.gui.views import (
     tlink,
@@ -74,7 +73,8 @@ async def startup():
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
-        for stage in stages:
+        Stages.init_stages_in_kvstore(session)
+        for stage in Stages.all(session):
             cell = session.exec(
                 sqlmodel.select(Cell).where(Cell.stage == stage["id"])
             ).first()
@@ -92,16 +92,16 @@ async def startup():
 async def get():
     with sqlmodel.Session(engine) as session:
         # cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
-        active_stage = get_active_stage()
+        active_stage = Stages.active(session)
         cells = await all_cells_ordered(active_stage["id"], session)
-        page = home_body(config.session_name, cells, stages)
+        page = home_body(session, config.session_name, cells, Stages.all(session))
         return Title(f"{config.session_name}"), page
 
 
 @app.route("/cell/bottom")
 async def post():
     with sqlmodel.Session(engine) as session:
-        active_stage = get_active_stage()
+        active_stage = Stages.active(session)
         cells = await all_cells_ordered(active_stage["id"], session)
         # update all cells to inactive
         await mark_cell_inactive(active_stage["id"], session)
@@ -269,26 +269,23 @@ async def put(cell_id: int, input: str):
 @app.route("/stage/{stage_id}/switch")
 async def put(stage_id: str):
     logger.info("switching stage", stage_id=stage_id)
-    # mark all stages as inactive
-    [stage.update({"active": False}) for stage in stages]
-    # mark the selected stage as active
-    for stage in stages:
-        if stage["id"] == stage_id:
-            stage["active"] = True
 
     with sqlmodel.Session(engine) as session:
+        Stages.activate(session, stage_id)
+        stages = Stages.all(session)
+        active_stage = Stages.active(session)
         cells = await all_cells_ordered(stage_id, session)
 
         return (
-            render_stage_panel(stages),
+            render_stage_panel(stages, active_stage),
             render_cell_container(cells, hx_swap_oob="true"),
         )
 
 
 @app.route("/cells/reset")
 async def post():
-    active_stage = get_active_stage()
     with sqlmodel.Session(engine) as session:
+        active_stage = Stages.active(session)
         session.exec(sqlmodel.delete(Cell).where(Cell.stage == active_stage["id"]))
         session.commit()
         # create new cells
@@ -313,8 +310,8 @@ async def ws(cell_id: int, input: str, send, session):
         logger.error("unauthorized", token=session.get("token"))
         return  # Exit if unauthorized
 
-    active_stage = get_active_stage()
     with sqlmodel.Session(engine) as session:
+        active_stage = Stages.active(session)
         await mark_cell_inactive(active_stage["id"], session)
 
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()

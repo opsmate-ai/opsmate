@@ -350,7 +350,7 @@ async def execute_llm_type2_instruction(
         outputs.append(
             {
                 "type": "NonTechnicalQuery",
-                "output": NonTechnicalQuery(),
+                "output": NonTechnicalQuery(**iu.model_dump()),
             }
         )
         await send(
@@ -720,6 +720,8 @@ class UnderstandingRenderer:
         return Div(
             f"""
 This is a non-technical query, thus I don't know how to answer it.
+
+**Reason:** {non_technical_query.reason}
 """,
             cls="marked",
         )

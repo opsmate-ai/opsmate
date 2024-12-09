@@ -96,6 +96,10 @@ class NonTechnicalQuery(BaseModel):
     The non-technical query from user
     """
 
+    reason: str = Field(
+        description="The reason why this query is not technical related"
+    )
+
 
 class UnderstandingResponse(BaseModel):
     """

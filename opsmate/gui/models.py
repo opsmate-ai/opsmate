@@ -67,6 +67,7 @@ Let's understand the problem together:
 Please share your thoughts on these points.
         """,
         "active": True,
+        "workflow": True,
     },
     {
         "id": StageEnum.PLANNING.value,
@@ -82,6 +83,7 @@ Now that we understand the problem, let's develop a strategy:
 Share your thoughts on possible approaches.
         """,
         "active": False,
+        "workflow": True,
     },
     {
         "id": StageEnum.EXECUTION.value,
@@ -97,6 +99,7 @@ Let's execute our plan stage by stage:
 Begin implementing your solution below.
         """,
         "active": False,
+        "workflow": True,
     },
     {
         "id": StageEnum.REVIEW.value,
@@ -112,6 +115,7 @@ Let's reflect on our solution:
 Share your reflections below.
         """,
         "active": False,
+        "workflow": True,
     },
 ]
 
@@ -160,13 +164,16 @@ class Stages:
         session.commit()
 
     @classmethod
-    def all(cls, session: Session):
+    def all_workflow_based(cls, session: Session):
+        """
+        Get all workflow based stages from kvstore
+        """
         stages = session.exec(select(KVStore).where(KVStore.key == "stages")).first()
-        return stages.value
+        return [stage for stage in stages.value if stage.get("workflow")]
 
     @classmethod
     def active(cls, session: Session):
-        stages = cls.all(session)
+        stages = cls.all_workflow_based(session)
         stage = next(stage for stage in stages if stage["active"])
         if stage is None:
             return stages[0]
@@ -180,8 +187,13 @@ class Stages:
         session.commit()
 
     @classmethod
+    def get(cls, session: Session, stage_id: str):
+        stages = cls.all_workflow_based(session)
+        return next((stage for stage in stages if stage["id"] == stage_id), None)
+
+    @classmethod
     def activate(cls, session: Session, stage_id: str):
-        stages = cls.all(session)
+        stages = cls.all_workflow_based(session)
         for stage in stages:
             stage["active"] = False
         for stage in stages:
@@ -209,3 +221,17 @@ async def all_cells_ordered(stage: StageEnum, session: Session):
 
 async def find_cell_by_id(cell_id: int, session: Session):
     return session.exec(select(Cell).where(Cell.id == cell_id)).first()
+
+
+def default_new_cell(stage: dict):
+    if stage.get("workflow"):
+        thinking_system = ThinkingSystemEnum.TYPE2
+    else:
+        thinking_system = ThinkingSystemEnum.TYPE1
+
+    return Cell(
+        input="",
+        active=True,
+        stage=stage["id"],
+        thinking_system=thinking_system,
+    )

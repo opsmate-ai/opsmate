@@ -11,6 +11,7 @@ from opsmate.gui.models import (
     all_cells_ordered,
     find_cell_by_id,
     Stages,
+    default_new_cell,
 )
 from opsmate.gui.views import (
     tlink,
@@ -74,17 +75,13 @@ async def startup():
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
         Stages.init_stages_in_kvstore(session)
-        for stage in Stages.all(session):
+        for stage in Stages.all_workflow_based(session):
             cell = session.exec(
                 sqlmodel.select(Cell).where(Cell.stage == stage["id"])
             ).first()
             if cell is None:
-                cell = Cell(
-                    input="",
-                    active=True,
-                    stage=stage["id"],
-                )
-                session.add(cell)
+                new_cell = default_new_cell(stage)
+                session.add(new_cell)
         session.commit()
 
 
@@ -94,7 +91,9 @@ async def get():
         # cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
         active_stage = Stages.active(session)
         cells = await all_cells_ordered(active_stage["id"], session)
-        page = home_body(session, config.session_name, cells, Stages.all(session))
+        page = home_body(
+            session, config.session_name, cells, Stages.all_workflow_based(session)
+        )
         return Title(f"{config.session_name}"), page
 
 
@@ -113,13 +112,10 @@ async def post():
             max(cell.execution_sequence for cell in cells) if cells else 0
         )
 
-        new_cell = Cell(
-            input="",
-            sequence=max_sequence + 1,
-            execution_sequence=max_execution_sequence + 1,
-            stage=active_stage["id"],
-            active=True,
-        )
+        new_cell = default_new_cell(active_stage)
+        new_cell.sequence = max_sequence + 1
+        new_cell.execution_sequence = max_execution_sequence + 1
+
         session.add(new_cell)
         session.commit()
 
@@ -145,11 +141,8 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         # update all cells to inactive
         await mark_cell_inactive(current_cell.stage, session)
 
-        new_cell = Cell(
-            input="",
-            active=True,
-            stage=current_cell.stage,
-        )
+        stage = Stages.get(session, current_cell.stage)
+        new_cell = default_new_cell(stage)
 
         # get the highest execution sequence number
         max_execution_sequence = (
@@ -272,7 +265,7 @@ async def put(stage_id: str):
 
     with sqlmodel.Session(engine) as session:
         Stages.activate(session, stage_id)
-        stages = Stages.all(session)
+        stages = Stages.all_workflow_based(session)
         active_stage = Stages.active(session)
         cells = await all_cells_ordered(stage_id, session)
 
@@ -288,16 +281,15 @@ async def post():
         active_stage = Stages.active(session)
         session.exec(sqlmodel.delete(Cell).where(Cell.stage == active_stage["id"]))
         session.commit()
+
         # create new cells
-        cell = Cell(
-            input="",
-            active=True,
-            stage=active_stage["id"],
-        )
-        session.add(cell)
+        new_cell = default_new_cell(active_stage)
+        session.add(new_cell)
         session.commit()
+
+        session.refresh(new_cell)
         return (
-            render_cell_container([cell], hx_swap_oob="true"),
+            render_cell_container([new_cell], hx_swap_oob="true"),
             reset_button,
         )
 

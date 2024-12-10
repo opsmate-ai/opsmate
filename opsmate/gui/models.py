@@ -15,6 +15,8 @@ from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
 from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
 from datetime import datetime
+from typing import List
+from sqlmodel import Relationship
 
 client_bag = ProviderClient.clients_from_env()
 
@@ -50,6 +52,45 @@ class StageEnum(str, enum.Enum):
 class ThinkingSystemEnum(str, enum.Enum):
     TYPE1 = "type-1"
     TYPE2 = "type-2"
+
+
+class BluePrint(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(primary_key=True)
+    name: str = Field(unique=True, index=True)
+    description: str = Field(default="")
+
+    workflows: List["Workflow"] = Relationship(
+        back_populates="blueprint", sa_relationship_kwargs={"order_by": "Workflow.id"}
+    )
+
+
+class Workflow(SQLModel, table=True):
+    __table_args__ = {
+        "extend_existing": True,
+        # "UniqueConstraint": UniqueConstraint(
+        #     "name", "blueprint_id", name="unique_workflow_name_per_blueprint"
+        # ),
+    }
+
+    id: int = Field(primary_key=True)
+    name: str = Field(index=True)
+    title: str = Field(nullable=False)
+    description: str = Field(nullable=False)
+    active: bool = Field(default=False)
+
+    blueprint_id: int = Field(foreign_key="blueprint.id")
+    blueprint: BluePrint = Relationship(back_populates="workflows")
+
+    depending_workflow_ids: List[int] = Field(sa_column=Column(JSON), default=[])
+
+    def depending_workflows(self, session: Session):
+        if not self.depending_workflow_ids:
+            return []
+        return session.exec(
+            select(Workflow).where(Workflow.id.in_(self.depending_workflow_ids))
+        ).all()
 
 
 stages = [

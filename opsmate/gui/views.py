@@ -39,7 +39,11 @@ logger = structlog.get_logger()
 tlink = (Script(src="https://cdn.tailwindcss.com"),)
 nav = (
     Nav(
-        Div(A("Opsmate Workspace", cls="btn btn-ghost text-xl"), cls="flex-1"),
+        Div(
+            A("Opsmate Workspace", cls="btn btn-ghost text-xl"),
+            A("Type-1", href="/type-1", cls="btn btn-ghost text-sm"),
+            cls="flex-1",
+        ),
         Div(
             Label(
                 Input(

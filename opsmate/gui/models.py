@@ -9,6 +9,7 @@ from sqlmodel import (
     select,
     Session,
     JSON,
+    Text,
 )
 from opsmate.libs.providers import Client as ProviderClient
 from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
@@ -114,6 +115,12 @@ class Workflow(SQLModel, table=True):
     blueprint: BluePrint = Relationship(back_populates="workflows")
 
     depending_workflow_ids: List[int] = Field(sa_column=Column(JSON), default=[])
+
+    result: str = Field(
+        default="",
+        description="The result of the workflow execution",
+        sa_column=Column(Text),
+    )
 
     cells: List["Cell"] = Relationship(
         back_populates="workflow", sa_relationship_kwargs={"order_by": "Cell.sequence"}

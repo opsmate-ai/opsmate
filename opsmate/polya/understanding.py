@@ -36,6 +36,7 @@ Questions: (things you need to know in order to solve the problem)
 - Do not solutionise prematurely.
 - Do not ask any tools or permissions related questions.
 - Do not ask questions that previously has been answered.
+- Only ask 3 questions at most.
 - Use markdown in your response.
 - Feel free to leave the questions blank if you think you have enough information to solve the problem.
 </important_notes>
@@ -74,9 +75,25 @@ You are a world class SRE who is good at problem solving. You are now given a su
 You need to summarise the problem statement in a concise manner.
 </assistant>
 
+<response_format>
+# Summary
+Describe summary of the problem
+
+# Findings
+Break down of findings
+
+# Recommendation
+Recommendation on how to resolve the problem based on the findings.
+
+# Out of scope
+Things you have noticed based on the findings however are not related to the problem
+</response_format>
+
 <important_notes>
 - Use markdown in your response.
 - Do not just return the brief summary you are given, but fact in all the findings
+- Please list the recommendation and grade them from 0 to 100, list the top 3 recommendations from highest to lowest with score 80 or above.
+- If a subject does not contribute to the problem, DO NOT include it in the recommendation.
 </important_notes>
 """
 

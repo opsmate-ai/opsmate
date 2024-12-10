@@ -449,6 +449,11 @@ async def execute_polya_understanding_instruction(
     session.add(cell)
     session.commit()
 
+    workflow = cell.workflow
+    workflow.result = report.content
+    session.add(workflow)
+    session.commit()
+
 
 async def execute_bash_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session

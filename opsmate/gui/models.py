@@ -65,6 +65,33 @@ class BluePrint(SQLModel, table=True):
         back_populates="blueprint", sa_relationship_kwargs={"order_by": "Workflow.id"}
     )
 
+    @classmethod
+    def find_by_name(cls, session: Session, name: str):
+        return session.exec(select(cls).where(cls.name == name)).first()
+
+    def active_workflow(self, session: Session):
+        return session.exec(
+            select(Workflow)
+            .where(Workflow.blueprint_id == self.id)
+            .where(Workflow.active == True)
+        ).first()
+
+    def activate_workflow(self, session: Session, id: int):
+        # update all workflows to inactive
+        session.exec(
+            update(Workflow)
+            .where(Workflow.blueprint_id == self.id)
+            .values(active=False)
+        )
+        # update the workflow to active
+        session.exec(
+            update(Workflow)
+            .where(Workflow.blueprint_id == self.id)
+            .where(Workflow.id == id)
+            .values(active=True)
+        )
+        session.commit()
+
 
 class Workflow(SQLModel, table=True):
     __table_args__ = {
@@ -85,6 +112,10 @@ class Workflow(SQLModel, table=True):
 
     depending_workflow_ids: List[int] = Field(sa_column=Column(JSON), default=[])
 
+    cells: List["Cell"] = Relationship(
+        back_populates="workflow", sa_relationship_kwargs={"order_by": "Cell.sequence"}
+    )
+
     def depending_workflows(self, session: Session):
         if not self.depending_workflow_ids:
             return []
@@ -92,86 +123,36 @@ class Workflow(SQLModel, table=True):
             select(Workflow).where(Workflow.id.in_(self.depending_workflow_ids))
         ).all()
 
+    def activate_cell(self, session: Session, cell_id: int):
+        # update all cells to inactive
+        session.exec(
+            update(Cell).where(Cell.workflow_id == self.id).values(active=False)
+        )
+        # update the cell to active
+        session.exec(
+            update(Cell)
+            .where(Cell.workflow_id == self.id)
+            .where(Cell.id == cell_id)
+            .values(active=True)
+        )
+        session.commit()
 
-stages = [
-    {
-        "id": StageEnum.UNDERSTANDING.value,
-        "title": "1. Understanding",
-        "description": """
-Let's understand the problem together:
+    def active_cell(self, session: Session):
+        return session.exec(
+            select(Cell).where(Cell.workflow_id == self.id).where(Cell.active == True)
+        ).first()
 
-1. What exactly is unknown or what are we trying to find?
-2. What data or information do we have?
-3. What are the conditions or constraints?
-4. Can you draw or visualize any part of this problem?
+    def find_cell_by_name(self, session: Session, cell_name: str):
+        return session.exec(
+            select(Cell)
+            .where(Cell.workflow_id == self.id)
+            .where(Cell.name == cell_name)
+        ).first()
 
-Please share your thoughts on these points.
-        """,
-        "active": True,
-        "workflow": True,
-    },
-    {
-        "id": StageEnum.PLANNING.value,
-        "title": "2. Planning",
-        "description": """
-Now that we understand the problem, let's develop a strategy:
-
-1. Have you seen similar problems before?
-2. Can we break this into smaller sub-problems?
-3. What mathematical techniques might be relevant?
-4. Should we try solving a simpler version first?
-
-Share your thoughts on possible approaches.
-        """,
-        "active": False,
-        "workflow": True,
-    },
-    {
-        "id": StageEnum.EXECUTION.value,
-        "title": "3. Execution",
-        "description": """
-Let's execute our plan stage by stage:
-
-1. Write out each stage clearly
-2. Verify each stage as you go
-3. Keep track of your progress
-4. Note any obstacles or insights
-
-Begin implementing your solution below.
-        """,
-        "active": False,
-        "workflow": True,
-    },
-    {
-        "id": StageEnum.REVIEW.value,
-        "title": "4. Looking Back",
-        "description": """
-Let's reflect on our solution:
-
-1. Does the answer make sense?
-2. Can we verify the result?
-3. Is there a simpler way?
-4. What did we learn from this?
-
-Share your reflections below.
-        """,
-        "active": False,
-        "workflow": True,
-    },
-]
-
-
-class KVStore(SQLModel, table=True):
-    __table_args__ = {"extend_existing": True}
-
-    id: int = Field(primary_key=True)
-    key: str = Field(unique=True, index=True)
-    value: JSON = Field(sa_column=Column(JSON))
-    created_at: datetime = Field(default=datetime.now())
-    updated_at: datetime = Field(default=datetime.now())
-
-    class Config:
-        arbitrary_types_allowed = True
+    def find_cell_by_id(self, session: Session, cell_id: int):
+        return session.exec(
+            select(Cell).where(Cell.workflow_id == self.id).where(Cell.id == cell_id)
+        ).first()
 
 
 class Cell(SQLModel, table=True):
@@ -192,80 +173,29 @@ class Cell(SQLModel, table=True):
     sequence: int = Field(default=0)
     execution_sequence: int = Field(default=0)
     active: bool = Field(default=False)
-    stage: StageEnum = Field(default=StageEnum.UNDERSTANDING)
+
+    workflow_id: int = Field(foreign_key="workflow.id")
+    workflow: Workflow = Relationship(back_populates="cells")
 
     class Config:
         arbitrary_types_allowed = True
 
 
-class Stages:
-    @classmethod
-    def init_stages_in_kvstore(cls, session: Session):
-        session.exec(insert(KVStore).values(key="stages", value=stages))
-        session.commit()
+class KVStore(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
 
-    @classmethod
-    def all_workflow_based(cls, session: Session):
-        """
-        Get all workflow based stages from kvstore
-        """
-        stages = session.exec(select(KVStore).where(KVStore.key == "stages")).first()
-        return [stage for stage in stages.value if stage.get("workflow")]
+    id: int = Field(primary_key=True)
+    key: str = Field(unique=True, index=True)
+    value: JSON = Field(sa_column=Column(JSON))
+    created_at: datetime = Field(default=datetime.now())
+    updated_at: datetime = Field(default=datetime.now())
 
-    @classmethod
-    def active(cls, session: Session):
-        stages = cls.all_workflow_based(session)
-        stage = next(stage for stage in stages if stage["active"])
-        if stage is None:
-            return stages[0]
-        return stage
-
-    @classmethod
-    def save(cls, session: Session, stages: dict):
-        session.exec(
-            update(KVStore).where(KVStore.key == "stages").values(value=stages)
-        )
-        session.commit()
-
-    @classmethod
-    def get(cls, session: Session, stage_id: str):
-        stages = cls.all_workflow_based(session)
-        return next((stage for stage in stages if stage["id"] == stage_id), None)
-
-    @classmethod
-    def activate(cls, session: Session, stage_id: str):
-        stages = cls.all_workflow_based(session)
-        for stage in stages:
-            stage["active"] = False
-        for stage in stages:
-            if stage["id"] == stage_id:
-                stage["active"] = True
-        cls.save(session, stages)
+    class Config:
+        arbitrary_types_allowed = True
 
 
-async def mark_cell_inactive(stage: StageEnum, session: Session):
-    # update all cells to inactive
-    session.exec(update(Cell).where(Cell.stage == stage).values(active=False))
-    session.commit()
-
-
-async def mark_cell_active(cell_id: int, session: Session):
-    session.exec(update(Cell).where(Cell.id == cell_id).values(active=True))
-    session.commit()
-
-
-async def all_cells_ordered(stage: StageEnum, session: Session):
-    return session.exec(
-        select(Cell).where(Cell.stage == stage).order_by(Cell.sequence)
-    ).all()
-
-
-async def find_cell_by_id(cell_id: int, session: Session):
-    return session.exec(select(Cell).where(Cell.id == cell_id)).first()
-
-
-def default_new_cell(stage: dict):
-    if stage.get("workflow"):
+def default_new_cell(workflow: Workflow):
+    if workflow.name == "polya":
         thinking_system = ThinkingSystemEnum.TYPE2
     else:
         thinking_system = ThinkingSystemEnum.TYPE1
@@ -273,6 +203,6 @@ def default_new_cell(stage: dict):
     return Cell(
         input="",
         active=True,
-        stage=stage["id"],
+        workflow_id=workflow.id,
         thinking_system=thinking_system,
     )

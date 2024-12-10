@@ -7,12 +7,11 @@ from opsmate.gui.models import (
     Cell,
     CellLangEnum,
     ThinkingSystemEnum,
-    mark_cell_inactive,
-    all_cells_ordered,
-    find_cell_by_id,
-    Stages,
+    BluePrint,
+    Workflow,
     default_new_cell,
 )
+from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
     tlink,
     dlink,
@@ -21,7 +20,7 @@ from opsmate.gui.views import (
     reset_button,
     add_cell_button,
     render_cell_container,
-    render_stage_panel,
+    render_workflow_panel,
     execute_llm_react_instruction,
     execute_llm_type2_instruction,
     execute_bash_instruction,
@@ -74,13 +73,10 @@ async def startup():
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
-        Stages.init_stages_in_kvstore(session)
-        for stage in Stages.all_workflow_based(session):
-            cell = session.exec(
-                sqlmodel.select(Cell).where(Cell.stage == stage["id"])
-            ).first()
-            if cell is None:
-                new_cell = default_new_cell(stage)
+        polya_blueprint = seed_blueprints(session)
+        for workflow in polya_blueprint.workflows:
+            if len(workflow.cells) == 0:
+                new_cell = default_new_cell(workflow)
                 session.add(new_cell)
         session.commit()
 
@@ -88,22 +84,17 @@ async def startup():
 @app.route("/")
 async def get():
     with sqlmodel.Session(engine) as session:
-        # cells = session.exec(sqlmodel.select(Cell).order_by(Cell.sequence)).all()
-        active_stage = Stages.active(session)
-        cells = await all_cells_ordered(active_stage["id"], session)
-        page = home_body(
-            session, config.session_name, cells, Stages.all_workflow_based(session)
-        )
+        blueprint = BluePrint.find_by_name(session, "polya")
+        page = home_body(session, config.session_name, blueprint)
         return Title(f"{config.session_name}"), page
 
 
 @app.route("/cell/bottom")
 async def post():
     with sqlmodel.Session(engine) as session:
-        active_stage = Stages.active(session)
-        cells = await all_cells_ordered(active_stage["id"], session)
-        # update all cells to inactive
-        await mark_cell_inactive(active_stage["id"], session)
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        cells = active_workflow.cells
 
         # get the highest sequence number
         max_sequence = max(cell.sequence for cell in cells) if cells else 0
@@ -111,15 +102,17 @@ async def post():
         max_execution_sequence = (
             max(cell.execution_sequence for cell in cells) if cells else 0
         )
-
-        new_cell = default_new_cell(active_stage)
+        new_cell = default_new_cell(active_workflow)
         new_cell.sequence = max_sequence + 1
         new_cell.execution_sequence = max_execution_sequence + 1
 
         session.add(new_cell)
         session.commit()
 
-        cells = await all_cells_ordered(active_stage["id"], session)
+        active_workflow.activate_cell(session, new_cell.id)
+
+        session.refresh(active_workflow)
+        cells = active_workflow.cells
         return (
             # Return the new cell to be added
             render_cell_container(cells, hx_swap_oob="true"),
@@ -132,17 +125,11 @@ async def post():
 @app.route("/cell/{index}")
 async def post(index: int, above: bool = False, session: sqlmodel.Session = None):
     with sqlmodel.Session(engine) as session:
-        current_cell = session.exec(
-            sqlmodel.select(Cell).where(Cell.id == index)
-        ).first()
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        selected_cell = active_workflow.find_cell_by_id(session, index)
 
-        cells = await all_cells_ordered(current_cell.stage, session)
-
-        # update all cells to inactive
-        await mark_cell_inactive(current_cell.stage, session)
-
-        stage = Stages.get(session, current_cell.stage)
-        new_cell = default_new_cell(stage)
+        new_cell = default_new_cell(active_workflow)
 
         # get the highest execution sequence number
         max_execution_sequence = (
@@ -153,14 +140,14 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         # get the current sequence number
 
         if above:
-            new_cell.sequence = current_cell.sequence
+            new_cell.sequence = selected_cell.sequence
         else:
-            new_cell.sequence = current_cell.sequence + 1
+            new_cell.sequence = selected_cell.sequence + 1
 
         session.add(new_cell)
         # find all cells with a sequence greater than the current cell
         cells_to_shift = [
-            cell for cell in cells if cell.sequence >= current_cell.sequence
+            cell for cell in cells if cell.sequence >= selected_cell.sequence
         ]
         for cell in cells_to_shift:
             cell.sequence += 1
@@ -168,32 +155,36 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         session.commit()
 
         # reload the cells
-        cells = await all_cells_ordered(current_cell.stage, session)
+        session.refresh(active_workflow)
+        cells = active_workflow.cells
         return render_cell_container(cells, hx_swap_oob="true")
 
 
 @app.route("/cell/{cell_id}")
 async def delete(cell_id: int):
     with sqlmodel.Session(engine) as session:
-        current_cell = await find_cell_by_id(cell_id, session)
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        selected_cell = active_workflow.find_cell_by_id(session, cell_id)
 
-        if current_cell is None:
+        if selected_cell is None:
             return ""
 
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
             sqlmodel.select(Cell)
-            .where(Cell.stage == current_cell.stage)
-            .where(Cell.sequence > current_cell.sequence)
+            .where(Cell.workflow_id == active_workflow.id)
+            .where(Cell.sequence > selected_cell.sequence)
         ).all()
         for cell in cells_to_shift:
             cell.sequence -= 1
             session.add(cell)
 
-        session.delete(current_cell)
+        session.delete(selected_cell)
         session.commit()
 
-        cells = await all_cells_ordered(current_cell.stage, session)
+        session.refresh(active_workflow)
+        cells = active_workflow.cells
 
         return render_cell_container(cells, hx_swap_oob="true")
 
@@ -211,12 +202,11 @@ async def put(
     )
 
     with sqlmodel.Session(engine) as session:
-        selected_cell = await find_cell_by_id(cell_id, session)
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        selected_cell = active_workflow.find_cell_by_id(session, cell_id)
         if selected_cell is None:
             return ""
-
-        # update all cells to inactive
-        await mark_cell_inactive(selected_cell.stage, session)
 
         selected_cell.active = True
         if input is not None:
@@ -238,7 +228,10 @@ async def put(
         session.add(selected_cell)
         session.commit()
 
-        cells = await all_cells_ordered(selected_cell.stage, session)
+        active_workflow.activate_cell(session, selected_cell.id)
+
+        session.refresh(active_workflow)
+        cells = active_workflow.cells
 
         return render_cell_container(cells, hx_swap_oob="true")
 
@@ -246,50 +239,58 @@ async def put(
 @app.route("/cell/input/{cell_id}")
 async def put(cell_id: int, input: str):
     with sqlmodel.Session(engine) as session:
-        selected_cell = await find_cell_by_id(cell_id, session)
-    if selected_cell is None:
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        selected_cell = active_workflow.find_cell_by_id(session, cell_id)
+
+        if selected_cell is None:
+            return ""
+
+        selected_cell.input = input
+        selected_cell.active = True
+        session.add(selected_cell)
+        session.commit()
+
+        active_workflow.activate_cell(session, selected_cell.id)
         return ""
 
-    await mark_cell_inactive(selected_cell.stage, session)
 
-    selected_cell.input = input
-    selected_cell.active = True
-    session.add(selected_cell)
-    session.commit()
-    return ""
-
-
-@app.route("/stage/{stage_id}/switch")
-async def put(stage_id: str):
-    logger.info("switching stage", stage_id=stage_id)
+@app.route("/workflow/{workflow_id}/switch")
+async def put(workflow_id: str):
+    logger.info("switching workflow", workflow_id=workflow_id)
 
     with sqlmodel.Session(engine) as session:
-        Stages.activate(session, stage_id)
-        stages = Stages.all_workflow_based(session)
-        active_stage = Stages.active(session)
-        cells = await all_cells_ordered(stage_id, session)
+        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint.activate_workflow(session, workflow_id)
+
+        session.refresh(blueprint)
+        active_workflow = blueprint.active_workflow(session)
 
         return (
-            render_stage_panel(stages, active_stage),
-            render_cell_container(cells, hx_swap_oob="true"),
+            render_workflow_panel(blueprint.workflows, active_workflow),
+            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
         )
 
 
 @app.route("/cells/reset")
 async def post():
     with sqlmodel.Session(engine) as session:
-        active_stage = Stages.active(session)
-        session.exec(sqlmodel.delete(Cell).where(Cell.stage == active_stage["id"]))
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        session.exec(
+            sqlmodel.delete(Cell).where(Cell.workflow_id == active_workflow.id)
+        )
         session.commit()
 
         # create new cells
-        new_cell = default_new_cell(active_stage)
+        new_cell = default_new_cell(active_workflow)
         session.add(new_cell)
         session.commit()
 
+        session.refresh(active_workflow)
         session.refresh(new_cell)
         return (
-            render_cell_container([new_cell], hx_swap_oob="true"),
+            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button,
         )
 
@@ -303,8 +304,9 @@ async def ws(cell_id: int, input: str, send, session):
         return  # Exit if unauthorized
 
     with sqlmodel.Session(engine) as session:
-        active_stage = Stages.active(session)
-        await mark_cell_inactive(active_stage["id"], session)
+        blueprint = BluePrint.find_by_name(session, "polya")
+        active_workflow = blueprint.active_workflow(session)
+        active_workflow.activate_cell(session, cell_id)
 
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()
         logger.info(

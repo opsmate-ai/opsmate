@@ -4,7 +4,8 @@ from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
-    Stages,
+    BluePrint,
+    Workflow,
     executor,
     k8s_agent,
     ThinkingSystemEnum,
@@ -270,15 +271,15 @@ def cell_input_form(cell: Cell):
     )
 
 
-def stage_button(stage: dict):
+def workflow_button(workflow: Workflow):
     cls = "px-6 py-3 text-sm font-medium border-0"
-    if stage["active"]:
+    if workflow.active:
         cls += " bg-white border-b-2 border-b-blue-500 text-blue-600"
     else:
         cls += " bg-gray-50 text-gray-600 hover:bg-gray-100"
     return Button(
-        stage["title"],
-        hx_put=f"/stage/{stage['id']}/switch",
+        workflow.title,
+        hx_put=f"/workflow/{workflow.id}/switch",
         cls=cls,
     )
 
@@ -490,10 +491,10 @@ async def execute_bash_instruction(
     )
 
 
-def home_body(
-    db_session: Session, session_name: str, cells: list[Cell], stages: list[dict]
-):
-    active_stage = Stages.active(db_session)
+def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
+    active_workflow = blueprint.active_workflow(db_session)
+    workflows = blueprint.workflows
+    cells = active_workflow.cells
     return Body(
         Div(
             Card(
@@ -514,7 +515,7 @@ def home_body(
                     ),
                     cls="mb-4 flex justify-between items-start pt-16",
                 ),
-                render_stage_panel(stages, active_stage),
+                render_workflow_panel(workflows, active_workflow),
                 # Cells Container
                 render_cell_container(cells),
                 # cls="overflow-hidden",
@@ -541,18 +542,18 @@ def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
     return div
 
 
-def render_stage_panel(stages: list[dict], active_stage: dict):
+def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     return Div(
         Div(
-            *[stage_button(stage) for stage in stages],
+            *[workflow_button(workflow) for workflow in workflows],
             cls="flex border-t",
         ),
-        # stage Panels
+        # workflow Panels
         Div(
             Div(
                 Div(
                     Span(
-                        f"Current Phase: {active_stage['title']}",
+                        f"Current Phase: {active_workflow.title}",
                         cls="font-medium",
                     ),
                     cls="flex items-center gap-2 text-sm text-gray-500",
@@ -561,11 +562,11 @@ def render_stage_panel(stages: list[dict], active_stage: dict):
             ),
             cls="block p-4",
         ),
-        # stage description
+        # workflow description
         Div(
             Div(
                 Div(
-                    active_stage["description"],
+                    active_workflow.description,
                     cls="text-sm text-gray-700 marked",
                 ),
                 cls="flex items-center gap-2",
@@ -573,7 +574,7 @@ def render_stage_panel(stages: list[dict], active_stage: dict):
             cls="bg-blue-50 p-4 rounded-lg border border-blue-100",
         ),
         hx_swap_oob="true",
-        id="stage-panel",
+        id="workflow-panel",
     )
 
 

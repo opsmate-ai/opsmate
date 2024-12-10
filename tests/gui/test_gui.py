@@ -1,5 +1,5 @@
 from opsmate.gui.seed import seed_blueprints
-from opsmate.gui.models import BluePrint
+from opsmate.gui.models import BluePrint, default_new_cell, ThinkingSystemEnum
 from sqlmodel import Session, create_engine, SQLModel
 from sqlalchemy import Engine
 import pytest
@@ -80,3 +80,66 @@ def test_seed_freestyle_blueprints(session: Session):
     assert workflows[0].active is True
     assert workflows[0].depending_workflow_ids == []
     assert workflows[0].depending_workflows(session) == []
+
+
+def test_default_new_cell(session: Session):
+    seed_blueprints(session)
+    freestyle = BluePrint.find_by_name(session, "freestyle")
+    assert freestyle is not None
+
+    cell = default_new_cell(freestyle.workflows[0])
+    assert cell is not None
+    assert cell.input == ""
+    assert cell.active is True
+    assert cell.workflow_id == freestyle.workflows[0].id
+    assert cell.thinking_system == ThinkingSystemEnum.TYPE1
+
+
+def test_default_new_cell_polya(session: Session):
+    seed_blueprints(session)
+    polya = BluePrint.find_by_name(session, "polya")
+    assert polya is not None
+
+    cell = default_new_cell(polya.workflows[0])
+    assert cell is not None
+    assert cell.input == ""
+    assert cell.active is True
+    assert cell.workflow_id == polya.workflows[0].id
+    assert cell.thinking_system == ThinkingSystemEnum.TYPE2
+
+
+def test_activate_workflow(session: Session):
+    seed_blueprints(session)
+    polya = BluePrint.find_by_name(session, "polya")
+    assert polya is not None
+
+    polya.activate_workflow(session, polya.workflows[1].id)
+
+    session.refresh(polya)
+    assert polya.workflows[0].active is False
+    assert polya.workflows[1].active is True
+    assert polya.workflows[2].active is False
+    assert polya.workflows[3].active is False
+
+
+def test_activate_cell(session: Session):
+    seed_blueprints(session)
+    polya = BluePrint.find_by_name(session, "polya")
+    workflow = polya.workflows[0]
+
+    for i in range(4):
+        cell = default_new_cell(workflow)
+        if i == 0:
+            cell.active = True
+        else:
+            cell.active = False
+        session.add(cell)
+        session.commit()
+
+    workflow.activate_cell(session, workflow.cells[1].id)
+    session.refresh(workflow)
+
+    assert workflow.cells[0].active is False
+    assert workflow.cells[1].active is True
+    assert workflow.cells[2].active is False
+    assert workflow.cells[3].active is False

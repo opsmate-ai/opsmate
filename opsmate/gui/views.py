@@ -41,8 +41,8 @@ tlink = (Script(src="https://cdn.tailwindcss.com"),)
 nav = (
     Nav(
         Div(
-            A("Opsmate Workspace", cls="btn btn-ghost text-xl"),
-            A("Type-1", href="/type-1", cls="btn btn-ghost text-sm"),
+            A("Opsmate Workspace", cls="btn btn-ghost text-xl", href="/"),
+            A("Freestyle", href="/blueprint/freestyle", cls="btn btn-ghost text-sm"),
             cls="flex-1",
         ),
         Div(

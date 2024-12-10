@@ -1,4 +1,5 @@
 from opsmate.gui.seed import seed_blueprints
+from opsmate.gui.models import BluePrint
 from sqlmodel import Session, create_engine, SQLModel
 from sqlalchemy import Engine
 import pytest
@@ -17,8 +18,10 @@ def session(engine: Engine):
         yield session
 
 
-def test_seed_blueprints(session: Session):
-    polya = seed_blueprints(session)
+def test_seed_polya_blueprints(session: Session):
+    seed_blueprints(session)
+
+    polya = BluePrint.find_by_name(session, "polya")
     assert polya is not None
     assert polya.name == "polya"
     assert polya.description == "Polya's method for problem solving"
@@ -59,3 +62,21 @@ def test_seed_blueprints(session: Session):
     assert workflows[3].active is False
     assert workflows[3].depending_workflow_ids == [workflows[2].id]
     assert workflows[3].depending_workflows(session) == [workflows[2]]
+
+
+def test_seed_freestyle_blueprints(session: Session):
+    seed_blueprints(session)
+
+    freestyle = BluePrint.find_by_name(session, "freestyle")
+    assert freestyle is not None
+    assert freestyle.name == "freestyle"
+    assert freestyle.description == "Freestyle problem solving"
+
+    workflows = freestyle.workflows
+    assert len(workflows) == 1
+    assert workflows[0].name == "freestyle"
+    assert workflows[0].title == "Freestyle"
+    assert workflows[0].description == "Freestyle problem solving"
+    assert workflows[0].active is True
+    assert workflows[0].depending_workflow_ids == []
+    assert workflows[0].depending_workflows(session) == []

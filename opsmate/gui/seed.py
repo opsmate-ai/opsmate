@@ -65,11 +65,21 @@ Share your reflections below.
 ]
 
 
+freestyle_workflows = [
+    {
+        "name": "freestyle",
+        "title": "Freestyle",
+        "description": "Freestyle problem solving",
+        "active": True,
+    },
+]
+
+
 def polya_blueprint(session: Session):
     # find the blueprint
     blueprint = session.exec(select(BluePrint).where(BluePrint.name == "polya")).first()
     if blueprint:
-        return
+        return blueprint
 
     blueprint = BluePrint(
         name="polya",
@@ -80,6 +90,42 @@ def polya_blueprint(session: Session):
     add_polya_workflows(session, blueprint)
 
     return blueprint
+
+
+def freestyle_blueprint(session: Session):
+    blueprint = session.exec(
+        select(BluePrint).where(BluePrint.name == "freestyle")
+    ).first()
+    if blueprint:
+        return blueprint
+
+    blueprint = BluePrint(
+        name="freestyle",
+        description="Freestyle problem solving",
+    )
+    session.add(blueprint)
+    session.commit()
+    add_freestyle_workflows(session, blueprint)
+    return blueprint
+
+
+def add_freestyle_workflows(session: Session, freestyle: BluePrint):
+    # add the workflows
+    prev_workflow_id = None
+    for idx, workflow in enumerate(freestyle_workflows):
+        workflow = Workflow(
+            name=workflow["name"],
+            title=workflow["title"],
+            description=workflow["description"],
+            active=workflow["active"],
+            blueprint_id=freestyle.id,
+            depending_workflow_ids=[prev_workflow_id] if prev_workflow_id else [],
+        )
+        session.add(workflow)
+        session.commit()
+        prev_workflow_id = workflow.id
+
+    return freestyle
 
 
 def add_polya_workflows(session: Session, polya: BluePrint):
@@ -100,4 +146,5 @@ def add_polya_workflows(session: Session, polya: BluePrint):
 
 
 def seed_blueprints(session: Session):
-    return polya_blueprint(session)
+    polya_blueprint(session)
+    freestyle_blueprint(session)

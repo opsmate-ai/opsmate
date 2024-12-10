@@ -5,7 +5,6 @@ from sqlmodel import (
     Column,
     Enum,
     LargeBinary,
-    insert,
     update,
     select,
     Session,
@@ -207,7 +206,7 @@ class KVStore(SQLModel, table=True):
 
 
 def default_new_cell(workflow: Workflow):
-    if workflow.name == "polya":
+    if workflow.blueprint.name == "polya":
         thinking_system = ThinkingSystemEnum.TYPE2
     else:
         thinking_system = ThinkingSystemEnum.TYPE1

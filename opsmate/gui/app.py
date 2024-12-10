@@ -73,18 +73,30 @@ async def startup():
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
-        polya_blueprint = seed_blueprints(session)
-        for workflow in polya_blueprint.workflows:
-            if len(workflow.cells) == 0:
-                new_cell = default_new_cell(workflow)
-                session.add(new_cell)
+        seed_blueprints(session)
         session.commit()
+
+        blueprints = session.exec(sqlmodel.select(BluePrint)).all()
+        for blueprint in blueprints:
+            for workflow in blueprint.workflows:
+                if len(workflow.cells) == 0:
+                    new_cell = default_new_cell(workflow)
+                    session.add(new_cell)
+                    session.commit()
 
 
 @app.route("/")
 async def get():
     with sqlmodel.Session(engine) as session:
         blueprint = BluePrint.find_by_name(session, "polya")
+        page = home_body(session, config.session_name, blueprint)
+        return Title(f"{config.session_name}"), page
+
+
+@app.route("/blueprint/freestyle")
+async def get():
+    with sqlmodel.Session(engine) as session:
+        blueprint = BluePrint.find_by_name(session, "freestyle")
         page = home_body(session, config.session_name, blueprint)
         return Title(f"{config.session_name}"), page
 

@@ -92,8 +92,7 @@ Things you have noticed based on the findings however are not related to the pro
 <important_notes>
 - Use markdown in your response.
 - Do not just return the brief summary you are given, but fact in all the findings
-- Please list the recommendation and grade them from 0 to 100, list the top 3 recommendations from highest to lowest with score 80 or above.
-- If a subject does not contribute to the problem, DO NOT include it in the recommendation.
+- **ONLY** list recommendations that are relevant to the problem
 </important_notes>
 """
 
@@ -104,6 +103,8 @@ extra_sys_prompt = """
 - kubectl
 - helm
 3. You have read only access to the cluster
+4. Always check the k8s events to understand the context of the problem
+5. Avoid using complicated kubectl selector such as `--field-selector involvedObject.name=`
 </assistant-context>
 """
 
@@ -118,7 +119,7 @@ class NonTechnicalQuery(BaseModel):
     )
 
 
-class UnderstandingResponse(BaseModel):
+class InitialUnderstandingResponse(BaseModel):
     """
     This is the response format for the summary section.
     """
@@ -167,17 +168,39 @@ class Command(BaseModel):
             return str(e)
 
 
-class OutputSummary(BaseModel):
+class QuestionResponse(BaseModel):
     """
-    The summary of the output
+    The response to the question
     """
 
+    summary: str = Field(
+        description="The high level summary of the problem that provides the context"
+    )
+    question: str = Field(description="The question that is being answered")
+    commands: List[Command] = Field(
+        description="The command line to be executed to answer the question"
+    )
+
+
+class QuestionResponseSummary(BaseModel):
+    """
+    The summary of the question
+    """
+
+    question: str
     summary: str
 
 
-class Output(BaseModel):
-    command: Command
-    output_summary: OutputSummary
+class InfoGathered(BaseModel):
+    """
+    The summary of the question
+    """
+
+    question: str
+    commands: List[Command]
+    info_gathered: str = Field(
+        description="The information gathered from the command execution"
+    )
 
 
 class Report(BaseModel):
@@ -189,14 +212,14 @@ class Report(BaseModel):
 
 
 modes = {
-    "planner": {
-        "model": "o1-preview",
-        "mode": instructor.Mode.JSON_O1,
-    },
     # "planner": {
-    #     "model": "gpt-4o",
-    #     "mode": instructor.Mode.TOOLS,
+    #     "model": "o1-preview",
+    #     "mode": instructor.Mode.JSON_O1,
     # },
+    "planner": {
+        "model": "gpt-4o",
+        "mode": instructor.Mode.TOOLS,
+    },
     "executor": {
         "model": "gpt-4o",
         "mode": instructor.Mode.TOOLS,
@@ -212,7 +235,7 @@ async def initial_understanding(question: str, mode: str = "planner"):
         "content": question,
     }
 
-    response: Union[UnderstandingResponse, NonTechnicalQuery] = (
+    response: Union[InitialUnderstandingResponse, NonTechnicalQuery] = (
         await openai.messages.create(
             messages=[
                 {
@@ -222,54 +245,81 @@ async def initial_understanding(question: str, mode: str = "planner"):
                 question,
             ],
             model=modes[mode]["model"],
-            response_model=Union[UnderstandingResponse, NonTechnicalQuery],
+            response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
         )
     )
 
     return response
 
 
-async def info_gathering(question: UnderstandingResponse, mode: str = "planner"):
+async def __info_gathering(summary: str, question: str, mode: str = "planner"):
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    response: List[Command] = await openai.messages.create(
+    question_prompt = f"""
+<summary>
+{summary}
+</summary>
+
+**Please answer the following question**
+
+<question>
+{question}
+</question>
+"""
+
+    return await openai.messages.create(
         messages=[
             {
+                "role": "system",
+                "content": command_sys_prompt + "\n" + extra_sys_prompt,
+            },
+            {
                 "role": "user",
-                "content": command_sys_prompt + "\n" + question.prompt(),
+                "content": question_prompt,
             },
         ],
         model=modes[mode]["model"],
-        response_model=List[Command],
+        response_model=QuestionResponse,
     )
 
-    return response
 
-
-async def finding(summary: str, command: Command, mode: str = "executor"):
+async def __finding(question: QuestionResponse, mode: str = "executor"):
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    response: OutputSummary = await openai.messages.create(
-        messages=[
-            {
-                "role": "user",
-                "content": f"""
-## Issue summary
 
-{summary}
+    jinja_template = """
+## Issue description
 
-## Command
+{{ summary }}
 
-Description: {command.description}
+## question
 
-Actual command:
-```
-{command.command}
+{{ question }}
+
+## Here are the commands that are executed to answer the question
+
+{% for command in commands %}
+## Command {{ loop.index }}
+**Description:** {{ command.description }}
+
+**Command:**
+```bash
+$ {{ command.command }}
 ```
 
 Output:
+```text
+{{ command.execute() }}
 ```
-{command.execute()}
-```
-                """,
+{% endfor %}
+"""
+    response: QuestionResponseSummary = await openai.messages.create(
+        messages=[
+            {
+                "role": "user",
+                "content": Template(jinja_template).render(
+                    summary=question.summary,
+                    question=question.question,
+                    commands=question.commands,
+                ),
             },
             {
                 "role": "user",
@@ -277,16 +327,26 @@ Output:
             },
         ],
         model=modes[mode]["model"],
-        response_model=OutputSummary,
+        response_model=QuestionResponseSummary,
     )
 
     return response
 
 
+async def info_gathering(summary: str, question: str):
+    question_response = await __info_gathering(summary, question)
+    finding = await __finding(question_response)
+    return InfoGathered(
+        question=question_response.question,
+        commands=question_response.commands,
+        info_gathered=finding.summary,
+    )
+
+
 async def generate_report(
     summary: str,
     mode: str = "planner",
-    outputs: List[Output] = [],
+    info_gathered: List[InfoGathered] = [],
 ):
     template = """
 <context>
@@ -294,26 +354,18 @@ async def generate_report(
 
 {{ summary }}
 
-## Output summaries
-{% for output in outputs %}
-### Description: {{ output.command.description }}
-
-Command:
-```bash
-{{ output.command.command }}
-```
-
-Output:
-```text
-{{ output.output_summary.summary }}
-```
+## Question raised and answers
+{% for info in info_gathered %}
+### Question: {{ info.question }}
+**Answer:**
+{{ info.info_gathered }}
 {% endfor %}
 </context>
 
 Now please write a detailed report based on the above context.
 """
 
-    content = Template(template).render(summary=summary, outputs=outputs)
+    content = Template(template).render(summary=summary, info_gathered=info_gathered)
 
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
     response: Report = await openai.messages.create(
@@ -344,23 +396,17 @@ async def main():
     for i, question in enumerate(iu.questions):
         print(f"{i+1}. {question}")
 
-    command_response = await info_gathering(iu)
-
-    # Create list of coroutines for parallel execution
-    finding_tasks = [finding(iu.summary, command) for command in command_response]
+    findings = []
+    for i, question in enumerate(iu.questions):
+        findings.append(info_gathering(iu.summary, question))
 
     # Execute all findings in parallel
-    output_summaries = await asyncio.gather(*finding_tasks)
-
-    outputs = [
-        Output(command=command, output_summary=output_summary)
-        for command, output_summary in zip(command_response, output_summaries)
-    ]
+    info_gathered = await asyncio.gather(*findings)
 
     report = await generate_report(
         iu.summary,
         mode="executor",
-        outputs=outputs,
+        info_gathered=info_gathered,
     )
     print(report.content)
 

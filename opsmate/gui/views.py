@@ -21,12 +21,10 @@ from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.understanding import (
     initial_understanding,
     info_gathering,
-    finding,
     generate_report,
-    Output,
-    UnderstandingResponse,
+    InitialUnderstandingResponse,
+    InfoGathered,
     NonTechnicalQuery,
-    OutputSummary,
     Report,
 )
 import pickle
@@ -34,6 +32,7 @@ import sqlmodel
 import structlog
 import asyncio
 import subprocess
+from jinja2 import Template
 
 logger = structlog.get_logger()
 
@@ -392,7 +391,7 @@ async def execute_polya_understanding_instruction(
     outputs.append(
         {
             "type": "InitialUnderstanding",
-            "output": UnderstandingResponse(**iu.model_dump()),
+            "output": InitialUnderstandingResponse(**iu.model_dump()),
         }
     )
     await send(
@@ -404,33 +403,37 @@ async def execute_polya_understanding_instruction(
             id=f"cell-output-{cell.id}",
         )
     )
-    commands = await info_gathering(iu)
-    finding_tasks = [finding(iu.summary, command) for command in commands]
-    findings = []
+
+    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
+
+    infos_gathered = []
     for i, task in enumerate(finding_tasks):
-        output_summary = await task
-        output = Output(
-            command=commands[i],
-            output_summary=OutputSummary(summary=output_summary.summary),
-        )
+        info_gathered = await task
+        # output = Output(
+        #     command=commands[i],
+        #     output_summary=OutputSummary(summary=output_summary.summary),
+        # )
+        info_gathered = InfoGathered(**info_gathered.model_dump())
         outputs.append(
             {
-                "type": "Output",
-                "output": output,
+                "type": "InfoGathered",
+                "output": info_gathered,
             }
         )
-        findings.append(output)
+        infos_gathered.append(info_gathered)
         await send(
             Div(
-                UnderstandingRenderer.render_output_markdown(
-                    k8s_agent.metadata.name, output
+                UnderstandingRenderer.render_info_gathered_markdown(
+                    k8s_agent.metadata.name, info_gathered
                 ),
                 hx_swap_oob=swap,
                 id=f"cell-output-{cell.id}",
             )
         )
 
-    report = await generate_report(iu.summary, mode="executor", outputs=findings)
+    report = await generate_report(
+        iu.summary, mode="executor", info_gathered=infos_gathered
+    )
     outputs.append(
         {
             "type": "Report",
@@ -715,7 +718,9 @@ def render_bash_output_markdown(agent: str, output: str):
 
 class UnderstandingRenderer:
     @staticmethod
-    def render_initial_understanding_markdown(agent: str, iu: UnderstandingResponse):
+    def render_initial_understanding_markdown(
+        agent: str, iu: InitialUnderstandingResponse
+    ):
         return Div(
             f"""
 **Initial understanding**
@@ -729,23 +734,31 @@ class UnderstandingRenderer:
         )
 
     @staticmethod
-    def render_output_markdown(agent: str, output: Output):
-        return Div(
-            f"""
+    def render_info_gathered_markdown(agent: str, info_gathered: InfoGathered):
+        template = """
 **Information Gathering**
+
+**Question:**
+
+{{ info_gathered.question }}
 
 **Command:**
 
+{% for command in info_gathered.commands %}
 ```
-# {output.command.description}
-{output.command.command}
+# {{ command.description }}
+{{ command.command }}
 ```
+{% endfor %}
 
 **Summary:**
 
-> {output.output_summary.summary}
+> {{ info_gathered.info_gathered }}
 
-    """,
+"""
+
+        return Div(
+            Template(template).render(info_gathered=info_gathered),
             cls="marked",
         )
 
@@ -784,7 +797,7 @@ cell_render_funcs = {
     "ExecResults": render_exec_results_markdown,
     "BashOutput": render_bash_output_markdown,
     "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
-    "Output": UnderstandingRenderer.render_output_markdown,
+    "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
     "Report": UnderstandingRenderer.render_report_markdown,
     "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
 }

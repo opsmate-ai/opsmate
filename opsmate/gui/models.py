@@ -41,7 +41,7 @@ class CellLangEnum(enum.Enum):
     BASH = "bash"
 
 
-class StageEnum(str, enum.Enum):
+class WorkflowEnum(str, enum.Enum):
     UNDERSTANDING = "understanding"
     PLANNING = "planning"
     EXECUTION = "execution"

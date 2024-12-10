@@ -4,6 +4,7 @@ from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
+    WorkflowEnum,
     BluePrint,
     Workflow,
     executor,
@@ -21,12 +22,12 @@ from opsmate.polya.understanding import (
     initial_understanding,
     info_gathering,
     finding,
+    generate_report,
     Output,
     UnderstandingResponse,
     NonTechnicalQuery,
     OutputSummary,
     Report,
-    generate_report,
 )
 import pickle
 import sqlmodel
@@ -342,6 +343,14 @@ async def execute_llm_react_instruction(
 
 
 async def execute_llm_type2_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
+):
+    workflow = cell.workflow
+    if workflow.name == WorkflowEnum.UNDERSTANDING:
+        return await execute_polya_understanding_instruction(cell, swap, send, session)
+
+
+async def execute_polya_understanding_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
     msg = cell.input.rstrip()

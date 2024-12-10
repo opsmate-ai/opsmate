@@ -1,9 +1,9 @@
 from sqlmodel import Session, select
-from opsmate.gui.models import BluePrint, Workflow, StageEnum
+from opsmate.gui.models import BluePrint, Workflow, WorkflowEnum
 
 polya_workflows = [
     {
-        "name": StageEnum.UNDERSTANDING.value,
+        "name": WorkflowEnum.UNDERSTANDING.value,
         "title": "1. Understanding",
         "description": """
 Let's understand the problem together:
@@ -18,7 +18,7 @@ Please share your thoughts on these points.
         "active": True,
     },
     {
-        "name": StageEnum.PLANNING.value,
+        "name": WorkflowEnum.PLANNING.value,
         "title": "2. Planning",
         "description": """
 Now that we understand the problem, let's develop a strategy:
@@ -33,7 +33,7 @@ Share your thoughts on possible approaches.
         "active": False,
     },
     {
-        "name": StageEnum.EXECUTION.value,
+        "name": WorkflowEnum.EXECUTION.value,
         "title": "3. Execution",
         "description": """
 Let's execute our plan stage by stage:
@@ -48,7 +48,7 @@ Begin implementing your solution below.
         "active": False,
     },
     {
-        "name": StageEnum.REVIEW.value,
+        "name": WorkflowEnum.REVIEW.value,
         "title": "4. Looking Back",
         "description": """
 Let's reflect on our solution:

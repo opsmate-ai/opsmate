@@ -189,14 +189,14 @@ class Report(BaseModel):
 
 
 modes = {
-    # "planner": {
-    #     "model": "o1-preview",
-    #     "mode": instructor.Mode.JSON_O1,
-    # },
     "planner": {
-        "model": "gpt-4o",
-        "mode": instructor.Mode.TOOLS,
+        "model": "o1-preview",
+        "mode": instructor.Mode.JSON_O1,
     },
+    # "planner": {
+    #     "model": "gpt-4o",
+    #     "mode": instructor.Mode.TOOLS,
+    # },
     "executor": {
         "model": "gpt-4o",
         "mode": instructor.Mode.TOOLS,

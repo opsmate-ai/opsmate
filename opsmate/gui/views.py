@@ -348,13 +348,15 @@ async def execute_llm_type2_instruction(
     workflow = cell.workflow
     if workflow.name == WorkflowEnum.UNDERSTANDING:
         return await execute_polya_understanding_instruction(cell, swap, send, session)
+    elif workflow.name == WorkflowEnum.PLANNING:
+        return await execute_polya_planning_instruction(cell, swap, send, session)
 
 
 async def execute_polya_understanding_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
     msg = cell.input.rstrip()
-    logger.info("executing llm type 2 instruction", cell_id=cell.id, input=msg)
+    logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
     outputs = []
     await send(
@@ -453,6 +455,28 @@ async def execute_polya_understanding_instruction(
     workflow.result = report.content
     session.add(workflow)
     session.commit()
+
+
+async def execute_polya_planning_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
+):
+    msg = cell.input.rstrip()
+    logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
+
+    blueprint = cell.workflow.blueprint
+    understanding_workflow: Workflow = blueprint.find_by_name(
+        session, WorkflowEnum.UNDERSTANDING
+    )
+    understanding_report = understanding_workflow.result
+
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
 
 
 async def execute_bash_instruction(

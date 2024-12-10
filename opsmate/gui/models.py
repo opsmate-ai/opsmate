@@ -66,6 +66,10 @@ class BluePrint(SQLModel, table=True):
     )
 
     @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
+
+    @classmethod
     def find_by_name(cls, session: Session, name: str):
         return session.exec(select(cls).where(cls.name == name)).first()
 
@@ -115,6 +119,10 @@ class Workflow(SQLModel, table=True):
     cells: List["Cell"] = Relationship(
         back_populates="workflow", sa_relationship_kwargs={"order_by": "Cell.sequence"}
     )
+
+    @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
 
     def depending_workflows(self, session: Session):
         if not self.depending_workflow_ids:
@@ -179,6 +187,10 @@ class Cell(SQLModel, table=True):
 
     class Config:
         arbitrary_types_allowed = True
+
+    @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
 
 
 class KVStore(SQLModel, table=True):

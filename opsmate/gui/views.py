@@ -111,35 +111,39 @@ def cell_component(cell: Cell, cell_size: int):
     )
 
 
-add_cell_button = (
-    Div(
-        Button(
-            add_cell_svg,
-            "Add Cell",
-            hx_post="/cell/bottom",
-            cls="btn btn-primary btn-sm flex items-center gap-2",
+def add_cell_button(blueprint: BluePrint):
+    return (
+        Div(
+            Button(
+                add_cell_svg,
+                "Add Cell",
+                hx_post=f"/blueprint/{blueprint.id}/cell/bottom",
+                cls="btn btn-primary btn-sm flex items-center gap-2",
+            ),
+            id="add-cell-button",
+            hx_swap_oob="true",
+            cls="flex justify-end",
         ),
-        id="add-cell-button",
-        hx_swap_oob="true",
-        cls="flex justify-end",
-    ),
-)
+    )
 
-reset_button = (
-    Div(
-        Button(
-            "Reset",
-            cls="btn btn-secondary btn-sm flex items-center gap-1",
+
+def reset_button(blueprint: BluePrint):
+    return (
+        Div(
+            Button(
+                "Reset",
+                cls="btn btn-secondary btn-sm flex items-center gap-1",
+            ),
+            hx_post=f"/blueprint/{blueprint.id}/cells/reset",
+            hx_swap_oob="true",
+            id="reset-button",
+            cls="flex",
         ),
-        hx_post="/cells/reset",
-        hx_swap_oob="true",
-        id="reset-button",
-        cls="flex",
-    ),
-)
+    )
 
 
 def cell_header(cell: Cell, cell_size: int):
+    blueprint = cell.workflow.blueprint
     return (
         Div(
             Div(
@@ -160,7 +164,7 @@ def cell_header(cell: Cell, cell_size: int):
                         selected=cell.lang == CellLangEnum.BASH,
                     ),
                     name="lang",
-                    hx_put=f"/cell/{cell.id}",
+                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     hx_trigger="change",
                     cls="select select-sm ml-2",
                 ),
@@ -177,14 +181,14 @@ def cell_header(cell: Cell, cell_size: int):
                         selected=cell.thinking_system == ThinkingSystemEnum.TYPE2,
                     ),
                     name="thinking_system",
-                    hx_put=f"/cell/{cell.id}",
+                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     hx_trigger="change",
                     cls="select select-sm ml-2 min-w-[240px]",
                     hidden=cell.lang == CellLangEnum.BASH,
                 ),
                 Button(
                     trash_icon_svg,
-                    hx_delete=f"/cell/{cell.id}",
+                    hx_delete=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
                     disabled=cell_size == 1,
                 ),
@@ -207,6 +211,7 @@ def cell_header(cell: Cell, cell_size: int):
 
 
 def cell_insert_dropdown(cell: Cell):
+    blueprint = cell.workflow.blueprint
     return (
         Div(
             Div(
@@ -219,13 +224,13 @@ def cell_insert_dropdown(cell: Cell):
                     Li(
                         Button(
                             "Insert Above",
-                            hx_post=f"/cell/{cell.id}?above=true",
+                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=true",
                         )
                     ),
                     Li(
                         Button(
                             "Insert Below",
-                            hx_post=f"/cell/{cell.id}?above=false",
+                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=false",
                         )
                     ),
                     tabindex="0",
@@ -239,6 +244,7 @@ def cell_insert_dropdown(cell: Cell):
 
 
 def cell_input_form(cell: Cell):
+    blueprint = cell.workflow.blueprint
     return (
         Div(
             Form(
@@ -250,7 +256,7 @@ def cell_input_form(cell: Cell):
                     id=f"cell-input-{cell.id}",
                 ),
                 Div(
-                    hx_put=f"/cell/input/{cell.id}",
+                    hx_put=f"/blueprint/{blueprint.id}/cell/input/{cell.id}",
                     hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
                     hx_swap=f"#cell-input-form-{cell.id}",
                 ),
@@ -509,8 +515,8 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
                         cls="flex flex-col",
                     ),
                     Div(
-                        reset_button,
-                        add_cell_button,
+                        reset_button(blueprint),
+                        add_cell_button(blueprint),
                         cls="flex gap-2 justify-start",
                     ),
                     cls="mb-4 flex justify-between items-start pt-16",

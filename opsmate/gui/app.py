@@ -89,10 +89,10 @@ async def get():
         return Title(f"{config.session_name}"), page
 
 
-@app.route("/cell/bottom")
-async def post():
+@app.route("/blueprint/{blueprint_id}/cell/bottom")
+async def post(blueprint_id: int):
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
         cells = active_workflow.cells
 
@@ -117,17 +117,23 @@ async def post():
             # Return the new cell to be added
             render_cell_container(cells, hx_swap_oob="true"),
             # Return the button to preserve it
-            add_cell_button,
+            add_cell_button(blueprint),
         )
 
 
 # Add cell manipulation routes
-@app.route("/cell/{index}")
-async def post(index: int, above: bool = False, session: sqlmodel.Session = None):
+@app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
+async def post(
+    blueprint_id: int,
+    cell_id: int,
+    above: bool = False,
+    session: sqlmodel.Session = None,
+):
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
-        selected_cell = active_workflow.find_cell_by_id(session, index)
+        selected_cell = active_workflow.find_cell_by_id(session, cell_id)
+        cells = active_workflow.cells
 
         new_cell = default_new_cell(active_workflow)
 
@@ -155,15 +161,16 @@ async def post(index: int, above: bool = False, session: sqlmodel.Session = None
         session.commit()
 
         # reload the cells
+        active_workflow.activate_cell(session, new_cell.id)
         session.refresh(active_workflow)
         cells = active_workflow.cells
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/{cell_id}")
-async def delete(cell_id: int):
+@app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
+async def delete(blueprint_id: int, cell_id: int):
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
         selected_cell = active_workflow.find_cell_by_id(session, cell_id)
 
@@ -189,9 +196,13 @@ async def delete(cell_id: int):
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/{cell_id}")
+@app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
 async def put(
-    cell_id: int, input: str = None, lang: str = None, thinking_system: str = None
+    blueprint_id: int,
+    cell_id: int,
+    input: str = None,
+    lang: str = None,
+    thinking_system: str = None,
 ):
     logger.info(
         "updating cell",
@@ -202,7 +213,7 @@ async def put(
     )
 
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
         selected_cell = active_workflow.find_cell_by_id(session, cell_id)
         if selected_cell is None:
@@ -236,10 +247,10 @@ async def put(
         return render_cell_container(cells, hx_swap_oob="true")
 
 
-@app.route("/cell/input/{cell_id}")
-async def put(cell_id: int, input: str):
+@app.route("/blueprint/{blueprint_id}/cell/input/{cell_id}")
+async def put(blueprint_id: int, cell_id: int, input: str):
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
         selected_cell = active_workflow.find_cell_by_id(session, cell_id)
 
@@ -260,7 +271,8 @@ async def put(workflow_id: str):
     logger.info("switching workflow", workflow_id=workflow_id)
 
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        workflow = Workflow.find_by_id(session, workflow_id)
+        blueprint = workflow.blueprint
         blueprint.activate_workflow(session, workflow_id)
 
         session.refresh(blueprint)
@@ -272,10 +284,10 @@ async def put(workflow_id: str):
         )
 
 
-@app.route("/cells/reset")
-async def post():
+@app.route("/blueprint/{blueprint_id}/cells/reset")
+async def post(blueprint_id: int):
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
         active_workflow = blueprint.active_workflow(session)
         session.exec(
             sqlmodel.delete(Cell).where(Cell.workflow_id == active_workflow.id)
@@ -291,7 +303,7 @@ async def post():
         session.refresh(new_cell)
         return (
             render_cell_container(active_workflow.cells, hx_swap_oob="true"),
-            reset_button,
+            reset_button(blueprint),
         )
 
 
@@ -304,8 +316,8 @@ async def ws(cell_id: int, input: str, send, session):
         return  # Exit if unauthorized
 
     with sqlmodel.Session(engine) as session:
-        blueprint = BluePrint.find_by_name(session, "polya")
-        active_workflow = blueprint.active_workflow(session)
+        cell = Cell.find_by_id(session, cell_id)
+        active_workflow = cell.workflow
         active_workflow.activate_cell(session, cell_id)
 
         cell = session.exec(sqlmodel.select(Cell).where(Cell.id == cell_id)).first()

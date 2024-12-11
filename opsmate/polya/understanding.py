@@ -1,4 +1,12 @@
 import instructor
+from opsmate.polya.models import (
+    QuestionResponse,
+    QuestionResponseSummary,
+    InfoGathered,
+    Report,
+    InitialUnderstandingResponse,
+    NonTechnicalQuery,
+)
 from anthropic import Anthropic
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
@@ -107,109 +115,6 @@ extra_sys_prompt = """
 5. Avoid using complicated kubectl selector such as `--field-selector involvedObject.name=`
 </assistant-context>
 """
-
-
-class NonTechnicalQuery(BaseModel):
-    """
-    The non-technical query from user
-    """
-
-    reason: str = Field(
-        description="The reason why this query is not technical related"
-    )
-
-
-class InitialUnderstandingResponse(BaseModel):
-    """
-    This is the response format for the summary section.
-    """
-
-    summary: str
-    questions: List[str]
-
-    def prompt(self):
-        return f"""
-<command-question>
-## Summary of the problem
-
-{self.summary}
-
-## Questions
-
-{f"\n".join([f"{i+1}. {question}" for i, question in enumerate(self.questions)])}
-</command-question>
-"""
-
-
-class Command(BaseModel):
-    """
-    The command line to be executed
-    """
-
-    command: str = Field(description="The command line to be executed")
-    description: str = Field(
-        description="what are the informations are provided by the command execution"
-    )
-
-    def execute(self):
-        """
-        Execute the command and return the output
-        """
-        try:
-            result = subprocess.run(
-                self.command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            return result.stdout
-        except subprocess.SubprocessError as e:
-            return str(e)
-
-
-class QuestionResponse(BaseModel):
-    """
-    The response to the question
-    """
-
-    summary: str = Field(
-        description="The high level summary of the problem that provides the context"
-    )
-    question: str = Field(description="The question that is being answered")
-    commands: List[Command] = Field(
-        description="The command line to be executed to answer the question"
-    )
-
-
-class QuestionResponseSummary(BaseModel):
-    """
-    The summary of the question
-    """
-
-    question: str
-    summary: str
-
-
-class InfoGathered(BaseModel):
-    """
-    The summary of the question
-    """
-
-    question: str
-    commands: List[Command]
-    info_gathered: str = Field(
-        description="The information gathered from the command execution"
-    )
-
-
-class Report(BaseModel):
-    """
-    The detailed report based on the high level summary and the findings
-    """
-
-    content: str
-
 
 modes = {
     # "planner": {

@@ -18,15 +18,20 @@ from opsmate.libs.core.types import (
     ReactAnswer,
 )
 from opsmate.libs.core.engine.agent_executor import AgentCommand
-from opsmate.polya.understanding import (
-    initial_understanding,
-    info_gathering,
-    generate_report,
+from opsmate.polya.models import (
     InitialUnderstandingResponse,
     InfoGathered,
     NonTechnicalQuery,
     Report,
+    TaskPlan,
 )
+
+from opsmate.polya.understanding import (
+    initial_understanding,
+    info_gathering,
+    generate_report,
+)
+from opsmate.polya.planning import planning
 import pickle
 import sqlmodel
 import structlog
@@ -467,7 +472,7 @@ async def execute_polya_planning_instruction(
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
     blueprint = cell.workflow.blueprint
-    understanding_workflow: Workflow = blueprint.find_by_name(
+    understanding_workflow: Workflow = blueprint.find_workflow_by_name(
         session, WorkflowEnum.UNDERSTANDING
     )
     understanding_report = understanding_workflow.result
@@ -480,6 +485,31 @@ async def execute_polya_planning_instruction(
             id=f"cell-output-{cell.id}",
         )
     )
+
+    task_plan = await planning(msg, understanding_report)
+    outputs.append(
+        {
+            "type": "TaskPlan",
+            "output": TaskPlan(**task_plan.model_dump()),
+        }
+    )
+
+    await send(
+        Div(
+            render_task_plan_markdown(k8s_agent.metadata.name, task_plan),
+            hx_swap_oob=swap,
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+    workflow = cell.workflow
+    workflow.result = task_plan.model_dump_json()
+    session.add(workflow)
+    session.commit()
 
 
 async def execute_bash_instruction(
@@ -716,6 +746,23 @@ def render_bash_output_markdown(agent: str, output: str):
     )
 
 
+def render_task_plan_markdown(agent: str, task_plan: TaskPlan):
+    return Div(
+        f"""
+**{agent} task plan**
+
+## Goal
+
+{task_plan.goal}
+
+## Subtasks
+
+{"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
+""",
+        cls="marked",
+    )
+
+
 class UnderstandingRenderer:
     @staticmethod
     def render_initial_understanding_markdown(
@@ -800,4 +847,5 @@ cell_render_funcs = {
     "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
     "Report": UnderstandingRenderer.render_report_markdown,
     "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
+    "TaskPlan": render_task_plan_markdown,
 }

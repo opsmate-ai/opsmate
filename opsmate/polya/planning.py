@@ -1,7 +1,7 @@
 import instructor
 from anthropic import Anthropic, AsyncAnthropic
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from opsmate.polya.models import TaskPlan
 from typing import List, Union
 import subprocess
 from jinja2 import Template
@@ -23,87 +23,6 @@ You are a world class SRE who is capable of breaking apart tasks into dependant 
 - Use as few tasks as possible.
 </rules>
 """
-
-
-class TaskResult(BaseModel):
-    """
-    TaskResult represents the result of a task
-    """
-
-    id: int = Field(description="The unique identifier for the task")
-    result: str = Field(description="The result of the task")
-
-
-class TaskResults(BaseModel):
-    """
-    TaskResults represent the results of a list of tasks
-    """
-
-    results: List[TaskResult] = Field(default_factory=list)
-
-
-class Task(BaseModel):
-    """
-    Task represents a single task in a task plan
-    """
-
-    id: int = Field(description="The unique identifier for the task")
-    task: str = Field(description="Summary of the task")
-
-    subtasks: List[int] = Field(
-        default_factory=list,
-        description="""
-List of the IDs of the subtasks that need to be answered before we can answer the main question.
-Use a subtask when anything maybe unknown and we need to ask multiple questions to get the anwer.
-        """,
-    )
-
-    async def execute(self, with_results: TaskResults) -> TaskResult:
-        """
-        Execute the task and return the result
-        """
-
-        pass
-
-
-class TaskPlan(BaseModel):
-    """
-    TaskPlan represents a tree of tasks and subtasks.
-    Make sure every task is in the tree, and the graph is a DAG.
-    """
-
-    goal: str = Field(description="The goal to achieve")
-
-    subtasks: List[Task] = Field(
-        description="List of tasks and subtasks need to be done to complete the user task."
-    )
-
-    def topological_sort(self):
-        """
-        Topological sort the subtasks
-        """
-
-        sub_graph = {}
-        for task in self.subtasks:
-            sub_graph[task.id] = task.subtasks.copy()
-
-        task_map = {task.id: task for task in self.subtasks}
-
-        sorted = []
-
-        while len(sub_graph) > 0:
-            nodes = []
-            for id, subtasks in sub_graph.items():
-                if len(subtasks) == 0:
-                    nodes.append(task_map[id])
-            for node in nodes:
-                del sub_graph[node.id]
-                for id, subtasks in sub_graph.items():
-                    if node.id in subtasks:
-                        subtasks.remove(node.id)
-            sorted.extend(nodes)
-
-        return sorted
 
 
 async def planning(instruction: str, context: str) -> TaskPlan:
@@ -158,6 +77,8 @@ async def planning(instruction: str, context: str) -> TaskPlan:
     #         max_tokens=1000,
     #         response_model=TaskPlan,
     #     )
+
+    response.topological_sort()
     return response
 
 

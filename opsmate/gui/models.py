@@ -73,6 +73,14 @@ class BluePrint(SQLModel, table=True):
     def find_by_name(cls, session: Session, name: str):
         return session.exec(select(cls).where(cls.name == name)).first()
 
+    @classmethod
+    def find_workflow_by_name(cls, session: Session, name: str):
+        return session.exec(
+            select(Workflow)
+            .where(Workflow.blueprint_id == cls.id)
+            .where(Workflow.name == name)
+        ).first()
+
     def active_workflow(self, session: Session):
         return session.exec(
             select(Workflow)

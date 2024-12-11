@@ -92,6 +92,29 @@ class Report(BaseModel):
     content: str
 
 
+class Solution(BaseModel):
+    """
+    The solution to the problem
+    """
+
+    findings: List[str] = Field(
+        description="The list of findings that back the solution"
+    )
+    solution: str
+    probability: int
+
+
+class ReportExtracted(BaseModel):
+    """
+    The extracted information from the report
+    """
+
+    summary: str = Field(description="The summary of the problem")
+    potential_solutions: List[Solution] = Field(
+        description="The potential solutions to the problem"
+    )
+
+
 class TaskResult(BaseModel):
     """
     TaskResult represents the result of a task

@@ -24,12 +24,14 @@ from opsmate.polya.models import (
     NonTechnicalQuery,
     Report,
     TaskPlan,
+    Solution,
 )
 
 from opsmate.polya.understanding import (
     initial_understanding,
     info_gathering,
     generate_report,
+    report_breakdown,
 )
 from opsmate.polya.planning import planning
 import pickle
@@ -439,28 +441,34 @@ async def execute_polya_understanding_instruction(
     report = await generate_report(
         iu.summary, mode="executor", info_gathered=infos_gathered
     )
-    outputs.append(
-        {
-            "type": "Report",
-            "output": Report(**report.model_dump()),
+    report_extracted = await report_breakdown(report)
+    for solution in report_extracted.potential_solutions:
+        output = {
+            "summary": report_extracted.summary,
+            "solution": Solution(**solution.model_dump()),
         }
-    )
-    await send(
-        Div(
-            UnderstandingRenderer.render_report_markdown(
-                k8s_agent.metadata.name, report
-            ),
-            hx_swap_oob=swap,
-            id=f"cell-output-{cell.id}",
+        outputs.append(
+            {
+                "type": "PotentialSolution",
+                "output": output,
+            }
         )
-    )
+        await send(
+            Div(
+                UnderstandingRenderer.render_potential_solution_markdown(
+                    k8s_agent.metadata.name, output
+                ),
+                hx_swap_oob=swap,
+                id=f"cell-output-{cell.id}",
+            )
+        )
 
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
 
     workflow = cell.workflow
-    workflow.result = report.content
+    workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
 
@@ -810,13 +818,39 @@ class UnderstandingRenderer:
         )
 
     @staticmethod
-    def render_report_markdown(agent: str, report: Report):
+    def render_potential_solution_markdown(agent: str, output: dict):
+        summary = output.get("summary", "")
+        solution = output.get("solution", {})
+        template = Template(
+            """
+## Summary
+
+{{ summary }}
+
+## Findings
+
+{% for finding in findings %}
+- {{ finding }}
+{% endfor %}
+
+## Solution
+
+{{ solution.solution }}
+
+## Solution success probability
+
+{{ solution.probability }}
+    """
+        )
+        rendered = template.render(
+            summary=summary,
+            findings=solution.findings,
+            solution=solution,
+        )
         return Div(
             f"""
-**Report**
-
 ```
-{report.content}
+{rendered}
 ```
 """,
             cls="marked",
@@ -845,7 +879,7 @@ cell_render_funcs = {
     "BashOutput": render_bash_output_markdown,
     "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
     "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
-    "Report": UnderstandingRenderer.render_report_markdown,
+    "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,
     "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
     "TaskPlan": render_task_plan_markdown,
 }

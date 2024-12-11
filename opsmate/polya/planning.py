@@ -1,7 +1,8 @@
 import instructor
 from anthropic import Anthropic, AsyncAnthropic
 from openai import AsyncOpenAI
-from opsmate.polya.models import TaskPlan
+from opsmate.polya.models import TaskPlan, Report
+from opsmate.polya.understanding import ReportExtracted, report_breakdown
 from typing import List, Union
 import subprocess
 from jinja2 import Template
@@ -21,6 +22,7 @@ You are a world class SRE who is capable of breaking apart tasks into dependant 
 - Before completing the list of tasks, think step by step to get a better understanding the problem.
 - The tasks must be based on the context provided, DO NOT make up tasks that are unrelated to the context.
 - Use as few tasks as possible.
+- Each task must be highly actionable.
 </rules>
 """
 
@@ -83,23 +85,65 @@ async def planning(instruction: str, context: str) -> TaskPlan:
 
 
 async def main():
-    plan = await planning(
-        "How to solve the problem?",
-        context="""
+    report = Report(
+        content="""
+## Summary
+The 'payment-service' deployment in the 'payment' namespace is unable to successfully rollout. This failure is primarily due to a 'ProgressDeadlineExceeded' status. The deployment issue includes at least one pod with an unhealthy status, stemming from a failed readiness probe that returns an HTTP 404 error. Moreover, the system is experiencing back-off behaviour as it repeatedly attempts to restart a failed container.
+
+## Findings
+- **ProgressDeadlineExceeded Status**: This status indicates that the deployment did not progress as expected within the deadline set for rollout.
+- **Readiness Probe Failure**: The pod readiness probe is failing, resulting in an HTTP 404 status. This frequently happens when the service within the pod is not running or responding to the readiness probe as configured.
+- **Back-Off Event**: The Kubernetes system is in a cycle of trying to restart a failed container, which suggests that there is a persistent failure preventing the container from reaching a running and stable state.
+- **Lack of Resource Quotas**: There are no resource limits or quotas defined for the 'payment' namespace, ruling out resource scarcity as the cause of the deployment issue.
+- **Undocumented Configuration Changes**: The absence of documented reasons or 'CHANGE-CAUSE' labels in the rollout history of the deployment makes it challenging to pinpoint recent configuration changes as a cause for the issue.
+
+## Potential Solutions
+1. **Check and Update Readiness Probe Configuration (50%)**: The readiness probe might be misconfigured or targeting a non-existent endpoint. Ensuring that the endpoint exists and is accurate can resolve the issue.
+   - Probability of Success: 50%
+
+2. **Inspect and Amend Container Setup (30%)**: Validate that the container's start command, environment, and other configuration settings are correct, enabling the application to start and run without errors.
+   - Probability of Success: 30%
+
+3. **Review Recent Changes (20%)**: Given the lack of documented changes, manually review recent commits or configurations to identify potential errors or missing settings that might be affecting the rollout.
+   - Probability of Success: 20%
+
+## Out of Scope
+- **Resource Quota Issues**: Since there are no resource constraints in the 'payment' namespace, this is not related to the current problem.
+- **Network or Infrastructure Issues**: The findings do not indicate network or broader infrastructure problems affecting the deployment.
+"""
+    )
+    report_extracted = await report_breakdown(report)
+
+    print(report_extracted.model_dump_json(indent=2))
+
+    template = Template(
+        """
 ## Summary
 
-The 'payment-service' deployment within the 'payment' namespace is failing to roll out successfully in a Kubernetes cluster. This issue is primarily due to problems related to the readiness probe failures and frequent container restart attempts, indicating possible misconfigurations in the service health checks or application dependencies.
+{{ summary }}
 
 ## Findings
 
-1. **Readiness Probe Failure:**
-   - The readiness probe for the payment-service pods is failing with a 404 status code. This suggests that the health check endpoint configured may be incorrect or the endpoint that the readiness probe is checking is not reachable.
+{% for finding in findings %}
+- {{ finding }}
+{% endfor %}
 
-## Recommendation
+## Solution
 
-1. **Verify and Correct Readiness Probe Configuration:**
-   - Ensure that the readiness probe's endpoint is correctly configured to check a valid and responsive path within the application.
-""",
+{{ solution }}
+"""
+    )
+
+    context = template.render(
+        summary=report_extracted.summary,
+        findings=report_extracted.potential_solutions[0].findings,
+        solution=report_extracted.potential_solutions[0].solution,
+    )
+
+    print(context)
+    plan = await planning(
+        "can you solve the problem based on the context?",
+        context=context,
     )
 
     print(plan.model_dump_json(indent=2))

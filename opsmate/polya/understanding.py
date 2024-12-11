@@ -6,6 +6,7 @@ from opsmate.polya.models import (
     Report,
     InitialUnderstandingResponse,
     NonTechnicalQuery,
+    ReportExtracted,
 )
 from anthropic import Anthropic
 from openai import AsyncOpenAI
@@ -80,7 +81,7 @@ You need to provide the command line to be executed to solve the problem.
 report_sys_prompt = """
 <assistant>
 You are a world class SRE who is good at problem solving. You are now given a summary of the problem, and a set of command runs and output observations.
-You need to summarise the problem statement in a concise manner.
+You need to give a detailed report on the problem, and provide some potential solutions on how to resolve the problem.
 </assistant>
 
 <response_format>
@@ -90,8 +91,8 @@ Describe summary of the problem
 # Findings
 Break down of findings
 
-# Recommendation
-Recommendation on how to resolve the problem based on the findings.
+# Potential solutions
+Give some potential solutions on how to resolve the problem, with probability of success.
 
 # Out of scope
 Things you have noticed based on the findings however are not related to the problem
@@ -100,7 +101,8 @@ Things you have noticed based on the findings however are not related to the pro
 <important_notes>
 - Use markdown in your response.
 - Do not just return the brief summary you are given, but fact in all the findings
-- **ONLY** list recommendations that are relevant to the problem
+- **ONLY** list potential solutions that are relevant to the problem
+- The sum of probability of all potential solutions should be added up to 100%
 </important_notes>
 """
 
@@ -289,6 +291,27 @@ Now please write a detailed report based on the above context.
     )
 
     return response
+
+
+async def report_breakdown(report: Report) -> ReportExtracted:
+    """
+    Break down the report into a structured format
+    """
+    openai = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.TOOLS)
+    report_extracted = await openai.messages.create(
+        messages=[
+            {
+                "role": "user",
+                "content": report.content,
+            },
+        ],
+        model="gpt-4o",
+        response_model=ReportExtracted,
+    )
+
+    # sort the potential solutions by probability
+    report_extracted.potential_solutions.sort(key=lambda x: x.probability, reverse=True)
+    return report_extracted
 
 
 async def main():

@@ -13,6 +13,8 @@ from opsmate.polya.understanding import (
     info_gathering,
 )
 import asyncio
+import tempfile
+import yaml
 
 
 async def execute(task_plan: TaskPlan):
@@ -35,40 +37,168 @@ async def execute(task_plan: TaskPlan):
     return all_task_results
 
 
-async def main():
-    context = """
-# Summary
-The `payment-service` deployment in the `payment` namespace is facing issues with successfully rolling out the new pods. Despite a rolling update strategy allowing for some pods to be unavailable during updates, the deployment is failing to meet the progress deadline, resulting in an overall unsuccessful rollout.
+executor_sys_prompt = """
+<assistant>
+You are a world classSRE who is good at solving problems. You are specialised in kubernetes and python.
+You are tasked to solve the problem by executing python code
+</assistant>
 
-# Findings
-1. **Deployment Status:**
-   - The deployment desires 2 replicas but currently has 3, indicating an excess pod count beyond the specification.
-   - 2 replicas are available while 1 remains unavailable, even though the system considers the "Available" condition "True."
-   - Progress status of the deployment is marked as "False" due to "ProgressDeadlineExceeded."
+<rules>
+- Comes up with solutions using python code
+- Use stdlib, do not use any third party libraries that needs pip install
+- Feel free to shell out to kubectl, helm etc to get the information you need
+- Make sure that the stdout and stderr are printed out instead of returned
+- Do not hallucinate, only use the information provided in the context
+</rules>
 
-2. **Probe Failures:**
-   - The readiness probe for the pod `payment-service-d4b67d787-pr8zr` has failed, returning a 404 HTTP status code, indicating that the health check endpoint may be incorrect or the service endpoint may be down.
-   - Back-off restarts have been triggered due to container failures.
-
-3. **Recent Changes:**
-   - No changes in revision causes within the rollout history for revisions 2 and 3. This suggests that failures are not due to recent deployment changes but rather existing misconfigurations or dependencies.
-
-4. **Kubernetes Events:**
-   - Other events echo the same issues: back-off restart and readiness probe failure, highlighting a recurring problem in the service health checks.
-
-# Recommendation
-- **Verify Health Check Endpoints:** Ensure the readiness probe and liveness probe endpoints are correct, and confirm that the service they monitor is operational.
-- **Resource Configurations:** Check resource allocations such as CPU and memory for adequacy as resource constraints might lead to readiness probe failures.
-- **Debug Container Logs:** Review the container logs of the failing pod `payment-service-d4b67d787-pr8zr` to get more insight into why the readiness checks return 404 errors.
-- **Check Dependencies:** Investigate any upstream dependencies that may be affecting the pod's ability to become "Ready."
-
-# Out of scope
-- The deployment previously did not show issues with availability conditions, suggesting that the core deployment strategy is sound but other environmental factors or configuration errors are at play.
-- No new features or massive changes recorded, reducing the likelihood that new code is the cause of these problems.
+<important>
+- The script you are executing is mission critical, so make sure it is precise and correct
+</important>
 """
-    task_plan = await planning(context=context, instruction="how can this be resolved?")
 
-    print(task_plan.model_dump_json(indent=2))
+
+class PythonCode(BaseModel):
+    """
+    The python code to be executed to answer the question
+    """
+
+    code: str = Field(description="The python code to be executed")
+    description: str = Field(
+        description="The description of the python code to be executed"
+    )
+
+    async def execute(self):
+        # write the code into a tempfile and execute it
+        with tempfile.NamedTemporaryFile(suffix=".py") as temp_file:
+            temp_file.write(self.code.encode())
+            temp_file.flush()
+            temp_file_path = temp_file.name
+
+            print(f"Executing code from {temp_file_path}")
+
+            try:
+                result = subprocess.run(
+                    ["python", temp_file_path],
+                    shell=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                return PythonCodeResult(
+                    code=self,
+                    result=result.stdout,
+                )
+            except subprocess.SubprocessError as e:
+                return PythonCodeResult(
+                    code=self,
+                    result=str(e),
+                )
+
+
+class PythonCodeResult(BaseModel):
+    code: PythonCode
+    result: str
+
+
+class Execution(BaseModel):
+    python_codes: List[PythonCode] = Field(
+        description="The python code to be executed to answer the question"
+    )
+
+
+async def main():
+    background_context = """
+## Summary
+
+The deployment "payment-service" within the "payment" namespace is facing rollout issues due to readiness probe failures. The HTTP endpoint is returning a 404 status code, causing pods to be marked as unhealthy, leading to repeated restarts and delays in deployment, with "ProgressDeadlineExceeded" condition noted.
+
+## Findings
+
+
+- The readiness probe for the pods is set up to send HTTP requests to a specific endpoint, which is failing with a 404 status code. This suggests that the service or endpoint expected to be up and running is either not available, misconfigured, or incorrectly specified.
+
+## Solution
+
+Verify HTTP Endpoint Configuration. Check and validate the service endpoint that the readiness probe targets. Ensure the route (URL path) and the service is correctly configured to handle requests and is actively running.
+"""
+    task = "Verify readiness probe configuration in deployment manifest."
+
+    openai = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.TOOLS)
+
+    messages = [
+        {
+            "role": "system",
+            "content": executor_sys_prompt,
+        },
+        {
+            "role": "user",
+            "content": f"""
+<context>
+{background_context}
+</context>
+""",
+        },
+        {"role": "user", "content": task},
+    ]
+
+    execution = await openai.messages.create(
+        messages=messages,
+        model="gpt-4o",
+        response_model=Execution,
+    )
+
+    for python_code in execution.python_codes:
+        print(python_code.code)
+        print(python_code.description)
+
+    result = await asyncio.gather(
+        *[python_code.execute() for python_code in execution.python_codes]
+    )
+
+    result_template = Template(
+        """
+<result>
+{% for result in results %}
+## Execution description
+
+{{ result.code.description }}
+
+## Execution result
+```
+{{ result.result }}
+```
+{% endfor %}
+</result>
+"""
+    )
+
+    rendered_result = result_template.render(results=result)
+    print(rendered_result)
+    messages.append(
+        {
+            "role": "user",
+            "content": f"""
+<result>
+{rendered_result}
+</result>
+""",
+        }
+    )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": "What is the result of the task?",
+        }
+    )
+
+    response = await openai.messages.create(
+        messages=messages,
+        model="gpt-4o",
+        response_model=str,
+    )
+
+    print(response)
 
 
 if __name__ == "__main__":

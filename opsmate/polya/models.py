@@ -104,7 +104,7 @@ class Solution(BaseModel):
     solution: str
     probability: int
 
-    def summarize(self, summary: str):
+    def summarize(self, summary: str, show_probability: bool = True):
         template = Template(
             """
 ## Summary
@@ -121,9 +121,11 @@ class Solution(BaseModel):
 
 {{ solution }}
 
+{% if show_probability %}
 ## Probability of Success
 
 {{ probability }}
+{% endif %}
 """
         )
         return template.render(
@@ -131,6 +133,7 @@ class Solution(BaseModel):
             findings=self.findings,
             solution=self.solution,
             probability=self.probability,
+            show_probability=show_probability,
         )
 
 

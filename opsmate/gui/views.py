@@ -357,6 +357,8 @@ async def execute_llm_type2_instruction(
         return await execute_polya_understanding_instruction(cell, swap, send, session)
     elif workflow.name == WorkflowEnum.PLANNING:
         return await execute_polya_planning_instruction(cell, swap, send, session)
+    elif workflow.name == WorkflowEnum.EXECUTION:
+        return await execute_polya_execution_instruction(cell, swap, send, session)
 
 
 async def execute_polya_understanding_instruction(
@@ -524,6 +526,35 @@ async def execute_polya_planning_instruction(
     workflow.result = task_plan.model_dump_json()
     session.add(workflow)
     session.commit()
+
+
+async def execute_polya_execution_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
+):
+    msg = cell.input.rstrip()
+    logger.info("executing polya execution instruction", cell_id=cell.id, input=msg)
+
+    blueprint = cell.workflow.blueprint
+    understanding_workflow: Workflow = blueprint.find_workflow_by_name(
+        session, WorkflowEnum.UNDERSTANDING
+    )
+    report_extracted_json = understanding_workflow.result
+    report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
+
+    solution_summary = report_extracted.potential_solutions[0].summarize(
+        report_extracted.summary, show_probability=False
+    )
+
+    print(solution_summary)
+
+    planning_workflow: Workflow = blueprint.find_workflow_by_name(
+        session, WorkflowEnum.PLANNING
+    )
+    task_plan_json = planning_workflow.result
+
+    task_plan = TaskPlan.model_validate_json(task_plan_json)
+
+    print(task_plan.model_dump_json(indent=2))
 
 
 async def execute_bash_instruction(

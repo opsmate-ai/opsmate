@@ -29,12 +29,12 @@ k8s_agent = _k8s_agent(
     max_depth=10,
 )
 
-supervisor = supervisor_agent(
-    model="gpt-4o",
-    provider="openai",
-    extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-    agents=[],
-)
+# supervisor = supervisor_agent(
+#     model="gpt-4o",
+#     provider="openai",
+#     extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
+#     agents=[],
+# )
 
 
 class CellLangEnum(enum.Enum):
@@ -175,6 +175,14 @@ class Workflow(SQLModel, table=True):
         return session.exec(
             select(Cell).where(Cell.workflow_id == self.id).where(Cell.id == cell_id)
         ).first()
+
+    def find_previous_cells(self, session: Session, cell: "Cell"):
+        return session.exec(
+            select(Cell)
+            .where(Cell.workflow_id == self.id)
+            .where(Cell.sequence < cell.sequence)
+            .order_by(Cell.sequence)
+        ).all()
 
 
 class Cell(SQLModel, table=True):

@@ -160,8 +160,6 @@ async def post(
         )
         new_cell.execution_sequence = max_execution_sequence + 1
 
-        # get the current sequence number
-
         if above:
             new_cell.sequence = selected_cell.sequence
         else:
@@ -169,9 +167,7 @@ async def post(
 
         session.add(new_cell)
         # find all cells with a sequence greater than the current cell
-        cells_to_shift = [
-            cell for cell in cells if cell.sequence >= selected_cell.sequence
-        ]
+        cells_to_shift = [cell for cell in cells if cell.sequence >= new_cell.sequence]
         for cell in cells_to_shift:
             cell.sequence += 1
             session.add(cell)

@@ -1,5 +1,6 @@
 from fasthtml.common import *
 from sqlmodel import Session
+from pydantic import BaseModel
 from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
@@ -16,6 +17,7 @@ from opsmate.libs.core.types import (
     Observation,
     ReactProcess,
     ReactAnswer,
+    Agent,
 )
 from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.models import (
@@ -41,6 +43,7 @@ import structlog
 import asyncio
 import subprocess
 from jinja2 import Template
+import json
 
 logger = structlog.get_logger()
 
@@ -298,10 +301,57 @@ def workflow_button(workflow: Workflow):
     )
 
 
+def marshal_output(output: dict | BaseModel | str):
+    if isinstance(output, BaseModel):
+        return output.model_dump()
+    elif isinstance(output, str):
+        return output
+    elif isinstance(output, dict):
+        for k, v in output.items():
+            output[k] = marshal_output(v)
+        return output
+
+
+async def prefill_conversation(cell: Cell, agent: Agent, session: sqlmodel.Session):
+    executor.clear_history(agent)
+    agent.status.historical_context = []
+
+    workflow = cell.workflow
+    previous_cells = workflow.find_previous_cells(session, cell)
+
+    for idx, previous_cell in enumerate(previous_cells):
+        assistant_response = ""
+        for output in pickle.loads(previous_cell.output):
+            o = output["output"]
+            marshalled_output = marshal_output(o)
+            if isinstance(marshalled_output, dict):
+                assistant_response += json.dumps(marshalled_output, indent=2) + "\n"
+            else:
+                assistant_response += marshalled_output + "\n"
+
+        conversation = f"""
+Conversation {idx + 1}:
+
+<user instruction>
+{previous_cell.input}
+</user instruction>
+
+<assistant response>
+{assistant_response}
+</assistant response>
+"""
+        agent.status.historical_context.append(
+            Observation(action="", observation=conversation)
+        )
+
+
 async def execute_llm_react_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
+
     logger.info("executing llm react instruction", cell_id=cell.id)
+
+    await prefill_conversation(cell, k8s_agent, session)
 
     outputs = []
     await send(

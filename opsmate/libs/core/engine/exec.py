@@ -74,7 +74,7 @@ def _exec_executables(
             logger.error(f"Attempt {retry_count + 1} failed: {e}", exc_info=True)
             if retry_count == max_retries - 1:  # Last attempt
                 logger.error(f"All {max_retries} attempts failed")
-                raise  # Re-raise the last exception
+                # raise  # Re-raise the last exception
 
     return exec_results, provider_client.messages
 

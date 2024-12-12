@@ -324,10 +324,15 @@ async def prefill_conversation(cell: Cell, agent: Agent, session: sqlmodel.Sessi
         for output in pickle.loads(previous_cell.output):
             o = output["output"]
             marshalled_output = marshal_output(o)
-            if isinstance(marshalled_output, dict):
-                assistant_response += json.dumps(marshalled_output, indent=2) + "\n"
-            else:
-                assistant_response += marshalled_output + "\n"
+            try:
+                if isinstance(marshalled_output, dict) or isinstance(
+                    marshalled_output, list
+                ):
+                    assistant_response += json.dumps(marshalled_output, indent=2) + "\n"
+                else:
+                    assistant_response += marshalled_output + "\n"
+            except Exception as e:
+                logger.error("Error marshalling output", error=e)
 
         conversation = f"""
 Conversation {idx + 1}:

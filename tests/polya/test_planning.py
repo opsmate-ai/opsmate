@@ -1,6 +1,7 @@
 import pytest
 
-from opsmate.polya.planning import TaskPlan, planning, Task
+# from opsmate.polya.planning import planning
+from opsmate.polya.models import Task, TaskPlan
 
 
 def test_topological_sort():

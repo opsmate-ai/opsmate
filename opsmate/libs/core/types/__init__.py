@@ -164,9 +164,6 @@ class ReactOutput(BaseModel):
     output: ReactProcess | ReactAnswer = Field(title="output")
 
 
-ReactContext = List[ReactProcess | ReactAnswer]
-
-
 class ExecOutput(BaseModel):
     def table_title(self):
         raise NotImplementedError("ExecOutput must implement table_title")
@@ -238,6 +235,7 @@ class Supervisor(BaseModel):
     spec: SupervisorSpec = Field(title="spec")
 
 
+ReactContext = List[ReactProcess | ReactAnswer | Observation]
 AgentFactory = Callable[[str, bool, int, ReactContext, List[Context]], Agent]
 
 

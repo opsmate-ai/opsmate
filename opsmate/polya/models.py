@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List
 import subprocess
+from jinja2 import Template
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -102,6 +103,35 @@ class Solution(BaseModel):
     )
     solution: str
     probability: int
+
+    def summarize(self, summary: str):
+        template = Template(
+            """
+## Summary
+
+{{ summary }}
+
+## Findings
+
+{% for finding in findings %}
+- {{ finding }}
+{% endfor %}
+
+## Solution
+
+{{ solution }}
+
+## Probability of Success
+
+{{ probability }}
+"""
+        )
+        return template.render(
+            summary=summary,
+            findings=self.findings,
+            solution=self.solution,
+            probability=self.probability,
+        )
 
 
 class ReportExtracted(BaseModel):

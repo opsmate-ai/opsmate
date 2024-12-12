@@ -9,6 +9,7 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     BluePrint,
     Workflow,
+    WorkflowEnum,
     default_new_cell,
 )
 from opsmate.gui.seed import seed_blueprints
@@ -81,6 +82,10 @@ async def startup():
             for workflow in blueprint.workflows:
                 if len(workflow.cells) == 0:
                     new_cell = default_new_cell(workflow)
+                    if workflow.name == WorkflowEnum.PLANNING:
+                        new_cell.input = (
+                            "can you solve the problem based on the context?"
+                        )
                     session.add(new_cell)
                     session.commit()
 

@@ -25,6 +25,7 @@ from opsmate.polya.models import (
     Report,
     TaskPlan,
     Solution,
+    ReportExtracted,
 )
 
 from opsmate.polya.understanding import (
@@ -483,7 +484,12 @@ async def execute_polya_planning_instruction(
     understanding_workflow: Workflow = blueprint.find_workflow_by_name(
         session, WorkflowEnum.UNDERSTANDING
     )
-    understanding_report = understanding_workflow.result
+    report_extracted_json = understanding_workflow.result
+
+    # pick the most optimal solution
+    report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
+    solution = report_extracted.potential_solutions[0]
+    summary = report_extracted.summary
 
     outputs = []
     await send(
@@ -494,7 +500,7 @@ async def execute_polya_planning_instruction(
         )
     )
 
-    task_plan = await planning(msg, understanding_report)
+    task_plan = await planning(msg, solution.summarize(summary))
     outputs.append(
         {
             "type": "TaskPlan",
@@ -821,32 +827,8 @@ class UnderstandingRenderer:
     def render_potential_solution_markdown(agent: str, output: dict):
         summary = output.get("summary", "")
         solution = output.get("solution", {})
-        template = Template(
-            """
-## Summary
 
-{{ summary }}
-
-## Findings
-
-{% for finding in findings %}
-- {{ finding }}
-{% endfor %}
-
-## Solution
-
-{{ solution.solution }}
-
-## Solution success probability
-
-{{ solution.probability }}
-    """
-        )
-        rendered = template.render(
-            summary=summary,
-            findings=solution.findings,
-            solution=solution,
-        )
+        rendered = solution.summarize(summary)
         return Div(
             f"""
 ```

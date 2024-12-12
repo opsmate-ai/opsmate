@@ -48,7 +48,12 @@ import json
 logger = structlog.get_logger()
 
 # Set up the app, including daisyui and tailwind for the chat component
-tlink = (Script(src="https://cdn.tailwindcss.com"),)
+tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")
+dlink = Link(
+    rel="stylesheet",
+    href="https://cdn.jsdelivr.net/npm/daisyui@4.11.1/dist/full.min.css",
+)
+
 nav = (
     Nav(
         Div(
@@ -71,11 +76,6 @@ nav = (
         ),
         cls="navbar bg-base-100 shadow-lg mb-4 fixed top-0 left-0 right-0 z-50",
     ),
-)
-
-dlink = Link(
-    rel="stylesheet",
-    href="https://cdn.jsdelivr.net/npm/daisyui@4.11.1/dist/full.min.css",
 )
 
 
@@ -744,7 +744,7 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
             Div(
                 Div(
                     active_workflow.description,
-                    cls="text-sm text-gray-700 marked",
+                    cls="text-sm text-gray-700 marked prose max-w-none",
                 ),
                 cls="flex items-center gap-2",
             ),
@@ -764,7 +764,7 @@ def render_react_markdown(agent: str, output: ReactProcess):
 | --- | --- |
 | {output.thought} | {output.action} |
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -775,7 +775,7 @@ def render_react_answer_markdown(agent: str, output: ReactAnswer):
 
 {output.answer}
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -788,7 +788,7 @@ def render_agent_command_markdown(agent: str, output: AgentCommand):
 
 <br>
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -799,7 +799,7 @@ def render_observation_markdown(agent: str, output: Observation):
 
 {output.observation}
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -810,7 +810,7 @@ def render_exec_results_markdown(agent: str, output: ExecResults):
             f"""
 **{agent} results**
 """,
-            cls="marked",
+            cls="marked prose max-w-none",
         )
     )
     for result in output.results:
@@ -829,7 +829,7 @@ def render_exec_results_markdown(agent: str, output: ExecResults):
 
 """
 
-        markdown_outputs.append(Div(output, cls="marked"))
+        markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
     return Div(*markdown_outputs)
 
 
@@ -842,7 +842,7 @@ def render_bash_output_markdown(agent: str, output: str):
 {output}
 ```
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -859,7 +859,7 @@ def render_task_plan_markdown(agent: str, task_plan: TaskPlan):
 
 {"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
 """,
-        cls="marked",
+        cls="marked prose max-w-none",
     )
 
 
@@ -877,19 +877,19 @@ class UnderstandingRenderer:
 { "**Questions**" if iu.questions else "" }
 {"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
 """,
-            cls="marked",
+            cls="marked prose max-w-none",
         )
 
     @staticmethod
     def render_info_gathered_markdown(agent: str, info_gathered: InfoGathered):
         template = """
-**Information Gathering**
+## Information Gathering
 
-**Question:**
+### Question
 
 {{ info_gathered.question }}
 
-**Command:**
+### Command
 
 {% for command in info_gathered.commands %}
 ```
@@ -898,15 +898,15 @@ class UnderstandingRenderer:
 ```
 {% endfor %}
 
-**Summary:**
+### Summary
 
-> {{ info_gathered.info_gathered }}
+ {{ info_gathered.info_gathered }}
 
 """
 
         return Div(
             Template(template).render(info_gathered=info_gathered),
-            cls="marked",
+            cls="marked prose max-w-none",
         )
 
     @staticmethod
@@ -917,11 +917,10 @@ class UnderstandingRenderer:
         rendered = solution.summarize(summary)
         return Div(
             f"""
-```
 {rendered}
-```
+<br>
 """,
-            cls="marked",
+            cls="marked prose max-w-none",
         )
 
     @staticmethod
@@ -934,7 +933,7 @@ This is a non-technical query, thus I don't know how to answer it.
 
 **Reason:** {non_technical_query.reason}
 """,
-            cls="marked",
+            cls="marked prose max-w-none",
         )
 
 

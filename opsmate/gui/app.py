@@ -64,7 +64,9 @@ def before(req, session):
 bware = Beforeware(before)
 
 app = FastHTML(
-    hdrs=(MarkdownJS(), tlink, dlink, picolink, nav), exts="ws", before=bware
+    hdrs=(tlink, dlink, picolink, MarkdownJS(), nav),
+    exts="ws",
+    before=bware,
 )
 
 

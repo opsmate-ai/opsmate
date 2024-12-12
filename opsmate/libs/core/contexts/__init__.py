@@ -329,34 +329,6 @@ answer: the process with pid 1234 is killed
 Do not give the answer as a thought or is unspecific.
 
 question: what are the pods in the cluster?
-
-BAD EXAMPLE:
-
-<react>
-thought: I need to get the pods in the cluster
-action: run `kubectl get pods -A`
-</react>
-
-// output: pod1, pod2, pod3
-
-<react>
-answer: Pod has been listed
-</react>
-
-GOOD EXAMPLE:
-
-question: what are the pods in the cluster?
-
-<react>
-thought: I need to get the pods in the cluster
-action: run `kubectl get pods -A`
-</react>
-
-// output: pod1, pod2, pod3
-
-<react>
-answer: pods are pod1, pod2, pod3
-</react>
 """
 
 react_ctx = Context(

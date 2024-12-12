@@ -5,7 +5,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-VERSION=0.1.5.alpha1
+VERSION=0.1.6.alpha
 IMAGE_NAME=opsmate
 CONTAINER_REGISTRY=europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images
 
@@ -39,6 +39,11 @@ kind-cluster: kind
 kind-destroy: kind
 	$(KIND) delete cluster --name troubleshooting-eval
 
+.PHONY: create-test-scenario
+create-test-scenario:
+	docker build -t payment-service:v1 hack/
+	$(KIND) load docker-image payment-service:v1 --name troubleshooting-eval
+	kubectl apply -f hack/deploy.yml
 
 .PHONY: api-gen
 api-gen: # generate the api spec

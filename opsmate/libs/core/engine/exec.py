@@ -44,31 +44,37 @@ def _exec_executables(
 
     executables = list(task.all_executables)
 
-    exec_calls = provider_client.chat_completion(
-        model=model,
-        max_retries=max_retries,
-        response_model=Iterable[Union[tuple(executables)]],
-    )
+    for retry_count in range(max_retries):
+        try:
+            exec_calls = provider_client.chat_completion(
+                model=model,
+                max_retries=max_retries,
+                response_model=Iterable[Union[tuple(executables)]],
+            )
 
-    exec_results = ExecResults(results=[])
+            exec_results = ExecResults(results=[])
 
-    try:
-        for exec_call in exec_calls:
-            if not stream or not exec_call.streamable:
-                output = exec_call(ask=ask)
-                logger.info(f"output: {output}")
-                exec_results.results.append(output)
-            else:
-                outputs = exec_call.stream(ask=ask)
-                stream_output.put(exec_call)
-                for output in outputs:
-                    stream_output.put(output)
-                    if output.exit_code != -1:
-                        exec_results.results.append(output)
+            for exec_call in exec_calls:
+                if not stream or not exec_call.streamable:
+                    output = exec_call(ask=ask)
+                    logger.info(f"output: {output}")
+                    exec_results.results.append(output)
+                else:
+                    outputs = exec_call.stream(ask=ask)
+                    stream_output.put(exec_call)
+                    for output in outputs:
+                        stream_output.put(output)
+                        if output.exit_code != -1:
+                            exec_results.results.append(output)
 
-        span.set_attribute("exec_results.len", len(exec_results.results))
-    except Exception as e:
-        logger.error(f"Error executing {exec_calls}: {e}", exc_info=True)
+            span.set_attribute("exec_results.len", len(exec_results.results))
+            break  # Success - exit retry loop
+
+        except Exception as e:
+            logger.error(f"Attempt {retry_count + 1} failed: {e}", exc_info=True)
+            if retry_count == max_retries - 1:  # Last attempt
+                logger.error(f"All {max_retries} attempts failed")
+                raise  # Re-raise the last exception
 
     return exec_results, provider_client.messages
 

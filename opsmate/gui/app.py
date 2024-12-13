@@ -226,6 +226,7 @@ async def put(
     input: str = None,
     lang: str = None,
     thinking_system: str = None,
+    hidden: bool = False,
 ):
     logger.info(
         "updating cell",
@@ -233,6 +234,7 @@ async def put(
         input=input,
         lang=lang,
         thinking_system=thinking_system,
+        hidden=hidden,
     )
 
     with sqlmodel.Session(engine) as session:
@@ -242,6 +244,7 @@ async def put(
         if selected_cell is None:
             return ""
 
+        selected_cell.hidden = hidden
         selected_cell.active = True
         if input is not None:
             selected_cell.input = input
@@ -353,6 +356,10 @@ async def ws(cell_id: int, input: str, send, session):
             cell_lang=cell.lang,
         )
         cell.active = True
+
+        if cell.lang == CellLangEnum.NOTES:
+            cell.hidden = True
+
         session.add(cell)
         session.commit()
 

@@ -208,6 +208,8 @@ class Cell(SQLModel, table=True):
     workflow_id: int = Field(foreign_key="workflow.id")
     workflow: Workflow = Relationship(back_populates="cells")
 
+    hidden: bool = Field(default=False)
+
     class Config:
         arbitrary_types_allowed = True
 

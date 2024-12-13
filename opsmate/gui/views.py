@@ -208,6 +208,12 @@ def cell_header(cell: Cell, cell_size: int):
                     cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
                     disabled=cell_size == 1,
                 ),
+                Button(
+                    edit_icon_svg,
+                    Input(type="hidden", value="false", name="hidden"),
+                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
+                    cls="btn btn-ghost btn-sm",
+                ),
                 Form(
                     Input(type="hidden", value=cell.id, name="cell_id"),
                     Button(
@@ -259,18 +265,23 @@ def cell_insert_dropdown(cell: Cell):
     )
 
 
+def cell_text_area(cell: Cell):
+    return Textarea(
+        cell.input,
+        name="input",
+        cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
+        placeholder="Enter your instruction here...",
+        id=f"cell-input-{cell.id}",
+        hidden=cell.hidden,
+    )
+
+
 def cell_input_form(cell: Cell):
     blueprint = cell.workflow.blueprint
     return (
         Div(
             Form(
-                Textarea(
-                    cell.input,
-                    name="input",
-                    cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-                    placeholder="Enter your instruction here...",
-                    id=f"cell-input-{cell.id}",
-                ),
+                cell_text_area(cell),
                 Div(
                     hx_put=f"/blueprint/{blueprint.id}/cell/input/{cell.id}",
                     hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
@@ -636,8 +647,13 @@ async def execute_notes_instruction(
     )
 
     cell.output = pickle.dumps(outputs)
+    cell.hidden = True
     session.add(cell)
     session.commit()
+
+    textarea = cell_text_area(cell)
+    textarea.hx_swap_oob = "true"
+    await send(textarea)
 
 
 async def execute_bash_instruction(

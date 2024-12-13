@@ -25,6 +25,7 @@ from opsmate.gui.views import (
     execute_llm_react_instruction,
     execute_llm_type2_instruction,
     execute_bash_instruction,
+    execute_notes_instruction,
     home_body,
 )
 
@@ -64,7 +65,14 @@ def before(req, session):
 bware = Beforeware(before)
 
 app = FastHTML(
-    hdrs=(tlink, dlink, picolink, MarkdownJS(), nav),
+    hdrs=(
+        tlink,
+        dlink,
+        picolink,
+        MarkdownJS(),
+        HighlightJS(langs=("python", "bash")),
+        nav,
+    ),
     exts="ws",
     before=bware,
 )
@@ -242,6 +250,8 @@ async def put(
                 selected_cell.lang = CellLangEnum.TEXT_INSTRUCTION
             elif lang == CellLangEnum.BASH.value:
                 selected_cell.lang = CellLangEnum.BASH
+            elif lang == CellLangEnum.NOTES.value:
+                selected_cell.lang = CellLangEnum.NOTES
 
         if thinking_system is not None:
             if thinking_system == ThinkingSystemEnum.TYPE1.value:
@@ -358,6 +368,8 @@ async def ws(cell_id: int, input: str, send, session):
                 await execute_llm_type2_instruction(cell, swap, send, session)
         elif cell.lang == CellLangEnum.BASH:
             await execute_bash_instruction(cell, swap, send, session)
+        elif cell.lang == CellLangEnum.NOTES:
+            await execute_notes_instruction(cell, swap, send, session)
         else:
             logger.error("unknown cell type", cell_id=cell.id, cell_lang=cell.lang)
 

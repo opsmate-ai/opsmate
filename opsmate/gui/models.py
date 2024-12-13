@@ -39,6 +39,7 @@ k8s_agent = _k8s_agent(
 
 class CellLangEnum(enum.Enum):
     TEXT_INSTRUCTION = "text instruction"
+    NOTES = "notes"
     BASH = "bash"
 
 

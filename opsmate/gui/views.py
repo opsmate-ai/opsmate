@@ -174,6 +174,11 @@ def cell_header(cell: Cell, cell_size: int):
                         value=CellLangEnum.BASH.value,
                         selected=cell.lang == CellLangEnum.BASH,
                     ),
+                    Option(
+                        "Notes",
+                        value=CellLangEnum.NOTES.value,
+                        selected=cell.lang == CellLangEnum.NOTES,
+                    ),
                     name="lang",
                     hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     hx_trigger="change",
@@ -195,7 +200,7 @@ def cell_header(cell: Cell, cell_size: int):
                     hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     hx_trigger="change",
                     cls="select select-sm ml-2 min-w-[240px]",
-                    hidden=cell.lang == CellLangEnum.BASH,
+                    hidden=cell.lang != CellLangEnum.TEXT_INSTRUCTION,
                 ),
                 Button(
                     trash_icon_svg,
@@ -612,6 +617,29 @@ async def execute_polya_execution_instruction(
     print(task_plan.model_dump_json(indent=2))
 
 
+async def execute_notes_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
+):
+    logger.info("executing notes instruction", cell_id=cell.id)
+
+    output = {
+        "type": "NotesOutput",
+        "output": cell.input,
+    }
+    outputs = [output]
+    await send(
+        Div(
+            render_notes_output_markdown(k8s_agent.metadata.name, cell.input),
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+
 async def execute_bash_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
@@ -937,6 +965,13 @@ This is a non-technical query, thus I don't know how to answer it.
         )
 
 
+def render_notes_output_markdown(agent: str, output: str):
+    return Div(
+        output,
+        cls="marked prose max-w-none",
+    )
+
+
 cell_render_funcs = {
     "ReactProcess": render_react_markdown,
     "AgentCommand": render_agent_command_markdown,
@@ -944,6 +979,7 @@ cell_render_funcs = {
     "Observation": render_observation_markdown,
     "ExecResults": render_exec_results_markdown,
     "BashOutput": render_bash_output_markdown,
+    "NotesOutput": render_notes_output_markdown,
     "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
     "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
     "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,

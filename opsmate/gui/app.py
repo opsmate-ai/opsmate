@@ -377,6 +377,30 @@ async def ws(cell_id: int, input: str, send, session):
             logger.error("cell not found", cell_id=cell_id)
             return
 
+        Cell.delete_cell(session, cell_id, children_only=True)
+        session.commit()
+
+        # find all cells with a sequence greater than the current cell
+        cells_to_shift = session.exec(
+            sqlmodel.select(Cell)
+            .where(Cell.workflow_id == active_workflow.id)
+            .where(Cell.sequence > cell.sequence)
+        ).all()
+
+        logger.info(
+            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+        )
+        for idx, cell in enumerate(cells_to_shift):
+            cell.sequence = cell.sequence + idx
+            session.add(cell)
+        session.commit()
+
+        # XXX: need to deal with ws refresh
+        session.refresh(active_workflow)
+        send(
+            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
+        )
+
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
             if cell.thinking_system == ThinkingSystemEnum.TYPE1:

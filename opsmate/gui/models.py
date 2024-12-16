@@ -244,7 +244,7 @@ class Cell(SQLModel, table=True):
         return session.exec(select(cls).where(cls.id == id)).first()
 
     @classmethod
-    def delete_cell(cls, session: Session, id: int):
+    def delete_cell(cls, session: Session, id: int, children_only: bool = False):
         """
         Delete cells recursively based on the parent cell ids
         """
@@ -256,10 +256,12 @@ class Cell(SQLModel, table=True):
         workflow_id = cell.workflow_id
 
         # delete the cell
-        logger.info("deleting cell", cell_id=cell.id)
-        session.delete(cell)
-
-        deleted_cell_count = 1
+        if children_only:
+            deleted_cell_count = 0
+        else:
+            logger.info("deleting cell", cell_id=cell.id)
+            session.delete(cell)
+            deleted_cell_count = 1
 
         workflow = Workflow.find_by_id(session, workflow_id)
         for other_cell in workflow.cells:

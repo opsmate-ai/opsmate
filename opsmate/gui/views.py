@@ -332,6 +332,11 @@ async def prefill_conversation(cell: Cell, agent: Agent, session: sqlmodel.Sessi
     executor.clear_history(agent)
     agent.status.historical_context = []
 
+    for conversation in conversation_context(cell, session):
+        agent.status.historical_context.append(Observation(observation=conversation))
+
+
+def conversation_context(cell: Cell, session: sqlmodel.Session):
     workflow = cell.workflow
     previous_cells = workflow.find_previous_cells(session, cell)
 
@@ -361,9 +366,7 @@ Conversation {idx + 1}:
 {assistant_response}
 </assistant response>
 """
-        agent.status.historical_context.append(
-            Observation(action="", observation=conversation)
-        )
+        yield conversation
 
 
 async def execute_llm_react_instruction(
@@ -447,7 +450,9 @@ async def execute_polya_understanding_instruction(
         )
     )
 
-    iu = await initial_understanding(msg)
+    context = [conversation for conversation in conversation_context(cell, session)]
+
+    iu = await initial_understanding(msg, context)
     if isinstance(iu, NonTechnicalQuery):
         outputs.append(
             {

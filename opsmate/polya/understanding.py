@@ -134,23 +134,32 @@ modes = {
 }
 
 
-async def initial_understanding(question: str, mode: str = "planner"):
+async def initial_understanding(
+    question: str, context: List[str] = [], mode: str = "planner"
+):
     # anthropic = instructor.from_anthropic(Anthropic())
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    question = {
-        "role": "user",
-        "content": question,
-    }
+
+    messages = []
+    messages.append(
+        {
+            "role": "user",
+            "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
+        }
+    )
+    messages.extend(
+        [{"role": "user", "content": conversation} for conversation in context]
+    )
+    messages.append(
+        {
+            "role": "user",
+            "content": question,
+        }
+    )
 
     response: Union[InitialUnderstandingResponse, NonTechnicalQuery] = (
         await openai.messages.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
-                },
-                question,
-            ],
+            messages=messages,
             model=modes[mode]["model"],
             response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
         )

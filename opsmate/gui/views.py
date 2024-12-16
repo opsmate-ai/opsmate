@@ -83,8 +83,7 @@ def cell_output(cell: Cell):
     if cell.output:
         outputs = pickle.loads(cell.output)
         outputs = [
-            cell_render_funcs[output["type"]](k8s_agent.metadata.name, output["output"])
-            for output in outputs
+            cell_render_funcs[output["type"]](output["output"]) for output in outputs
         ]
     else:
         outputs = []
@@ -495,10 +494,6 @@ async def execute_polya_understanding_instruction(
     infos_gathered = []
     for i, task in enumerate(finding_tasks):
         info_gathered = await task
-        # output = Output(
-        #     command=commands[i],
-        #     output_summary=OutputSummary(summary=output_summary.summary),
-        # )
         info_gathered = InfoGathered(**info_gathered.model_dump())
         outputs.append(
             {
@@ -804,10 +799,10 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     )
 
 
-def render_react_markdown(agent: str, output: ReactProcess):
+def render_react_markdown(output: ReactProcess):
     return Div(
         f"""
-**{agent} thought process**
+## Thought process
 
 | Thought | Action |
 | --- | --- |
@@ -817,10 +812,10 @@ def render_react_markdown(agent: str, output: ReactProcess):
     )
 
 
-def render_react_answer_markdown(agent: str, output: ReactAnswer):
+def render_react_answer_markdown(output: ReactAnswer):
     return Div(
         f"""
-**{agent} answer**
+## Answer
 
 {output.answer}
 """,
@@ -828,10 +823,10 @@ def render_react_answer_markdown(agent: str, output: ReactAnswer):
     )
 
 
-def render_agent_command_markdown(agent: str, output: AgentCommand):
+def render_agent_command_markdown(output: AgentCommand):
     return Div(
         f"""
-**{agent} task delegation**
+**Task delegation**
 
 {output.instruction}
 
@@ -841,10 +836,10 @@ def render_agent_command_markdown(agent: str, output: AgentCommand):
     )
 
 
-def render_observation_markdown(agent: str, output: Observation):
+def render_observation_markdown(output: Observation):
     return Div(
         f"""
-**{agent} observation**
+**Observation**
 
 {output.observation}
 """,
@@ -852,40 +847,44 @@ def render_observation_markdown(agent: str, output: Observation):
     )
 
 
-def render_exec_results_markdown(agent: str, output: ExecResults):
+def render_exec_results_markdown(output: ExecResults):
     markdown_outputs = []
     markdown_outputs.append(
         Div(
             f"""
-**{agent} results**
+## Results
 """,
             cls="marked prose max-w-none",
         )
     )
     for result in output.results:
-        output = ""
         column_names = result.table_column_names()
+        column_names = [column_name[0] for column_name in column_names]
         columns = result.table_columns()
 
-        for idx, column in enumerate(columns):
-            output += f"""
-**{column_names[idx][0]}**
-
+        template = """
+{% for title, result in kv_pairs %}
+{% if result != "" %}
+**{{ title }}**
 ```
-{column}
+{{ result }}
 ```
----
-
+{% endif %}
+{% endfor %}
 """
+        kv_pairs = zip(column_names, columns)
+
+        output = Template(template).render(kv_pairs=kv_pairs)
 
         markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
+    markdown_outputs.append(Div("<br>", cls="marked prose max-w-none"))
     return Div(*markdown_outputs)
 
 
-def render_bash_output_markdown(agent: str, output: str):
+def render_bash_output_markdown(output: str):
     return Div(
         f"""
-**{agent} results**
+## Results
 
 ```bash
 {output}
@@ -895,16 +894,16 @@ def render_bash_output_markdown(agent: str, output: str):
     )
 
 
-def render_task_plan_markdown(agent: str, task_plan: TaskPlan):
+def render_task_plan_markdown(task_plan: TaskPlan):
     return Div(
         f"""
-**{agent} task plan**
+## Task plan
 
-## Goal
+### Goal
 
 {task_plan.goal}
 
-## Subtasks
+### Subtasks
 
 {"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
 """,
@@ -914,12 +913,10 @@ def render_task_plan_markdown(agent: str, task_plan: TaskPlan):
 
 class UnderstandingRenderer:
     @staticmethod
-    def render_initial_understanding_markdown(
-        agent: str, iu: InitialUnderstandingResponse
-    ):
+    def render_initial_understanding_markdown(iu: InitialUnderstandingResponse):
         return Div(
             f"""
-**Initial understanding**
+## Initial understanding
 
 {iu.summary}
 
@@ -930,7 +927,7 @@ class UnderstandingRenderer:
         )
 
     @staticmethod
-    def render_info_gathered_markdown(agent: str, info_gathered: InfoGathered):
+    def render_info_gathered_markdown(info_gathered: InfoGathered):
         template = """
 ## Information Gathering
 
@@ -959,7 +956,7 @@ class UnderstandingRenderer:
         )
 
     @staticmethod
-    def render_potential_solution_markdown(agent: str, output: dict):
+    def render_potential_solution_markdown(output: dict):
         summary = output.get("summary", "")
         solution = output.get("solution", {})
 
@@ -973,9 +970,7 @@ class UnderstandingRenderer:
         )
 
     @staticmethod
-    def render_non_technical_query_markdown(
-        agent: str, non_technical_query: NonTechnicalQuery
-    ):
+    def render_non_technical_query_markdown(non_technical_query: NonTechnicalQuery):
         return Div(
             f"""
 This is a non-technical query, thus I don't know how to answer it.
@@ -986,7 +981,7 @@ This is a non-technical query, thus I don't know how to answer it.
         )
 
 
-def render_notes_output_markdown(agent: str, output: str):
+def render_notes_output_markdown(output: str):
     return Div(
         output,
         cls="marked prose max-w-none",

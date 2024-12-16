@@ -251,24 +251,24 @@ class Cell(SQLModel, table=True):
         cell = cls.find_by_id(session, id)
 
         if cell is None:
-            return 0
+            return []
 
         workflow_id = cell.workflow_id
 
+        deleted_cell_ids = []
         # delete the cell
-        if children_only:
-            deleted_cell_count = 0
-        else:
+        if not children_only:
             logger.info("deleting cell", cell_id=cell.id)
             session.delete(cell)
-            deleted_cell_count = 1
+            deleted_cell_ids.append(cell.id)
 
         workflow = Workflow.find_by_id(session, workflow_id)
         for other_cell in workflow.cells:
             if cell.id in other_cell.parent_cell_ids:
-                deleted_cell_count += cls.delete_cell(session, other_cell.id)
+                cell_ids = cls.delete_cell(session, other_cell.id)
+                deleted_cell_ids.extend(cell_ids)
 
-        return deleted_cell_count
+        return deleted_cell_ids
 
 
 class KVStore(SQLModel, table=True):

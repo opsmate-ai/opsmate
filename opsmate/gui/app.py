@@ -377,7 +377,7 @@ async def ws(cell_id: int, input: str, send, session):
             logger.error("cell not found", cell_id=cell_id)
             return
 
-        Cell.delete_cell(session, cell_id, children_only=True)
+        deleted_cell_ids = Cell.delete_cell(session, cell_id, children_only=True)
         session.commit()
 
         # find all cells with a sequence greater than the current cell
@@ -395,11 +395,13 @@ async def ws(cell_id: int, input: str, send, session):
             session.add(cell)
         session.commit()
 
-        # XXX: need to deal with ws refresh
-        session.refresh(active_workflow)
-        send(
-            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
-        )
+        for deleted_cell_id in deleted_cell_ids:
+            await send(
+                Div(
+                    id=f"cell-component-{deleted_cell_id}",
+                    hx_swap_oob="delete",
+                )
+            )
 
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:

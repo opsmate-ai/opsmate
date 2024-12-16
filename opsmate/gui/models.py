@@ -17,6 +17,9 @@ from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 client_bag = ProviderClient.clients_from_env()
 
@@ -239,6 +242,31 @@ class Cell(SQLModel, table=True):
     @classmethod
     def find_by_id(cls, session: Session, id: int):
         return session.exec(select(cls).where(cls.id == id)).first()
+
+    @classmethod
+    def delete_cell(cls, session: Session, id: int):
+        """
+        Delete cells recursively based on the parent cell ids
+        """
+        cell = cls.find_by_id(session, id)
+
+        if cell is None:
+            return 0
+
+        workflow_id = cell.workflow_id
+
+        # delete the cell
+        logger.info("deleting cell", cell_id=cell.id)
+        session.delete(cell)
+
+        deleted_cell_count = 1
+
+        workflow = Workflow.find_by_id(session, workflow_id)
+        for other_cell in workflow.cells:
+            if cell.id in other_cell.parent_cell_ids:
+                deleted_cell_count += cls.delete_cell(session, other_cell.id)
+
+        return deleted_cell_count
 
 
 class KVStore(SQLModel, table=True):

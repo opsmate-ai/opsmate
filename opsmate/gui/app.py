@@ -200,20 +200,30 @@ async def delete(blueprint_id: int, cell_id: int):
         if selected_cell is None:
             return ""
 
+        deleted_cell_count = Cell.delete_cell(session, cell_id)
+        session.commit()
+
+        logger.info(
+            "deleted cell", cell_id=cell_id, deleted_cell_count=deleted_cell_count
+        )
+
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
             sqlmodel.select(Cell)
             .where(Cell.workflow_id == active_workflow.id)
             .where(Cell.sequence > selected_cell.sequence)
         ).all()
-        for cell in cells_to_shift:
-            cell.sequence -= 1
-            session.add(cell)
 
-        session.delete(selected_cell)
+        logger.info(
+            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+        )
+        for idx, cell in enumerate(cells_to_shift):
+            cell.sequence = cell.sequence + idx
+            session.add(cell)
         session.commit()
 
-        session.refresh(active_workflow)
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
+        active_workflow = blueprint.active_workflow(session)
         cells = active_workflow.cells
 
         return render_cell_container(cells, hx_swap_oob="true")

@@ -885,6 +885,12 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
     active_workflow = blueprint.active_workflow(db_session)
     workflows = blueprint.workflows
     cells = active_workflow.cells
+
+    logger.info(
+        "home body",
+        cells=[cell.id for cell in cells],
+        sequence=[cell.sequence for cell in cells],
+    )
     return Body(
         Div(
             Card(

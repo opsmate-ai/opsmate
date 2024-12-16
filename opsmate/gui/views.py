@@ -465,15 +465,6 @@ async def execute_polya_understanding_instruction(
         initial_understanding_cell, iu, session, send
     )
 
-    # report = await generate_report(
-    #     iu.summary, mode="executor", info_gathered=infos_gathered
-    # )
-    # report_extracted = await report_breakdown(report)
-    # for solution in report_extracted.potential_solutions:
-    #     await __insert_potential_solution_cell(
-    #         info_gather_cells, report_extracted.summary, solution, session, send
-    #     )
-
     report_extracted = await insert_potential_solution_cells(
         iu.summary,
         info_gather_cells,
@@ -1116,9 +1107,15 @@ class UnderstandingRenderer:
 ### Command
 
 {% for command in info_gathered.commands %}
-```
+```bash
 # {{ command.description }}
 {{ command.command }}
+```
+
+#### Output
+
+```bash
+{{ command.result }}
 ```
 {% endfor %}
 

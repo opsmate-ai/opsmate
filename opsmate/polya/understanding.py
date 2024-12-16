@@ -7,6 +7,7 @@ from opsmate.polya.models import (
     InitialUnderstandingResponse,
     NonTechnicalQuery,
     ReportExtracted,
+    CommandWithResult,
 )
 from anthropic import Anthropic
 from openai import AsyncOpenAI
@@ -201,6 +202,16 @@ async def __info_gathering(summary: str, question: str, mode: str = "planner"):
 async def __finding(question: QuestionResponse, mode: str = "executor"):
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
 
+    results = []
+    for command in question.commands:
+        result = command.execute()
+        results.append(
+            CommandWithResult(
+                description=command.description,
+                command=command.command,
+                result=result,
+            )
+        )
     jinja_template = """
 ## Issue description
 
@@ -223,7 +234,7 @@ $ {{ command.command }}
 
 Output:
 ```text
-{{ command.execute() }}
+{{ command.result }}
 ```
 {% endfor %}
 """
@@ -234,7 +245,7 @@ Output:
                 "content": Template(jinja_template).render(
                     summary=question.summary,
                     question=question.question,
-                    commands=question.commands,
+                    commands=results,
                 ),
             },
             {
@@ -246,17 +257,16 @@ Output:
         response_model=QuestionResponseSummary,
     )
 
-    return response
+    return InfoGathered(
+        question=question.question,
+        commands=results,
+        info_gathered=response.summary,
+    )
 
 
 async def info_gathering(summary: str, question: str):
     question_response = await __info_gathering(summary, question)
-    finding = await __finding(question_response)
-    return InfoGathered(
-        question=question_response.question,
-        commands=question_response.commands,
-        info_gathered=finding.summary,
-    )
+    return await __finding(question_response)
 
 
 async def generate_report(

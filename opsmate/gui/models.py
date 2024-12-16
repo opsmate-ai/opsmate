@@ -210,6 +210,13 @@ class Cell(SQLModel, table=True):
 
     hidden: bool = Field(default=False)
 
+    parent_cell_ids: List[int] = Field(sa_column=Column(JSON), default=[])
+
+    def parent_cells(self, session: Session):
+        if not self.parent_cell_ids:
+            return []
+        return session.exec(select(Cell).where(Cell.id.in_(self.parent_cell_ids))).all()
+
     class Config:
         arbitrary_types_allowed = True
 

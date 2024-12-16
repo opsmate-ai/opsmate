@@ -100,7 +100,7 @@ def cell_output(cell: Cell):
 def cell_component(cell: Cell, cell_size: int):
     """Renders a single cell component"""
     # Determine if the cell is active
-    active_class = "border-green-500 bg-white" if cell.active else "border-gray-300"
+    active_class = "border-green-500" if cell.active else "border-gray-300"
 
     return Div(
         # Add Cell Button Menu
@@ -389,19 +389,18 @@ async def execute_llm_react_instruction(
     execution = executor.execute(k8s_agent, msg)
 
     async for stage in async_wrapper(execution):
-        actor = k8s_agent.metadata.name
         output = stage
         partial = None
         if isinstance(output, ExecResults):
-            partial = render_exec_results_markdown(actor, output)
+            partial = render_exec_results_markdown(output)
         elif isinstance(output, AgentCommand):
-            partial = render_agent_command_markdown(actor, output)
+            partial = render_agent_command_markdown(output)
         elif isinstance(output, ReactProcess):
-            partial = render_react_markdown(actor, output)
+            partial = render_react_markdown(output)
         elif isinstance(output, ReactAnswer):
-            partial = render_react_answer_markdown(actor, output)
+            partial = render_react_answer_markdown(output)
         # elif isinstance(output, Observation):
-        #     partial = render_observation_markdown(actor, output)
+        #     partial = render_observation_markdown(output)
         if partial:
             outputs.append(
                 {
@@ -461,9 +460,7 @@ async def execute_polya_understanding_instruction(
         )
         await send(
             Div(
-                UnderstandingRenderer.render_non_technical_query_markdown(
-                    k8s_agent.metadata.name, iu
-                ),
+                UnderstandingRenderer.render_non_technical_query_markdown(iu),
                 hx_swap_oob=swap,
                 id=f"cell-output-{cell.id}",
             )
@@ -481,9 +478,7 @@ async def execute_polya_understanding_instruction(
     )
     await send(
         Div(
-            UnderstandingRenderer.render_initial_understanding_markdown(
-                k8s_agent.metadata.name, iu
-            ),
+            UnderstandingRenderer.render_initial_understanding_markdown(iu),
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -504,9 +499,7 @@ async def execute_polya_understanding_instruction(
         infos_gathered.append(info_gathered)
         await send(
             Div(
-                UnderstandingRenderer.render_info_gathered_markdown(
-                    k8s_agent.metadata.name, info_gathered
-                ),
+                UnderstandingRenderer.render_info_gathered_markdown(info_gathered),
                 hx_swap_oob=swap,
                 id=f"cell-output-{cell.id}",
             )
@@ -529,9 +522,7 @@ async def execute_polya_understanding_instruction(
         )
         await send(
             Div(
-                UnderstandingRenderer.render_potential_solution_markdown(
-                    k8s_agent.metadata.name, output
-                ),
+                UnderstandingRenderer.render_potential_solution_markdown(output),
                 hx_swap_oob=swap,
                 id=f"cell-output-{cell.id}",
             )
@@ -583,7 +574,7 @@ async def execute_polya_planning_instruction(
 
     await send(
         Div(
-            render_task_plan_markdown(k8s_agent.metadata.name, task_plan),
+            render_task_plan_markdown(task_plan),
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -640,7 +631,7 @@ async def execute_notes_instruction(
     outputs = [output]
     await send(
         Div(
-            render_notes_output_markdown(k8s_agent.metadata.name, cell.input),
+            render_notes_output_markdown(cell.input),
             hx_swap_oob="true",
             id=f"cell-output-{cell.id}",
         )
@@ -693,7 +684,7 @@ async def execute_bash_instruction(
         if error:
             combined_output += error
 
-    partial = render_bash_output_markdown(k8s_agent.metadata.name, combined_output)
+    partial = render_bash_output_markdown(combined_output)
     outputs.append(
         {
             "type": "BashOutput",

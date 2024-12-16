@@ -11,6 +11,8 @@ from opsmate.gui.models import (
     executor,
     k8s_agent,
     ThinkingSystemEnum,
+    CellType,
+    CreatedByType,
 )
 from opsmate.libs.core.types import (
     ExecResults,
@@ -19,6 +21,7 @@ from opsmate.libs.core.types import (
     ReactAnswer,
     Agent,
 )
+from typing import Coroutine, Any
 from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
@@ -181,6 +184,7 @@ def cell_header(cell: Cell, cell_size: int):
                     name="lang",
                     hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     hx_trigger="change",
+                    disabled=cell.created_by == CreatedByType.ASSISTANT,
                     cls="select select-sm ml-2",
                 ),
                 Select(
@@ -200,6 +204,7 @@ def cell_header(cell: Cell, cell_size: int):
                     hx_trigger="change",
                     cls="select select-sm ml-2 min-w-[240px]",
                     hidden=cell.lang != CellLangEnum.TEXT_INSTRUCTION,
+                    disabled=cell.created_by == CreatedByType.ASSISTANT,
                 ),
                 Button(
                     trash_icon_svg,
@@ -212,12 +217,14 @@ def cell_header(cell: Cell, cell_size: int):
                     Input(type="hidden", value="false", name="hidden"),
                     hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
                     cls="btn btn-ghost btn-sm",
+                    disabled=cell.created_by == CreatedByType.ASSISTANT,
                 ),
                 Form(
                     Input(type="hidden", value=cell.id, name="cell_id"),
                     Button(
                         run_icon_svg,
                         cls="btn btn-ghost btn-sm",
+                        disabled=cell.created_by == CreatedByType.ASSISTANT,
                     ),
                     ws_connect=f"/cell/run/ws/",
                     ws_send=True,
@@ -448,9 +455,78 @@ async def execute_polya_understanding_instruction(
         )
     )
 
-    context = [conversation for conversation in conversation_context(cell, session)]
+    initial_understanding_cell, iu = await insert_initial_understanding_cell(
+        cell, session, send
+    )
+    if iu is None:
+        return
 
-    iu = await initial_understanding(msg, context)
+    info_gather_cells, infos_gathered = await insert_info_gathering_cells(
+        initial_understanding_cell, iu, session, send
+    )
+
+    # report = await generate_report(
+    #     iu.summary, mode="executor", info_gathered=infos_gathered
+    # )
+    # report_extracted = await report_breakdown(report)
+    # for solution in report_extracted.potential_solutions:
+    #     await __insert_potential_solution_cell(
+    #         info_gather_cells, report_extracted.summary, solution, session, send
+    #     )
+
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
+    workflow.result = report_extracted.model_dump_json()
+    session.add(workflow)
+    session.commit()
+
+
+async def insert_initial_understanding_cell(
+    parent_cell: Cell, session: sqlmodel.Session, send
+):
+    workflow = parent_cell.workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    context = [
+        conversation for conversation in conversation_context(parent_cell, session)
+    ]
+
+    cell = Cell(
+        input="",
+        output=b"",
+        lang=CellLangEnum.NOTES,
+        thinking_system=ThinkingSystemEnum.TYPE1,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cell.workflow_id,
+        cell_type=CellType.UNDERSTANDING_ASK_QUESTIONS,
+        created_by=CreatedByType.ASSISTANT,
+        parent_cell_ids=[parent_cell.id],
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    outputs = []
+    iu = await initial_understanding(parent_cell.input.rstrip(), context)
     if isinstance(iu, NonTechnicalQuery):
         outputs.append(
             {
@@ -458,17 +534,19 @@ async def execute_polya_understanding_instruction(
                 "output": NonTechnicalQuery(**iu.model_dump()),
             }
         )
-        await send(
-            Div(
-                UnderstandingRenderer.render_non_technical_query_markdown(iu),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
+
         cell.output = pickle.dumps(outputs)
         session.add(cell)
         session.commit()
-        return
+        await send(
+            Div(
+                cell_component(cell, len(cells) + 1),
+                hx_swap_oob="beforeend",
+                id="cells-container",
+            )
+        )
+
+        return cell, None
 
     outputs.append(
         {
@@ -476,66 +554,175 @@ async def execute_polya_understanding_instruction(
             "output": InitialUnderstandingResponse(**iu.model_dump()),
         }
     )
-    await send(
-        Div(
-            UnderstandingRenderer.render_initial_understanding_markdown(iu),
-            hx_swap_oob=swap,
-            id=f"cell-output-{cell.id}",
-        )
-    )
-
-    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
-
-    infos_gathered = []
-    for i, task in enumerate(finding_tasks):
-        info_gathered = await task
-        info_gathered = InfoGathered(**info_gathered.model_dump())
-        outputs.append(
-            {
-                "type": "InfoGathered",
-                "output": info_gathered,
-            }
-        )
-        infos_gathered.append(info_gathered)
-        await send(
-            Div(
-                UnderstandingRenderer.render_info_gathered_markdown(info_gathered),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
-
-    report = await generate_report(
-        iu.summary, mode="executor", info_gathered=infos_gathered
-    )
-    report_extracted = await report_breakdown(report)
-    for solution in report_extracted.potential_solutions:
-        output = {
-            "summary": report_extracted.summary,
-            "solution": Solution(**solution.model_dump()),
-        }
-        outputs.append(
-            {
-                "type": "PotentialSolution",
-                "output": output,
-            }
-        )
-        await send(
-            Div(
-                UnderstandingRenderer.render_potential_solution_markdown(output),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
 
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
 
-    workflow = cell.workflow
-    workflow.result = report_extracted.model_dump_json()
-    session.add(workflow)
+    await send(
+        Div(
+            cell_component(cell, len(cells) + 1),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell, iu
+
+
+async def insert_info_gathering_cells(
+    parent_cell: Cell,
+    iu: InitialUnderstandingResponse,
+    session: sqlmodel.Session,
+    send,
+):
+    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
+
+    infos_gathered = []
+    cells = []
+    for i, task in enumerate(finding_tasks):
+        cell, info_gathered = await __insert_info_gathering_cell(
+            parent_cell, task, session, send
+        )
+        infos_gathered.append(info_gathered)
+        cells.append(cell)
+    return cells, infos_gathered
+
+
+async def __insert_info_gathering_cell(
+    parent_cell: Cell,
+    info_gather_task: Coroutine[Any, Any, InfoGathered],
+    session: sqlmodel.Session,
+    send,
+):
+    workflow = parent_cell.workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    outputs = []
+    info_gathered = await info_gather_task
+    info_gathered = InfoGathered(**info_gathered.model_dump())
+    outputs.append(
+        {
+            "type": "InfoGathered",
+            "output": info_gathered,
+        }
+    )
+
+    cell = Cell(
+        input="",
+        output=pickle.dumps(outputs),
+        lang=CellLangEnum.NOTES,
+        thinking_system=ThinkingSystemEnum.TYPE1,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cell.workflow_id,
+        parent_cell_ids=[parent_cell.id],
+        cell_type=CellType.UNDERSTANDING_GATHER_INFO,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
     session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            cell_component(cell, len(cells) + 1),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell, info_gathered
+
+
+async def __insert_potential_solution_cell(
+    parent_cells: list[Cell],
+    summary: str,
+    solution: Solution,
+    session: sqlmodel.Session,
+    send,
+):
+    workflow = parent_cells[0].workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    outputs = []
+    output = {
+        "summary": summary,
+        "solution": Solution(**solution.model_dump()),
+    }
+    outputs.append(
+        {
+            "type": "PotentialSolution",
+            "output": output,
+        }
+    )
+
+    cell = Cell(
+        input="",
+        output=pickle.dumps(outputs),
+        lang=CellLangEnum.NOTES,
+        thinking_system=ThinkingSystemEnum.TYPE1,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cells[0].workflow_id,
+        parent_cell_ids=[parent_cell.id for parent_cell in parent_cells],
+        cell_type=CellType.UNDERSTANDING_SOLUTION,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            cell_component(cell, len(cells) + 1),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell
+
+
+async def insert_potential_solution_cells(
+    summary: str,
+    cells: list[Cell],
+    info_gathered: List[InfoGathered],
+    session: sqlmodel.Session,
+    send,
+):
+    report = await generate_report(
+        summary, mode="executor", info_gathered=info_gathered
+    )
+    report_extracted = await report_breakdown(report)
+    for solution in report_extracted.potential_solutions:
+        await __insert_potential_solution_cell(
+            cells, report_extracted.summary, solution, session, send
+        )
+
+    return report_extracted
 
 
 async def execute_polya_planning_instruction(

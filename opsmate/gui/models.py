@@ -186,6 +186,19 @@ class Workflow(SQLModel, table=True):
         ).all()
 
 
+class CellType(str, enum.Enum):
+    UNDERSTANDING_ASK_QUESTIONS = "understanding_ask_questions"
+    UNDERSTANDING_GATHER_INFO = "understanding_gather_info"
+    UNDERSTANDING_GENERATE_REPORT = "understanding_generate_report"
+    UNDERSTANDING_REPORT_BREAKDOWN = "understanding_report_breakdown"
+    UNDERSTANDING_SOLUTION = "understanding_solution"
+
+
+class CreatedByType(str, enum.Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
@@ -209,6 +222,9 @@ class Cell(SQLModel, table=True):
     workflow: Workflow = Relationship(back_populates="cells")
 
     hidden: bool = Field(default=False)
+
+    cell_type: CellType | None = Field(default=None)
+    created_by: CreatedByType = Field(default=CreatedByType.USER)
 
     parent_cell_ids: List[int] = Field(sa_column=Column(JSON), default=[])
 

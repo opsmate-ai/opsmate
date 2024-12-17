@@ -72,7 +72,7 @@ class CellComponent:
                         tabindex="0",
                         cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
                     ),
-                    cls="dropdown dropdown-right",
+                    cls="dropdown dropdown-left",
                 ),
                 cls="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
             ),

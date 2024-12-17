@@ -151,9 +151,7 @@ class CellComponent:
                         Button(
                             run_icon_svg,
                             cls="btn btn-ghost btn-sm",
-                            # disabled=self.cell.created_by == CreatedByType.ASSISTANT,
                         ),
-                        ws_connect=f"/cell/run/ws/",
                         ws_send=True,
                         hx_ext="ws",
                     ),
@@ -177,7 +175,6 @@ class CellComponent:
                     # xxx: shift+enter is being registered as a newline
                     Div(
                         Input(type="hidden", value=self.cell.id, name="cell_id"),
-                        ws_connect=f"/cell/run/ws/",
                         ws_send=True,
                         hx_ext="ws",
                         hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{self.cell.id}",

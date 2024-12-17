@@ -905,6 +905,8 @@ def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
         *[CellComponent(cell) for cell in cells],
         cls="space-y-4 mt-4",
         id="cells-container",
+        ws_connect="/cell/run/ws/",
+        hx_ext="ws",
     )
     if hx_swap_oob:
         div.hx_swap_oob = hx_swap_oob

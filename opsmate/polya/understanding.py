@@ -102,7 +102,8 @@ Things you have noticed based on the findings however are not related to the pro
 <important_notes>
 - Use markdown in your response.
 - Do not just return the brief summary you are given, but fact in all the findings
-- **ONLY** list potential solutions that are relevant to the problem
+- **ONLY** list potential solutions that are relevant to the problem.
+- Feel free to just to list 1 potential solution if you are 100% sure that it is the solution.
 - The sum of probability of all potential solutions should be added up to 100%
 </important_notes>
 """
@@ -167,6 +168,15 @@ async def initial_understanding(
     )
 
     return response
+
+
+async def load_inital_understanding(text: str):
+    openai = instructor.from_openai(AsyncOpenAI(), mode=modes["planner"]["mode"])
+    return await openai.messages.create(
+        messages=[{"role": "user", "content": text}],
+        model=modes["planner"]["model"],
+        response_model=InitialUnderstandingResponse,
+    )
 
 
 async def __info_gathering(summary: str, question: str, mode: str = "planner"):

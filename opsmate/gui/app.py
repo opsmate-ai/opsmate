@@ -368,6 +368,7 @@ async def ws(cell_id: int, input: str, send, session):
         cell.active = True
 
         if cell.lang == CellLangEnum.NOTES:
+            logger.info("hiding notescell", cell_id=cell_id)
             cell.hidden = True
 
         session.add(cell)
@@ -380,6 +381,8 @@ async def ws(cell_id: int, input: str, send, session):
         deleted_cell_ids = Cell.delete_cell(session, cell_id, children_only=True)
         session.commit()
 
+        logger.info("deleted cells", deleted_cell_ids=deleted_cell_ids)
+
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
             sqlmodel.select(Cell)
@@ -390,9 +393,9 @@ async def ws(cell_id: int, input: str, send, session):
         logger.info(
             "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
         )
-        for idx, cell in enumerate(cells_to_shift):
-            cell.sequence = cell.sequence + idx
-            session.add(cell)
+        for idx, cell_to_shift in enumerate(cells_to_shift):
+            cell_to_shift.sequence = cell.sequence + idx
+            session.add(cell_to_shift)
         session.commit()
 
         for deleted_cell_id in deleted_cell_ids:
@@ -403,6 +406,9 @@ async def ws(cell_id: int, input: str, send, session):
                 )
             )
 
+        logger.info(
+            "executing cell", cell_id=cell_id, cell_lang=cell.lang, input=cell.input
+        )
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
             if cell.thinking_system == ThinkingSystemEnum.TYPE1:

@@ -1,4 +1,4 @@
-from fasthtml.components import *
+from fasthtml.common import *
 from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystemEnum
 from opsmate.gui.assets import *
 import pickle
@@ -144,14 +144,14 @@ class CellComponent:
                         Input(type="hidden", value="false", name="hidden"),
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm",
-                        disabled=self.cell.created_by == CreatedByType.ASSISTANT,
+                        # disabled=self.cell.created_by == CreatedByType.ASSISTANT,
                     ),
                     Form(
                         Input(type="hidden", value=self.cell.id, name="cell_id"),
                         Button(
                             run_icon_svg,
                             cls="btn btn-ghost btn-sm",
-                            disabled=self.cell.created_by == CreatedByType.ASSISTANT,
+                            # disabled=self.cell.created_by == CreatedByType.ASSISTANT,
                         ),
                         ws_connect=f"/cell/run/ws/",
                         ws_send=True,
@@ -291,10 +291,6 @@ def render_exec_results_markdown(output: ExecResults):
 """
         kv_pairs = zip(column_names, columns)
 
-        print("****")
-        print(column_names)
-        print(columns)
-        print("****")
         output = Template(template).render(kv_pairs=kv_pairs)
 
         markdown_outputs.append(Div(output, cls="marked prose max-w-none"))

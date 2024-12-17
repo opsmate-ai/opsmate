@@ -33,8 +33,11 @@ from opsmate.polya.models import (
     ReportExtracted,
 )
 
+from sqlmodel import select
+
 from opsmate.polya.understanding import (
     initial_understanding,
+    load_inital_understanding,
     info_gathering,
     generate_report,
     report_breakdown,
@@ -151,6 +154,8 @@ def conversation_context(cell: Cell, session: sqlmodel.Session):
 
     for idx, previous_cell in enumerate(previous_cells):
         assistant_response = ""
+        if previous_cell.output is None:
+            continue
         for output in pickle.loads(previous_cell.output):
             o = output["output"]
             marshalled_output = marshal_output(o)
@@ -227,7 +232,13 @@ async def execute_llm_type2_instruction(
 ):
     workflow = cell.workflow
     if workflow.name == WorkflowEnum.UNDERSTANDING:
-        return await execute_polya_understanding_instruction(cell, swap, send, session)
+        if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
+            return await execute_initial_understanding(cell, send, session)
+        elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
+            print("yeah yeah yeah")
+            return await execute_info_gathering(cell, send, session)
+        else:
+            return await execute_polya_understanding_instruction(cell, send, session)
     elif workflow.name == WorkflowEnum.PLANNING:
         return await execute_polya_planning_instruction(cell, swap, send, session)
     elif workflow.name == WorkflowEnum.EXECUTION:
@@ -235,7 +246,7 @@ async def execute_llm_type2_instruction(
 
 
 async def execute_polya_understanding_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
+    cell: Cell, send, session: sqlmodel.Session
 ):
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
@@ -273,6 +284,59 @@ async def execute_polya_understanding_instruction(
     session.commit()
 
 
+async def execute_initial_understanding(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    iu = await load_inital_understanding(cell.input)
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    outputs = [
+        {
+            "type": "InitialUnderstanding",
+            "output": InitialUnderstandingResponse(**iu.model_dump()),
+        }
+    ]
+    cell.hidden = True
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            *[CellOutputRenderer(output).render() for output in outputs],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    if iu is None:
+        return
+
+    info_gather_cells, infos_gathered = await insert_info_gathering_cells(
+        cell, iu, session, send
+    )
+
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
+    workflow.result = report_extracted.model_dump_json()
+    session.add(workflow)
+    session.commit()
+
+
 async def insert_initial_understanding_cell(
     parent_cell: Cell, session: sqlmodel.Session, send
 ):
@@ -293,8 +357,8 @@ async def insert_initial_understanding_cell(
     cell = Cell(
         input="",
         output=b"",
-        lang=CellLangEnum.NOTES,
-        thinking_system=ThinkingSystemEnum.TYPE1,
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.TYPE2,
         sequence=max_sequence + 1,
         execution_sequence=max_execution_sequence + 1,
         active=True,
@@ -341,6 +405,8 @@ async def insert_initial_understanding_cell(
     )
 
     cell.output = pickle.dumps(outputs)
+
+    cell.input = CellOutputRenderer(outputs[0]).render()[0]
     session.add(cell)
     session.commit()
 
@@ -374,6 +440,84 @@ async def insert_info_gathering_cells(
     return cells, infos_gathered
 
 
+async def execute_info_gathering(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    parent_cells = cell.parent_cells(session)
+    if len(parent_cells) == 0:
+        logger.error("No parent cells found", cell_id=cell.id)
+        return
+
+    parent_cell = parent_cells[0]
+
+    parent_outputs = pickle.loads(parent_cell.output)
+    iu = parent_outputs[0]["output"]
+    summary = iu.summary
+    info_gather_task = info_gathering(summary, cell.input)
+
+    info_gathered = await info_gather_task
+    info_gathered = InfoGathered(**info_gathered.model_dump())
+
+    outputs.append(
+        {
+            "type": "InfoGathered",
+            "output": info_gathered,
+        }
+    )
+
+    cell.output = pickle.dumps(outputs)
+    cell.hidden = True
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            *[CellOutputRenderer(output).render() for output in outputs],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    info_gather_cells = session.exec(
+        select(Cell).where(
+            Cell.workflow_id == cell.workflow_id,
+            Cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO,
+        )
+    ).all()
+
+    infos_gathered = []
+    for info_gather_cell in info_gather_cells:
+        info_gathered = pickle.loads(info_gather_cell.output)[0]["output"]
+        infos_gathered.append(info_gathered)
+
+    logger.info(
+        "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
+    )
+
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
+    workflow.result = report_extracted.model_dump_json()
+    session.add(workflow)
+    session.commit()
+
+
 async def __insert_info_gathering_cell(
     parent_cell: Cell,
     info_gather_task: Coroutine[Any, Any, InfoGathered],
@@ -401,10 +545,10 @@ async def __insert_info_gathering_cell(
     )
 
     cell = Cell(
-        input="",
+        input=info_gathered.question,
         output=pickle.dumps(outputs),
-        lang=CellLangEnum.NOTES,
-        thinking_system=ThinkingSystemEnum.TYPE1,
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.TYPE2,
         sequence=max_sequence + 1,
         execution_sequence=max_execution_sequence + 1,
         active=True,
@@ -460,8 +604,13 @@ async def __insert_potential_solution_cell(
         }
     )
 
+    logger.info(
+        "create potential solution cell",
+        parent_cells=[parent_cell.id for parent_cell in parent_cells],
+    )
+
     cell = Cell(
-        input="",
+        input=CellOutputRenderer(outputs[0]).render()[0],
         output=pickle.dumps(outputs),
         lang=CellLangEnum.NOTES,
         thinking_system=ThinkingSystemEnum.TYPE1,

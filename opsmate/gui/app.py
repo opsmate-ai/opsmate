@@ -200,20 +200,30 @@ async def delete(blueprint_id: int, cell_id: int):
         if selected_cell is None:
             return ""
 
+        deleted_cell_count = Cell.delete_cell(session, cell_id)
+        session.commit()
+
+        logger.info(
+            "deleted cell", cell_id=cell_id, deleted_cell_count=deleted_cell_count
+        )
+
         # find all cells with a sequence greater than the current cell
         cells_to_shift = session.exec(
             sqlmodel.select(Cell)
             .where(Cell.workflow_id == active_workflow.id)
             .where(Cell.sequence > selected_cell.sequence)
         ).all()
-        for cell in cells_to_shift:
-            cell.sequence -= 1
-            session.add(cell)
 
-        session.delete(selected_cell)
+        logger.info(
+            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+        )
+        for idx, cell in enumerate(cells_to_shift):
+            cell.sequence = cell.sequence + idx
+            session.add(cell)
         session.commit()
 
-        session.refresh(active_workflow)
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
+        active_workflow = blueprint.active_workflow(session)
         cells = active_workflow.cells
 
         return render_cell_container(cells, hx_swap_oob="true")
@@ -358,6 +368,7 @@ async def ws(cell_id: int, input: str, send, session):
         cell.active = True
 
         if cell.lang == CellLangEnum.NOTES:
+            logger.info("hiding notescell", cell_id=cell_id)
             cell.hidden = True
 
         session.add(cell)
@@ -367,6 +378,37 @@ async def ws(cell_id: int, input: str, send, session):
             logger.error("cell not found", cell_id=cell_id)
             return
 
+        deleted_cell_ids = Cell.delete_cell(session, cell_id, children_only=True)
+        session.commit()
+
+        logger.info("deleted cells", deleted_cell_ids=deleted_cell_ids)
+
+        # find all cells with a sequence greater than the current cell
+        cells_to_shift = session.exec(
+            sqlmodel.select(Cell)
+            .where(Cell.workflow_id == active_workflow.id)
+            .where(Cell.sequence > cell.sequence)
+        ).all()
+
+        logger.info(
+            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+        )
+        for idx, cell_to_shift in enumerate(cells_to_shift):
+            cell_to_shift.sequence = cell.sequence + idx
+            session.add(cell_to_shift)
+        session.commit()
+
+        for deleted_cell_id in deleted_cell_ids:
+            await send(
+                Div(
+                    id=f"cell-component-{deleted_cell_id}",
+                    hx_swap_oob="delete",
+                )
+            )
+
+        logger.info(
+            "executing cell", cell_id=cell_id, cell_lang=cell.lang, input=cell.input
+        )
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
             if cell.thinking_system == ThinkingSystemEnum.TYPE1:

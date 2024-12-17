@@ -11,7 +11,10 @@ from opsmate.gui.models import (
     executor,
     k8s_agent,
     ThinkingSystemEnum,
+    CellType,
+    CreatedByType,
 )
+from opsmate.gui.components import CellComponent, CellOutputRenderer
 from opsmate.libs.core.types import (
     ExecResults,
     Observation,
@@ -19,19 +22,22 @@ from opsmate.libs.core.types import (
     ReactAnswer,
     Agent,
 )
+from typing import Coroutine, Any
 from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
     InfoGathered,
     NonTechnicalQuery,
-    Report,
     TaskPlan,
     Solution,
     ReportExtracted,
 )
 
+from sqlmodel import select
+
 from opsmate.polya.understanding import (
     initial_understanding,
+    load_inital_understanding,
     info_gathering,
     generate_report,
     report_breakdown,
@@ -79,49 +85,6 @@ nav = (
 )
 
 
-def cell_output(cell: Cell):
-    if cell.output:
-        outputs = pickle.loads(cell.output)
-        outputs = [
-            cell_render_funcs[output["type"]](k8s_agent.metadata.name, output["output"])
-            for output in outputs
-        ]
-    else:
-        outputs = []
-    return Div(
-        Span(f"Out [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"),
-        Div(
-            *outputs,
-            id=f"cell-output-{cell.id}",
-        ),
-        cls="px-4 py-2 bg-gray-50 border-t rounded-b-lg overflow-hidden",
-    )
-
-
-def cell_component(cell: Cell, cell_size: int):
-    """Renders a single cell component"""
-    # Determine if the cell is active
-    active_class = "border-green-500 bg-white" if cell.active else "border-gray-300"
-
-    return Div(
-        # Add Cell Button Menu
-        cell_insert_dropdown(cell),
-        # Main Cell Content
-        Div(
-            # Cell Header
-            cell_header(cell, cell_size),
-            # Cell Input - Updated with conditional styling
-            cell_input_form(cell),
-            # Cell Output (if any)
-            cell_output(cell),
-            cls=f"rounded-lg shadow-sm border {active_class}",  # Apply the active class here
-        ),
-        cls="group relative",
-        key=cell.id,
-        id=f"cell-component-{cell.id}",
-    )
-
-
 def add_cell_button(blueprint: BluePrint):
     return (
         Div(
@@ -149,157 +112,6 @@ def reset_button(blueprint: BluePrint):
             hx_swap_oob="true",
             id="reset-button",
             cls="flex",
-        ),
-    )
-
-
-def cell_header(cell: Cell, cell_size: int):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Div(
-                Span(f"In [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"),
-                # Add cell type selector
-                cls="flex items-center gap-2",
-            ),
-            Div(
-                Select(
-                    Option(
-                        "Text Instruction",
-                        value=CellLangEnum.TEXT_INSTRUCTION.value,
-                        selected=cell.lang == CellLangEnum.TEXT_INSTRUCTION,
-                    ),
-                    Option(
-                        "Bash",
-                        value=CellLangEnum.BASH.value,
-                        selected=cell.lang == CellLangEnum.BASH,
-                    ),
-                    Option(
-                        "Notes",
-                        value=CellLangEnum.NOTES.value,
-                        selected=cell.lang == CellLangEnum.NOTES,
-                    ),
-                    name="lang",
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    hx_trigger="change",
-                    cls="select select-sm ml-2",
-                ),
-                Select(
-                    Option(
-                        "Type 1 - Fast",
-                        value=ThinkingSystemEnum.TYPE1.value,
-                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE1
-                        or cell.lang == CellLangEnum.BASH,
-                    ),
-                    Option(
-                        "Type 2 - Slow but thorough",
-                        value=ThinkingSystemEnum.TYPE2.value,
-                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE2,
-                    ),
-                    name="thinking_system",
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    hx_trigger="change",
-                    cls="select select-sm ml-2 min-w-[240px]",
-                    hidden=cell.lang != CellLangEnum.TEXT_INSTRUCTION,
-                ),
-                Button(
-                    trash_icon_svg,
-                    hx_delete=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
-                    disabled=cell_size == 1,
-                ),
-                Button(
-                    edit_icon_svg,
-                    Input(type="hidden", value="false", name="hidden"),
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    cls="btn btn-ghost btn-sm",
-                ),
-                Form(
-                    Input(type="hidden", value=cell.id, name="cell_id"),
-                    Button(
-                        run_icon_svg,
-                        cls="btn btn-ghost btn-sm",
-                    ),
-                    ws_connect=f"/cell/run/ws/",
-                    ws_send=True,
-                    hx_ext="ws",
-                ),
-                cls="ml-auto flex items-center gap-2",
-            ),
-            id=f"cell-header-{cell.id}",
-            cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between rounded-t-lg overflow-hidden",
-        ),
-    )
-
-
-def cell_insert_dropdown(cell: Cell):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Div(
-                Button(
-                    plus_icon_svg,
-                    tabindex="0",
-                    cls="btn btn-ghost btn-xs",
-                ),
-                Ul(
-                    Li(
-                        Button(
-                            "Insert Above",
-                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=true",
-                        )
-                    ),
-                    Li(
-                        Button(
-                            "Insert Below",
-                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=false",
-                        )
-                    ),
-                    tabindex="0",
-                    cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
-                ),
-                cls="dropdown dropdown-right",
-            ),
-            cls="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
-        ),
-    )
-
-
-def cell_text_area(cell: Cell):
-    return Textarea(
-        cell.input,
-        name="input",
-        cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-        placeholder="Enter your instruction here...",
-        id=f"cell-input-{cell.id}",
-        hidden=cell.hidden,
-    )
-
-
-def cell_input_form(cell: Cell):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Form(
-                cell_text_area(cell),
-                Div(
-                    hx_put=f"/blueprint/{blueprint.id}/cell/input/{cell.id}",
-                    hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
-                    hx_swap=f"#cell-input-form-{cell.id}",
-                ),
-                # xxx: shift+enter is being registered as a newline
-                Div(
-                    Input(type="hidden", value=cell.id, name="cell_id"),
-                    ws_connect=f"/cell/run/ws/",
-                    ws_send=True,
-                    hx_ext="ws",
-                    hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{cell.id}",
-                    hx_swap=f"#cell-input-form-{cell.id}",
-                ),
-                id=f"cell-input-form-{cell.id}",
-            ),
-            hx_include="input",
-            cls="p-4",
         ),
     )
 
@@ -332,11 +144,18 @@ async def prefill_conversation(cell: Cell, agent: Agent, session: sqlmodel.Sessi
     executor.clear_history(agent)
     agent.status.historical_context = []
 
+    for conversation in conversation_context(cell, session):
+        agent.status.historical_context.append(Observation(observation=conversation))
+
+
+def conversation_context(cell: Cell, session: sqlmodel.Session):
     workflow = cell.workflow
     previous_cells = workflow.find_previous_cells(session, cell)
 
     for idx, previous_cell in enumerate(previous_cells):
         assistant_response = ""
+        if previous_cell.output is None:
+            continue
         for output in pickle.loads(previous_cell.output):
             o = output["output"]
             marshalled_output = marshal_output(o)
@@ -361,9 +180,7 @@ Conversation {idx + 1}:
 {assistant_response}
 </assistant response>
 """
-        agent.status.historical_context.append(
-            Observation(action="", observation=conversation)
-        )
+        yield conversation
 
 
 async def execute_llm_react_instruction(
@@ -387,19 +204,9 @@ async def execute_llm_react_instruction(
     execution = executor.execute(k8s_agent, msg)
 
     async for stage in async_wrapper(execution):
-        actor = k8s_agent.metadata.name
         output = stage
-        partial = None
-        if isinstance(output, ExecResults):
-            partial = render_exec_results_markdown(actor, output)
-        elif isinstance(output, AgentCommand):
-            partial = render_agent_command_markdown(actor, output)
-        elif isinstance(output, ReactProcess):
-            partial = render_react_markdown(actor, output)
-        elif isinstance(output, ReactAnswer):
-            partial = render_react_answer_markdown(actor, output)
-        # elif isinstance(output, Observation):
-        #     partial = render_observation_markdown(actor, output)
+
+        partial = CellOutputRenderer.render_model(output)
         if partial:
             outputs.append(
                 {
@@ -425,7 +232,13 @@ async def execute_llm_type2_instruction(
 ):
     workflow = cell.workflow
     if workflow.name == WorkflowEnum.UNDERSTANDING:
-        return await execute_polya_understanding_instruction(cell, swap, send, session)
+        if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
+            return await execute_initial_understanding(cell, send, session)
+        elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
+            print("yeah yeah yeah")
+            return await execute_info_gathering(cell, send, session)
+        else:
+            return await execute_polya_understanding_instruction(cell, send, session)
     elif workflow.name == WorkflowEnum.PLANNING:
         return await execute_polya_planning_instruction(cell, swap, send, session)
     elif workflow.name == WorkflowEnum.EXECUTION:
@@ -433,7 +246,7 @@ async def execute_llm_type2_instruction(
 
 
 async def execute_polya_understanding_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
+    cell: Cell, send, session: sqlmodel.Session
 ):
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
@@ -447,7 +260,122 @@ async def execute_polya_understanding_instruction(
         )
     )
 
-    iu = await initial_understanding(msg)
+    initial_understanding_cell, iu = await insert_initial_understanding_cell(
+        cell, session, send
+    )
+    if iu is None:
+        return
+
+    info_gather_cells, infos_gathered = await insert_info_gathering_cells(
+        initial_understanding_cell, iu, session, send
+    )
+
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
+    workflow.result = report_extracted.model_dump_json()
+    session.add(workflow)
+    session.commit()
+
+
+async def execute_initial_understanding(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    iu = await load_inital_understanding(cell.input)
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    outputs = [
+        {
+            "type": "InitialUnderstanding",
+            "output": InitialUnderstandingResponse(**iu.model_dump()),
+        }
+    ]
+    cell.hidden = True
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            *[CellOutputRenderer(output).render() for output in outputs],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    if iu is None:
+        return
+
+    info_gather_cells, infos_gathered = await insert_info_gathering_cells(
+        cell, iu, session, send
+    )
+
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
+    workflow.result = report_extracted.model_dump_json()
+    session.add(workflow)
+    session.commit()
+
+
+async def insert_initial_understanding_cell(
+    parent_cell: Cell, session: sqlmodel.Session, send
+):
+    workflow = parent_cell.workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    context = [
+        conversation for conversation in conversation_context(parent_cell, session)
+    ]
+
+    cell = Cell(
+        input="",
+        output=b"",
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.TYPE2,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cell.workflow_id,
+        cell_type=CellType.UNDERSTANDING_ASK_QUESTIONS,
+        created_by=CreatedByType.ASSISTANT,
+        parent_cell_ids=[parent_cell.id],
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    outputs = []
+    iu = await initial_understanding(parent_cell.input.rstrip(), context)
     if isinstance(iu, NonTechnicalQuery):
         outputs.append(
             {
@@ -455,19 +383,19 @@ async def execute_polya_understanding_instruction(
                 "output": NonTechnicalQuery(**iu.model_dump()),
             }
         )
-        await send(
-            Div(
-                UnderstandingRenderer.render_non_technical_query_markdown(
-                    k8s_agent.metadata.name, iu
-                ),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
+
         cell.output = pickle.dumps(outputs)
         session.add(cell)
         session.commit()
-        return
+        await send(
+            Div(
+                CellComponent(cell),
+                hx_swap_oob="beforeend",
+                id="cells-container",
+            )
+        )
+
+        return cell, None
 
     outputs.append(
         {
@@ -475,76 +403,260 @@ async def execute_polya_understanding_instruction(
             "output": InitialUnderstandingResponse(**iu.model_dump()),
         }
     )
+
+    cell.output = pickle.dumps(outputs)
+
+    cell.input = CellOutputRenderer(outputs[0]).render()[0]
+    session.add(cell)
+    session.commit()
+
     await send(
         Div(
-            UnderstandingRenderer.render_initial_understanding_markdown(
-                k8s_agent.metadata.name, iu
-            ),
-            hx_swap_oob=swap,
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell, iu
+
+
+async def insert_info_gathering_cells(
+    parent_cell: Cell,
+    iu: InitialUnderstandingResponse,
+    session: sqlmodel.Session,
+    send,
+):
+    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
+
+    infos_gathered = []
+    cells = []
+    for i, task in enumerate(finding_tasks):
+        cell, info_gathered = await __insert_info_gathering_cell(
+            parent_cell, task, session, send
+        )
+        infos_gathered.append(info_gathered)
+        cells.append(cell)
+    return cells, infos_gathered
+
+
+async def execute_info_gathering(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    parent_cells = cell.parent_cells(session)
+    if len(parent_cells) == 0:
+        logger.error("No parent cells found", cell_id=cell.id)
+        return
+
+    parent_cell = parent_cells[0]
+
+    parent_outputs = pickle.loads(parent_cell.output)
+    iu = parent_outputs[0]["output"]
+    summary = iu.summary
+    info_gather_task = info_gathering(summary, cell.input)
+
+    info_gathered = await info_gather_task
+    info_gathered = InfoGathered(**info_gathered.model_dump())
+
+    outputs.append(
+        {
+            "type": "InfoGathered",
+            "output": info_gathered,
+        }
+    )
+
+    cell.output = pickle.dumps(outputs)
+    cell.hidden = True
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            *[CellOutputRenderer(output).render() for output in outputs],
+            hx_swap_oob="true",
             id=f"cell-output-{cell.id}",
         )
     )
 
-    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
+    info_gather_cells = session.exec(
+        select(Cell).where(
+            Cell.workflow_id == cell.workflow_id,
+            Cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO,
+        )
+    ).all()
 
     infos_gathered = []
-    for i, task in enumerate(finding_tasks):
-        info_gathered = await task
-        # output = Output(
-        #     command=commands[i],
-        #     output_summary=OutputSummary(summary=output_summary.summary),
-        # )
-        info_gathered = InfoGathered(**info_gathered.model_dump())
-        outputs.append(
-            {
-                "type": "InfoGathered",
-                "output": info_gathered,
-            }
-        )
+    for info_gather_cell in info_gather_cells:
+        info_gathered = pickle.loads(info_gather_cell.output)[0]["output"]
         infos_gathered.append(info_gathered)
-        await send(
-            Div(
-                UnderstandingRenderer.render_info_gathered_markdown(
-                    k8s_agent.metadata.name, info_gathered
-                ),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
 
-    report = await generate_report(
-        iu.summary, mode="executor", info_gathered=infos_gathered
+    logger.info(
+        "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
     )
-    report_extracted = await report_breakdown(report)
-    for solution in report_extracted.potential_solutions:
-        output = {
-            "summary": report_extracted.summary,
-            "solution": Solution(**solution.model_dump()),
-        }
-        outputs.append(
-            {
-                "type": "PotentialSolution",
-                "output": output,
-            }
-        )
-        await send(
-            Div(
-                UnderstandingRenderer.render_potential_solution_markdown(
-                    k8s_agent.metadata.name, output
-                ),
-                hx_swap_oob=swap,
-                id=f"cell-output-{cell.id}",
-            )
-        )
 
-    cell.output = pickle.dumps(outputs)
-    session.add(cell)
-    session.commit()
+    report_extracted = await insert_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
 
     workflow = cell.workflow
     workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
+
+
+async def __insert_info_gathering_cell(
+    parent_cell: Cell,
+    info_gather_task: Coroutine[Any, Any, InfoGathered],
+    session: sqlmodel.Session,
+    send,
+):
+    workflow = parent_cell.workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    outputs = []
+    info_gathered = await info_gather_task
+    info_gathered = InfoGathered(**info_gathered.model_dump())
+    outputs.append(
+        {
+            "type": "InfoGathered",
+            "output": info_gathered,
+        }
+    )
+
+    cell = Cell(
+        input=info_gathered.question,
+        output=pickle.dumps(outputs),
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.TYPE2,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cell.workflow_id,
+        parent_cell_ids=[parent_cell.id],
+        cell_type=CellType.UNDERSTANDING_GATHER_INFO,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell, info_gathered
+
+
+async def __insert_potential_solution_cell(
+    parent_cells: list[Cell],
+    summary: str,
+    solution: Solution,
+    session: sqlmodel.Session,
+    send,
+):
+    workflow = parent_cells[0].workflow
+
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    outputs = []
+    output = {
+        "summary": summary,
+        "solution": Solution(**solution.model_dump()),
+    }
+    outputs.append(
+        {
+            "type": "PotentialSolution",
+            "output": output,
+        }
+    )
+
+    logger.info(
+        "create potential solution cell",
+        parent_cells=[parent_cell.id for parent_cell in parent_cells],
+    )
+
+    cell = Cell(
+        input=CellOutputRenderer(outputs[0]).render()[0],
+        output=pickle.dumps(outputs),
+        lang=CellLangEnum.NOTES,
+        thinking_system=ThinkingSystemEnum.TYPE1,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cells[0].workflow_id,
+        parent_cell_ids=[parent_cell.id for parent_cell in parent_cells],
+        cell_type=CellType.UNDERSTANDING_SOLUTION,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell
+
+
+async def insert_potential_solution_cells(
+    summary: str,
+    cells: list[Cell],
+    info_gathered: List[InfoGathered],
+    session: sqlmodel.Session,
+    send,
+):
+    report = await generate_report(
+        summary, mode="executor", info_gathered=info_gathered
+    )
+    report_extracted = await report_breakdown(report)
+    for solution in report_extracted.potential_solutions:
+        await __insert_potential_solution_cell(
+            cells, report_extracted.summary, solution, session, send
+        )
+
+    return report_extracted
 
 
 async def execute_polya_planning_instruction(
@@ -583,7 +695,7 @@ async def execute_polya_planning_instruction(
 
     await send(
         Div(
-            render_task_plan_markdown(k8s_agent.metadata.name, task_plan),
+            *[CellOutputRenderer(output).render() for output in outputs],
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -640,7 +752,7 @@ async def execute_notes_instruction(
     outputs = [output]
     await send(
         Div(
-            render_notes_output_markdown(k8s_agent.metadata.name, cell.input),
+            CellOutputRenderer(output).render(),
             hx_swap_oob="true",
             id=f"cell-output-{cell.id}",
         )
@@ -651,7 +763,7 @@ async def execute_notes_instruction(
     session.add(cell)
     session.commit()
 
-    textarea = cell_text_area(cell)
+    textarea = CellComponent(cell).cell_text_area()
     textarea.hx_swap_oob = "true"
     await send(textarea)
 
@@ -693,19 +805,19 @@ async def execute_bash_instruction(
         if error:
             combined_output += error
 
-    partial = render_bash_output_markdown(k8s_agent.metadata.name, combined_output)
     outputs.append(
         {
             "type": "BashOutput",
             "output": combined_output,
         }
     )
+
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
     await send(
         Div(
-            partial,
+            *[CellOutputRenderer(output).render() for output in outputs],
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -716,6 +828,12 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
     active_workflow = blueprint.active_workflow(db_session)
     workflows = blueprint.workflows
     cells = active_workflow.cells
+
+    logger.info(
+        "home body",
+        cells=[cell.id for cell in cells],
+        sequence=[cell.sequence for cell in cells],
+    )
     return Body(
         Div(
             Card(
@@ -744,23 +862,6 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
         )
     )
-
-
-async def async_wrapper(generator: Generator):
-    for stage in generator:
-        await asyncio.sleep(0)
-        yield stage
-
-
-def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
-    div = Div(
-        *[cell_component(cell, len(cells)) for cell in cells],
-        cls="space-y-4 mt-4",
-        id="cells-container",
-    )
-    if hx_swap_oob:
-        div.hx_swap_oob = hx_swap_oob
-    return div
 
 
 def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
@@ -799,206 +900,20 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     )
 
 
-def render_react_markdown(agent: str, output: ReactProcess):
-    return Div(
-        f"""
-**{agent} thought process**
-
-| Thought | Action |
-| --- | --- |
-| {output.thought} | {output.action} |
-""",
-        cls="marked prose max-w-none",
+def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
+    div = Div(
+        *[CellComponent(cell) for cell in cells],
+        cls="space-y-4 mt-4",
+        id="cells-container",
+        ws_connect="/cell/run/ws/",
+        hx_ext="ws",
     )
+    if hx_swap_oob:
+        div.hx_swap_oob = hx_swap_oob
+    return div
 
 
-def render_react_answer_markdown(agent: str, output: ReactAnswer):
-    return Div(
-        f"""
-**{agent} answer**
-
-{output.answer}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_agent_command_markdown(agent: str, output: AgentCommand):
-    return Div(
-        f"""
-**{agent} task delegation**
-
-{output.instruction}
-
-<br>
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_observation_markdown(agent: str, output: Observation):
-    return Div(
-        f"""
-**{agent} observation**
-
-{output.observation}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_exec_results_markdown(agent: str, output: ExecResults):
-    markdown_outputs = []
-    markdown_outputs.append(
-        Div(
-            f"""
-**{agent} results**
-""",
-            cls="marked prose max-w-none",
-        )
-    )
-    for result in output.results:
-        output = ""
-        column_names = result.table_column_names()
-        columns = result.table_columns()
-
-        for idx, column in enumerate(columns):
-            output += f"""
-**{column_names[idx][0]}**
-
-```
-{column}
-```
----
-
-"""
-
-        markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
-    return Div(*markdown_outputs)
-
-
-def render_bash_output_markdown(agent: str, output: str):
-    return Div(
-        f"""
-**{agent} results**
-
-```bash
-{output}
-```
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_task_plan_markdown(agent: str, task_plan: TaskPlan):
-    return Div(
-        f"""
-**{agent} task plan**
-
-## Goal
-
-{task_plan.goal}
-
-## Subtasks
-
-{"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-class UnderstandingRenderer:
-    @staticmethod
-    def render_initial_understanding_markdown(
-        agent: str, iu: InitialUnderstandingResponse
-    ):
-        return Div(
-            f"""
-**Initial understanding**
-
-{iu.summary}
-
-{ "**Questions**" if iu.questions else "" }
-{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
-""",
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_info_gathered_markdown(agent: str, info_gathered: InfoGathered):
-        template = """
-## Information Gathering
-
-### Question
-
-{{ info_gathered.question }}
-
-### Command
-
-{% for command in info_gathered.commands %}
-```
-# {{ command.description }}
-{{ command.command }}
-```
-{% endfor %}
-
-### Summary
-
- {{ info_gathered.info_gathered }}
-
-"""
-
-        return Div(
-            Template(template).render(info_gathered=info_gathered),
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_potential_solution_markdown(agent: str, output: dict):
-        summary = output.get("summary", "")
-        solution = output.get("solution", {})
-
-        rendered = solution.summarize(summary)
-        return Div(
-            f"""
-{rendered}
-<br>
-""",
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_non_technical_query_markdown(
-        agent: str, non_technical_query: NonTechnicalQuery
-    ):
-        return Div(
-            f"""
-This is a non-technical query, thus I don't know how to answer it.
-
-**Reason:** {non_technical_query.reason}
-""",
-            cls="marked prose max-w-none",
-        )
-
-
-def render_notes_output_markdown(agent: str, output: str):
-    return Div(
-        output,
-        cls="marked prose max-w-none",
-    )
-
-
-cell_render_funcs = {
-    "ReactProcess": render_react_markdown,
-    "AgentCommand": render_agent_command_markdown,
-    "ReactAnswer": render_react_answer_markdown,
-    "Observation": render_observation_markdown,
-    "ExecResults": render_exec_results_markdown,
-    "BashOutput": render_bash_output_markdown,
-    "NotesOutput": render_notes_output_markdown,
-    "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
-    "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
-    "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,
-    "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
-    "TaskPlan": render_task_plan_markdown,
-}
+async def async_wrapper(generator: Generator):
+    for stage in generator:
+        await asyncio.sleep(0)
+        yield stage

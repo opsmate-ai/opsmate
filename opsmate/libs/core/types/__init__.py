@@ -226,7 +226,7 @@ class ExecResults(BaseModel):
 
 
 class Observation(BaseModel):
-    action: str
+    action: str | None = Field(default=None)
     observation: str
 
 

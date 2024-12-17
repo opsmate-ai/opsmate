@@ -7,6 +7,7 @@ from opsmate.polya.models import (
     InitialUnderstandingResponse,
     NonTechnicalQuery,
     ReportExtracted,
+    CommandWithResult,
 )
 from anthropic import Anthropic
 from openai import AsyncOpenAI
@@ -101,7 +102,8 @@ Things you have noticed based on the findings however are not related to the pro
 <important_notes>
 - Use markdown in your response.
 - Do not just return the brief summary you are given, but fact in all the findings
-- **ONLY** list potential solutions that are relevant to the problem
+- **ONLY** list potential solutions that are relevant to the problem.
+- Feel free to just to list 1 potential solution if you are 100% sure that it is the solution.
 - The sum of probability of all potential solutions should be added up to 100%
 </important_notes>
 """
@@ -134,29 +136,47 @@ modes = {
 }
 
 
-async def initial_understanding(question: str, mode: str = "planner"):
+async def initial_understanding(
+    question: str, context: List[str] = [], mode: str = "planner"
+):
     # anthropic = instructor.from_anthropic(Anthropic())
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    question = {
-        "role": "user",
-        "content": question,
-    }
+
+    messages = []
+    messages.append(
+        {
+            "role": "user",
+            "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
+        }
+    )
+    messages.extend(
+        [{"role": "user", "content": conversation} for conversation in context]
+    )
+    messages.append(
+        {
+            "role": "user",
+            "content": question,
+        }
+    )
 
     response: Union[InitialUnderstandingResponse, NonTechnicalQuery] = (
         await openai.messages.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
-                },
-                question,
-            ],
+            messages=messages,
             model=modes[mode]["model"],
             response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
         )
     )
 
     return response
+
+
+async def load_inital_understanding(text: str):
+    openai = instructor.from_openai(AsyncOpenAI(), mode=modes["planner"]["mode"])
+    return await openai.messages.create(
+        messages=[{"role": "user", "content": text}],
+        model=modes["planner"]["model"],
+        response_model=InitialUnderstandingResponse,
+    )
 
 
 async def __info_gathering(summary: str, question: str, mode: str = "planner"):
@@ -192,6 +212,16 @@ async def __info_gathering(summary: str, question: str, mode: str = "planner"):
 async def __finding(question: QuestionResponse, mode: str = "executor"):
     openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
 
+    results = []
+    for command in question.commands:
+        result = command.execute()
+        results.append(
+            CommandWithResult(
+                description=command.description,
+                command=command.command,
+                result=result,
+            )
+        )
     jinja_template = """
 ## Issue description
 
@@ -214,7 +244,7 @@ $ {{ command.command }}
 
 Output:
 ```text
-{{ command.execute() }}
+{{ command.result }}
 ```
 {% endfor %}
 """
@@ -225,7 +255,7 @@ Output:
                 "content": Template(jinja_template).render(
                     summary=question.summary,
                     question=question.question,
-                    commands=question.commands,
+                    commands=results,
                 ),
             },
             {
@@ -237,17 +267,16 @@ Output:
         response_model=QuestionResponseSummary,
     )
 
-    return response
+    return InfoGathered(
+        question=question.question,
+        commands=results,
+        info_gathered=response.summary,
+    )
 
 
 async def info_gathering(summary: str, question: str):
     question_response = await __info_gathering(summary, question)
-    finding = await __finding(question_response)
-    return InfoGathered(
-        question=question_response.question,
-        commands=question_response.commands,
-        info_gathered=finding.summary,
-    )
+    return await __finding(question_response)
 
 
 async def generate_report(

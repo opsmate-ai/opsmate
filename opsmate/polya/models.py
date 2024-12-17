@@ -50,6 +50,14 @@ class Command(BaseModel):
             return str(e)
 
 
+class CommandWithResult(Command):
+    """
+    The command line to be executed with the result
+    """
+
+    result: str = Field(description="The result of the command execution")
+
+
 class QuestionResponse(BaseModel):
     """
     The response to the question
@@ -79,7 +87,7 @@ class InfoGathered(BaseModel):
     """
 
     question: str
-    commands: List[Command]
+    commands: List[CommandWithResult]
     info_gathered: str = Field(
         description="The information gathered from the command execution"
     )

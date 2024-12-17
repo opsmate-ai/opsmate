@@ -17,6 +17,9 @@ from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 client_bag = ProviderClient.clients_from_env()
 
@@ -186,6 +189,19 @@ class Workflow(SQLModel, table=True):
         ).all()
 
 
+class CellType(str, enum.Enum):
+    UNDERSTANDING_ASK_QUESTIONS = "understanding_ask_questions"
+    UNDERSTANDING_GATHER_INFO = "understanding_gather_info"
+    UNDERSTANDING_GENERATE_REPORT = "understanding_generate_report"
+    UNDERSTANDING_REPORT_BREAKDOWN = "understanding_report_breakdown"
+    UNDERSTANDING_SOLUTION = "understanding_solution"
+
+
+class CreatedByType(str, enum.Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
@@ -210,12 +226,48 @@ class Cell(SQLModel, table=True):
 
     hidden: bool = Field(default=False)
 
+    cell_type: CellType | None = Field(default=None)
+    created_by: CreatedByType = Field(default=CreatedByType.USER)
+
+    parent_cell_ids: List[int] = Field(sa_column=Column(JSON), default=[])
+
+    def parent_cells(self, session: Session):
+        if not self.parent_cell_ids:
+            return []
+        return session.exec(select(Cell).where(Cell.id.in_(self.parent_cell_ids))).all()
+
     class Config:
         arbitrary_types_allowed = True
 
     @classmethod
     def find_by_id(cls, session: Session, id: int):
         return session.exec(select(cls).where(cls.id == id)).first()
+
+    @classmethod
+    def delete_cell(cls, session: Session, id: int, children_only: bool = False):
+        """
+        Delete cells recursively based on the parent cell ids
+        """
+        cell = cls.find_by_id(session, id)
+
+        if cell is None:
+            return []
+
+        workflow_id = cell.workflow_id
+
+        deleted_cell_ids = []
+        # delete the cell
+        if not children_only:
+            session.delete(cell)
+            deleted_cell_ids.append(cell.id)
+
+        workflow = Workflow.find_by_id(session, workflow_id)
+        for other_cell in workflow.cells:
+            if cell.id in other_cell.parent_cell_ids:
+                cell_ids = cls.delete_cell(session, other_cell.id)
+                deleted_cell_ids.extend(cell_ids)
+
+        return deleted_cell_ids
 
 
 class KVStore(SQLModel, table=True):

@@ -14,6 +14,7 @@ from opsmate.gui.models import (
     CellType,
     CreatedByType,
 )
+from opsmate.gui.components import CellComponent
 from opsmate.libs.core.types import (
     ExecResults,
     Observation,
@@ -27,7 +28,6 @@ from opsmate.polya.models import (
     InitialUnderstandingResponse,
     InfoGathered,
     NonTechnicalQuery,
-    Report,
     TaskPlan,
     Solution,
     ReportExtracted,
@@ -82,48 +82,6 @@ nav = (
 )
 
 
-def cell_output(cell: Cell):
-    if cell.output:
-        outputs = pickle.loads(cell.output)
-        outputs = [
-            cell_render_funcs[output["type"]](output["output"]) for output in outputs
-        ]
-    else:
-        outputs = []
-    return Div(
-        Span(f"Out [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"),
-        Div(
-            *outputs,
-            id=f"cell-output-{cell.id}",
-        ),
-        cls="px-4 py-2 bg-gray-50 border-t rounded-b-lg overflow-hidden",
-    )
-
-
-def cell_component(cell: Cell, cell_size: int):
-    """Renders a single cell component"""
-    # Determine if the cell is active
-    active_class = "border-green-500" if cell.active else "border-gray-300"
-
-    return Div(
-        # Add Cell Button Menu
-        cell_insert_dropdown(cell),
-        # Main Cell Content
-        Div(
-            # Cell Header
-            cell_header(cell, cell_size),
-            # Cell Input - Updated with conditional styling
-            cell_input_form(cell),
-            # Cell Output (if any)
-            cell_output(cell),
-            cls=f"rounded-lg shadow-sm border {active_class}",  # Apply the active class here
-        ),
-        cls="group relative",
-        key=cell.id,
-        id=f"cell-component-{cell.id}",
-    )
-
-
 def add_cell_button(blueprint: BluePrint):
     return (
         Div(
@@ -151,161 +109,6 @@ def reset_button(blueprint: BluePrint):
             hx_swap_oob="true",
             id="reset-button",
             cls="flex",
-        ),
-    )
-
-
-def cell_header(cell: Cell, cell_size: int):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Div(
-                Span(f"In [{cell.execution_sequence}]:", cls="text-gray-500 text-sm"),
-                # Add cell type selector
-                cls="flex items-center gap-2",
-            ),
-            Div(
-                Select(
-                    Option(
-                        "Text Instruction",
-                        value=CellLangEnum.TEXT_INSTRUCTION.value,
-                        selected=cell.lang == CellLangEnum.TEXT_INSTRUCTION,
-                    ),
-                    Option(
-                        "Bash",
-                        value=CellLangEnum.BASH.value,
-                        selected=cell.lang == CellLangEnum.BASH,
-                    ),
-                    Option(
-                        "Notes",
-                        value=CellLangEnum.NOTES.value,
-                        selected=cell.lang == CellLangEnum.NOTES,
-                    ),
-                    name="lang",
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    hx_trigger="change",
-                    disabled=cell.created_by == CreatedByType.ASSISTANT,
-                    cls="select select-sm ml-2",
-                ),
-                Select(
-                    Option(
-                        "Type 1 - Fast",
-                        value=ThinkingSystemEnum.TYPE1.value,
-                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE1
-                        or cell.lang == CellLangEnum.BASH,
-                    ),
-                    Option(
-                        "Type 2 - Slow but thorough",
-                        value=ThinkingSystemEnum.TYPE2.value,
-                        selected=cell.thinking_system == ThinkingSystemEnum.TYPE2,
-                    ),
-                    name="thinking_system",
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    hx_trigger="change",
-                    cls="select select-sm ml-2 min-w-[240px]",
-                    hidden=cell.lang != CellLangEnum.TEXT_INSTRUCTION,
-                    disabled=cell.created_by == CreatedByType.ASSISTANT,
-                ),
-                Button(
-                    trash_icon_svg,
-                    hx_delete=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
-                    disabled=cell_size == 1,
-                ),
-                Button(
-                    edit_icon_svg,
-                    Input(type="hidden", value="false", name="hidden"),
-                    hx_put=f"/blueprint/{blueprint.id}/cell/{cell.id}",
-                    cls="btn btn-ghost btn-sm",
-                    disabled=cell.created_by == CreatedByType.ASSISTANT,
-                ),
-                Form(
-                    Input(type="hidden", value=cell.id, name="cell_id"),
-                    Button(
-                        run_icon_svg,
-                        cls="btn btn-ghost btn-sm",
-                        disabled=cell.created_by == CreatedByType.ASSISTANT,
-                    ),
-                    ws_connect=f"/cell/run/ws/",
-                    ws_send=True,
-                    hx_ext="ws",
-                ),
-                cls="ml-auto flex items-center gap-2",
-            ),
-            id=f"cell-header-{cell.id}",
-            cls="flex items-center px-4 py-2 bg-gray-100 border-b justify-between rounded-t-lg overflow-hidden",
-        ),
-    )
-
-
-def cell_insert_dropdown(cell: Cell):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Div(
-                Button(
-                    plus_icon_svg,
-                    tabindex="0",
-                    cls="btn btn-ghost btn-xs",
-                ),
-                Ul(
-                    Li(
-                        Button(
-                            "Insert Above",
-                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=true",
-                        )
-                    ),
-                    Li(
-                        Button(
-                            "Insert Below",
-                            hx_post=f"/blueprint/{blueprint.id}/cell/{cell.id}?above=false",
-                        )
-                    ),
-                    tabindex="0",
-                    cls="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box",
-                ),
-                cls="dropdown dropdown-right",
-            ),
-            cls="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
-        ),
-    )
-
-
-def cell_text_area(cell: Cell):
-    return Textarea(
-        cell.input,
-        name="input",
-        cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-        placeholder="Enter your instruction here...",
-        id=f"cell-input-{cell.id}",
-        hidden=cell.hidden,
-    )
-
-
-def cell_input_form(cell: Cell):
-    blueprint = cell.workflow.blueprint
-    return (
-        Div(
-            Form(
-                cell_text_area(cell),
-                Div(
-                    hx_put=f"/blueprint/{blueprint.id}/cell/input/{cell.id}",
-                    hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{cell.id}",
-                    hx_swap=f"#cell-input-form-{cell.id}",
-                ),
-                # xxx: shift+enter is being registered as a newline
-                Div(
-                    Input(type="hidden", value=cell.id, name="cell_id"),
-                    ws_connect=f"/cell/run/ws/",
-                    ws_send=True,
-                    hx_ext="ws",
-                    hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{cell.id}",
-                    hx_swap=f"#cell-input-form-{cell.id}",
-                ),
-                id=f"cell-input-form-{cell.id}",
-            ),
-            hx_include="input",
-            cls="p-4",
         ),
     )
 
@@ -531,7 +334,7 @@ async def insert_initial_understanding_cell(
         session.commit()
         await send(
             Div(
-                cell_component(cell, len(cells) + 1),
+                CellComponent(cell, cell_render_funcs),
                 hx_swap_oob="beforeend",
                 id="cells-container",
             )
@@ -552,7 +355,7 @@ async def insert_initial_understanding_cell(
 
     await send(
         Div(
-            cell_component(cell, len(cells) + 1),
+            CellComponent(cell, cell_render_funcs),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -628,7 +431,7 @@ async def __insert_info_gathering_cell(
 
     await send(
         Div(
-            cell_component(cell, len(cells) + 1),
+            CellComponent(cell, cell_render_funcs),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -688,7 +491,7 @@ async def __insert_potential_solution_cell(
 
     await send(
         Div(
-            cell_component(cell, len(cells) + 1),
+            CellComponent(cell, cell_render_funcs),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -820,7 +623,7 @@ async def execute_notes_instruction(
     session.add(cell)
     session.commit()
 
-    textarea = cell_text_area(cell)
+    textarea = CellComponent(cell, cell_render_funcs).cell_text_area()
     textarea.hx_swap_oob = "true"
     await send(textarea)
 
@@ -929,7 +732,7 @@ async def async_wrapper(generator: Generator):
 
 def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
     div = Div(
-        *[cell_component(cell, len(cells)) for cell in cells],
+        *[CellComponent(cell, cell_render_funcs) for cell in cells],
         cls="space-y-4 mt-4",
         id="cells-container",
     )

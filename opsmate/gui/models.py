@@ -258,7 +258,6 @@ class Cell(SQLModel, table=True):
         deleted_cell_ids = []
         # delete the cell
         if not children_only:
-            logger.info("deleting cell", cell_id=cell.id)
             session.delete(cell)
             deleted_cell_ids.append(cell.id)
 

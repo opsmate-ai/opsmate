@@ -14,7 +14,7 @@ from opsmate.gui.models import (
     CellType,
     CreatedByType,
 )
-from opsmate.gui.components import CellComponent
+from opsmate.gui.components import CellComponent, CellOutputRenderer
 from opsmate.libs.core.types import (
     ExecResults,
     Observation,
@@ -200,17 +200,8 @@ async def execute_llm_react_instruction(
 
     async for stage in async_wrapper(execution):
         output = stage
-        partial = None
-        if isinstance(output, ExecResults):
-            partial = render_exec_results_markdown(output)
-        elif isinstance(output, AgentCommand):
-            partial = render_agent_command_markdown(output)
-        elif isinstance(output, ReactProcess):
-            partial = render_react_markdown(output)
-        elif isinstance(output, ReactAnswer):
-            partial = render_react_answer_markdown(output)
-        # elif isinstance(output, Observation):
-        #     partial = render_observation_markdown(output)
+
+        partial = CellOutputRenderer.render_model(output)
         if partial:
             outputs.append(
                 {
@@ -334,7 +325,7 @@ async def insert_initial_understanding_cell(
         session.commit()
         await send(
             Div(
-                CellComponent(cell, cell_render_funcs),
+                CellComponent(cell),
                 hx_swap_oob="beforeend",
                 id="cells-container",
             )
@@ -355,7 +346,7 @@ async def insert_initial_understanding_cell(
 
     await send(
         Div(
-            CellComponent(cell, cell_render_funcs),
+            CellComponent(cell),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -431,7 +422,7 @@ async def __insert_info_gathering_cell(
 
     await send(
         Div(
-            CellComponent(cell, cell_render_funcs),
+            CellComponent(cell),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -491,7 +482,7 @@ async def __insert_potential_solution_cell(
 
     await send(
         Div(
-            CellComponent(cell, cell_render_funcs),
+            CellComponent(cell),
             hx_swap_oob="beforeend",
             id="cells-container",
         )
@@ -555,7 +546,7 @@ async def execute_polya_planning_instruction(
 
     await send(
         Div(
-            render_task_plan_markdown(task_plan),
+            *[CellOutputRenderer(output).render() for output in outputs],
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -612,7 +603,7 @@ async def execute_notes_instruction(
     outputs = [output]
     await send(
         Div(
-            render_notes_output_markdown(cell.input),
+            CellOutputRenderer(output).render(),
             hx_swap_oob="true",
             id=f"cell-output-{cell.id}",
         )
@@ -623,7 +614,7 @@ async def execute_notes_instruction(
     session.add(cell)
     session.commit()
 
-    textarea = CellComponent(cell, cell_render_funcs).cell_text_area()
+    textarea = CellComponent(cell).cell_text_area()
     textarea.hx_swap_oob = "true"
     await send(textarea)
 
@@ -665,19 +656,19 @@ async def execute_bash_instruction(
         if error:
             combined_output += error
 
-    partial = render_bash_output_markdown(combined_output)
     outputs.append(
         {
             "type": "BashOutput",
             "output": combined_output,
         }
     )
+
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
     await send(
         Div(
-            partial,
+            *[CellOutputRenderer(output).render() for output in outputs],
             hx_swap_oob=swap,
             id=f"cell-output-{cell.id}",
         )
@@ -724,23 +715,6 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
     )
 
 
-async def async_wrapper(generator: Generator):
-    for stage in generator:
-        await asyncio.sleep(0)
-        yield stage
-
-
-def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
-    div = Div(
-        *[CellComponent(cell, cell_render_funcs) for cell in cells],
-        cls="space-y-4 mt-4",
-        id="cells-container",
-    )
-    if hx_swap_oob:
-        div.hx_swap_oob = hx_swap_oob
-    return div
-
-
 def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     return Div(
         Div(
@@ -777,212 +751,18 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     )
 
 
-def render_react_markdown(output: ReactProcess):
-    return Div(
-        f"""
-## Thought process
-
-| Thought | Action |
-| --- | --- |
-| {output.thought} | {output.action} |
-""",
-        cls="marked prose max-w-none",
+def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
+    div = Div(
+        *[CellComponent(cell) for cell in cells],
+        cls="space-y-4 mt-4",
+        id="cells-container",
     )
+    if hx_swap_oob:
+        div.hx_swap_oob = hx_swap_oob
+    return div
 
 
-def render_react_answer_markdown(output: ReactAnswer):
-    return Div(
-        f"""
-## Answer
-
-{output.answer}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_agent_command_markdown(output: AgentCommand):
-    return Div(
-        f"""
-**Task delegation**
-
-{output.instruction}
-
-<br>
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_observation_markdown(output: Observation):
-    return Div(
-        f"""
-**Observation**
-
-{output.observation}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_exec_results_markdown(output: ExecResults):
-    markdown_outputs = []
-    markdown_outputs.append(
-        Div(
-            f"""
-## Results
-""",
-            cls="marked prose max-w-none",
-        )
-    )
-    for result in output.results:
-        column_names = result.table_column_names()
-        column_names = [column_name[0] for column_name in column_names]
-        columns = result.table_columns()
-
-        template = """
-{% for title, result in kv_pairs %}
-{% if result != "" %}
-**{{ title }}**
-```
-{{ result }}
-```
-{% endif %}
-{% endfor %}
-"""
-        kv_pairs = zip(column_names, columns)
-
-        output = Template(template).render(kv_pairs=kv_pairs)
-
-        markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
-    markdown_outputs.append(Div("<br>", cls="marked prose max-w-none"))
-    return Div(*markdown_outputs)
-
-
-def render_bash_output_markdown(output: str):
-    return Div(
-        f"""
-## Results
-
-```bash
-{output}
-```
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-def render_task_plan_markdown(task_plan: TaskPlan):
-    return Div(
-        f"""
-## Task plan
-
-### Goal
-
-{task_plan.goal}
-
-### Subtasks
-
-{"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
-""",
-        cls="marked prose max-w-none",
-    )
-
-
-class UnderstandingRenderer:
-    @staticmethod
-    def render_initial_understanding_markdown(iu: InitialUnderstandingResponse):
-        return Div(
-            f"""
-## Initial understanding
-
-{iu.summary}
-
-{ "**Questions**" if iu.questions else "" }
-{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
-""",
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_info_gathered_markdown(info_gathered: InfoGathered):
-        template = """
-## Information Gathering
-
-### Question
-
-{{ info_gathered.question }}
-
-### Command
-
-{% for command in info_gathered.commands %}
-```bash
-# {{ command.description }}
-{{ command.command }}
-```
-
-#### Output
-
-```bash
-{{ command.result }}
-```
-{% endfor %}
-
-### Summary
-
- {{ info_gathered.info_gathered }}
-
-"""
-
-        return Div(
-            Template(template).render(info_gathered=info_gathered),
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_potential_solution_markdown(output: dict):
-        summary = output.get("summary", "")
-        solution = output.get("solution", {})
-
-        rendered = solution.summarize(summary)
-        return Div(
-            f"""
-{rendered}
-<br>
-""",
-            cls="marked prose max-w-none",
-        )
-
-    @staticmethod
-    def render_non_technical_query_markdown(non_technical_query: NonTechnicalQuery):
-        return Div(
-            f"""
-This is a non-technical query, thus I don't know how to answer it.
-
-**Reason:** {non_technical_query.reason}
-""",
-            cls="marked prose max-w-none",
-        )
-
-
-def render_notes_output_markdown(output: str):
-    return Div(
-        output,
-        cls="marked prose max-w-none",
-    )
-
-
-cell_render_funcs = {
-    "ReactProcess": render_react_markdown,
-    "AgentCommand": render_agent_command_markdown,
-    "ReactAnswer": render_react_answer_markdown,
-    "Observation": render_observation_markdown,
-    "ExecResults": render_exec_results_markdown,
-    "BashOutput": render_bash_output_markdown,
-    "NotesOutput": render_notes_output_markdown,
-    "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
-    "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
-    "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,
-    "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
-    "TaskPlan": render_task_plan_markdown,
-}
+async def async_wrapper(generator: Generator):
+    for stage in generator:
+        await asyncio.sleep(0)
+        yield stage

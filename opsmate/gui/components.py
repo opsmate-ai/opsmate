@@ -2,13 +2,26 @@ from fasthtml.components import *
 from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystemEnum
 from opsmate.gui.assets import *
 import pickle
+from opsmate.libs.core.types import (
+    ExecResults,
+    Observation,
+    ReactProcess,
+    ReactAnswer,
+)
+from opsmate.libs.core.engine.agent_executor import AgentCommand
+from opsmate.polya.models import (
+    InitialUnderstandingResponse,
+    InfoGathered,
+    NonTechnicalQuery,
+    TaskPlan,
+)
+from jinja2 import Template
 
 
 class CellComponent:
-    def __init__(self, cell: Cell, cell_render_funcs: dict):
+    def __init__(self, cell: Cell):
         self.cell = cell
         self.cell_size = len(self.cell.workflow.cells)
-        self.cell_render_funcs = cell_render_funcs
         self.blueprint = self.cell.workflow.blueprint
 
     def __ft__(self):
@@ -190,11 +203,7 @@ class CellComponent:
     def cell_output(self):
         if self.cell.output:
             outputs = pickle.loads(self.cell.output)
-            outputs = [
-                # xxx: import the render funcs
-                self.cell_render_funcs[output["type"]](output["output"])
-                for output in outputs
-            ]
+            outputs = [CellOutputRenderer(output).render() for output in outputs]
         else:
             outputs = []
         return Div(
@@ -205,3 +214,238 @@ class CellComponent:
             ),
             cls="px-4 py-2 bg-gray-50 border-t rounded-b-lg overflow-hidden",
         )
+
+
+def render_react_markdown(output: ReactProcess):
+    return Div(
+        f"""
+## Thought process
+
+| Thought | Action |
+| --- | --- |
+| {output.thought} | {output.action} |
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+def render_react_answer_markdown(output: ReactAnswer):
+    return Div(
+        f"""
+## Answer
+
+{output.answer}
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+def render_agent_command_markdown(output: AgentCommand):
+    return Div(
+        f"""
+**Task delegation**
+
+{output.instruction}
+
+<br>
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+def render_observation_markdown(output: Observation):
+    return Div(
+        f"""
+**Observation**
+
+{output.observation}
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+def render_exec_results_markdown(output: ExecResults):
+    markdown_outputs = []
+    markdown_outputs.append(
+        Div(
+            f"""
+## Results
+""",
+            cls="marked prose max-w-none",
+        )
+    )
+    for result in output.results:
+        column_names = result.table_column_names()
+        column_names = [column_name[0] for column_name in column_names]
+        columns = result.table_columns()
+
+        template = """
+{% for title, result in kv_pairs %}
+{% if result != "" %}
+**{{ title }}**
+```
+{{ result }}
+```
+{% endif %}
+{% endfor %}
+"""
+        kv_pairs = zip(column_names, columns)
+
+        print("****")
+        print(column_names)
+        print(columns)
+        print("****")
+        output = Template(template).render(kv_pairs=kv_pairs)
+
+        markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
+    markdown_outputs.append(Div("<br>", cls="marked prose max-w-none"))
+    return Div(*markdown_outputs)
+
+
+def render_bash_output_markdown(output: str):
+    return Div(
+        f"""
+## Results
+
+```bash
+{output}
+```
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+def render_task_plan_markdown(task_plan: TaskPlan):
+    return Div(
+        f"""
+## Task plan
+
+### Goal
+
+{task_plan.goal}
+
+### Subtasks
+
+{"\n".join([f"* {subtask.task}" for subtask in task_plan.subtasks])}
+""",
+        cls="marked prose max-w-none",
+    )
+
+
+class UnderstandingRenderer:
+    @staticmethod
+    def render_initial_understanding_markdown(iu: InitialUnderstandingResponse):
+        return Div(
+            f"""
+## Initial understanding
+
+{iu.summary}
+
+{ "**Questions**" if iu.questions else "" }
+{"\n".join([f"{i+1}. {question}" for i, question in enumerate(iu.questions)])}
+""",
+            cls="marked prose max-w-none",
+        )
+
+    @staticmethod
+    def render_info_gathered_markdown(info_gathered: InfoGathered):
+        template = """
+## Information Gathering
+
+### Question
+
+{{ info_gathered.question }}
+
+### Command
+
+{% for command in info_gathered.commands %}
+```bash
+# {{ command.description }}
+{{ command.command }}
+```
+
+#### Output
+
+```bash
+{{ command.result }}
+```
+{% endfor %}
+
+### Summary
+
+ {{ info_gathered.info_gathered }}
+
+"""
+
+        return Div(
+            Template(template).render(info_gathered=info_gathered),
+            cls="marked prose max-w-none",
+        )
+
+    @staticmethod
+    def render_potential_solution_markdown(output: dict):
+        summary = output.get("summary", "")
+        solution = output.get("solution", {})
+
+        rendered = solution.summarize(summary)
+        return Div(
+            f"""
+{rendered}
+<br>
+""",
+            cls="marked prose max-w-none",
+        )
+
+    @staticmethod
+    def render_non_technical_query_markdown(non_technical_query: NonTechnicalQuery):
+        return Div(
+            f"""
+This is a non-technical query, thus I don't know how to answer it.
+
+**Reason:** {non_technical_query.reason}
+""",
+            cls="marked prose max-w-none",
+        )
+
+
+def render_notes_output_markdown(output: str):
+    return Div(
+        output,
+        cls="marked prose max-w-none",
+    )
+
+
+class CellOutputRenderer:
+    cell_output_render_func = {
+        "ReactProcess": render_react_markdown,
+        "AgentCommand": render_agent_command_markdown,
+        "ReactAnswer": render_react_answer_markdown,
+        "Observation": render_observation_markdown,
+        "ExecResults": render_exec_results_markdown,
+        "BashOutput": render_bash_output_markdown,
+        "NotesOutput": render_notes_output_markdown,
+        "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,
+        "InfoGathered": UnderstandingRenderer.render_info_gathered_markdown,
+        "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,
+        "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
+        "TaskPlan": render_task_plan_markdown,
+    }
+
+    def __init__(self, output: dict):
+        self.output = output
+
+    def render(self):
+        fn = self.cell_output_render_func.get(self.output["type"])
+        if fn:
+            return fn(self.output["output"])
+        else:
+            return None
+
+    @classmethod
+    def render_model(cls, model: Any):
+        model_cls = model.__class__.__name__
+        fn = cls.cell_output_render_func.get(model_cls)
+        if fn:
+            return fn(model)
+        else:
+            return None

@@ -165,19 +165,6 @@ class ShellCommand(BaseModel):
         return self.output
 
 
-class NonTechnicalQuery(BaseModel):
-    """
-    The query is not related to technical topics, just answer I don't know.
-    """
-
-    reason: str = Field(
-        description="The reason why the query is not related to technical topics"
-    )
-
-    def __call__(self):
-        return f"I don't know because {self.reason}"
-
-
 @dino("gpt-4o-mini", response_model=str)
 async def say_hello(name: str):
     return f"just say hi to {name}"
@@ -190,7 +177,7 @@ async def get_user_info(text: str):
 
 
 ### Abitrary Tool calling example
-@dino("gpt-4o", response_model=Union[ShellCommand, NonTechnicalQuery])
+@dino("gpt-4o", response_model=ShellCommand)
 async def run_shell_command(instruction: str):
     """
     You are a world class sysadmin who is good at running shell commands.
@@ -206,17 +193,21 @@ async def run_shell_command(instruction: str):
 
 ### function calling example
 @dtool
-def find_birthday(person_name: str) -> str:
+def birthday_lookup(person_name: str) -> str:
+    """
+    The function looks up the birthday of the person.
+    """
     if person_name == "Jingkai He":
         return "1990-11-01"
     else:
         return "I don't know"
 
 
-@dino("gpt-4o-mini", response_model=str, tools=[find_birthday])
+@dino("gpt-4o-mini", response_model=str, tools=[birthday_lookup])
 async def get_birthday(people: str):
     """
-    Please look up the birthday via tools instead of out of your knowledge.
+    Please look up the birthday via tool.
+    **DO NOT** use your knowledge to answer.
     """
     return f"find out the birthday of {people}"
 

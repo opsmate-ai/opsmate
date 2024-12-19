@@ -1,21 +1,16 @@
 from typing import Any, Callable, List, Union, Iterable
 from pydantic import BaseModel
-from openai import AsyncOpenAI
 import inspect
-import instructor
 from functools import wraps
-
-from .types import Message, Result
-
-
-client = instructor.from_openai(AsyncOpenAI())
+from .provider import Provider
+from .types import Message
 
 
 def dino(
     model: str,
     response_model: Any,
     tools: List[BaseModel] = [],
-    client: AsyncOpenAI = client,
+    **kwargs: Any,
 ):
     """
     dino (dino is not openai) is a decorator that makes it easier to use LLMs.
@@ -38,35 +33,43 @@ def dino(
     >> UserInfo(name="John Doe", email="john.doe@example.com")
     """
 
+    def instructor_kwargs(kwargs: dict, fn_kwargs: dict):
+        kwargs.update(fn_kwargs)
+        return kwargs
+
     def wrapper(fn: Callable):
         @wraps(fn)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **fn_kwargs):
+            _model = fn_kwargs.get("model") or model
+            provider = Provider.from_model(_model)
+
             system_prompt = fn.__doc__
-            prompt = await fn(*args, **kwargs)
+            prompt = await fn(*args, **fn_kwargs)
+
+            fn_kwargs = instructor_kwargs(kwargs, fn_kwargs)
+            fn_kwargs["model"] = _model
 
             messages = []
             if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
+                messages.append(Message.system(system_prompt))
 
             if isinstance(prompt, str):
-                messages.append({"role": "user", "content": prompt})
+                messages.append(Message.user(prompt))
             elif isinstance(prompt, BaseModel):
-                messages.append({"role": "user", "content": prompt.model_dump_json()})
+                messages.append(Message.user(prompt.model_dump_json()))
             elif isinstance(prompt, list) and all(
                 isinstance(m, Message) for m in prompt
             ):
-                messages.extend(
-                    [{"role": m.role, "content": m.content} for m in prompt]
-                )
+                messages.extend(prompt)
             else:
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
             tool_outputs = []
             if tools:
-                initial_response = await client.chat.completions.create(
-                    model=model,
+                initial_response = await provider.chat_completion(
                     messages=messages,
                     response_model=Iterable[Union[tuple(tools)]],
+                    **fn_kwargs,
                 )
                 for resp in initial_response:
                     if isinstance(resp, BaseModel):
@@ -74,15 +77,13 @@ def dino(
                             await resp.__call__()
                         else:
                             resp.__call__()
-                        messages.append(
-                            {"role": "user", "content": resp.model_dump_json()}
-                        )
+                        messages.append(Message.user(resp.model_dump_json()))
                         tool_outputs.append(resp)
 
-            response = await client.chat.completions.create(
-                model=model,
+            response = await provider.chat_completion(
                 messages=messages,
                 response_model=response_model,
+                **fn_kwargs,
             )
 
             # check if response class has a tool_outputs field

@@ -5,7 +5,7 @@ from .types import Message, React, ReactAnswer, Observation
 
 
 async def _react_prompt(
-    question: str, context: List[Message] = [], tools: List[BaseModel] = []
+    question: str, message_history: List[Message] = [], tools: List[BaseModel] = []
 ):
     """
     <assistant>
@@ -30,15 +30,14 @@ async def _react_prompt(
     """
 
     return [
-        Message(
-            role="user",
-            content=f"""
+        Message.user(
+            f"""
 Here is a list of tools you can use:
 {"\n".join(f"<tool>{t.model_json_schema()}</tool>" for t in tools)}
 """,
         ),
-        Message(role="user", content=question),
-        *context,
+        Message.user(question),
+        *message_history,
     ]
 
 
@@ -57,26 +56,24 @@ async def run_react(
     @dino(model, response_model=Observation, tools=tools)
     async def run_action(react: React):
         return [
-            Message(role="system", content=pretext),
-            Message(role="assistant", content=react.model_dump_json()),
+            Message.system(pretext),
+            Message.assistant(react.model_dump_json()),
         ]
 
     react = _react(model)
 
-    context = []
+    message_history = []
     if pretext:
-        context.append(Message(role="system", content=pretext))
+        message_history.append(Message.system(pretext))
     for _ in range(max_iter):
-        react_result = await react(question, context=context, tools=tools)
+        react_result = await react(
+            question, message_history=message_history, tools=tools
+        )
         if isinstance(react_result, React):
-            context.append(
-                Message(role="assistant", content=react_result.model_dump_json())
-            )
+            message_history.append(Message.assistant(react_result.model_dump_json()))
             yield react_result
             observation = await run_action(react_result)
-            context.append(
-                Message(role="assistant", content=observation.model_dump_json())
-            )
+            message_history.append(Message.assistant(observation.model_dump_json()))
             yield observation
         elif isinstance(react_result, ReactAnswer):
             yield react_result

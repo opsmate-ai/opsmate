@@ -1,10 +1,24 @@
 from pydantic import BaseModel, Field
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Literal
 
 
 class Message(BaseModel):
-    role: str = Field(description="The role of the message")
+    role: Literal["user", "assistant", "system"] = Field(
+        description="The role of the message"
+    )
     content: str = Field(description="The content of the message")
+
+    @classmethod
+    def system(cls, content: str):
+        return cls(role="system", content=content)
+
+    @classmethod
+    def user(cls, content: str):
+        return cls(role="user", content=content)
+
+    @classmethod
+    def assistant(cls, content: str):
+        return cls(role="assistant", content=content)
 
 
 class Result(BaseModel):

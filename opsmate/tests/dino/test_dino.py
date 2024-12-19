@@ -2,51 +2,61 @@ import pytest
 from pydantic import BaseModel
 from opsmate.dino import dino, dtool
 from typing import Literal, Iterable
+from openai import AsyncOpenAI
+import instructor
+from instructor import AsyncInstructor
+
+MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
 
 
 @pytest.mark.asyncio
-async def test_dino_simple_extraction():
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_simple_extraction(model: str):
     class UserInfo(BaseModel):
         name: str
         email: str
 
-    @dino("gpt-4o-mini", response_model=UserInfo)
-    async def get_user_info(text: str):
+    @dino(model, response_model=UserInfo)
+    async def get_llm_info(text: str):
         return f"extract the user info: {text}"
 
-    user_info = await get_user_info(
+    user_info = await get_llm_info(
         "My name is John Doe and my email is john.doe@example.com"
     )
     assert user_info.name == "John Doe"
     assert user_info.email == "john.doe@example.com"
 
 
-async def test_doc_string_as_prompt():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_doc_string_as_prompt(model: str):
     class UserInfo(BaseModel):
         name: str
         email: str
 
-    @dino("gpt-4o-mini", response_model=UserInfo)
-    async def get_user_info(text: str):
+    @dino(model, response_model=UserInfo)
+    async def get_llm_info(text: str):
         """
         extract the user info. remember to sanitize the email address.
         e.g. john@hey.com -> [REDACTED]
         """
         return f"{text}"
 
-    user_info = await get_user_info(
+    user_info = await get_llm_info(
         "My name is John Doe and my email is john.doe@example.com"
     )
     assert user_info.name == "John Doe"
     assert user_info.email == "[REDACTED]"
 
 
-async def test_dino_with_sync_tools():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_sync_tools(model: str):
     @dtool
     def get_weather(location: str) -> str:
         return f"The weather in {location} is sunny"
 
-    @dino("gpt-4o-mini", tools=[get_weather], response_model=Literal["sunny", "cloudy"])
+    @dino(model, tools=[get_weather], response_model=Literal["sunny", "cloudy"])
     async def get_weather_info(location: str):
         return f"What is the weather in {location}?"
 
@@ -54,12 +64,14 @@ async def test_dino_with_sync_tools():
     assert weather_info == "sunny"
 
 
-async def test_dino_with_async_tools():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_async_tools(model: str):
     @dtool
     async def get_weather(location: str) -> str:
         return f"The weather in {location} is sunny"
 
-    @dino("gpt-4o-mini", tools=[get_weather], response_model=Literal["sunny", "cloudy"])
+    @dino(model, tools=[get_weather], response_model=Literal["sunny", "cloudy"])
     async def get_weather_info(location: str):
         return f"What is the weather in {location}?"
 
@@ -67,7 +79,9 @@ async def test_dino_with_async_tools():
     assert weather_info == "sunny"
 
 
-async def test_dino_with_tool_outputs():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_tool_outputs(model: str):
     @dtool
     def get_weather(location: str) -> str:
         return f"The weather in {location} is sunny"
@@ -76,7 +90,7 @@ async def test_dino_with_tool_outputs():
         weather: Literal["sunny", "cloudy"]
         tool_outputs: list[str]
 
-    @dino("gpt-4o-mini", tools=[get_weather], response_model=WeatherInfo)
+    @dino(model, tools=[get_weather], response_model=WeatherInfo)
     async def get_weather_info(location: str):
         return f"What is the weather in {location}?"
 
@@ -88,7 +102,9 @@ async def test_dino_with_tool_outputs():
     )
 
 
-async def test_dino_with_generator_response():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_generator_response(model: str):
     class WeatherLookUp(BaseModel):
         """
         lookup the weather for the given location
@@ -96,7 +112,7 @@ async def test_dino_with_generator_response():
 
         location: str
 
-    @dino("gpt-4o-mini", response_model=Iterable[WeatherLookUp])
+    @dino(model, response_model=Iterable[WeatherLookUp])
     async def get_weather_info():
         return f"What's the weather like in San Francisco, London and Paris?"
 
@@ -106,3 +122,60 @@ async def test_dino_with_generator_response():
     assert "San Francisco" in locations
     assert "London" in locations
     assert "Paris" in locations
+
+
+@pytest.mark.asyncio
+async def test_swap_model():
+    brand = Literal["OpenAI", "Anthropic"]
+
+    @dino("gpt-4o-mini", response_model=brand)
+    async def get_llm_info(model: str = None):
+        return f"who made you?"
+
+    assert await get_llm_info() == "OpenAI"
+    assert await get_llm_info(model="claude-3-5-sonnet-20241022") == "Anthropic"
+
+
+@pytest.mark.asyncio
+async def test_gpt_o1_support_from_decorator():
+    class UserInfo(BaseModel):
+        name: str
+        email: str
+
+    client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+
+    @dino("o1-preview", response_model=UserInfo, client=client)
+    async def get_llm_info(text: str):
+        """
+        You are a helpful assistant
+        """
+        return f"extract the user info: {text}"
+
+    user_info = await get_llm_info(
+        "My name is John Doe and my email is john.doe@example.com"
+    )
+    assert user_info.name == "John Doe"
+    assert user_info.email == "john.doe@example.com"
+
+
+@pytest.mark.asyncio
+async def test_gpt_o1_support_from_func():
+    class UserInfo(BaseModel):
+        name: str
+        email: str
+
+    client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+
+    @dino("o1-preview", response_model=UserInfo)
+    async def get_llm_info(text: str, client: AsyncInstructor):
+        """
+        You are a helpful assistant
+        """
+        return f"extract the user info: {text}"
+
+    user_info = await get_llm_info(
+        "My name is John Doe and my email is john.doe@example.com",
+        client=client,
+    )
+    assert user_info.name == "John Doe"
+    assert user_info.email == "john.doe@example.com"

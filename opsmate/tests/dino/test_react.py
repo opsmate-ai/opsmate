@@ -5,8 +5,12 @@ from opsmate.dino import run_react, dtool, dino
 from opsmate.dino.types import React, ReactAnswer, Observation
 
 
+MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+
+
 @pytest.mark.asyncio
-async def test_run_react():
+@pytest.mark.parametrize("model", MODELS)
+async def test_run_react(model: str):
     class CalcResult(BaseModel):
         result: int
 
@@ -35,7 +39,7 @@ async def test_run_react():
 
     assert answer is not None
 
-    @dino("gpt-4o-mini", response_model=int)
+    @dino(model, response_model=int)
     async def get_answer(text: str) -> str:
         """
         extract the answer from the text

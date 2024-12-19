@@ -5,7 +5,7 @@ import inspect
 import instructor
 from functools import wraps
 
-from .types import Message
+from .types import Message, Result
 
 
 client = instructor.from_openai(AsyncOpenAI())

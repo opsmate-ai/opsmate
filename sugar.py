@@ -106,27 +106,27 @@ async def bob(instruction: str):
 
 
 async def main():
-    # result = await bob("tell a joke that mentions your name")
-    # print(result)
+    result = await bob("tell a joke that mentions your name")
+    print(result)
 
-    # user_info = await get_user_info(
-    #     "User Jingkai He has an email jingkai.he@example.com"
-    # )
+    user_info = await get_user_info(
+        "User Jingkai He has an email jingkai.he@example.com"
+    )
 
-    # assert user_info.name == "Jingkai He"
-    # assert user_info.email == "jingkai.he@example.com"
+    assert user_info.name == "Jingkai He"
+    assert user_info.email == "jingkai.he@example.com"
 
-    # hello = await say_hello("Jingkai He")
-    # print(hello)
+    hello = await say_hello("Jingkai He")
+    print(hello)
 
-    # shell_command = await run_shell_command("what's the operating system?")
-    # print(shell_command().lower())
+    shell_command = await run_shell_command("what's the operating system?")
+    print(shell_command().lower())
 
-    # birthday = await get_birthday("Jingkai He and Boris Johnson")
-    # print(birthday)
+    birthday = await get_birthday("Jingkai He and Boris Johnson")
+    print(birthday)
 
     async for result in run_react(
-        "can you resolve the high cpu usage?",
+        "how many cpus do the vm have?",
         pretext="you are a agent running on a ubuntu 24.04 vm",
         tools=[run_command],
     ):

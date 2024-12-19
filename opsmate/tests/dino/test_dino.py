@@ -1,7 +1,6 @@
 import pytest
 from pydantic import BaseModel
-from opsmate.dino.dino import dino
-from opsmate.dino.tools import dtool
+from opsmate.dino import dino, dtool
 from typing import Literal, Iterable
 
 

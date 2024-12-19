@@ -1,166 +1,13 @@
-import instructor
-from openai import AsyncOpenAI
-from pydantic import BaseModel, Field, create_model
-from typing import Any, Callable, Optional, List, Union, Iterable, Coroutine
-from functools import wraps
+from pydantic import BaseModel, Field
+from typing import Optional
 import asyncio
-import inspect
-from inspect import Parameter
-
-client = instructor.from_openai(AsyncOpenAI())
-
-
-class Message(BaseModel):
-    role: str = Field(description="The role of the message")
-    content: str = Field(description="The content of the message")
-
-
-def dino(
-    model: str,
-    response_model: Any,
-    tools: List[BaseModel] = [],
-    client: AsyncOpenAI = client,
-):
-    """
-    dino (dino is not openai) is a decorator that makes it easier to use LLMs.
-
-    Example:
-
-    class UserInfo(BaseModel):
-        name: str = Field(description="The name of the user")
-        email: str = Field(description="The email of the user")
-
-    @dino("gpt-4o", response_model=UserInfo)
-    async def get_user_info(text: str):
-        \"""
-        You are a helpful assistant that extracts user information from a text.
-        \"""
-        return "extract the user info"
-
-    user_info = await get_user_info("User John Doe has an email john.doe@example.com")
-    print(user_info)
-    >> UserInfo(name="John Doe", email="john.doe@example.com")
-    """
-
-    def wrapper(fn: Callable):
-        @wraps(fn)
-        async def wrapper(*args, **kwargs):
-            system_prompt = fn.__doc__
-            prompt = await fn(*args, **kwargs)
-
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-
-            if isinstance(prompt, str):
-                messages.append({"role": "user", "content": prompt})
-            elif isinstance(prompt, BaseModel):
-                messages.append({"role": "user", "content": prompt.model_dump_json()})
-            elif isinstance(prompt, list) and all(
-                isinstance(m, Message) for m in prompt
-            ):
-                messages.extend(
-                    [{"role": m.role, "content": m.content} for m in prompt]
-                )
-            else:
-                raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
-
-            if tools:
-                initial_response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    response_model=Iterable[Union[tuple(tools)]],
-                )
-                for resp in initial_response:
-                    if isinstance(resp, BaseModel):
-                        if inspect.iscoroutinefunction(resp.__call__):
-                            await resp.__call__()
-                        else:
-                            resp.__call__()
-                        messages.append(
-                            {"role": "user", "content": resp.model_dump_json()}
-                        )
-
-            response = await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                response_model=response_model,
-            )
-
-            return response
-
-        return wrapper
-
-    return wrapper
-
-
-def dtool(fn: Callable | Coroutine[Any, Any, Any]):
-    """
-    dtool is a decorator that turns a function into a Pydantic model.
-
-    Example:
-
-    @dtool
-    def say_hello(name: Field(description="The name of the person to say hello to")):
-        return f"say hi to {name}"
-
-    Becomes:
-
-    class SayHello(BaseModel):
-        name: str = Field(description="The name of the person to say hello to")
-        output: Optional[str] = None
-
-        def __call__(self) -> str:
-            return f"say hi to {self.name}"
-    """
-
-    kw = {
-        n: (o.annotation, ... if o.default == Parameter.empty else o.default)
-        for n, o in inspect.signature(fn).parameters.items()
-    }
-
-    # make sure fn returns a string
-    assert fn.__annotations__.get("return") == str, "fn must return a string"
-    # add output field
-    kw["output"] = (Optional[str], None)
-    m = create_model(fn.__name__, **kw)
-
-    # patch the __call__ method
-    if inspect.iscoroutinefunction(fn):
-
-        async def call(self):
-            s = self.model_dump()
-            s.pop("output")
-            self.output = await fn(**s)
-            return self.output
-
-    else:
-
-        def call(self):
-            s = self.model_dump()
-            s.pop("output")
-            self.output = fn(**s)
-            return self.output
-
-    m.__call__ = call
-
-    return m
-
-
-class React(BaseModel):
-    thoughts: str = Field(description="Your thought about the question")
-    action: str = Field(description="Action to take based on your thoughts")
-
-
-class ReactAnswer(BaseModel):
-    answer: str = Field(description="Your final answer to the question")
-
-
-class Observation(BaseModel):
-    observation: str = Field(description="The observation of the action")
-
-
 import subprocess
+
+from opsmate.dino import dino, dtool, run_react
+from opsmate.dino.types import Message
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class ShellCommand(BaseModel):
@@ -172,6 +19,7 @@ class ShellCommand(BaseModel):
     output: Optional[str] = None
 
     def __call__(self):
+        logger.info("running shell command", command=self.command)
         try:
             result = subprocess.run(
                 self.command,
@@ -186,72 +34,9 @@ class ShellCommand(BaseModel):
         return self.output
 
 
-@dino("gpt-4o", response_model=Union[React, ReactAnswer])
-async def react(question: str, context: List[Message]):
-    """
-    <assistant>
-    You run in a loop of question, thought, action.
-    At the end of the loop you output an answer.
-    Use "Question" to describe the question you have been asked.
-    Use "Thought" to describe your thought
-    Use "Action" to describe the action you are going to take based on the thought.
-    Use "Answer" as the final answer to the question.
-    </assistant>
-
-    <response format 1>
-    During the thought phase you response with the following format:
-    thought: ...
-    action: ...
-    </response_format 1>
-
-    <response format 2>
-    When you have an answer, you response with the following format:
-    answer: ...
-    </response_format 2>
-    """
-
-    return [
-        Message(role="user", content=question),
-        *context,
-    ]
-
-
 @dtool
 def run_command(command: str) -> str:
     return ShellCommand(command=command)()
-
-
-async def run_react(
-    question: str,
-    pretext: str = "",
-    tools: List[BaseModel] = [],
-):
-
-    @dino("gpt-4o-mini", response_model=Observation, tools=tools)
-    async def run_action(react: React):
-        return [
-            Message(role="system", content=pretext),
-            Message(role="assistant", content=react.model_dump_json()),
-        ]
-
-    context = []
-    if pretext:
-        context.append(Message(role="system", content=pretext))
-    while True:
-        react_result = await react(question, context)
-        if isinstance(react_result, React):
-            context.append(
-                Message(role="assistant", content=react_result.model_dump_json())
-            )
-            yield react_result
-            observation = await run_action(react_result)
-            context.append(
-                Message(role="assistant", content=observation.model_dump_json())
-            )
-            yield observation
-        elif isinstance(react_result, ReactAnswer):
-            yield react_result
-            break
 
 
 @dino("gpt-4o-mini", response_model=str)
@@ -341,8 +126,8 @@ async def main():
     # print(birthday)
 
     async for result in run_react(
-        "how many pods are in the cluster?",
-        pretext="you have kubectl command to run",
+        "can you resolve the high cpu usage?",
+        pretext="you are a agent running on a ubuntu 24.04 vm",
         tools=[run_command],
     ):
         print(result)

@@ -6,7 +6,7 @@ from opsmate.libs.agents import (
     supervisor_agent,
 )
 from opsmate.libs.core.types import Context, ContextSpec, Metadata, ReactOutput
-from tests.base import BaseTestCase
+from opsmate.tests.base import BaseTestCase
 
 
 class TestAgents(BaseTestCase):

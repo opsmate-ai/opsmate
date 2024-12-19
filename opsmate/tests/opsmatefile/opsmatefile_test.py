@@ -2,7 +2,7 @@ import pytest
 import tempfile
 from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.types import Context, Supervisor, Agent, DocumentIngestion
-from tests.base import BaseTestCase
+from opsmate.tests.base import BaseTestCase
 
 fixture = """
 kind: Context

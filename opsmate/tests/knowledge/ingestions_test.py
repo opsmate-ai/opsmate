@@ -2,7 +2,7 @@ from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Me
 from opsmate.libs.knowledge import DocumentIngester, get_runbooks_table, Runbook
 import os
 import structlog
-from tests.base import BaseTestCase
+from opsmate.tests.base import BaseTestCase
 
 logger = structlog.get_logger()
 

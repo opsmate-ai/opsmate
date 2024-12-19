@@ -17,7 +17,7 @@ from opsmate.libs.knowledge.schema import Runbook, get_runbooks_table
 from opsmate.libs.providers.providers import Client as ProviderClient
 import structlog
 import subprocess
-from tests.base import BaseTestCase
+from opsmate.tests.base import BaseTestCase
 import uuid
 
 

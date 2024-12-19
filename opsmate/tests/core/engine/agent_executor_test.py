@@ -30,7 +30,7 @@ from opsmate.libs.core.contexts import ExecShell, react_ctx
 from opsmate.libs.providers.providers import Client as ProviderClient
 from typing import Generator
 from queue import Queue
-from tests.base import BaseTestCase
+from opsmate.tests.base import BaseTestCase
 
 
 class TestAgentExecutor(BaseTestCase):

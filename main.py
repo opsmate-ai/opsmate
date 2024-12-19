@@ -1,6 +1,7 @@
 from typing import Callable, Any, Dict, Awaitable, Union, List
 from enum import Enum
-
+from pydantic import BaseModel, Field
+from sugar import dino
 import asyncio
 
 
@@ -10,8 +11,9 @@ class WorkflowType(Enum):
 
 
 class WorkflowContext:
-    def __init__(self, results: Dict[str, Any] = {}):
+    def __init__(self, results: Dict[str, Any] = {}, input: Dict[str, Any] = {}):
         self.results = results
+        self.input = input
         self._lock = asyncio.Lock()
 
     async def set_result(self, key: str, value: Any):
@@ -88,31 +90,43 @@ def step(fn: Callable):
     return _step
 
 
+class Location(BaseModel):
+    city: str = Field(description="The city name")
+
+
 @step
+@dino("gpt-4o-mini", response_model=Location)
 async def do_a(ctx):
-    return "a has been done"
+    return f"Home town of {ctx.input["person_a"]}"
 
 
 @step
+@dino("gpt-4o-mini", response_model=Location)
 async def do_b(ctx):
-    return "b has been done"
+    return f"Home town of {ctx.input["person_b"]}"
 
 
 @step
+@dino("gpt-4o-mini", response_model=str)
 async def do_c(ctx):
-    print(ctx)
+    """
+    You are very good at estimating the distance between two cities.
+    """
     a_result = ctx.results["do_a"]
     b_result = ctx.results["do_b"]
-    return f"{a_result}, {b_result} I am satisfied"
+    return f"The distance between {a_result.city} and {b_result.city}"
 
 
 async def main():
-    print((do_a | do_b))
     workflow = (do_a | do_b) >> do_c
 
-    print(workflow)
-
-    print(await workflow.run())
+    print(
+        await workflow.run(
+            WorkflowContext(
+                input={"person_a": "Elon Musk", "person_b": "Boris Johnson"}
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

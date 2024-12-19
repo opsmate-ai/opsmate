@@ -24,4 +24,8 @@ class ReactAnswer(BaseModel):
 
 
 class Observation(BaseModel):
+    tool_outputs: List[str | BaseModel] = Field(
+        description="The output of the tools calling - as the AI assistant DO NOT populate this field",
+        default=[],
+    )
     observation: str = Field(description="The observation of the action")

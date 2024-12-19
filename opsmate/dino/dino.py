@@ -61,6 +61,7 @@ def dino(
             else:
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
+            tool_outputs = []
             if tools:
                 initial_response = await client.chat.completions.create(
                     model=model,
@@ -76,12 +77,17 @@ def dino(
                         messages.append(
                             {"role": "user", "content": resp.model_dump_json()}
                         )
+                        tool_outputs.append(resp)
 
             response = await client.chat.completions.create(
                 model=model,
                 messages=messages,
                 response_model=response_model,
             )
+
+            # check if response class has a tool_outputs field
+            if hasattr(response, "tool_outputs"):
+                response.tool_outputs = tool_outputs
 
             return response
 

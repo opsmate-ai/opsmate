@@ -1,6 +1,41 @@
-from opsmate.polya.understanding import report_breakdown
+from opsmate.polya.understanding import (
+    report_breakdown,
+    initial_understanding,
+    load_inital_understanding,
+)
 from opsmate.polya.models import Report
 import pytest
+
+
+@pytest.mark.asyncio
+async def test_initial_understanding():
+    response = await initial_understanding(
+        "The 'payment-service' deployment in the 'payment' namespace is unable to successfully rollout?",
+    )
+
+    assert response.questions is not None
+    assert response.summary is not None
+
+
+@pytest.mark.asyncio
+async def test_load_inital_understanding():
+    response = await load_inital_understanding(
+        """
+# Summary
+
+The 'payment-service' deployment in the 'payment' namespace is unable to successfully rollout
+
+# Questions
+
+- What is the root cause of the issue?
+- What are the potential solutions?
+- What are the out of scope issues?
+"""
+    )
+    assert response is not None
+    assert response.summary is not None
+    assert response.questions is not None
+    assert len(response.questions) == 3
 
 
 @pytest.mark.asyncio

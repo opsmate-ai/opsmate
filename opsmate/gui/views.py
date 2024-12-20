@@ -375,7 +375,7 @@ async def insert_initial_understanding_cell(
     session.commit()
 
     outputs = []
-    iu = await initial_understanding(parent_cell.input.rstrip(), context)
+    iu = await initial_understanding(parent_cell.input.rstrip(), chat_history=context)
     if isinstance(iu, NonTechnicalQuery):
         outputs.append(
             {
@@ -647,9 +647,7 @@ async def insert_potential_solution_cells(
     session: sqlmodel.Session,
     send,
 ):
-    report = await generate_report(
-        summary, mode="executor", info_gathered=info_gathered
-    )
+    report = await generate_report(summary, info_gathered=info_gathered)
     report_extracted = await report_breakdown(report)
     for solution in report_extracted.potential_solutions:
         await __insert_potential_solution_cell(

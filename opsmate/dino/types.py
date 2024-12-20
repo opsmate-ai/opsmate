@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, List, Optional, Literal
+from typing import Any, List, Optional, Literal, Dict, Union
 
 
 class Message(BaseModel):
@@ -19,6 +19,17 @@ class Message(BaseModel):
     @classmethod
     def assistant(cls, content: str):
         return cls(role="assistant", content=content)
+
+    @classmethod
+    def normalise(cls, messages: "ListOfMessageOrDict"):
+        return [
+            cls(**message) if isinstance(message, dict) else message
+            for message in messages
+        ]
+
+
+MessageOrDict = Union[Dict, Message]
+ListOfMessageOrDict = List[MessageOrDict]
 
 
 class Result(BaseModel):

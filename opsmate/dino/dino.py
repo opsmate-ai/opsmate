@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Union, Iterable
+from typing import Any, Callable, Coroutine, List, Union, Iterable
 from pydantic import BaseModel
 import inspect
 from functools import wraps
@@ -9,6 +9,7 @@ from .types import Message
 def dino(
     model: str,
     response_model: Any,
+    after_hook: Callable | Coroutine = None,
     tools: List[BaseModel] = [],
     **kwargs: Any,
 ):
@@ -90,7 +91,16 @@ def dino(
             if hasattr(response, "tool_outputs"):
                 response.tool_outputs = tool_outputs
 
-            return response
+            if not after_hook:
+                return response
+
+            if inspect.iscoroutinefunction(after_hook):
+                print("yessssss")
+                transformed_response = await after_hook(response)
+            else:
+                transformed_response = after_hook(response)
+
+            return transformed_response
 
         return wrapper
 

@@ -48,8 +48,11 @@ class ReactAnswer(BaseModel):
     answer: str = Field(description="Your final answer to the question")
 
 
+class ToolOutput(BaseModel): ...
+
+
 class Observation(BaseModel):
-    tool_outputs: List[str | BaseModel] = Field(
+    tool_outputs: List[ToolOutput] = Field(
         description="The output of the tools calling - as the AI assistant DO NOT populate this field",
         default=[],
     )

@@ -1,8 +1,7 @@
 import pytest
 from typing import Literal
-from pydantic import BaseModel
 from opsmate.dino import run_react, dtool, dino
-from opsmate.dino.types import React, ReactAnswer, Observation
+from opsmate.dino.types import React, ReactAnswer, Observation, ToolOutput
 
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
@@ -11,7 +10,7 @@ MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", MODELS)
 async def test_run_react(model: str):
-    class CalcResult(BaseModel):
+    class CalcResult(ToolOutput):
         result: int
 
     @dtool

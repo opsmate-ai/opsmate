@@ -2,12 +2,7 @@ from fasthtml.common import *
 from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystemEnum
 from opsmate.gui.assets import *
 import pickle
-from opsmate.libs.core.types import (
-    ExecResults,
-    Observation,
-    ReactProcess,
-    ReactAnswer,
-)
+from opsmate.dino.types import React, ReactAnswer, Observation
 from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
@@ -213,14 +208,18 @@ class CellComponent:
         )
 
 
-def render_react_markdown(output: ReactProcess):
+def render_react_markdown(output: React):
     return Div(
         f"""
 ## Thought process
 
-| Thought | Action |
-| --- | --- |
-| {output.thought} | {output.action} |
+### Thoughts
+
+{output.thoughts}
+
+### Action
+
+{output.action}
 """,
         cls="marked prose max-w-none",
     )
@@ -237,62 +236,18 @@ def render_react_answer_markdown(output: ReactAnswer):
     )
 
 
-def render_agent_command_markdown(output: AgentCommand):
-    return Div(
-        f"""
-**Task delegation**
-
-{output.instruction}
-
-<br>
-""",
-        cls="marked prose max-w-none",
-    )
-
-
 def render_observation_markdown(output: Observation):
+
     return Div(
         f"""
-**Observation**
+## Observation
+
+{"\n".join([tool_output.markdown() for tool_output in output.tool_outputs])}
 
 {output.observation}
 """,
         cls="marked prose max-w-none",
     )
-
-
-def render_exec_results_markdown(output: ExecResults):
-    markdown_outputs = []
-    markdown_outputs.append(
-        Div(
-            f"""
-## Results
-""",
-            cls="marked prose max-w-none",
-        )
-    )
-    for result in output.results:
-        column_names = result.table_column_names()
-        column_names = [column_name[0] for column_name in column_names]
-        columns = result.table_columns()
-
-        template = """
-{% for title, result in kv_pairs %}
-{% if result != "" %}
-**{{ title }}**
-```
-{{ result }}
-```
-{% endif %}
-{% endfor %}
-"""
-        kv_pairs = zip(column_names, columns)
-
-        output = Template(template).render(kv_pairs=kv_pairs)
-
-        markdown_outputs.append(Div(output, cls="marked prose max-w-none"))
-    markdown_outputs.append(Div("<br>", cls="marked prose max-w-none"))
-    return Div(*markdown_outputs)
 
 
 def render_bash_output_markdown(output: str):
@@ -410,11 +365,9 @@ def render_notes_output_markdown(output: str):
 
 class CellOutputRenderer:
     cell_output_render_func = {
-        "ReactProcess": render_react_markdown,
-        "AgentCommand": render_agent_command_markdown,
+        "React": render_react_markdown,
         "ReactAnswer": render_react_answer_markdown,
         "Observation": render_observation_markdown,
-        "ExecResults": render_exec_results_markdown,
         "BashOutput": render_bash_output_markdown,
         "NotesOutput": render_notes_output_markdown,
         "InitialUnderstanding": UnderstandingRenderer.render_initial_understanding_markdown,

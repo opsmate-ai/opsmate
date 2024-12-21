@@ -8,22 +8,15 @@ from opsmate.gui.models import (
     WorkflowEnum,
     BluePrint,
     Workflow,
-    executor,
-    k8s_agent,
     ThinkingSystemEnum,
     CellType,
     CreatedByType,
+    k8s_react,
 )
 from opsmate.gui.components import CellComponent, CellOutputRenderer
-from opsmate.libs.core.types import (
-    ExecResults,
-    Observation,
-    ReactProcess,
-    ReactAnswer,
-    Agent,
-)
+from opsmate.dino.types import Message, Observation
 from typing import Coroutine, Any
-from opsmate.libs.core.engine.agent_executor import AgentCommand
+
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
     InfoGathered,
@@ -140,12 +133,11 @@ def marshal_output(output: dict | BaseModel | str):
         return output
 
 
-async def prefill_conversation(cell: Cell, agent: Agent, session: sqlmodel.Session):
-    executor.clear_history(agent)
-    agent.status.historical_context = []
-
+async def prefill_conversation(cell: Cell, session: sqlmodel.Session):
+    chat_history = []
     for conversation in conversation_context(cell, session):
-        agent.status.historical_context.append(Observation(observation=conversation))
+        chat_history.append(Message.user(conversation))
+    return chat_history
 
 
 def conversation_context(cell: Cell, session: sqlmodel.Session):
@@ -189,7 +181,7 @@ async def execute_llm_react_instruction(
 
     logger.info("executing llm react instruction", cell_id=cell.id)
 
-    await prefill_conversation(cell, k8s_agent, session)
+    chat_history = await prefill_conversation(cell, session)
 
     outputs = []
     await send(
@@ -200,20 +192,34 @@ async def execute_llm_react_instruction(
         )
     )
     msg = cell.input.rstrip()
-    # execution = executor.supervise(supervisor, msg)
-    execution = executor.execute(k8s_agent, msg)
 
-    async for stage in async_wrapper(execution):
+    async for stage in k8s_react(msg, chat_history=chat_history):
         output = stage
+
+        logger.info("output", output=output)
 
         partial = CellOutputRenderer.render_model(output)
         if partial:
-            outputs.append(
-                {
-                    "type": type(output).__name__,
-                    "output": output,
-                }
-            )
+            if isinstance(output, Observation):
+                outputs.append(
+                    {
+                        "type": "Observation",
+                        "output": Observation(
+                            tool_outputs=[
+                                output.__class__(**output.model_dump())
+                                for output in output.tool_outputs
+                            ],
+                            observation=output.observation,
+                        ),
+                    }
+                )
+            else:
+                outputs.append(
+                    {
+                        "type": type(output).__name__,
+                        "output": output,
+                    }
+                )
             await send(
                 Div(
                     partial,

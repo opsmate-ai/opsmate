@@ -11,33 +11,16 @@ from sqlmodel import (
     JSON,
     Text,
 )
-from opsmate.libs.providers import Client as ProviderClient
-from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
-from opsmate.libs.agents import supervisor_agent, k8s_agent as _k8s_agent
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
+import subprocess
+from typing import Optional
+from opsmate.dino.types import ToolOutput, Message
+from opsmate.dino import run_react
 
 logger = structlog.get_logger(__name__)
-
-client_bag = ProviderClient.clients_from_env()
-
-executor = AgentExecutor(client_bag, ask=False)
-
-k8s_agent = _k8s_agent(
-    model="gpt-4o",
-    provider="openai",
-    react_mode=True,
-    max_depth=10,
-)
-
-# supervisor = supervisor_agent(
-#     model="gpt-4o",
-#     provider="openai",
-#     extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-#     agents=[],
-# )
 
 
 class CellLangEnum(enum.Enum):
@@ -294,4 +277,68 @@ def default_new_cell(workflow: Workflow):
         active=True,
         workflow_id=workflow.id,
         thinking_system=thinking_system,
+    )
+
+
+class ShellCommand(ToolOutput):
+    """
+    The command to run
+    """
+
+    command: str = Field(description="The command to run")
+    output: Optional[str] = None
+
+    def __call__(self):
+        logger.info("running shell command", command=self.command)
+        try:
+            result = subprocess.run(
+                self.command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            self.output = result.stdout
+        except subprocess.SubprocessError as e:
+            self.output = str(e)
+        return self.output
+
+    def markdown(self):
+        return f"""
+### Command
+
+```bash
+{self.command}
+```
+
+### Output
+
+```bash
+{self.output}
+```
+"""
+
+
+k8s_pretext = """
+<assistant>
+You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
+</assistant>
+
+<important>
+- When you do `kubectl logs ...` do not log more than 50 lines.
+- When you look into any issues scoped to the namespaces, look into the events in the given namespaces.
+- When you execute `kubectl exec -it ...` use /bin/sh instead of bash.
+- Always use --show-labels for querying resources when -ojson or -oyaml are not being used.
+- Never use placeholder such as `kubectl -n <namespace> get po <pod-name>`.
+- Always make sure that you are using the right context and namespace. For example never do `kuebctl get po xxx` without specifying the namespace.
+</important>
+"""
+
+
+def k8s_react(question: str, chat_history: List[Message]):
+    return run_react(
+        question,
+        pretext=k8s_pretext,
+        chat_history=chat_history,
+        tools=[ShellCommand],
     )

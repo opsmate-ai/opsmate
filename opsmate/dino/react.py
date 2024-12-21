@@ -50,19 +50,25 @@ async def run_react(
     pretext: str = "",
     model: str = "gpt-4o",
     tools: List[BaseModel] = [],
+    chat_history: List[Message] = [],
     max_iter: int = 10,
 ):
 
     @dino(model, response_model=Observation, tools=tools)
-    async def run_action(react: React):
+    async def run_action(question: str, react: React):
+        """
+        You carry out action using the tools given
+        based on the question, thought and action.
+        """
         return [
             Message.system(pretext),
+            Message.user(question),
             Message.assistant(react.model_dump_json()),
         ]
 
     react = _react(model)
 
-    message_history = []
+    message_history = Message.normalise(chat_history)
     if pretext:
         message_history.append(Message.system(pretext))
     for _ in range(max_iter):
@@ -72,7 +78,7 @@ async def run_react(
         if isinstance(react_result, React):
             message_history.append(Message.assistant(react_result.model_dump_json()))
             yield react_result
-            observation = await run_action(react_result)
+            observation = await run_action(question, react_result)
             message_history.append(Message.assistant(observation.model_dump_json()))
             yield observation
         elif isinstance(react_result, ReactAnswer):

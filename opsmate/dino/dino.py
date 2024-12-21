@@ -95,7 +95,6 @@ def dino(
                 return response
 
             if inspect.iscoroutinefunction(after_hook):
-                print("yessssss")
                 transformed_response = await after_hook(response)
             else:
                 transformed_response = after_hook(response)

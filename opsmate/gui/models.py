@@ -17,7 +17,7 @@ from sqlmodel import Relationship
 import structlog
 import subprocess
 from typing import Optional
-from opsmate.dino.types import ToolOutput, Message
+from opsmate.dino.types import ToolCall, Message
 from opsmate.dino import run_react
 
 logger = structlog.get_logger(__name__)
@@ -280,7 +280,7 @@ def default_new_cell(workflow: Workflow):
     )
 
 
-class ShellCommand(ToolOutput):
+class ShellCommand(ToolCall):
     """
     The command to run
     """

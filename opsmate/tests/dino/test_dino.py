@@ -125,6 +125,118 @@ async def test_dino_with_generator_response(model: str):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_after_hook(model: str):
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"The weather in {location} is sunny"
+
+    def after_hook(response: str):
+        if response == "sunny":
+            return "has sun shining"
+        return "has no sun"
+
+    @dino(
+        model,
+        tools=[get_weather],
+        response_model=Literal["sunny", "cloudy"],
+        after_hook=after_hook,
+    )
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    assert await get_weather_info("San Francisco") == "has sun shining"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_after_hook_async(model: str):
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"The weather in {location} is sunny"
+
+    async def after_hook(response: str):
+        if response == "sunny":
+            return "has sun shining"
+        return "has no sun"
+
+    @dino(
+        model,
+        tools=[get_weather],
+        response_model=Literal["sunny", "cloudy"],
+        after_hook=after_hook,
+    )
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    assert await get_weather_info("San Francisco") == "has sun shining"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_complicated_hook(model: str):
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"sunny"
+
+    async def after_hook(location: str, response: str):
+        return f"The weather in {location} is {response}"
+
+    @dino(
+        model,
+        tools=[get_weather],
+        response_model=Literal["sunny", "cloudy"],
+        after_hook=after_hook,
+    )
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    assert (
+        await get_weather_info("San Francisco")
+        == "The weather in San Francisco is sunny"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_after_hook_returns_none(model: str):
+    @dtool
+    def get_weather(location: str) -> str:
+        return "sunny"
+
+    async def after_hook(location: str, response: str):
+        return None
+
+    @dino(model, tools=[get_weather], response_model=Literal["sunny", "cloudy"])
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    assert await get_weather_info("San Francisco") == "sunny"
+
+
+@pytest.mark.asyncio
+async def test_dino_after_hook_must_have_response_param():
+    @dtool
+    async def get_weather(location: str) -> str:
+        return "sunny"
+
+    async def after_hook(location: str):
+        return None
+
+    @dino(
+        "gpt-4o-mini",
+        tools=[get_weather],
+        response_model=Literal["sunny", "cloudy"],
+        after_hook=after_hook,
+    )
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    with pytest.raises(ValueError):
+        await get_weather_info("San Francisco")
+
+
+@pytest.mark.asyncio
 async def test_swap_model():
     brand = Literal["OpenAI", "Anthropic"]
 

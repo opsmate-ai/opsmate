@@ -4,6 +4,7 @@ import inspect
 from functools import wraps
 from .provider import Provider
 from .types import Message
+from .utils import args_dump
 
 
 def dino(
@@ -15,6 +16,29 @@ def dino(
 ):
     """
     dino (dino is not openai) is a decorator that makes it easier to use LLMs.
+
+    Parameters:
+        model:
+            The LLM model to use. Conventionally the model provider is automatically detected from the model name.
+        response_model:
+            The model to use for the response.
+        after_hook:
+            A function or a coroutine to call against the response.
+            If it is a coroutine, it will be awaited.
+            If it is a function, it will be called synchronously.
+            If the after_hook returns a non-None value, it will be returned instead of the original response.
+            The after_hook must have `response` as a parameter.
+        tools:
+            A list of tools to use, the tool must be a list of ToolCall.
+        **kwargs:
+            Additional arguments to pass to the provider. It can be:
+            - client: a custom client
+            - max_tokens: required by Anthropic. It will be defaulted to 1000 if not provided.
+            - temperature
+            - top_p
+            - frequency_penalty
+            - presence_penalty
+            - system: used by Anthropic as a system prompt.
 
     Example:
 
@@ -34,9 +58,17 @@ def dino(
     >> UserInfo(name="John Doe", email="john.doe@example.com")
     """
 
-    def instructor_kwargs(kwargs: dict, fn_kwargs: dict):
+    def _instructor_kwargs(kwargs: dict, fn_kwargs: dict):
+        kwargs = kwargs.copy()
+        fn_kwargs = fn_kwargs.copy()
+
         kwargs.update(fn_kwargs)
         return kwargs
+
+    def _validate_after_hook(after_hook: Callable):
+        params = inspect.signature(after_hook).parameters
+        if "response" not in params:
+            raise ValueError("after_hook must have `response` as a parameter")
 
     def wrapper(fn: Callable):
         @wraps(fn)
@@ -47,8 +79,8 @@ def dino(
             system_prompt = fn.__doc__
             prompt = await fn(*args, **fn_kwargs)
 
-            fn_kwargs = instructor_kwargs(kwargs, fn_kwargs)
-            fn_kwargs["model"] = _model
+            ikwargs = _instructor_kwargs(kwargs, fn_kwargs)
+            ikwargs["model"] = _model
 
             messages = []
             if system_prompt:
@@ -70,7 +102,7 @@ def dino(
                 initial_response = await provider.chat_completion(
                     messages=messages,
                     response_model=Iterable[Union[tuple(tools)]],
-                    **fn_kwargs,
+                    **ikwargs,
                 )
                 for resp in initial_response:
                     if isinstance(resp, BaseModel):
@@ -84,7 +116,7 @@ def dino(
             response = await provider.chat_completion(
                 messages=messages,
                 response_model=response_model,
-                **fn_kwargs,
+                **ikwargs,
             )
 
             # check if response class has a tool_outputs field
@@ -94,12 +126,22 @@ def dino(
             if not after_hook:
                 return response
 
-            if inspect.iscoroutinefunction(after_hook):
-                transformed_response = await after_hook(response)
-            else:
-                transformed_response = after_hook(response)
+            _validate_after_hook(after_hook)
 
-            return transformed_response
+            hook_args, hook_kwargs = args_dump(fn, after_hook, args, fn_kwargs)
+            hook_kwargs.update(response=response)
+
+            if inspect.iscoroutinefunction(after_hook):
+                transformed_response = await after_hook(*hook_args, **hook_kwargs)
+            elif callable(after_hook):
+                transformed_response = after_hook(*hook_args, **hook_kwargs)
+            else:
+                raise ValueError("after_hook must be a coroutine or a function")
+
+            if transformed_response is not None:
+                return transformed_response
+
+            return response
 
         return wrapper
 

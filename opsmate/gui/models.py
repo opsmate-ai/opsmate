@@ -19,6 +19,7 @@ import subprocess
 from typing import Optional
 from opsmate.dino.types import ToolCall, Message
 from opsmate.dino import run_react
+from opsmate.tools import ShellCommand
 
 logger = structlog.get_logger(__name__)
 
@@ -278,45 +279,6 @@ def default_new_cell(workflow: Workflow):
         workflow_id=workflow.id,
         thinking_system=thinking_system,
     )
-
-
-class ShellCommand(ToolCall):
-    """
-    The command to run
-    """
-
-    command: str = Field(description="The command to run")
-    output: Optional[str] = None
-
-    def __call__(self):
-        logger.info("running shell command", command=self.command)
-        try:
-            result = subprocess.run(
-                self.command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            self.output = result.stdout
-        except subprocess.SubprocessError as e:
-            self.output = str(e)
-        return self.output
-
-    def markdown(self):
-        return f"""
-### Command
-
-```bash
-{self.command}
-```
-
-### Output
-
-```bash
-{self.output}
-```
-"""
 
 
 k8s_pretext = """

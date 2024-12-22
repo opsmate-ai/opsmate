@@ -1,22 +1,3 @@
-from opsmate.libs.core.types import (
-    Task,
-    Metadata,
-    TaskSpec,
-    ReactOutput,
-    ReactProcess,
-    ReactAnswer,
-    ExecResults,
-    Context,
-    ExecOutput,
-    Agent,
-)
-from typing import List
-from opsmate.libs.core.engine import exec_task
-from opsmate.libs.core.engine.agent_executor import AgentExecutor, AgentCommand
-from opsmate.libs.core.contexts import ExecShell
-from opsmate.libs.contexts import available_contexts
-from opsmate.libs.agents import available_agents, supervisor_agent
-from opsmate.libs.opsmatefile import load_opsmatefile
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
 from opentelemetry import trace
@@ -31,12 +12,23 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from rich.markdown import Markdown
 import structlog
 import logging
-import queue
-import threading
-import time
-from opsmate.libs.providers import Client as ProviderClient
+from opsmate.dino import dino, run_react
+from opsmate.dino.types import Observation, ReactAnswer, React, Message
+from opsmate.tools import ShellCommand
+import asyncio
+from functools import wraps
+
+
+def coro(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+
+    return wrapper
+
 
 loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
 structlog.configure(
@@ -61,6 +53,8 @@ if otel_enabled:
 
     OpenAIAutoInstrumentor().instrument()
 
+logger = structlog.get_logger(__name__)
+
 
 @click.group()
 def opsmate_cli():
@@ -71,118 +65,101 @@ def opsmate_cli():
     pass
 
 
+@dino("gpt-4o", response_model=Observation, tools=[ShellCommand])
+async def run_command(instruction: str, model: str = "gpt-4o"):
+    """
+    You are a world class SRE who is good at comes up with shell commands with given instructions.
+    """
+
+    return instruction
+
+
 @opsmate_cli.command()
 @click.argument("instruction")
 @click.option(
     "--ask", is_flag=True, help="Ask for confirmation before executing commands"
 )
 @click.option(
-    "--provider",
-    default="openai",
-    help="Provider to use. To list providers available please run the list-providers command.",
+    "--model",
+    default="gpt-4o",
+    help="OpenAI model to use. To list models available please run the list-models command.",
 )
+@traceit
+@coro
+async def run(instruction, ask, model):
+    """
+    Run a task with the OpsMate.
+    """
+    logger.info("Running on", instruction=instruction, model=model)
+
+    observation = await run_command(instruction, model=model)
+
+    for tool_call in observation.tool_outputs:
+        console.print(Markdown(tool_call.markdown()))
+
+    console.print(Markdown(observation.observation))
+
+
+@opsmate_cli.command()
+@click.argument("instruction")
 @click.option(
     "--model",
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
-    "--max-depth",
+    "--max-iter",
     default=10,
-    help="Max depth the AI assistant can reason about",
+    help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
-    "--answer-only",
-    is_flag=True,
-    help="Only show the answer and not the thought, action and observation",
-)
-@click.option(
-    "--contexts",
-    default="cli",
-    help="Comma separated list of contexts to use. To list all contexts please run the list-contexts command.",
+    "--pretext",
+    default="You are a helpful SRE who has access to a terminal",
+    help="Pretext to add to the prompt",
 )
 @traceit
-def run(instruction, ask, provider, model, max_depth, answer_only, contexts):
+@coro
+async def solve(instruction, model, max_iter, pretext):
     """
-    Run a task with the OpsMate.
+    Solve a problem with the OpsMate.
     """
-    selected_contexts = get_contexts(contexts, with_react=False)
-
-    task = Task(
-        metadata=Metadata(
-            name="run",
-        ),
-        spec=TaskSpec(
-            input={},
-            contexts=selected_contexts,
-            instruction=instruction,
-            response_model=ExecResults,
-        ),
-    )
-
-    output = exec_task(
-        clients=ProviderClient.clients_from_env(),
-        task=task,
-        ask=ask,
+    async for output in run_react(
+        instruction,
+        pretext=pretext,
         model=model,
-        provider=provider,
-    )
-    for result in output.results:
-        table = Table(title=result.table_title(), show_header=True, show_lines=True)
-        for column in result.table_column_names():
-            table.add_column(column[0], style=column[1])
+        max_iter=max_iter,
+        tools=[ShellCommand],
+    ):
+        if isinstance(output, React):
+            console.print(
+                Markdown(
+                    f"""
+## Thought process
+### Thought
 
-        table.add_row(
-            *result.table_columns(),
-        )
-        console.print(table)
+{output.thoughts}
 
+### Action
 
-@opsmate_cli.command()
-@traceit
-def list_models():
-    """
-    List all the models available in OpenAI.
-    """
-    client_bags = ProviderClient.clients_from_env()
+{output.action}
+"""
+                )
+            )
+        elif isinstance(output, ReactAnswer):
+            console.print(
+                Markdown(
+                    f"""
+## Answer
 
-    for provider, _ in client_bags.items():
-        provider_client = ProviderClient(client_bags, provider)
-        model_names = provider_client.models()
-        for model_name in model_names:
-            console.print(model_name)
-
-
-@opsmate_cli.command()
-@traceit
-def list_contexts():
-    """
-    List all the contexts available in OpsMate.
-    """
-
-    table = Table(show_header=True, show_lines=True)
-    table.add_column("Name")
-    table.add_column("Description")
-    for ctx in available_contexts:
-        table.add_row(ctx.metadata.name, ctx.metadata.description)
-    console.print(table)
-
-
-@opsmate_cli.command()
-@traceit
-def list_agents():
-    """
-    List all the agents available in OpsMate.
-    """
-    table = Table(show_header=True, show_lines=True)
-    table.add_column("Name")
-    table.add_column("Description")
-
-    # XXX: realise the agents, it's a bit hacky now
-    agents = [fn() for fn in available_agents.values()]
-    for agent in agents:
-        table.add_row(agent.metadata.name, agent.metadata.description)
-    console.print(table)
+{output.answer}
+"""
+                )
+            )
+        elif isinstance(output, Observation):
+            console.print(Markdown("## Observation"))
+            for tool_call in output.tool_outputs:
+                console.print(Markdown(tool_call.markdown()))
+            console.print(Markdown(output.observation))
 
 
 help_msg = """
@@ -196,192 +173,92 @@ Commands:
 
 @opsmate_cli.command()
 @click.option(
-    "--ask", is_flag=True, help="Ask for confirmation before executing commands"
-)
-@click.option(
-    "--provider",
-    default="openai",
-    help="Provider to use. To list providers available please run the list-providers command.",
-)
-@click.option(
     "--model",
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
-    "--max-depth",
+    "--max-iter",
     default=10,
-    help="Max depth the AI assistant can reason about",
-)
-# @click.option(
-#     "--answer-only",
-#     is_flag=True,
-#     help="Only show the answer and not the thought, action and observation",
-# )
-@click.option(
-    "--stream",
-    is_flag=True,
-    help="Stream the output of the commands",
+    help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
-    "--agents",
-    default="cli-agent",
-    help="Comma separated list of agents to use. To list all agents please run the list-agents command.",
-)
-@click.option(
-    "--skip-opsmatefile",
-    is_flag=True,
-    help="Skip loading OpsMatefile",
+    "--pretext",
+    default="You are a helpful SRE who has access to a terminal",
+    help="Pretext to add to the prompt",
 )
 @traceit
-def chat(ask, provider, model, max_depth, agents, skip_opsmatefile, stream):
-    executor = AgentExecutor(ProviderClient.clients_from_env(), ask=ask)
-    # check if Opsmatefile exists in the cwd
-    if skip_opsmatefile or not os.path.exists("Opsmatefile"):
-        if skip_opsmatefile:
-            console.print("OpsMatefile is skipped", style="yellow")
-        else:
-            console.print("OpsMatefile not found", style="red")
+@coro
+async def chat(model, max_iter, pretext):
+    """
+    Chat with the OpsMate.
+    """
 
-        selected_agents = get_agents(
-            agents, react_mode=True, max_depth=max_depth, model=model, provider=provider
-        )
+    opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-        supervisor = supervisor_agent(
+    chat_history = []
+    while True:
+        user_input = console.input("[bold cyan]You> [/bold cyan]")
+        if user_input == "!clear":
+            chat_history = []
+            opsmate_says("Chat history cleared")
+            continue
+        elif user_input == "!exit":
+            break
+        elif user_input == "!help":
+            console.print(help_msg)
+            continue
+
+        run = run_react(
+            user_input,
+            pretext=pretext,
             model=model,
-            provider=provider,
-            extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-            agents=selected_agents,
+            max_iter=max_iter,
+            tools=[ShellCommand],
+            chat_history=chat_history,
         )
-    else:
-        console.print("OpsMatefile detected, loading supervisor", style="green")
-        console.print(
-            "--model, --max-depth and --agents options are ignored when using OpsMatefile",
-            style="yellow",
-        )
-        world = load_opsmatefile("Opsmatefile")
-        supervisor = world.supervisor_agent()
+        chat_history.append(Message.user(user_input))
 
-        console.print("Ingesting documents", style="green")
-        world.ingest_documents()
-        console.print("Documents ingested", style="green")
+        try:
+            async for output in run:
+                if isinstance(output, React):
+                    tp = f"""
+## Thought process
+### Thought
 
-    try:
-        opsmate_says("Howdy! How can I help you?\n" + help_msg)
+{output.thoughts}
 
-        while True:
-            # user_input = click.prompt("You")
-            user_input = console.input("[bold cyan]You> [/bold cyan]")
-            if user_input == "!clear":
-                executor.clear_history(supervisor)
-                opsmate_says("Chat history cleared")
-                continue
-            elif user_input == "!exit":
-                break
-            elif user_input == "!help":
-                console.print(help_msg)
-                continue
+### Action
 
-            run_supervisor(
-                executor,
-                supervisor,
-                user_input,
-                stream=stream,
-                stream_output=queue.Queue(),
-            )
-    except (KeyboardInterrupt, EOFError):
-        opsmate_says("Goodbye!")
+{output.action}
+"""
+                    console.print(Markdown(tp))
+                    chat_history.append(Message.assistant(tp))
+                elif isinstance(output, ReactAnswer):
+                    tp = f"""
+## Answer
 
+{output.answer}
+"""
+                    console.print(Markdown(tp))
+                    chat_history.append(Message.assistant(tp))
+                elif isinstance(output, Observation):
+                    tp = f"""##Observation
+### Tool outputs
+"""
+                    for tool_call in output.tool_outputs:
+                        tp += f"""
+    {tool_call.markdown()}
+    """
+                    tp += f"""
+### Observation
 
-@traceit(name="run_supervisor", exclude=["stream_output"])
-def run_supervisor(
-    executor: AgentExecutor,
-    supervisor: Agent,
-    instruction: str,
-    stream: bool = False,
-    stream_output: queue.Queue = None,
-):
-    execution = executor.supervise(
-        supervisor, instruction, stream=stream, stream_output=stream_output
-    )
-
-    # stream the command outputs
-    def stream_output_handler():
-        while True:
-            try:
-                output = stream_output.get(block=False)
-                if isinstance(output, ExecOutput):
-                    if output.exit_code == -1:
-                        if output.stdout != "":
-                            print(output.stdout)
-                        if output.stderr != "":
-                            print(output.stderr)
-                elif isinstance(output, ExecShell):
-                    print(f"ExecShell: {output.command}")
-            except queue.Empty:
-                time.sleep(0.001)
-                pass
-
-    thread = threading.Thread(
-        target=stream_output_handler,
-        daemon=True,  # Consider setting this to True if needed
-    )
-
-    thread.start()
-
-    for step in execution:
-        actor, output = step
-        if actor == "@supervisor":
-            if isinstance(output, ReactProcess):
-                table = Table(
-                    title="@supervisor Thought Process",
-                    show_header=False,
-                    show_lines=True,
-                )
-                table.add_row("Thought", output.thought)
-                table.add_row("Action", output.action)
-                console.print(table)
-            elif isinstance(output, ReactAnswer):
-                table = Table(
-                    title="@supervisor Answer", show_header=False, show_lines=True
-                )
-                table.add_row("Answer", output.answer)
-                console.print(table)
-        else:
-            if isinstance(output, ExecResults):
-                for result in output.results:
-                    table = Table(
-                        title=result.table_title(), show_header=True, show_lines=True
-                    )
-                    table.add_column("Agent", style="cyan")
-                    for column in result.table_column_names():
-                        table.add_column(column[0], style=column[1])
-
-                    table.add_row(
-                        actor,
-                        *result.table_columns(),
-                    )
-                    console.print(table)
-            elif isinstance(output, AgentCommand):
-                table = Table(title="Agent Command", show_header=False, show_lines=True)
-                table.add_row("Agent", output.agent)
-                table.add_row("Command", output.instruction)
-                console.print(table)
-            elif isinstance(output, ReactAnswer):
-                table = Table(
-                    title=f"{actor} Answer", show_header=False, show_lines=True
-                )
-                table.add_row("Answer", output.answer)
-                console.print(table)
-            elif isinstance(output, ReactProcess):
-                table = Table(
-                    title=f"{actor} Throught Process",
-                    show_header=False,
-                    show_lines=True,
-                )
-                table.add_row("Thought", output.thought)
-                table.add_row("Action", output.action)
-                console.print(table)
+{output.observation}
+"""
+                    console.print(Markdown(tp))
+                    chat_history.append(Message.assistant(tp))
+        except (KeyboardInterrupt, EOFError):
+            opsmate_says("Goodbye!")
 
 
 def opsmate_says(message: str):
@@ -389,58 +266,6 @@ def opsmate_says(message: str):
     text.append("OpsMate> ", style="bold green")
     text.append(message)
     console.print(text)
-
-
-def get_contexts(contexts: str, with_react: bool = True):
-    context_list = contexts.split(",")
-    if with_react:
-        context_list.append("react")
-    context_list = list(set(context_list))
-
-    selected_contexts = []
-    for ctx_name in context_list:
-        for ctx in available_contexts:
-            if ctx.metadata.name == ctx_name:
-                selected_contexts.append(ctx)
-                break
-        else:
-            console.print(f"Context {ctx_name} not found", style="red")
-            exit(1)
-
-    return selected_contexts
-
-
-def get_agents(
-    agents: str,
-    react_mode: bool = False,
-    max_depth: int = 10,
-    model: str = "gpt-4o",
-    provider: str = "openai",
-):
-    agent_list = agents.split(",")
-
-    if agent_list == ["all"]:
-        agent_list = list(available_agents.keys())
-
-    selected_agent_fns = []
-    for agent_name in agent_list:
-        if agent_name in available_agents:
-            selected_agent_fns.append(available_agents[agent_name])
-        else:
-            console.print(f"Agent {agent_name} not found", style="red")
-            exit(1)
-
-    agents: List[Agent] = [
-        fn(
-            react_mode=react_mode,
-            max_depth=max_depth,
-            model=model,
-            provider=provider,
-        )
-        for fn in selected_agent_fns
-    ]
-
-    return agents
 
 
 if __name__ == "__main__":

@@ -5,13 +5,6 @@ from eval.types import TroubleshootingQuestion, QNA, VerificationStep
 import yaml
 import structlog
 import tempfile
-from opsmate.libs.core.engine.agent_executor import AgentExecutor
-from opsmate.libs.agents import (
-    supervisor_agent,
-    k8s_agent as _k8s_agent,
-)
-from opsmate.libs.providers import Client as ProviderClient
-from opsmate.libs.core.types import Agent, ReactAnswer
 from openai import OpenAI
 import instructor
 from pydantic import BaseModel, Field
@@ -26,6 +19,8 @@ import os
 import time
 from datetime import timedelta
 from typing import Callable
+from opsmate.dino.react import run_react
+from opsmate.contexts import contexts
 
 logger = structlog.get_logger()
 
@@ -82,21 +77,12 @@ def with_env(issue: QNA):
 
 @pytest.fixture
 def k8s_agent():
-    return _k8s_agent(react_mode=True)
+    ctx = contexts["k8s"]
 
+    def run(question: str):
+        return run_react(question, context=ctx.ctx(), tools=ctx.tools)
 
-@pytest.fixture
-def supervisor(k8s_agent):
-    return supervisor_agent(
-        extra_contexts="You are a helpful SRE manager who manages a team of SMEs",
-        agents=[k8s_agent],
-        model="gpt-4o",
-    )
-
-
-@pytest.fixture
-def executor():
-    return AgentExecutor(client_bag=ProviderClient.clients_from_env())
+    return run
 
 
 class OutputScore(BaseModel):
@@ -139,15 +125,14 @@ Please give a score between 0 and 100 based on how similar the candidate's answe
     )
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("issue", issues())
 @traceit(name="test_load_issues")
-def test_load_issues(
+async def test_load_issues(
     issue: QNA,
     using_eval_cluster,
     with_env,
-    supervisor: Agent,
-    k8s_agent: Agent,
-    executor: AgentExecutor,
+    k8s_agent,
 ):
     for step in issue.steps_to_create_issue:
         # write the manifest to a temp file
@@ -155,17 +140,8 @@ def test_load_issues(
             f.write(step.manifest.encode("utf-8"))
             f.flush()
             subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
-    executor.clear_history(supervisor)
-    # supervisor_output = executor.supervise(
-    #     supervisor,
-    #     issue.question,
-    # )
 
-    # for output in supervisor_output:
-    #     agent_name, output = output
-    #     if agent_name == "@supervisor" and isinstance(output, ReactAnswer):
-    #         break
-    for output in executor.execute(k8s_agent, issue.question):
+    async for output in k8s_agent(issue.question):
         logger.info("output", output=output)
 
     # makes sure the output is similar to the root cause

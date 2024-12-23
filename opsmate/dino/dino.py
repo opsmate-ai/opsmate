@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import inspect
 from functools import wraps
 from .provider import Provider
-from .types import Message
+from .types import Message, ToolCall
 from .utils import args_dump
 
 
@@ -11,7 +11,7 @@ def dino(
     model: str,
     response_model: Any,
     after_hook: Callable | Coroutine = None,
-    tools: List[BaseModel] = [],
+    tools: List[ToolCall] = [],
     **kwargs: Any,
 ):
     """

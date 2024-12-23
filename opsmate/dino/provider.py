@@ -7,6 +7,7 @@ from instructor.client import T, ChatCompletionMessageParam
 from tenacity import AsyncRetrying
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
+from functools import cache
 
 T = TypeVar("T")
 
@@ -96,6 +97,7 @@ class OpenAIProvider(Provider):
         )
 
     @classmethod
+    @cache
     def default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(AsyncOpenAI())
 
@@ -142,6 +144,7 @@ class AnthropicProvider(Provider):
         )
 
     @classmethod
+    @cache
     def default_client(cls) -> AsyncInstructor:
         return instructor.from_anthropic(AsyncAnthropic())
 

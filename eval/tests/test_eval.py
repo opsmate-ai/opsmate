@@ -5,8 +5,6 @@ from eval.types import TroubleshootingQuestion, QNA, VerificationStep
 import yaml
 import structlog
 import tempfile
-from openai import OpenAI
-import instructor
 from pydantic import BaseModel, Field
 import opentelemetry.trace as trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -21,6 +19,8 @@ from datetime import timedelta
 from typing import Callable
 from opsmate.dino.react import run_react
 from opsmate.contexts import contexts
+from opsmate.dino import dino
+from opsmate.dino.types import Message
 
 logger = structlog.get_logger()
 
@@ -93,16 +93,12 @@ class OutputScore(BaseModel):
     )
 
 
-def verify_root_cause(
+@dino(model="gpt-4o", response_model=OutputScore)
+async def verify_root_cause(
     question: str, candidate_answer: str, expected_output: str
 ) -> OutputScore:
-    cli = instructor.from_openai(OpenAI())
-    return cli.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": f"""
+    return Message.system(
+        f"""
 You are a sysadmin examiner tasked to verify whether the actual root comes up from the candidate's answer matches the expected root cause.
 
 <Question>
@@ -119,9 +115,6 @@ You are a sysadmin examiner tasked to verify whether the actual root comes up fr
 
 Please give a score between 0 and 100 based on how similar the candidate's answer is to the expected root cause.
 """,
-            }
-        ],
-        response_model=OutputScore,
     )
 
 
@@ -153,7 +146,7 @@ async def test_load_issues(
             stderr=subprocess.STDOUT,
             text=True,
         )
-        score = verify_root_cause(
+        score = await verify_root_cause(
             question=issue.question,
             candidate_answer=output,
             expected_output=expected_output.stdout,

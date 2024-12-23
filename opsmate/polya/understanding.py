@@ -1,18 +1,15 @@
-import instructor
 from opsmate.polya.models import (
     QuestionResponse,
-    QuestionResponseSummary,
     InfoGathered,
     Report,
     InitialUnderstandingResponse,
     NonTechnicalQuery,
     ReportExtracted,
 )
-from openai import AsyncOpenAI
 from typing import List, Union
 from jinja2 import Template
 import asyncio
-from opsmate.dino import dino, dtool
+from opsmate.dino import dino
 from opsmate.dino.types import Message, ListOfMessageOrDict
 
 extra_sys_prompt = """

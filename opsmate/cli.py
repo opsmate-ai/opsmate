@@ -18,6 +18,7 @@ import logging
 from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
 from opsmate.tools import ShellCommand
+from opsmate.contexts import contexts
 import asyncio
 from functools import wraps
 
@@ -65,15 +66,6 @@ def opsmate_cli():
     pass
 
 
-@dino("gpt-4o", response_model=Observation, tools=[ShellCommand])
-async def run_command(instruction: str, model: str = "gpt-4o"):
-    """
-    You are a world class SRE who is good at comes up with shell commands with given instructions.
-    """
-
-    return instruction
-
-
 @opsmate_cli.command()
 @click.argument("instruction")
 @click.option(
@@ -84,15 +76,30 @@ async def run_command(instruction: str, model: str = "gpt-4o"):
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
+@click.option(
+    "--context",
+    default="cli",
+    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
+)
 @traceit
 @coro
-async def run(instruction, ask, model):
+async def run(instruction, ask, model, context):
     """
     Run a task with the OpsMate.
     """
+
+    ctx = get_context(context)
+
     logger.info("Running on", instruction=instruction, model=model)
 
-    observation = await run_command(instruction, model=model)
+    @dino("gpt-4o", response_model=Observation, tools=ctx.tools)
+    async def run_command(instruction: str):
+        return [
+            Message.system(ctx.ctx()),
+            Message.user(instruction),
+        ]
+
+    observation = await run_command(instruction)
 
     for tool_call in observation.tool_outputs:
         console.print(Markdown(tool_call.markdown()))
@@ -114,8 +121,8 @@ async def run(instruction, ask, model):
 )
 @click.option(
     "--context",
-    default="You are a helpful SRE who has access to a terminal",
-    help="Context to be added to the prompt",
+    default="cli",
+    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @traceit
 @coro
@@ -123,12 +130,14 @@ async def solve(instruction, model, max_iter, context):
     """
     Solve a problem with the OpsMate.
     """
+    ctx = get_context(context)
+
     async for output in run_react(
         instruction,
-        context=context,
+        context=ctx.ctx(),
         model=model,
         max_iter=max_iter,
-        tools=[ShellCommand],
+        tools=ctx.tools,
     ):
         if isinstance(output, React):
             console.print(
@@ -184,8 +193,8 @@ Commands:
 )
 @click.option(
     "--context",
-    default="You are a helpful SRE who has access to a terminal",
-    help="Context to add to the prompt",
+    default="cli",
+    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @traceit
 @coro
@@ -193,6 +202,8 @@ async def chat(model, max_iter, context):
     """
     Chat with the OpsMate.
     """
+
+    ctx = get_context(context)
 
     opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
@@ -211,10 +222,10 @@ async def chat(model, max_iter, context):
 
         run = run_react(
             user_input,
-            context=context,
+            context=ctx.ctx(),
             model=model,
             max_iter=max_iter,
-            tools=[ShellCommand],
+            tools=ctx.tools,
             chat_history=chat_history,
         )
         chat_history.append(Message.user(user_input))
@@ -259,6 +270,31 @@ async def chat(model, max_iter, context):
                     chat_history.append(Message.assistant(tp))
         except (KeyboardInterrupt, EOFError):
             opsmate_says("Goodbye!")
+
+
+@opsmate_cli.command()
+def list_contexts():
+    """
+    List all the contexts available.
+    """
+    table = Table(title="Contexts", show_header=True)
+    table.add_column("Context")
+    table.add_column("Description")
+
+    for ctx_name, ctx in contexts.items():
+        table.add_row(ctx_name, ctx.description)
+
+    console.print(table)
+
+
+def get_context(ctx_name: str):
+    ctx = contexts.get(ctx_name)
+    if not ctx:
+        console.print(
+            f"Context {ctx_name} not found. Run the list-contexts command to see all the contexts available."
+        )
+        exit(1)
+    return ctx
 
 
 def opsmate_says(message: str):

@@ -327,8 +327,6 @@ answer: the process with pid 1234 is killed
 </react>
 
 Do not give the answer as a thought or is unspecific.
-
-question: what are the pods in the cluster?
 """
 
 react_ctx = Context(

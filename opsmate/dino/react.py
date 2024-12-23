@@ -27,6 +27,26 @@ async def _react_prompt(
     When you have an answer, you response with the following format:
     answer: ...
     </response_format 2>
+
+    <important 1>
+    When you know how to perform a task, provide the steps as an action rather than giving them as an answer.
+
+    BAD EXAMPLE:
+    <react>
+    answer: to kill process with pid 1234, use `kill -TERM 1234`
+    </react>
+
+    GOOD EXAMPLE:
+
+    <react>
+    thought: I need to kill process using the kill command
+    action: run `kill -TERM 1234`
+    </react>
+    </important 1 >
+
+    <important 2>
+    If you know the answer straight away, feel free to give the answer without going through the thought process.
+    </important 2>
     """
 
     return [

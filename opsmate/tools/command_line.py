@@ -12,6 +12,7 @@ class ShellCommand(ToolCall):
     The command to run
     """
 
+    description: str = Field(description="Explain what the command is doing")
     command: str = Field(description="The command to run")
     output: Optional[str] = None
 
@@ -35,6 +36,7 @@ class ShellCommand(ToolCall):
 ### Command
 
 ```bash
+# {self.description}
 {self.command}
 ```
 

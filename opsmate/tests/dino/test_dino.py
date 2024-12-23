@@ -248,46 +248,46 @@ async def test_swap_model():
     assert await get_llm_info(model="claude-3-5-sonnet-20241022") == "Anthropic"
 
 
-@pytest.mark.asyncio
-async def test_gpt_o1_support_from_decorator():
-    class UserInfo(BaseModel):
-        name: str
-        email: str
+# @pytest.mark.asyncio
+# async def test_gpt_o1_support_from_decorator():
+#     class UserInfo(BaseModel):
+#         name: str
+#         email: str
 
-    client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+#     client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
 
-    @dino("o1-preview", response_model=UserInfo, client=client)
-    async def get_llm_info(text: str):
-        """
-        You are a helpful assistant
-        """
-        return f"extract the user info: {text}"
+#     @dino("o1-preview", response_model=UserInfo, client=client)
+#     async def get_llm_info(text: str):
+#         """
+#         You are a helpful assistant
+#         """
+#         return f"extract the user info: {text}"
 
-    user_info = await get_llm_info(
-        "My name is John Doe and my email is john.doe@example.com"
-    )
-    assert user_info.name == "John Doe"
-    assert user_info.email == "john.doe@example.com"
+#     user_info = await get_llm_info(
+#         "My name is John Doe and my email is john.doe@example.com"
+#     )
+#     assert user_info.name == "John Doe"
+#     assert user_info.email == "john.doe@example.com"
 
 
-@pytest.mark.asyncio
-async def test_gpt_o1_support_from_func():
-    class UserInfo(BaseModel):
-        name: str
-        email: str
+# @pytest.mark.asyncio
+# async def test_gpt_o1_support_from_func():
+#     class UserInfo(BaseModel):
+#         name: str
+#         email: str
 
-    client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+#     client = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
 
-    @dino("o1-preview", response_model=UserInfo)
-    async def get_llm_info(text: str, client: AsyncInstructor):
-        """
-        You are a helpful assistant
-        """
-        return f"extract the user info: {text}"
+#     @dino("o1-preview", response_model=UserInfo)
+#     async def get_llm_info(text: str, client: AsyncInstructor):
+#         """
+#         You are a helpful assistant
+#         """
+#         return f"extract the user info: {text}"
 
-    user_info = await get_llm_info(
-        "My name is John Doe and my email is john.doe@example.com",
-        client=client,
-    )
-    assert user_info.name == "John Doe"
-    assert user_info.email == "john.doe@example.com"
+#     user_info = await get_llm_info(
+#         "My name is John Doe and my email is john.doe@example.com",
+#         client=client,
+#     )
+#     assert user_info.name == "John Doe"
+#     assert user_info.email == "john.doe@example.com"

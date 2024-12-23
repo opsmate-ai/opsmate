@@ -57,6 +57,14 @@ spec:
   local_path: ./runbooks
 """
 
+# infra_repo_ctx = """
+# You manages the infra repo manages the infra via Infra as Code.
+# """
+
+# sre_manager_ctx = """
+# You are a helpful SRE manager who manages a team of SMEs.
+# """
+
 
 class TestOPSMatefile(BaseTestCase):
 

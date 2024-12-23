@@ -1,7 +1,9 @@
-from typing import List, Union
+from typing import List, Union, Callable, Coroutine, Any
 from pydantic import BaseModel
 from .dino import dino
-from .types import Message, React, ReactAnswer, Observation
+from .types import Message, React, ReactAnswer, Observation, ToolCall
+from functools import wraps
+import inspect
 
 
 async def _react_prompt(
@@ -61,20 +63,18 @@ Here is a list of tools you can use:
     ]
 
 
-def _react(model: str):
-    return dino(model, response_model=Union[React, ReactAnswer])(_react_prompt)
-
-
 async def run_react(
     question: str,
     context: str = "",
     model: str = "gpt-4o",
-    tools: List[BaseModel] = [],
+    tools: List[ToolCall] = [],
     chat_history: List[Message] = [],
     max_iter: int = 10,
+    react_prompt: Coroutine[Any, Any, List[Message]] = _react_prompt,
+    **kwargs: Any,
 ):
 
-    @dino(model, response_model=Observation, tools=tools)
+    @dino(model, response_model=Observation, tools=tools, **kwargs)
     async def run_action(question: str, react: React):
         """
         You carry out action using the tools given
@@ -86,7 +86,9 @@ async def run_react(
             Message.assistant(react.model_dump_json()),
         ]
 
-    react = _react(model)
+    react = dino(model, response_model=Union[React, ReactAnswer], **kwargs)(
+        react_prompt
+    )
 
     message_history = Message.normalise(chat_history)
     if context:
@@ -104,3 +106,59 @@ async def run_react(
         elif isinstance(react_result, ReactAnswer):
             yield react_result
             break
+
+
+def react(
+    model: str,
+    tools: List[ToolCall] = [],
+    context: str = "",
+    max_iter: int = 10,
+    iterable: bool = False,
+    callback: Callable[[React | ReactAnswer | Observation], None] = None,
+    react_kwargs: Any = {},
+):
+    """
+    Decorator to run a function in a loop of question, thought, action.
+
+    Example:
+    @react(model="gpt-4o", tools=[knowledge_query], context="you are a domain knowledge expert")
+    async def knowledge_agent(query: str):
+        return f"answer the query: {query}"
+    """
+
+    def wrapper(fn):
+        @wraps(fn)
+        async def wrapper(*args, **kwargs):
+            if inspect.iscoroutinefunction(fn):
+                prompt = await fn(*args, **kwargs)
+            else:
+                prompt = fn(*args, **kwargs)
+
+            if iterable:
+
+                def gen():
+                    return run_react(
+                        prompt,
+                        model=model,
+                        context=context,
+                        tools=tools,
+                        max_iter=max_iter,
+                        **react_kwargs,
+                    )
+
+                return gen()
+            else:
+                async for result in run_react(
+                    prompt, context=context, tools=tools, max_iter=max_iter
+                ):
+                    if callback:
+                        if inspect.iscoroutinefunction(callback):
+                            await callback(result)
+                        else:
+                            callback(result)
+                    if isinstance(result, ReactAnswer):
+                        return result
+
+        return wrapper
+
+    return wrapper

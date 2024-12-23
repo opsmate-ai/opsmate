@@ -96,3 +96,82 @@ def test_traceit_with_span_arg(tracer_provider):
     assert span.name == "da_func"
     assert span.attributes["da_func.a"] == 1
     assert span.events[0].name == "test_event"
+
+
+@pytest.mark.asyncio
+async def test_async_traceit_with_args(tracer_provider):
+    tracer_provider, exporter = tracer_provider
+
+    @traceit
+    async def func(a: int, b: str, c: dict):
+        return a + len(b) + len(c)
+
+    result = await func(1, "world", {"y": 2})
+
+    assert result == 7
+
+    spans = exporter.get_finished_spans()
+    span = spans[-1]
+    assert span.name == "test_async_traceit_with_args.<locals>.func"
+    assert span.attributes["test_async_traceit_with_args.<locals>.func.a"] == 1
+    assert span.attributes["test_async_traceit_with_args.<locals>.func.b"] == "world"
+    assert span.attributes["test_async_traceit_with_args.<locals>.func.c"] == '{"y": 2}'
+
+
+@pytest.mark.asyncio
+async def test_async_traceit_with_name(tracer_provider):
+    tracer_provider, exporter = tracer_provider
+
+    @traceit(name="da_func")
+    async def func(a: int, b: str, c: dict):
+        return a + len(b) + len(c)
+
+    result = await func(1, "world", {"y": 2})
+
+    assert result == 7
+
+    spans = exporter.get_finished_spans()
+    span = spans[-1]
+    assert span.name == "da_func"
+    assert span.attributes["da_func.a"] == 1
+    assert span.attributes["da_func.b"] == "world"
+    assert span.attributes["da_func.c"] == '{"y": 2}'
+
+
+@pytest.mark.asyncio
+async def test_async_traceit_with_exclude(tracer_provider):
+    tracer_provider, exporter = tracer_provider
+
+    @traceit(name="da_func", exclude=["b"])
+    async def func(a: int, b: str, c: dict):
+        return a + len(b) + len(c)
+
+    result = await func(1, "hello", {"x": 1})
+    assert result == 7
+
+    spans = exporter.get_finished_spans()
+    span = spans[-1]
+    assert span.name == "da_func"
+    assert span.attributes["da_func.a"] == 1
+    assert span.attributes["da_func.c"] == '{"x": 1}'
+    assert "da_func.b" not in span.attributes
+
+
+@pytest.mark.asyncio
+async def test_async_traceit_with_span_arg(tracer_provider):
+    tracer_provider, exporter = tracer_provider
+
+    @traceit(name="da_func")
+    async def func(a: int, span: trace.Span = None):
+        span.add_event("test_event")
+        return a
+
+    result = await func(1)
+    assert result == 1
+
+    spans = exporter.get_finished_spans()
+    span = spans[-1]
+    assert span.name == "da_func"
+    assert span.attributes["da_func.a"] == 1
+
+    assert span.events[0].name == "test_event"

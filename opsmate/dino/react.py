@@ -47,7 +47,7 @@ def _react(model: str):
 
 async def run_react(
     question: str,
-    pretext: str = "",
+    context: str = "",
     model: str = "gpt-4o",
     tools: List[BaseModel] = [],
     chat_history: List[Message] = [],
@@ -61,7 +61,7 @@ async def run_react(
         based on the question, thought and action.
         """
         return [
-            Message.system(pretext),
+            Message.system(context),
             Message.user(question),
             Message.assistant(react.model_dump_json()),
         ]
@@ -69,8 +69,8 @@ async def run_react(
     react = _react(model)
 
     message_history = Message.normalise(chat_history)
-    if pretext:
-        message_history.append(Message.system(pretext))
+    if context:
+        message_history.append(Message.system(context))
     for _ in range(max_iter):
         react_result = await react(
             question, message_history=message_history, tools=tools

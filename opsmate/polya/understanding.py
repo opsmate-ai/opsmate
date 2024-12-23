@@ -84,7 +84,7 @@ async def load_inital_understanding(text: str):
 
 @dino("gpt-4o", response_model=QuestionResponse, after_hook=lambda qr: qr.execute())
 async def __info_gathering(
-    summary: str, question: str, pretext: str = extra_sys_prompt
+    summary: str, question: str, context: str = extra_sys_prompt
 ):
     """
     <assistant>
@@ -112,7 +112,7 @@ async def __info_gathering(
     </important_notes>
     """
     return [
-        Message.system(pretext),
+        Message.system(context),
         Message.user(f"<summary>{summary}</summary>"),
         Message.user(f"<question>{question}</question>"),
     ]

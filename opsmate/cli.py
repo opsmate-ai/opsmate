@@ -113,19 +113,19 @@ async def run(instruction, ask, model):
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
-    "--pretext",
+    "--context",
     default="You are a helpful SRE who has access to a terminal",
-    help="Pretext to add to the prompt",
+    help="Context to be added to the prompt",
 )
 @traceit
 @coro
-async def solve(instruction, model, max_iter, pretext):
+async def solve(instruction, model, max_iter, context):
     """
     Solve a problem with the OpsMate.
     """
     async for output in run_react(
         instruction,
-        pretext=pretext,
+        context=context,
         model=model,
         max_iter=max_iter,
         tools=[ShellCommand],
@@ -183,13 +183,13 @@ Commands:
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
-    "--pretext",
+    "--context",
     default="You are a helpful SRE who has access to a terminal",
-    help="Pretext to add to the prompt",
+    help="Context to add to the prompt",
 )
 @traceit
 @coro
-async def chat(model, max_iter, pretext):
+async def chat(model, max_iter, context):
     """
     Chat with the OpsMate.
     """
@@ -211,7 +211,7 @@ async def chat(model, max_iter, pretext):
 
         run = run_react(
             user_input,
-            pretext=pretext,
+            context=context,
             model=model,
             max_iter=max_iter,
             tools=[ShellCommand],

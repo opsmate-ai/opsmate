@@ -27,7 +27,7 @@ async def test_run_react(model: str):
     answer = None
     async for result in run_react(
         question="what is (1 + 1) * 2?",
-        pretext="don't do caculation yourself only use the calculator",
+        context="don't do caculation yourself only use the calculator",
         tools=[calc],
     ):
         assert isinstance(result, (React, ReactAnswer, Observation))

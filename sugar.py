@@ -127,7 +127,7 @@ async def main():
 
     async for result in run_react(
         "how many cpus do the vm have?",
-        pretext="you are a agent running on a ubuntu 24.04 vm",
+        context="you are a agent running on a ubuntu 24.04 vm",
         tools=[run_command],
     ):
         print(result)

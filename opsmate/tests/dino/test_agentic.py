@@ -20,7 +20,7 @@ async def k8s_agent(
 
     async for result in run_react(
         question,
-        pretext=f"You are a helpful SRE who has access to a terminal, you have access to kubectl, wc, grep and awk",
+        context=f"You are a helpful SRE who has access to a terminal, you have access to kubectl, wc, grep and awk",
         tools=[ShellCommand],
     ):
         logger.info(result)

@@ -281,7 +281,7 @@ def default_new_cell(workflow: Workflow):
     )
 
 
-k8s_pretext = """
+k8s_context = """
 <assistant>
 You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
 </assistant>
@@ -300,7 +300,7 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 def k8s_react(question: str, chat_history: List[Message]):
     return run_react(
         question,
-        pretext=k8s_pretext,
+        context=k8s_context,
         chat_history=chat_history,
         tools=[ShellCommand],
     )

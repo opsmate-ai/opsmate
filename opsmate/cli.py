@@ -134,7 +134,7 @@ async def solve(instruction, model, max_iter, context):
 
     async for output in run_react(
         instruction,
-        context=ctx.ctx(),
+        contexts=[Message.system(ctx.ctx())],
         model=model,
         max_iter=max_iter,
         tools=ctx.tools,
@@ -222,7 +222,7 @@ async def chat(model, max_iter, context):
 
         run = run_react(
             user_input,
-            context=ctx.ctx(),
+            contexts=[Message.system(ctx.ctx())],
             model=model,
             max_iter=max_iter,
             tools=ctx.tools,

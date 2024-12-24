@@ -88,13 +88,24 @@ async def run_react(
     @dino(model, response_model=Observation, tools=tools, **kwargs)
     async def run_action(question: str, react: React):
         """
-        You carry out action using the tools given
-        based on the question, thought and action.
+        You are asked to perform the action.
+        The question gives you the big picture.
+        Please stictly only run the action given.
         """
         return [
             *ctxs,
-            Message.user(question),
-            Message.assistant(react.model_dump_json()),
+            Message.assistant(
+                f"""
+<context>
+thought: {react.thoughts}
+</context>
+            """,
+            ),
+            Message.assistant(
+                f"""<action>
+{react.action}
+</action>"""
+            ),
         ]
 
     react = dino(model, response_model=Union[React, ReactAnswer], **kwargs)(

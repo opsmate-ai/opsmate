@@ -20,6 +20,7 @@ from typing import Optional
 from opsmate.dino.types import ToolCall, Message
 from opsmate.dino import run_react
 from opsmate.tools import ShellCommand
+from opsmate.contexts import k8s_ctx, k8s_tools
 
 logger = structlog.get_logger(__name__)
 
@@ -300,7 +301,7 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 def k8s_react(question: str, chat_history: List[Message]):
     return run_react(
         question,
-        context=k8s_context,
+        contexts=[k8s_ctx()],
         chat_history=chat_history,
-        tools=[ShellCommand],
+        tools=k8s_tools(),
     )

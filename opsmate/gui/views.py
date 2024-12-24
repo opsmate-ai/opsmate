@@ -193,6 +193,7 @@ async def execute_llm_react_instruction(
     )
     msg = cell.input.rstrip()
 
+    logger.info("chat_history", chat_history=chat_history)
     async for stage in k8s_react(msg, chat_history=chat_history):
         output = stage
 

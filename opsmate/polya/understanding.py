@@ -79,7 +79,11 @@ async def load_inital_understanding(text: str):
     return text
 
 
-@dino("gpt-4o", response_model=QuestionResponse, after_hook=lambda qr: qr.execute())
+@dino(
+    "gpt-4o",
+    response_model=QuestionResponse,
+    after_hook=lambda response: response.execute(),
+)
 async def __info_gathering(
     summary: str, question: str, context: str = extra_sys_prompt
 ):
@@ -192,7 +196,7 @@ async def generate_report(
 @dino(
     "gpt-4o",
     response_model=ReportExtracted,
-    after_hook=lambda r: r.sort_potential_solutions(),
+    after_hook=lambda response: response.sort_potential_solutions(),
 )
 async def report_breakdown(report: Report):
     """

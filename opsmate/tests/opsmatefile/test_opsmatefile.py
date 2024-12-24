@@ -85,96 +85,55 @@ Delegate task to the adequate agent to handle the task.
 """
 
 
-# @dtool
-# @react(
-#     model="gpt-4o",
-#     contexts=[infra_repo("goat-iac")],
-#     max_iter=9,
-#     iterable=False,
-#     callback=lambda x: logger.info("processing", result=x, agent="k8s_agent"),
-# )
-# async def k8s_agent(query: str) -> str:
-#     """
-#     k8s agent manages the kubernetes aspect of the infra repo.
-#     """
-#     return query
+@dtool
+def tf_apply() -> str:
+    return "terraform has been applied"
 
 
-# @dtool
-# def tf_apply() -> str:
-#     return "terraform has been applied"
+@dtool
+def kubectl() -> str:
+    return "kubectl command has succeeded"
 
 
-# @dtool
-# @react(
-#     model="gpt-4o",
-#     contexts=[infra_repo("goat-iac")],
-#     max_iter=10,
-#     iterable=False,
-#     callback=lambda x: logger.info("processing", result=x, agent="terraform_agent"),
-#     tools=[tf_apply],
-# )
-# async def terraform_agent(query: str) -> str:
-#     """
-#     terraform agent manages the iac aspect of the infra repo.
-#     """
-#     return query
+@dtool
+@react(
+    model="gpt-4o",
+    contexts=[infra_repo("goat-iac")],
+    max_iter=3,
+    iterable=False,
+    callback=lambda x: logger.info("processing", result=x, agent="k8s_agent"),
+    tools=[kubectl],
+)
+async def k8s_agent(
+    k8s_query: str,
+) -> str:  # xxx: look into pydantic serialization warning
+    """
+    k8s agent manages the kubernetes aspect of the infra repo.
+    """
+    return k8s_query
 
 
-class K8sAgent(ToolCall):
-    command: str = Field(..., description="The command to run")
-
-    @react(
-        model="gpt-4o",
-        contexts=[infra_repo("goat-iac")],
-        max_iter=9,
-        iterable=False,
-        callback=lambda x: logger.info("processing", result=x, agent="k8s_agent"),
-    )
-    async def __call__(self) -> str:
-        """
-        k8s agent manages the kubernetes aspect of the infra repo.
-        """
-        return self.command
-
-
-class TerraformAgent(ToolCall):
-    command: str = Field(..., description="The command to run")
-
-    @react(
-        model="gpt-4o",
-        contexts=[infra_repo("goat-iac")],
-        max_iter=10,
-        iterable=False,
-        callback=lambda x: logger.info("processing", result=x, agent="terraform_agent"),
-    )
-    async def __call__(self) -> str:
-        """
-        terraform agent manages the iac aspect of the infra repo.
-        """
-        return self.command
-
-
-class UselessAgent(ToolCall):
-    command: str = Field(..., description="The command to run")
-
-    @react(
-        model="gpt-4o",
-        contexts=[infra_repo("goat-iac")],
-        max_iter=11,
-        iterable=False,
-        callback=lambda x: logger.info("processing", result=x, agent="useless_agent"),
-    )
-    async def __call__(self) -> str:
-        """
-        useless agent is a useless agent that does nothing.
-        """
-        return self.command
+@dtool
+@react(
+    model="gpt-4o",
+    contexts=[infra_repo("goat-iac")],
+    max_iter=10,
+    iterable=False,
+    callback=lambda x: logger.info("processing", result=x, agent="terraform_agent"),
+    tools=[tf_apply],
+)
+async def terraform_agent(
+    terraform_query: str,
+) -> str:  # xxx: look into pydantic serialization warning
+    """
+    terraform agent manages the iac aspect of the infra repo.
+    """
+    return terraform_query
 
 
 @react(
     model="gpt-4o",
-    tools=[UselessAgent, K8sAgent],
+    tools=[k8s_agent, terraform_agent],
     contexts=[infra_repo("goat-iac"), sre_manager()],
     max_iter=11,
     iterable=False,
@@ -200,8 +159,8 @@ async def good_or_bad(answer: str):
 
 @pytest.mark.asyncio
 async def test_sre_manager():
-    # answer = await sre_manager("terraform apply the repo")
-    # assert await good_or_bad(answer.answer) == "Good"
+    answer = await sre_manager("terraform apply the repo")
+    assert await good_or_bad(answer.answer) == "Good"
 
     answer = await sre_manager("get all the pods in the default namespace")
     assert await good_or_bad(answer.answer) == "Good"

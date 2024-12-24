@@ -2,70 +2,10 @@ import pytest
 from opsmate.dino.react import react
 from opsmate.dino.context import context
 from opsmate.dino import dtool, dino
-from opsmate.dino.types import ToolCall
 from typing import Literal
-from pydantic import Field
 import structlog
 
 logger = structlog.get_logger(__name__)
-
-# import tempfile
-# from opsmate.libs.opsmatefile import load_opsmatefile
-# from opsmate.libs.core.types import Context, Supervisor, Agent, DocumentIngestion
-# from opsmate.tests.base import BaseTestCase
-
-fixture = """
-kind: Context
-apiVersion: v1
-metadata:
-  name: the-infra-repo
-  description: Context for the infra repo
-spec:
-  contexts:
-  - os
-  data: |
-    this is the infra repo context
----
-kind: Context
-apiVersion: v1
-metadata:
-  name: sre-manager
-  description: Context for the SRE manager
-spec:
-  contexts:
-  - the-infra-repo
-  data: |
-    you are a helpful SRE manager who manages a team of SMEs
----
-kind: Supervisor
-apiVersion: v1
-metadata:
-  name: supervisor
-spec:
-  model: gpt-o1
-  max_depth: 11
-  agents:
-  - name: k8s-agent
-    model: gpt-4o
-    react_mode: true
-    max_depth: 5
-  - name: git-agent
-    model: gpt-4o-mini
-    react_mode: false
-    max_depth: 10
-    extra_contexts:
-    - the-infra-repo
-  contexts:
-  - sre-manager
-  - the-infra-repo
----
-kind: DocumentIngestion
-apiVersion: v1
-metadata:
-  name: runbooks
-spec:
-  local_path: ./runbooks
-"""
 
 
 @context("goat-iac")
@@ -141,15 +81,6 @@ async def terraform_agent(
 )
 async def sre_manager(query: str):
     return query
-
-
-# infra_repo_ctx = """
-# You manages the infra repo manages the infra via Infra as Code.
-# """
-
-# sre_manager_ctx = """
-# You are a helpful SRE manager who manages a team of SMEs.
-# """
 
 
 @dino("gpt-4o-mini", response_model=Literal["Good", "Bad"])

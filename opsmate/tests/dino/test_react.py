@@ -2,7 +2,8 @@ import pytest
 from typing import Literal
 from opsmate.dino import run_react, dtool, dino
 from opsmate.dino.react import react
-from opsmate.dino.types import React, ReactAnswer, Observation, ToolCall
+from opsmate.dino.context import context
+from opsmate.dino.types import React, ReactAnswer, Observation, ToolCall, Message
 
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
@@ -39,7 +40,28 @@ async def test_run_react(model: str):
     answer = None
     async for result in run_react(
         question="what is (1 + 1) * 2?",
-        context="don't do caculation yourself only use the calculator",
+        contexts=["don't do caculation yourself only use the calculator"],
+        tools=[calc],
+    ):
+        assert isinstance(result, (React, ReactAnswer, Observation))
+
+        if isinstance(result, ReactAnswer):
+            answer = result.answer
+            break
+
+    assert answer is not None
+
+    assert await get_answer(answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_run_react_with_messages_as_contexts():
+    answer = None
+    async for result in run_react(
+        question="what is (1 + 1) * 2?",
+        contexts=[
+            Message.system("don't do caculation yourself only use the calculator")
+        ],
         tools=[calc],
     ):
         assert isinstance(result, (React, ReactAnswer, Observation))
@@ -58,7 +80,7 @@ async def test_react_decorator():
     @react(
         model="gpt-4o",
         tools=[calc],
-        context="don't do caculation yourself only use the calculator",
+        contexts=["don't do caculation yourself only use the calculator"],
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -78,7 +100,7 @@ async def test_react_decorator_callback():
     @react(
         model="gpt-4o",
         tools=[calc],
-        context="don't do caculation yourself only use the calculator",
+        contexts=["don't do caculation yourself only use the calculator"],
         callback=callback,
     )
     async def calc_agent(query: str):
@@ -97,7 +119,7 @@ async def test_react_decorator_iterable():
     @react(
         model="gpt-4o",
         tools=[calc],
-        context="don't do caculation yourself only use the calculator",
+        contexts=["don't do caculation yourself only use the calculator"],
         iterable=True,
     )
     async def calc_agent(query: str):
@@ -106,3 +128,25 @@ async def test_react_decorator_iterable():
     async for result in await calc_agent("what is (1 + 1) * 2?"):
         print(result)
         assert isinstance(result, (React, ReactAnswer, Observation))
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_contexts():
+    @context(
+        name="calc",
+        tools=[calc],
+    )
+    def use_calculator():
+        return "don't do caculation yourself only use the calculator"
+
+    @react(
+        model="gpt-4o",
+        contexts=[use_calculator()],
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def calc_agent(query: str):
+        return f"answer the query: {query}"
+
+    answer = await calc_agent("what is (1 + 1) * 2?")
+    assert await get_answer(answer.answer) == 4

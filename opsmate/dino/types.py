@@ -1,5 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import Any, List, Optional, Literal, Dict, Union
+from typing import Any, List, Optional, Literal, Dict, Union, Type
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class Message(BaseModel):
@@ -57,3 +60,37 @@ class Observation(BaseModel):
         default=[],
     )
     observation: str = Field(description="The observation of the action")
+
+
+class Context(BaseModel):
+    name: str = Field(description="The name of the context")
+    content: Optional[str] = Field(
+        description="The description of the context", default=None
+    )
+    contexts: List["Context"] = Field(
+        description="The sub contexts to the context", default=[]
+    )
+    tools: List[Type[ToolCall]] = Field(
+        description="The tools available in the context", default=[]
+    )
+
+    def all_tools(self):
+        tools = set(self.tools)
+        for ctx in self.contexts:
+            for tool in ctx.all_tools():
+                if tool in tools:
+                    logger.warning(
+                        "Tool already defined in context",
+                        tool=tool,
+                        context=ctx.name,
+                    )
+                tools.add(tool)
+        return tools
+
+    def all_contexts(self):
+        contexts = []
+        if self.content:
+            contexts.append(Message.system(self.content))
+        for ctx in self.contexts:
+            contexts.extend(ctx.all_contexts())
+        return contexts

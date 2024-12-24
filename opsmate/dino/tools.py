@@ -34,7 +34,12 @@ def dtool(fn: Callable | Coroutine[Any, Any, Any]):
     _validate_fn(fn)
     # add output field
     kw["output"] = (Optional[str | ToolCall], None)
-    m = create_model(fn.__name__, __base__=ToolCall, **kw)
+    m = create_model(
+        fn.__name__,
+        __doc__=fn.__doc__,
+        __base__=ToolCall,
+        **kw,
+    )
 
     # patch the __call__ method
     if inspect.iscoroutinefunction(fn):

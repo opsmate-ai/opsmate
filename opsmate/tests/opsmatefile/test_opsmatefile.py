@@ -1,8 +1,18 @@
 import pytest
-import tempfile
-from opsmate.libs.opsmatefile import load_opsmatefile
-from opsmate.libs.core.types import Context, Supervisor, Agent, DocumentIngestion
-from opsmate.tests.base import BaseTestCase
+from opsmate.dino.react import react
+from opsmate.dino.context import context
+from opsmate.dino import dtool, dino
+from opsmate.dino.types import ToolCall
+from typing import Literal
+from pydantic import Field
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+# import tempfile
+# from opsmate.libs.opsmatefile import load_opsmatefile
+# from opsmate.libs.core.types import Context, Supervisor, Agent, DocumentIngestion
+# from opsmate.tests.base import BaseTestCase
 
 fixture = """
 kind: Context
@@ -57,6 +67,123 @@ spec:
   local_path: ./runbooks
 """
 
+
+@context("goat-iac")
+def infra_repo(repo_name: str):
+    return f"""
+You manages the {repo_name} repo manages the infra via Infra as Code.
+"""
+
+
+@context("sre-manager")
+def sre_manager():
+    return """
+<sre-manager>
+You are a helpful SRE manager who manages a team of SMEs.
+Delegate task to the adequate agent to handle the task.
+</sre-manager>
+"""
+
+
+# @dtool
+# @react(
+#     model="gpt-4o",
+#     contexts=[infra_repo("goat-iac")],
+#     max_iter=9,
+#     iterable=False,
+#     callback=lambda x: logger.info("processing", result=x, agent="k8s_agent"),
+# )
+# async def k8s_agent(query: str) -> str:
+#     """
+#     k8s agent manages the kubernetes aspect of the infra repo.
+#     """
+#     return query
+
+
+# @dtool
+# def tf_apply() -> str:
+#     return "terraform has been applied"
+
+
+# @dtool
+# @react(
+#     model="gpt-4o",
+#     contexts=[infra_repo("goat-iac")],
+#     max_iter=10,
+#     iterable=False,
+#     callback=lambda x: logger.info("processing", result=x, agent="terraform_agent"),
+#     tools=[tf_apply],
+# )
+# async def terraform_agent(query: str) -> str:
+#     """
+#     terraform agent manages the iac aspect of the infra repo.
+#     """
+#     return query
+
+
+class K8sAgent(ToolCall):
+    command: str = Field(..., description="The command to run")
+
+    @react(
+        model="gpt-4o",
+        contexts=[infra_repo("goat-iac")],
+        max_iter=9,
+        iterable=False,
+        callback=lambda x: logger.info("processing", result=x, agent="k8s_agent"),
+    )
+    async def __call__(self) -> str:
+        """
+        k8s agent manages the kubernetes aspect of the infra repo.
+        """
+        return self.command
+
+
+class TerraformAgent(ToolCall):
+    command: str = Field(..., description="The command to run")
+
+    @react(
+        model="gpt-4o",
+        contexts=[infra_repo("goat-iac")],
+        max_iter=10,
+        iterable=False,
+        callback=lambda x: logger.info("processing", result=x, agent="terraform_agent"),
+    )
+    async def __call__(self) -> str:
+        """
+        terraform agent manages the iac aspect of the infra repo.
+        """
+        return self.command
+
+
+class UselessAgent(ToolCall):
+    command: str = Field(..., description="The command to run")
+
+    @react(
+        model="gpt-4o",
+        contexts=[infra_repo("goat-iac")],
+        max_iter=11,
+        iterable=False,
+        callback=lambda x: logger.info("processing", result=x, agent="useless_agent"),
+    )
+    async def __call__(self) -> str:
+        """
+        useless agent is a useless agent that does nothing.
+        """
+        return self.command
+
+
+@react(
+    model="gpt-4o",
+    tools=[UselessAgent, K8sAgent],
+    contexts=[infra_repo("goat-iac"), sre_manager()],
+    max_iter=11,
+    iterable=False,
+    callback=lambda x: logger.info("processing", result=x, agent="sre_manager"),
+)
+async def sre_manager(query: str):
+    return query
+
+
 # infra_repo_ctx = """
 # You manages the infra repo manages the infra via Infra as Code.
 # """
@@ -66,79 +193,15 @@ spec:
 # """
 
 
-class TestOPSMatefile(BaseTestCase):
+@dino("gpt-4o-mini", response_model=Literal["Good", "Bad"])
+async def good_or_bad(answer: str):
+    return "return whether result is success or failed: " + answer
 
-    @pytest.fixture(scope="module")
-    def opsmatefile(self):
-        with tempfile.NamedTemporaryFile(mode="w", delete=True) as f:
-            f.write(fixture)
-            f.flush()
-            yield f.name
 
-    def test_load_opsmatefile(self, opsmatefile):
-        world = load_opsmatefile(opsmatefile)
+@pytest.mark.asyncio
+async def test_sre_manager():
+    # answer = await sre_manager("terraform apply the repo")
+    # assert await good_or_bad(answer.answer) == "Good"
 
-        assert "the-infra-repo" in world.contexts
-
-        infra_ctx = world.contexts["the-infra-repo"]
-        assert isinstance(infra_ctx, Context)
-
-        assert world.supervisor is not None
-        assert isinstance(world.supervisor, Supervisor)
-
-        supervisor_agent = world.supervisor_agent()
-        assert isinstance(supervisor_agent, Agent)
-
-        agents = supervisor_agent.spec.agents
-        assert len(agents) == 2
-        assert "git-agent" in agents
-        assert agents["git-agent"].metadata.name == "git-agent"
-        assert agents["git-agent"].spec.model == "gpt-4o-mini"
-        assert agents["git-agent"].spec.react_mode is False
-        assert agents["git-agent"].spec.max_depth == 10
-        assert len(agents["git-agent"].spec.task_template.spec.contexts) >= 1
-        git_ctxs = [
-            ctx.metadata.name
-            for ctx in agents["git-agent"].spec.task_template.spec.contexts
-        ]
-        assert "react" not in git_ctxs
-        assert "git" in git_ctxs
-        assert "the-infra-repo" in git_ctxs
-
-        assert "k8s-agent" in agents
-        assert agents["k8s-agent"].metadata.name == "k8s-agent"
-        assert agents["k8s-agent"].spec.model == "gpt-4o"
-        assert agents["k8s-agent"].spec.react_mode is True
-        assert agents["k8s-agent"].spec.max_depth == 5
-        assert len(agents["k8s-agent"].spec.task_template.spec.contexts) == 2
-        k8s_ctxs = [
-            ctx.metadata.name
-            for ctx in agents["k8s-agent"].spec.task_template.spec.contexts
-        ]
-        assert "react" in k8s_ctxs
-        assert "k8s" in k8s_ctxs
-
-        assert supervisor_agent.spec.model == "gpt-o1"
-        assert supervisor_agent.spec.react_mode is True
-        assert supervisor_agent.spec.max_depth == 11
-
-        contexts = supervisor_agent.spec.task_template.spec.contexts
-
-        context_names = [ctx.metadata.name for ctx in contexts]
-        assert len(context_names) == 4
-        assert "agent-supervisor" in context_names
-        assert "react" in context_names
-        assert "sre-manager" in context_names
-        assert "the-infra-repo" in context_names
-
-        assert "runbooks" in world.document_ingestions
-        assert isinstance(world.document_ingestions["runbooks"], DocumentIngestion)
-        assert world.document_ingestions["runbooks"].spec.local_path == "./runbooks"
-
-    def test_ingest_documents(self, opsmatefile):
-        world = load_opsmatefile(opsmatefile)
-
-        try:
-            world.ingest_documents()
-        except Exception as e:
-            assert False, f"ingest_documents raised an exception: {e}"
+    answer = await sre_manager("get all the pods in the default namespace")
+    assert await good_or_bad(answer.answer) == "Good"

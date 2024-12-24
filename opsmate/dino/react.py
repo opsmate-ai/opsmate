@@ -1,9 +1,12 @@
 from typing import List, Union, Callable, Coroutine, Any
 from pydantic import BaseModel
 from .dino import dino
-from .types import Message, React, ReactAnswer, Observation, ToolCall
+from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
 from functools import wraps
 import inspect
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 async def _react_prompt(
@@ -55,7 +58,7 @@ async def _react_prompt(
         Message.user(
             f"""
 Here is a list of tools you can use:
-{"\n".join(f"<tool>{t.model_json_schema()}</tool>" for t in tools)}
+{"\n".join(f"<tool>{t.__name__}: {t.__doc__}</tool>" for t in tools)}
 """,
         ),
         Message.user(question),
@@ -65,7 +68,7 @@ Here is a list of tools you can use:
 
 async def run_react(
     question: str,
-    context: str = "",
+    contexts: List[str | Message] = [],
     model: str = "gpt-4o",
     tools: List[ToolCall] = [],
     chat_history: List[Message] = [],
@@ -73,6 +76,14 @@ async def run_react(
     react_prompt: Coroutine[Any, Any, List[Message]] = _react_prompt,
     **kwargs: Any,
 ):
+    ctxs = []
+    for ctx in contexts:
+        if isinstance(ctx, str):
+            ctxs.append(Message.system(ctx))
+        elif isinstance(ctx, Message):
+            ctxs.append(ctx)
+        else:
+            raise ValueError(f"Invalid context type: {type(ctx)}")
 
     @dino(model, response_model=Observation, tools=tools, **kwargs)
     async def run_action(question: str, react: React):
@@ -81,7 +92,7 @@ async def run_react(
         based on the question, thought and action.
         """
         return [
-            Message.system(context),
+            *ctxs,
             Message.user(question),
             Message.assistant(react.model_dump_json()),
         ]
@@ -91,8 +102,8 @@ async def run_react(
     )
 
     message_history = Message.normalise(chat_history)
-    if context:
-        message_history.append(Message.system(context))
+    for ctx in ctxs:
+        message_history.append(ctx)
     for _ in range(max_iter):
         react_result = await react(
             question, message_history=message_history, tools=tools
@@ -111,7 +122,7 @@ async def run_react(
 def react(
     model: str,
     tools: List[ToolCall] = [],
-    context: str = "",
+    contexts: List[str | Context] = [],
     max_iter: int = 10,
     iterable: bool = False,
     callback: Callable[[React | ReactAnswer | Observation], None] = None,
@@ -127,6 +138,20 @@ def react(
     """
 
     def wrapper(fn):
+        ctxs = []
+        for ctx in contexts:
+            if isinstance(ctx, str):
+                ctxs.append(Message.system(ctx))
+            elif isinstance(ctx, Context):
+                ctxs.extend(ctx.all_contexts())
+            else:
+                raise ValueError(f"Invalid context type: {type(ctx)}")
+
+        for ctx in contexts:
+            if isinstance(ctx, Context):
+                for tool in ctx.all_tools():
+                    tools.append(tool)
+
         @wraps(fn)
         async def wrapper(*args, **kwargs):
             if inspect.iscoroutinefunction(fn):
@@ -140,7 +165,7 @@ def react(
                     return run_react(
                         prompt,
                         model=model,
-                        context=context,
+                        contexts=ctxs,
                         tools=tools,
                         max_iter=max_iter,
                         **react_kwargs,
@@ -149,7 +174,7 @@ def react(
                 return gen()
             else:
                 async for result in run_react(
-                    prompt, context=context, tools=tools, max_iter=max_iter
+                    prompt, contexts=ctxs, tools=tools, max_iter=max_iter
                 ):
                     if callback:
                         if inspect.iscoroutinefunction(callback):

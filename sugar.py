@@ -93,14 +93,23 @@ async def get_user_info(text: str):
 
 @dtool
 @dino("gpt-4o-mini", response_model=str)
-async def alice(instruction: str) -> str:
+async def joker(instruction: str) -> str:
     """
-    Your name is Alice, you are a personal assistant.
+    Your name is Alice, you only tell jokes.
     """
     return "please do the following: " + instruction
 
 
-@dino("gpt-4o-mini", response_model=str, tools=[alice])
+@dtool
+@dino("gpt-4o-mini", response_model=str)
+async def cooker(instruction: str) -> str:
+    """
+    Your name is Tommy, you only cook.
+    """
+    return "please do the following: " + instruction
+
+
+@dino("gpt-4o-mini", response_model=str, tools=[cooker, joker])
 async def bob(instruction: str):
     return "delegate the following instruction: " + instruction
 
@@ -109,28 +118,28 @@ async def main():
     result = await bob("tell a joke that mentions your name")
     print(result)
 
-    user_info = await get_user_info(
-        "User Jingkai He has an email jingkai.he@example.com"
-    )
+    # user_info = await get_user_info(
+    #     "User Jingkai He has an email jingkai.he@example.com"
+    # )
 
-    assert user_info.name == "Jingkai He"
-    assert user_info.email == "jingkai.he@example.com"
+    # assert user_info.name == "Jingkai He"
+    # assert user_info.email == "jingkai.he@example.com"
 
-    hello = await say_hello("Jingkai He")
-    print(hello)
+    # hello = await say_hello("Jingkai He")
+    # print(hello)
 
-    shell_command = await run_shell_command("what's the operating system?")
-    print(shell_command().lower())
+    # shell_command = await run_shell_command("what's the operating system?")
+    # print(shell_command().lower())
 
-    birthday = await get_birthday("Jingkai He and Boris Johnson")
-    print(birthday)
+    # birthday = await get_birthday("Jingkai He and Boris Johnson")
+    # print(birthday)
 
-    async for result in run_react(
-        "how many cpus do the vm have?",
-        context="you are a agent running on a ubuntu 24.04 vm",
-        tools=[run_command],
-    ):
-        print(result)
+    # async for result in run_react(
+    #     "how many cpus do the vm have?",
+    #     context="you are a agent running on a ubuntu 24.04 vm",
+    #     tools=[run_command],
+    # ):
+    #     print(result)
 
 
 if __name__ == "__main__":

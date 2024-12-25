@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import subprocess
 from jinja2 import Template
 
@@ -32,6 +32,7 @@ class Command(BaseModel):
     description: str = Field(
         description="what are the informations are provided by the command execution"
     )
+    result: Optional[str] = Field(description="DO NOT populate the value")
 
     def execute(self):
         """
@@ -45,17 +46,11 @@ class Command(BaseModel):
                 stderr=subprocess.STDOUT,
                 text=True,
             )
+            self.result = result.stdout
             return result.stdout
         except subprocess.SubprocessError as e:
+            self.result = str(e)
             return str(e)
-
-
-class CommandWithResult(Command):
-    """
-    The command line to be executed with the result
-    """
-
-    result: str = Field(description="The result of the command execution")
 
 
 class QuestionResponse(BaseModel):
@@ -70,6 +65,48 @@ class QuestionResponse(BaseModel):
     commands: List[Command] = Field(
         description="The command line to be executed to answer the question"
     )
+
+    def execute(self):
+        """
+        Execute the commands and return the result
+        """
+        for command in self.commands:
+            command.execute()
+
+        return self
+
+    def __str__(self):
+        jinja_template = """
+## Issue description
+
+{{ summary }}
+
+## question
+
+{{ question }}
+
+## Here are the commands that are executed to answer the question
+
+{% for command in commands %}
+## Command {{ loop.index }}
+**Description:** {{ command.description }}
+
+**Command:**
+```bash
+$ {{ command.command }}
+```
+
+Output:
+```text
+{{ command.result }}
+```
+{% endfor %}
+"""
+        return Template(jinja_template).render(
+            summary=self.summary,
+            question=self.question,
+            commands=self.commands,
+        )
 
 
 class QuestionResponseSummary(BaseModel):
@@ -87,7 +124,7 @@ class InfoGathered(BaseModel):
     """
 
     question: str
-    commands: List[CommandWithResult]
+    commands: List[Command]
     info_gathered: str = Field(
         description="The information gathered from the command execution"
     )
@@ -147,6 +184,10 @@ class ReportExtracted(BaseModel):
     potential_solutions: List[Solution] = Field(
         description="The potential solutions to the problem"
     )
+
+    def sort_potential_solutions(self):
+        self.potential_solutions.sort(key=lambda x: x.probability, reverse=True)
+        return self
 
 
 class TaskResult(BaseModel):

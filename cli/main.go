@@ -46,11 +46,6 @@ func main() {
 				Value: 10 * time.Minute,
 			},
 			&cli.StringFlag{
-				Name:  "provider",
-				Usage: "provider to use",
-				Value: "openai",
-			},
-			&cli.StringFlag{
 				Name:  "model",
 				Usage: "model to use",
 				Value: "gpt-4o",
@@ -99,12 +94,8 @@ func main() {
 
 					table := tablewriter.NewWriter(os.Stdout)
 					table.SetHeader([]string{"PROVIDER", "MODEL"})
-
 					for _, model := range models {
-						table.Append([]string{
-							model.GetProvider(),
-							model.GetModel(),
-						})
+						table.Append([]string{model.Provider, model.Model})
 					}
 
 					table.Render()
@@ -131,28 +122,26 @@ func main() {
 				Usage:       "opsmate run <instruction>",
 				Description: "execute commands based on the instruction in natural language",
 				Flags: []cli.Flag{
-					&cli.StringSliceFlag{
-						Name:  "contexts",
-						Usage: "contexts to use",
-						Value: cli.NewStringSlice("cli"),
+					&cli.StringFlag{
+						Name:  "context",
+						Usage: "context to use",
+						Value: "cli",
 					},
 				},
 				Args: true,
 				Action: func(c *cli.Context) error {
 					var (
 						client      = c.Context.Value(clientCtxKey{}).(*opsmatesdk.APIClient)
-						provider    = c.String("provider")
 						model       = c.String("model")
-						contexts    = c.StringSlice("contexts")
+						opsmateCtx  = c.String("context")
 						instruction = c.Args().First()
 					)
 
 					req := client.DefaultAPI.RunV1RunPost(c.Context)
 					req = req.RunRequest(opsmatesdk.RunRequest{
-						Provider:    provider,
 						Model:       model,
 						Instruction: instruction,
-						Contexts:    contexts,
+						Context:     &opsmateCtx,
 					})
 					results, resp, err := req.Execute()
 					if err != nil {
@@ -160,19 +149,12 @@ func main() {
 					}
 					defer resp.Body.Close()
 
-					for _, result := range results {
-						table := tablewriter.NewWriter(os.Stdout)
-						// Extract keys and values from the map
-						keys := make([]string, 0, len(result))
-						values := make([]string, 0, len(result))
-						for k, v := range result {
-							keys = append(keys, k)
-							values = append(values, fmt.Sprintf("%v", v))
-						}
-						table.SetHeader(keys)
-						table.Append(values)
-						table.Render()
-					}
+					fmt.Printf(`
+## Observation
+%s
+### Summary
+%s
+`, results.ToolOutputs, results.Observation)
 					return nil
 				},
 			},

@@ -1,112 +1,16 @@
-import instructor
 from opsmate.polya.models import (
     QuestionResponse,
-    QuestionResponseSummary,
     InfoGathered,
     Report,
     InitialUnderstandingResponse,
     NonTechnicalQuery,
     ReportExtracted,
-    CommandWithResult,
 )
-from anthropic import Anthropic
-from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
 from typing import List, Union
-import subprocess
 from jinja2 import Template
 import asyncio
-
-
-understanding_sys_prompt = """
-<assistant>
-You are a world class SRE who is good at solving problems. You are tasked to summarise the problem and ask clarifying questions.
-</assistant>
-
-<rules>
-You will receive a user question that may include a problem description, command line output, logs as the context.
-*DO NOT* answer non-technical topics from user, just answer I don't know.
-Please maintain a concise and methodical tone in your responses:
-- Clearly identify what you are being asked to do.
-- Gather all available information
-- Identify the constraints and limitations
-- Restate the problem in your own words
-- Verify you have sufficient information to solve the problem
-</rules>
-
-<response_format>
-Summary: <Summary of the problem>
-Questions: (things you need to know in order to solve the problem)
-1. <question 1>
-2. <question 2>
-...
-</response_format>
-
-<important_notes>
-- Do not solutionise prematurely.
-- Do not ask any tools or permissions related questions.
-- Do not ask questions that previously has been answered.
-- Only ask 3 questions at most.
-- Use markdown in your response.
-- Feel free to leave the questions blank if you think you have enough information to solve the problem.
-</important_notes>
-"""
-
-command_sys_prompt = """
-<assistant>
-You are a world class SRE who is good at solving problems. You are tasked to provide the command line to be executed to solve the problem.
-</assistant>
-
-<rules>
-You will receive a high level summary of the problem, and a set of questions that are associated with the problem.
-You need to provide the command line to be executed to solve the problem.
-</rules>
-
-<response_format>
-
-```
-1. description: <description of the command>
-   command: <command line to be executed>
-2. ...
-```
-</response_format>
-
-<important_notes>
-- If you anticipate the command will generates a lot of output, you should limit the output via piping it to `tail -n 100` command or grepping it with a specific pattern.
-- Do not run any command that runs in interactive mode.
-- Do not run any command that requires manual intervention.
-- Do not run any command that requires user input.
-</important_notes>
-"""
-
-report_sys_prompt = """
-<assistant>
-You are a world class SRE who is good at problem solving. You are now given a summary of the problem, and a set of command runs and output observations.
-You need to give a detailed report on the problem, and provide some potential solutions on how to resolve the problem.
-</assistant>
-
-<response_format>
-# Summary
-Describe summary of the problem
-
-# Findings
-Break down of findings
-
-# Potential solutions
-Give some potential solutions on how to resolve the problem, with probability of success.
-
-# Out of scope
-Things you have noticed based on the findings however are not related to the problem
-</response_format>
-
-<important_notes>
-- Use markdown in your response.
-- Do not just return the brief summary you are given, but fact in all the findings
-- **ONLY** list potential solutions that are relevant to the problem.
-- Feel free to just to list 1 potential solution if you are 100% sure that it is the solution.
-- The sum of probability of all potential solutions should be added up to 100%
-</important_notes>
-"""
+from opsmate.dino import dino
+from opsmate.dino.types import Message, ListOfMessageOrDict
 
 extra_sys_prompt = """
 <assistant-context>
@@ -120,227 +24,185 @@ extra_sys_prompt = """
 </assistant-context>
 """
 
-modes = {
-    # "planner": {
-    #     "model": "o1-preview",
-    #     "mode": instructor.Mode.JSON_O1,
-    # },
-    "planner": {
-        "model": "gpt-4o",
-        "mode": instructor.Mode.TOOLS,
-    },
-    "executor": {
-        "model": "gpt-4o",
-        "mode": instructor.Mode.TOOLS,
-    },
-}
 
-
+@dino("gpt-4o", response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery])
 async def initial_understanding(
-    question: str, context: List[str] = [], mode: str = "planner"
+    question: str,
+    prefill: str = extra_sys_prompt,
+    chat_history: ListOfMessageOrDict = [],
 ):
-    # anthropic = instructor.from_anthropic(Anthropic())
-    openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
+    """
+    <assistant>
+    You are a world class SRE who is good at solving problems. You are tasked to summarise the problem and ask clarifying questions.
+    </assistant>
 
-    messages = []
-    messages.append(
-        {
-            "role": "user",
-            "content": understanding_sys_prompt + "\n" + extra_sys_prompt,
-        }
-    )
-    messages.extend(
-        [{"role": "user", "content": conversation} for conversation in context]
-    )
-    messages.append(
-        {
-            "role": "user",
-            "content": question,
-        }
-    )
+    <rules>
+    You will receive a user question that may include a problem description, command line output, logs as the context.
+    *DO NOT* answer non-technical topics from user, just answer I don't know.
+    Please maintain a concise and methodical tone in your responses:
+    - Clearly identify what you are being asked to do.
+    - Gather all available information
+    - Identify the constraints and limitations
+    - Restate the problem in your own words
+    - Verify you have sufficient information to solve the problem
+    </rules>
 
-    response: Union[InitialUnderstandingResponse, NonTechnicalQuery] = (
-        await openai.messages.create(
-            messages=messages,
-            model=modes[mode]["model"],
-            response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
-        )
-    )
+    <response_format>
+    Summary: <Summary of the problem>
+    Questions: (things you need to know in order to solve the problem)
+    1. <question 1>
+    2. <question 2>
+    ...
+    </response_format>
 
-    return response
+    <important_notes>
+    - Do not solutionise prematurely.
+    - Do not ask any tools or permissions related questions.
+    - Do not ask questions that previously has been answered.
+    - Only ask 3 questions at most.
+    - Use markdown in your response.
+    - Feel free to leave the questions blank if you think you have enough information to solve the problem.
+    </important_notes>
+    """
+    return [
+        Message.system(prefill),
+        *Message.normalise(chat_history),
+        Message.user(question),
+    ]
 
 
+@dino("gpt-4o", response_model=InitialUnderstandingResponse)
 async def load_inital_understanding(text: str):
-    openai = instructor.from_openai(AsyncOpenAI(), mode=modes["planner"]["mode"])
-    return await openai.messages.create(
-        messages=[{"role": "user", "content": text}],
-        model=modes["planner"]["model"],
-        response_model=InitialUnderstandingResponse,
-    )
+    """
+    You are a world class information extractor. You are good at extracting information from a text.
+    """
+    return text
 
 
-async def __info_gathering(summary: str, question: str, mode: str = "planner"):
-    openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    question_prompt = f"""
-<summary>
-{summary}
-</summary>
+@dino(
+    "gpt-4o",
+    response_model=QuestionResponse,
+    after_hook=lambda response: response.execute(),
+)
+async def __info_gathering(
+    summary: str, question: str, context: str = extra_sys_prompt
+):
+    """
+    <assistant>
+    You are a world class SRE who is good at solving problems. You are tasked to provide the command line to be executed to solve the problem.
+    </assistant>
 
-**Please answer the following question**
+    <rules>
+    You will receive a high level summary of the problem, and a set of questions that are associated with the problem.
+    You need to provide the command line to be executed to solve the problem.
+    </rules>
 
-<question>
-{question}
-</question>
-"""
+    <response_format>
+    ```
+    1. description: <description of the command>
+    command: <command line to be executed>
+    2. ...
+    ```
+    </response_format>
 
-    return await openai.messages.create(
-        messages=[
-            {
-                "role": "system",
-                "content": command_sys_prompt + "\n" + extra_sys_prompt,
-            },
-            {
-                "role": "user",
-                "content": question_prompt,
-            },
-        ],
-        model=modes[mode]["model"],
-        response_model=QuestionResponse,
-    )
+    <important_notes>
+    - If you anticipate the command will generates a lot of output, you should limit the output via piping it to `tail -n 100` command or grepping it with a specific pattern.
+    - Do not run any command that runs in interactive mode.
+    - Do not run any command that requires manual intervention.
+    - Do not run any command that requires user input.
+    </important_notes>
+    """
+    return [
+        Message.system(context),
+        Message.user(f"<summary>{summary}</summary>"),
+        Message.user(f"<question>{question}</question>"),
+    ]
 
 
-async def __finding(question: QuestionResponse, mode: str = "executor"):
-    openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-
-    results = []
-    for command in question.commands:
-        result = command.execute()
-        results.append(
-            CommandWithResult(
-                description=command.description,
-                command=command.command,
-                result=result,
-            )
-        )
-    jinja_template = """
-## Issue description
-
-{{ summary }}
-
-## question
-
-{{ question }}
-
-## Here are the commands that are executed to answer the question
-
-{% for command in commands %}
-## Command {{ loop.index }}
-**Description:** {{ command.description }}
-
-**Command:**
-```bash
-$ {{ command.command }}
-```
-
-Output:
-```text
-{{ command.result }}
-```
-{% endfor %}
-"""
-    response: QuestionResponseSummary = await openai.messages.create(
-        messages=[
-            {
-                "role": "user",
-                "content": Template(jinja_template).render(
-                    summary=question.summary,
-                    question=question.question,
-                    commands=results,
-                ),
-            },
-            {
-                "role": "user",
-                "content": "Can you summarise what is going on?",
-            },
-        ],
-        model=modes[mode]["model"],
-        response_model=QuestionResponseSummary,
-    )
-
-    return InfoGathered(
-        question=question.question,
-        commands=results,
-        info_gathered=response.summary,
-    )
+@dino("gpt-4o", response_model=str)
+async def __summarise_info_gathered(question: QuestionResponse):
+    """
+    You are a world class SRE.
+    You are given a question. In respond with a list of commands and the execution output.
+    Please provide a short summary based on the question and command execution output in 100 words or less in markdown format.
+    """
+    return str(question)
 
 
 async def info_gathering(summary: str, question: str):
     question_response = await __info_gathering(summary, question)
-    return await __finding(question_response)
-
-
-async def generate_report(
-    summary: str,
-    mode: str = "planner",
-    info_gathered: List[InfoGathered] = [],
-):
-    template = """
-<context>
-## Issue summary
-
-{{ summary }}
-
-## Question raised and answers
-{% for info in info_gathered %}
-### Question: {{ info.question }}
-**Answer:**
-{{ info.info_gathered }}
-{% endfor %}
-</context>
-
-Now please write a detailed report based on the above context.
-"""
-
-    content = Template(template).render(summary=summary, info_gathered=info_gathered)
-
-    openai = instructor.from_openai(AsyncOpenAI(), mode=modes[mode]["mode"])
-    response: Report = await openai.messages.create(
-        messages=[
-            {
-                "role": "user",
-                "content": report_sys_prompt,
-            },
-            {
-                "role": "user",
-                "content": content,
-            },
-        ],
-        model=modes[mode]["model"],
-        response_model=Report,
+    summarised_info = await __summarise_info_gathered(question_response)
+    return InfoGathered(
+        question=question_response.question,
+        commands=question_response.commands,
+        info_gathered=summarised_info,
     )
 
-    return response
+
+@dino("gpt-4o", response_model=Report)
+async def generate_report(
+    summary: str,
+    info_gathered: List[InfoGathered],
+):
+    """
+    <assistant>
+    You are a world class SRE who is good at problem solving. You are now given a summary of the problem, and a set of command runs and output observations.
+    You need to give a detailed report on the problem, and provide some potential solutions on how to resolve the problem.
+    </assistant>
+
+    <response_format>
+    # Summary
+    Describe summary of the problem
+
+    # Findings
+    Break down of findings
+
+    # Potential solutions
+    Give some potential solutions on how to resolve the problem, with probability of success.
+
+    # Out of scope
+    Things you have noticed based on the findings however are not related to the problem
+    </response_format>
+
+    <important_notes>
+    - Use markdown in your response.
+    - Do not just return the brief summary you are given, but fact in all the findings
+    - **ONLY** list potential solutions that are relevant to the problem.
+    - Feel free to just to list 1 potential solution if you are 100% sure that it is the solution.
+    - The sum of probability of all potential solutions should be added up to 100%
+    </important_notes>
+    """
+
+    template = """
+    <context>
+    ## Issue summary
+
+    {{ summary }}
+
+    ## Question raised and answers
+    {% for info in info_gathered %}
+    ### Question: {{ info.question }}
+    **Answer:**
+    {{ info.info_gathered }}
+    {% endfor %}
+    </context>
+
+    Now please write a detailed report based on the above context.
+    """
+
+    return Template(template).render(summary=summary, info_gathered=info_gathered)
 
 
-async def report_breakdown(report: Report) -> ReportExtracted:
+@dino(
+    "gpt-4o",
+    response_model=ReportExtracted,
+    after_hook=lambda response: response.sort_potential_solutions(),
+)
+async def report_breakdown(report: Report):
     """
     Break down the report into a structured format
     """
-    openai = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.TOOLS)
-    report_extracted = await openai.messages.create(
-        messages=[
-            {
-                "role": "user",
-                "content": report.content,
-            },
-        ],
-        model="gpt-4o",
-        response_model=ReportExtracted,
-    )
-
-    # sort the potential solutions by probability
-    report_extracted.potential_solutions.sort(key=lambda x: x.probability, reverse=True)
-    return report_extracted
+    return report.content
 
 
 async def main():
@@ -362,7 +224,6 @@ async def main():
 
     report = await generate_report(
         iu.summary,
-        mode="executor",
         info_gathered=info_gathered,
     )
     print(report.content)

@@ -3,9 +3,15 @@ from functools import wraps
 from opentelemetry import trace
 import inspect
 from typing import Callable
-
+from contextlib import asynccontextmanager
 
 tracer = trace.get_tracer("opsmate")
+
+
+@asynccontextmanager
+async def start_as_current_span_async(tracer, *args, **kwargs):
+    with tracer.start_as_current_span(*args, **kwargs) as span:
+        yield span
 
 
 def traceit(*args, name: str = None, exclude: list = []):
@@ -41,8 +47,10 @@ def traceit(*args, name: str = None, exclude: list = []):
 
 
 def _traceit(func: Callable, name: str = None, exclude: list = []):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+    def _extract_params(args, kwargs):
+        """
+        Extract the parameters from the func, and return the parameters and Otel compatible attributes
+        """
         kvs = {}
         parameters = inspect.signature(func).parameters
         parameter_items = list(parameters.values())
@@ -62,6 +70,11 @@ def _traceit(func: Callable, name: str = None, exclude: list = []):
             elif isinstance(k, (dict, list)):
                 kvs[k] = json.dumps(v)
 
+        return parameters, kvs
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        parameters, kvs = _extract_params(args, kwargs)
         span_name = name or func.__qualname__
         with tracer.start_as_current_span(span_name) as span:
             for k, v in kvs.items():
@@ -72,4 +85,20 @@ def _traceit(func: Callable, name: str = None, exclude: list = []):
 
             return func(*args, **kwargs)
 
-    return wrapper
+    @wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        parameters, kvs = _extract_params(args, kwargs)
+        span_name = name or func.__qualname__
+        async with start_as_current_span_async(tracer, span_name) as span:
+            for k, v in kvs.items():
+                span.set_attribute(f"{span_name}.{k}", v)
+
+            if parameters.get("span") is not None:
+                kwargs["span"] = span
+
+            return await func(*args, **kwargs)
+
+    if inspect.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+        return wrapper

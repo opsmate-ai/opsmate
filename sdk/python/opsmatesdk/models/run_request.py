@@ -27,11 +27,10 @@ class RunRequest(BaseModel):
     RunRequest
     """ # noqa: E501
     model: StrictStr
-    provider: StrictStr
     instruction: StrictStr
-    contexts: Optional[List[StrictStr]] = None
+    context: Optional[StrictStr] = 'cli'
     ask: Optional[StrictBool] = False
-    __properties: ClassVar[List[str]] = ["model", "provider", "instruction", "contexts", "ask"]
+    __properties: ClassVar[List[str]] = ["model", "instruction", "context", "ask"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,9 +84,8 @@ class RunRequest(BaseModel):
 
         _obj = cls.model_validate({
             "model": obj.get("model"),
-            "provider": obj.get("provider"),
             "instruction": obj.get("instruction"),
-            "contexts": obj.get("contexts"),
+            "context": obj.get("context") if obj.get("context") is not None else 'cli',
             "ask": obj.get("ask") if obj.get("ask") is not None else False
         })
         return _obj

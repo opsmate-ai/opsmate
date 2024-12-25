@@ -36,17 +36,13 @@ class TestRunRequest(unittest.TestCase):
         if include_optional:
             return RunRequest(
                 model = '',
-                provider = '',
                 instruction = '',
-                contexts = [
-                    ''
-                    ],
+                context = 'cli',
                 ask = True
             )
         else:
             return RunRequest(
                 model = '',
-                provider = '',
                 instruction = '',
         )
         """

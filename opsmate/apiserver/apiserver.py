@@ -1,14 +1,12 @@
 from fastapi import FastAPI, Request, Response
 from typing import List, Literal, Dict, Any
-from opsmate.libs.core.types import Model, ExecResults, Task, Metadata, TaskSpec
-from opsmate.libs.core.engine import exec_task
 from pydantic import BaseModel, Field
-from opsmate.libs.providers import Client as ProviderClient
-from opsmate.libs.contexts import available_contexts
+from opsmate.dino.provider import Provider
+from opsmate.dino.types import Message, Observation
+from opsmate.dino.dino import dino
+from opsmate.contexts import contexts
 from opsmate.gui.app import app as fasthtml_app, startup
 import os
-
-client_bag = ProviderClient.clients_from_env()
 
 app = FastAPI()
 api_app = FastAPI()
@@ -43,71 +41,62 @@ async def health():
     return Health(status="ok")
 
 
+class Model(BaseModel):
+    provider: str = Field(title="provider")
+    model: str = Field(title="model")
+
+
 @api_app.get("/v1/models", response_model=List[Model])
 async def models():
-    return ProviderClient.models_from_clientbag(client_bag)
+    return [
+        Model(provider=provider_name, model=m)
+        for provider_name, p in Provider.providers.items()
+        for m in p.models
+    ]
 
 
 class RunRequest(BaseModel):
     model: str = Field(title="name of the llm model to use")
-    provider: str = Field(title="name of the provider to use")
     instruction: str = Field(title="instruction to execute")
-    contexts: List[str] = Field(title="contexts to use", default=["cli"])
+    context: str = Field(title="context to use", default="cli")
     ask: bool = Field(title="ask", default=False)
 
 
-@api_app.post("/v1/run", response_model=List[Dict[str, Any]])
+class RunResponse(BaseModel):
+    tool_outputs: str = Field(title="tool outputs")
+    observation: str = Field(title="observation")
+
+
+@api_app.post("/v1/run", response_model=RunResponse)
 async def run(request: RunRequest):
 
-    selected_contexts = get_contexts(request.contexts)
+    ctx = get_context(request.context)
 
-    task = Task(
-        metadata=Metadata(name="run"),
-        spec=TaskSpec(
-            input={},
-            contexts=selected_contexts,
-            instruction=request.instruction,
-            response_model=ExecResults,
+    @dino("gpt-4o", response_model=Observation, tools=ctx.tools)
+    async def run_command(instruction: str):
+        return [
+            Message.system(ctx.ctx()),
+            Message.user(instruction),
+        ]
+
+    observation: Observation = await run_command(request.instruction)
+    return RunResponse(
+        tool_outputs="\n".join(
+            [output.markdown() for output in observation.tool_outputs]
         ),
+        observation=observation.observation,
     )
-
-    output = exec_task(
-        clients=client_bag,
-        task=task,
-        ask=request.ask,
-        model=request.model,
-        provider=request.provider,
-    )
-
-    # output = [r.model_dump() for r in output.results]
-    result = []
-    for r in output.results:
-        result.append(
-            {
-                "executable": r.__class__.__name__,
-                **r.model_dump(),
-            }
-        )
-    return result
 
 
 class ContextNotFound(Exception):
     pass
 
 
-def get_contexts(contexts: List[str]):
-    contexts = list(set(contexts))
-
-    selected_contexts = []
-    for ctx_name in contexts:
-        for ctx in available_contexts:
-            if ctx.metadata.name == ctx_name:
-                selected_contexts.append(ctx)
-                break
-        else:
-            raise ContextNotFound(f"Context {ctx_name} not found")
-
-    return selected_contexts
+def get_context(context: str):
+    ctx = contexts.get(context)
+    if not ctx:
+        raise ContextNotFound(f"Context {context} not found")
+    return ctx
 
 
 app.mount("/api", api_app)

@@ -1,8 +1,12 @@
-from typing import Callable, Any, Dict, Awaitable, Union, List
+from typing import Callable, Any, Dict, Awaitable, Union, List, Set, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 from opsmate.dino import dino
+from collections import deque
 import asyncio
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class WorkflowType(Enum):
@@ -33,11 +37,15 @@ class Step:
         fn: Callable[[WorkflowContext], Awaitable[Any]] = None,
         op: WorkflowType = WorkflowType.NONE,
         steps: List["Step"] = [],
+        prev: Optional[Set["Step"]] = None,
     ):
         self.fn = fn
         self.fn_name = fn.__name__ if fn else None
         self.steps: List[Step] = steps
-        self.prev = set(steps)
+        if prev:
+            self.prev = prev
+        else:
+            self.prev = set(self.steps)
         self.op = op
 
     def __or__(self, other: "Step") -> "Step":
@@ -63,13 +71,13 @@ class Step:
             )
 
     def __rshift__(self, other: "Step") -> "Step":
-        # other.steps.append(self)
-        # other.prev.add(self)
-        # return other
-        return Step(
+        seq_step = Step(
             op=WorkflowType.SEQUENTIAL,
+            prev=set([self]),
             steps=[self, other],
         )
+        other.prev.add(seq_step)
+        return seq_step
 
     def topological_sort(self):
         sorted = []
@@ -143,15 +151,32 @@ def draw_dot(root, format="svg", rankdir="TB"):
 
 
 class Workflow:
-    def __init__(self, steps: List[Step], semerphore_size: int = 1):
-        self.steps = steps
-        self.semerphore_size = semerphore_size
-        self.semaphore = asyncio.Semaphore(semerphore_size)
+    def __init__(self, root: Step, semerphore_size: int = 1):
+        self.root = root
+        self.steps = deque(root.topological_sort())
+        self._semerphore_size = semerphore_size
+        self._semaphore = asyncio.Semaphore(semerphore_size)
+        self._lock = asyncio.Lock()
 
-    async def run_step(self, step: Step, ctx: WorkflowContext):
+    async def _run_step(self, step: Step, ctx: WorkflowContext):
+        async with self._semaphore:
+            logger.info("Running step", step=str(step), step_op=step.op)
+            if step.op == WorkflowType.NONE:
+                result = await step.fn(ctx)
+            else:
+                result = None
+            async with self._lock:
+                for rest_step in self.steps:
+                    if step in rest_step.prev:
+                        rest_step.prev.remove(step)
 
-        async with self.semaphore:
-            return await step.fn(ctx)
+        await ctx.set_result(step.fn_name, result)
+        return result
+
+    async def run(self, ctx: WorkflowContext = None):
+        while len(self.steps) > 0:
+            step = self.steps.popleft()
+            await self._run_step(step, ctx)
 
 
 # class Workflow:
@@ -237,15 +262,21 @@ async def do_e(ctx):
 
 
 async def main():
-    workflow = (do_a | do_b) | (do_c | do_d) >> do_e
+    root = (do_a | do_b) | (do_c | do_d) >> do_e
 
-    sorted = workflow.topological_sort()
+    sorted = root.topological_sort()
 
     for step in sorted:
         print(step)
 
-    dot = draw_dot(workflow, rankdir="LR")
+    dot = draw_dot(root, rankdir="LR")
     dot.render("workflow", view=False)
+
+    workflow = Workflow(root)
+    ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
+    await workflow.run(ctx)
+
+    print(ctx.results)
     # print(
     #     await workflow.run(
     #         WorkflowContext(

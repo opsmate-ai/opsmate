@@ -14,10 +14,10 @@
 
 import unittest
 
-from opsmatesdk.models.run_request import RunRequest
+from opsmatesdk.models.run_response import RunResponse
 
-class TestRunRequest(unittest.TestCase):
-    """RunRequest unit test stubs"""
+class TestRunResponse(unittest.TestCase):
+    """RunResponse unit test stubs"""
 
     def setUp(self):
         pass
@@ -25,30 +25,28 @@ class TestRunRequest(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def make_instance(self, include_optional) -> RunRequest:
-        """Test RunRequest
+    def make_instance(self, include_optional) -> RunResponse:
+        """Test RunResponse
             include_optional is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # uncomment below to create an instance of `RunRequest`
+        # uncomment below to create an instance of `RunResponse`
         """
-        model = RunRequest()
+        model = RunResponse()
         if include_optional:
-            return RunRequest(
-                model = '',
-                instruction = '',
-                context = 'cli',
-                ask = True
+            return RunResponse(
+                tool_outputs = '',
+                observation = ''
             )
         else:
-            return RunRequest(
-                model = '',
-                instruction = '',
+            return RunResponse(
+                tool_outputs = '',
+                observation = '',
         )
         """
 
-    def testRunRequest(self):
-        """Test RunRequest"""
+    def testRunResponse(self):
+        """Test RunResponse"""
         # inst_req_only = self.make_instance(include_optional=False)
         # inst_req_and_optional = self.make_instance(include_optional=True)
 

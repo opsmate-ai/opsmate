@@ -8,6 +8,7 @@ model_health.go
 model_http_validation_error.go
 model_model.go
 model_run_request.go
+model_run_response.go
 model_validation_error.go
 model_validation_error_loc_inner.go
 response.go

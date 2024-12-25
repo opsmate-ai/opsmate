@@ -43,9 +43,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  type: object
-                type: array
+                $ref: '#/components/schemas/RunResponse'
           description: Successful Response
         "422":
           content:
@@ -104,29 +102,21 @@ components:
       title: Model
     RunRequest:
       example:
-        provider: provider
         instruction: instruction
+        context: cli
         ask: false
         model: model
-        contexts:
-        - contexts
-        - contexts
       properties:
         model:
           title: name of the llm model to use
           type: string
-        provider:
-          title: name of the provider to use
-          type: string
         instruction:
           title: instruction to execute
           type: string
-        contexts:
-          default:
-          - cli
-          items:
-            type: string
-          type: array
+        context:
+          default: cli
+          title: context to use
+          type: string
         ask:
           default: false
           title: ask
@@ -134,8 +124,22 @@ components:
       required:
       - instruction
       - model
-      - provider
       title: RunRequest
+    RunResponse:
+      example:
+        observation: observation
+        tool_outputs: tool_outputs
+      properties:
+        tool_outputs:
+          title: tool outputs
+          type: string
+        observation:
+          title: observation
+          type: string
+      required:
+      - observation
+      - tool_outputs
+      title: RunResponse
     ValidationError:
       example:
         msg: msg

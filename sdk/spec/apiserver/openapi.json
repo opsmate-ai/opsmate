@@ -65,11 +65,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "type": "object"
-                  },
-                  "type": "array",
-                  "title": "Response Run V1 Run Post"
+                  "$ref": "#/components/schemas/RunResponse"
                 }
               }
             }
@@ -142,23 +138,14 @@
             "type": "string",
             "title": "name of the llm model to use"
           },
-          "provider": {
-            "type": "string",
-            "title": "name of the provider to use"
-          },
           "instruction": {
             "type": "string",
             "title": "instruction to execute"
           },
-          "contexts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "contexts to use",
-            "default": [
-              "cli"
-            ]
+          "context": {
+            "type": "string",
+            "title": "context to use",
+            "default": "cli"
           },
           "ask": {
             "type": "boolean",
@@ -169,10 +156,27 @@
         "type": "object",
         "required": [
           "model",
-          "provider",
           "instruction"
         ],
         "title": "RunRequest"
+      },
+      "RunResponse": {
+        "properties": {
+          "tool_outputs": {
+            "type": "string",
+            "title": "tool outputs"
+          },
+          "observation": {
+            "type": "string",
+            "title": "observation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tool_outputs",
+          "observation"
+        ],
+        "title": "RunResponse"
       },
       "ValidationError": {
         "properties": {

@@ -13,6 +13,7 @@ opsmatesdk/models/health.py
 opsmatesdk/models/http_validation_error.py
 opsmatesdk/models/model.py
 opsmatesdk/models/run_request.py
+opsmatesdk/models/run_response.py
 opsmatesdk/models/validation_error.py
 opsmatesdk/models/validation_error_loc_inner.py
 opsmatesdk/py.typed
@@ -28,6 +29,7 @@ test/test_health.py
 test/test_http_validation_error.py
 test/test_model.py
 test/test_run_request.py
+test/test_run_response.py
 test/test_validation_error.py
 test/test_validation_error_loc_inner.py
 tox.ini

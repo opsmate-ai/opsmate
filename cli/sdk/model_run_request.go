@@ -22,9 +22,8 @@ var _ MappedNullable = &RunRequest{}
 // RunRequest struct for RunRequest
 type RunRequest struct {
 	Model string `json:"model"`
-	Provider string `json:"provider"`
 	Instruction string `json:"instruction"`
-	Contexts []string `json:"contexts,omitempty"`
+	Context *string `json:"context,omitempty"`
 	Ask *bool `json:"ask,omitempty"`
 }
 
@@ -34,11 +33,12 @@ type _RunRequest RunRequest
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewRunRequest(model string, provider string, instruction string) *RunRequest {
+func NewRunRequest(model string, instruction string) *RunRequest {
 	this := RunRequest{}
 	this.Model = model
-	this.Provider = provider
 	this.Instruction = instruction
+	var context string = "cli"
+	this.Context = &context
 	var ask bool = false
 	this.Ask = &ask
 	return &this
@@ -49,6 +49,8 @@ func NewRunRequest(model string, provider string, instruction string) *RunReques
 // but it doesn't guarantee that properties required by API are set
 func NewRunRequestWithDefaults() *RunRequest {
 	this := RunRequest{}
+	var context string = "cli"
+	this.Context = &context
 	var ask bool = false
 	this.Ask = &ask
 	return &this
@@ -78,30 +80,6 @@ func (o *RunRequest) SetModel(v string) {
 	o.Model = v
 }
 
-// GetProvider returns the Provider field value
-func (o *RunRequest) GetProvider() string {
-	if o == nil {
-		var ret string
-		return ret
-	}
-
-	return o.Provider
-}
-
-// GetProviderOk returns a tuple with the Provider field value
-// and a boolean to check if the value has been set.
-func (o *RunRequest) GetProviderOk() (*string, bool) {
-	if o == nil {
-		return nil, false
-	}
-	return &o.Provider, true
-}
-
-// SetProvider sets field value
-func (o *RunRequest) SetProvider(v string) {
-	o.Provider = v
-}
-
 // GetInstruction returns the Instruction field value
 func (o *RunRequest) GetInstruction() string {
 	if o == nil {
@@ -126,36 +104,36 @@ func (o *RunRequest) SetInstruction(v string) {
 	o.Instruction = v
 }
 
-// GetContexts returns the Contexts field value if set, zero value otherwise.
-func (o *RunRequest) GetContexts() []string {
-	if o == nil || IsNil(o.Contexts) {
-		var ret []string
+// GetContext returns the Context field value if set, zero value otherwise.
+func (o *RunRequest) GetContext() string {
+	if o == nil || IsNil(o.Context) {
+		var ret string
 		return ret
 	}
-	return o.Contexts
+	return *o.Context
 }
 
-// GetContextsOk returns a tuple with the Contexts field value if set, nil otherwise
+// GetContextOk returns a tuple with the Context field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *RunRequest) GetContextsOk() ([]string, bool) {
-	if o == nil || IsNil(o.Contexts) {
+func (o *RunRequest) GetContextOk() (*string, bool) {
+	if o == nil || IsNil(o.Context) {
 		return nil, false
 	}
-	return o.Contexts, true
+	return o.Context, true
 }
 
-// HasContexts returns a boolean if a field has been set.
-func (o *RunRequest) HasContexts() bool {
-	if o != nil && !IsNil(o.Contexts) {
+// HasContext returns a boolean if a field has been set.
+func (o *RunRequest) HasContext() bool {
+	if o != nil && !IsNil(o.Context) {
 		return true
 	}
 
 	return false
 }
 
-// SetContexts gets a reference to the given []string and assigns it to the Contexts field.
-func (o *RunRequest) SetContexts(v []string) {
-	o.Contexts = v
+// SetContext gets a reference to the given string and assigns it to the Context field.
+func (o *RunRequest) SetContext(v string) {
+	o.Context = &v
 }
 
 // GetAsk returns the Ask field value if set, zero value otherwise.
@@ -201,10 +179,9 @@ func (o RunRequest) MarshalJSON() ([]byte, error) {
 func (o RunRequest) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["model"] = o.Model
-	toSerialize["provider"] = o.Provider
 	toSerialize["instruction"] = o.Instruction
-	if !IsNil(o.Contexts) {
-		toSerialize["contexts"] = o.Contexts
+	if !IsNil(o.Context) {
+		toSerialize["context"] = o.Context
 	}
 	if !IsNil(o.Ask) {
 		toSerialize["ask"] = o.Ask
@@ -218,7 +195,6 @@ func (o *RunRequest) UnmarshalJSON(data []byte) (err error) {
 	// that every required field exists as a key in the generic map.
 	requiredProperties := []string{
 		"model",
-		"provider",
 		"instruction",
 	}
 

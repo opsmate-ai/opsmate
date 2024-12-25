@@ -1,5 +1,11 @@
-from opsmate.libs.core.types import DocumentIngestion, DocumentIngestionSpec, Metadata
-from opsmate.libs.knowledge import DocumentIngester, get_runbooks_table, Runbook
+from opsmate.libs.knowledge import (
+    DocumentIngester,
+    get_runbooks_table,
+    Runbook,
+    DocumentIngestion,
+    DocumentIngestionSpec,
+    Metadata,
+)
 import os
 import structlog
 from opsmate.tests.base import BaseTestCase

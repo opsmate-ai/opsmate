@@ -1,6 +1,7 @@
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from opentelemetry import trace
-from opsmate.libs.core.types import DocumentIngestion
+from pydantic import BaseModel, Field
+from typing import Dict
 from .schema import get_runbooks_table
 from lancedb.table import Table
 from langchain_core.documents import Document
@@ -10,6 +11,25 @@ import uuid
 
 logger = structlog.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+
+class Metadata(BaseModel):
+    name: str = Field(title="name")
+    namespace: str = Field(title="namespace", default="default")
+    labels: Dict[str, str] = Field(title="labels", default={})
+    description: str = Field(title="description", default="")
+
+
+class DocumentIngestionSpec(BaseModel):
+    local_path: str = Field(
+        title="local path",
+        description="absolute path to the directory to ingest, glob patterns are supported",
+    )
+
+
+class DocumentIngestion(BaseModel):
+    metadata: Metadata = Field(title="metadata")
+    spec: DocumentIngestionSpec = Field(title="spec")
 
 
 class DocumentIngester:

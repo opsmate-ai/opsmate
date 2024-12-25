@@ -3,7 +3,6 @@ from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystem
 from opsmate.gui.assets import *
 import pickle
 from opsmate.dino.types import React, ReactAnswer, Observation
-from opsmate.libs.core.engine.agent_executor import AgentCommand
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
     InfoGathered,

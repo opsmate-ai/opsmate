@@ -95,6 +95,7 @@ Class | Method | HTTP request | Description
  - [Health](docs/Health.md)
  - [Model](docs/Model.md)
  - [RunRequest](docs/RunRequest.md)
+ - [RunResponse](docs/RunResponse.md)
  - [ValidationError](docs/ValidationError.md)
  - [ValidationErrorLocInner](docs/ValidationErrorLocInner.md)
 

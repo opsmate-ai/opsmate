@@ -227,7 +227,7 @@ func (r ApiRunV1RunPostRequest) RunRequest(runRequest RunRequest) ApiRunV1RunPos
 	return r
 }
 
-func (r ApiRunV1RunPostRequest) Execute() ([]map[string]interface{}, *http.Response, error) {
+func (r ApiRunV1RunPostRequest) Execute() (*RunResponse, *http.Response, error) {
 	return r.ApiService.RunV1RunPostExecute(r)
 }
 
@@ -245,13 +245,13 @@ func (a *DefaultAPIService) RunV1RunPost(ctx context.Context) ApiRunV1RunPostReq
 }
 
 // Execute executes the request
-//  @return []map[string]interface{}
-func (a *DefaultAPIService) RunV1RunPostExecute(r ApiRunV1RunPostRequest) ([]map[string]interface{}, *http.Response, error) {
+//  @return RunResponse
+func (a *DefaultAPIService) RunV1RunPostExecute(r ApiRunV1RunPostRequest) (*RunResponse, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodPost
 		localVarPostBody     interface{}
 		formFiles            []formFile
-		localVarReturnValue  []map[string]interface{}
+		localVarReturnValue  *RunResponse
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.RunV1RunPost")

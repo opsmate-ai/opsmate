@@ -170,4 +170,5 @@ eval/notebooks/opsmate-embedding
 
 workflow
 workflow.dot
+workflow.dot.svg
 workflow.svg

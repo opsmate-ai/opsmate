@@ -73,11 +73,29 @@ class Step:
     def __rshift__(self, other: "Step") -> "Step":
         seq_step = Step(
             op=WorkflowType.SEQUENTIAL,
-            prev=set([self]),
+            prev=set([self._right_most_step()]),
             steps=[self, other],
         )
         other.prev.add(seq_step)
+        for step in other.__all_children():
+            step.prev.add(seq_step)
         return seq_step
+
+    def _right_most_step(self):
+        if self.op == WorkflowType.NONE or self.op == WorkflowType.PARALLEL:
+            return self
+        else:
+            return self.steps[1]._right_most_step()
+
+    def __all_children(self):
+        result = []
+        if self.op == WorkflowType.NONE:
+            return []
+        else:
+            result.extend(self.steps)
+            for step in self.steps:
+                result.extend(step.__all_children())
+        return result
 
     def topological_sort(self):
         sorted = []
@@ -151,7 +169,7 @@ def draw_dot(root, format="svg", rankdir="TB"):
 
 
 class Workflow:
-    def __init__(self, root: Step, semerphore_size: int = 1):
+    def __init__(self, root: Step, semerphore_size: int = 4):
         self.root = root
         self.steps = deque(root.topological_sort())
         self._semerphore_size = semerphore_size
@@ -170,7 +188,12 @@ class Workflow:
 
     async def _run_step(self, step: Step, ctx: WorkflowContext):
         async with self._semaphore:
-            logger.info("Running step", step=str(step), step_op=step.op)
+            logger.info(
+                "Running step",
+                step=str(step),
+                step_op=step.op,
+                prev_size=len(self.prevs[str(id(step))]),
+            )
             if step.op == WorkflowType.NONE:
                 result = await step.fn(ctx)
             else:
@@ -185,9 +208,23 @@ class Workflow:
         return result
 
     async def run(self, ctx: WorkflowContext = None):
+        round = 0
         while len(self.steps) > 0:
-            step = self.steps.popleft()
-            await self._run_step(step, ctx)
+            round += 1
+            logger.info("Running round", round=round, steps_left=len(self.steps))
+
+            steps_to_run = []
+            for step in self.steps:
+                if len(self.prevs[str(id(step))]) == 0:
+                    steps_to_run.append(step)
+                else:
+                    break
+
+            for idx, step in enumerate(steps_to_run):
+                self.steps.popleft()
+
+            tasks = [self._run_step(step, ctx) for step in steps_to_run]
+            await asyncio.gather(*tasks)
 
 
 def step(fn: Callable):
@@ -237,15 +274,15 @@ async def do_e(ctx):
 
 
 async def main():
-    root = (do_a | do_b) | (do_c | do_d) >> do_e
+    root = (do_a | do_b) >> do_c >> (do_d | do_e)
 
     sorted = root.topological_sort()
 
     for step in sorted:
-        print(step)
+        print(step, step.prev)
 
     dot = draw_dot(root, rankdir="LR")
-    dot.render("workflow", view=False)
+    dot.render(filename="workflow.dot", view=False)
 
     workflow = Workflow(root)
     ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
@@ -256,13 +293,6 @@ async def main():
     ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
     await workflow.run(ctx)
     print(ctx.results)
-    # print(
-    #     await workflow.run(
-    #         WorkflowContext(
-    #             input={"person_a": "Elon Musk", "person_b": "Boris Johnson"}
-    #         )
-    #     )
-    # )
 
 
 if __name__ == "__main__":

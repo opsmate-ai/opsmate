@@ -157,6 +157,16 @@ class Workflow:
         self._semerphore_size = semerphore_size
         self._semaphore = asyncio.Semaphore(semerphore_size)
         self._lock = asyncio.Lock()
+        self._init_prevs()
+
+    def _init_prevs(self):
+        """
+        Initialize the prevs dictionary with the prevs of each step.
+        Not use the prevs of the step itself because we want the workflow to be re-runnable.
+        """
+        self.prevs = {}
+        for step in self.steps:
+            self.prevs[str(id(step))] = step.prev.copy()
 
     async def _run_step(self, step: Step, ctx: WorkflowContext):
         async with self._semaphore:
@@ -167,8 +177,9 @@ class Workflow:
                 result = None
             async with self._lock:
                 for rest_step in self.steps:
-                    if step in rest_step.prev:
-                        rest_step.prev.remove(step)
+                    rest_step_id = str(id(rest_step))
+                    if step in self.prevs[rest_step_id]:
+                        self.prevs[rest_step_id].remove(step)
 
         await ctx.set_result(step.fn_name, result)
         return result
@@ -275,7 +286,11 @@ async def main():
     workflow = Workflow(root)
     ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
     await workflow.run(ctx)
+    print(ctx.results)
 
+    workflow = Workflow(root)
+    ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
+    await workflow.run(ctx)
     print(ctx.results)
     # print(
     #     await workflow.run(

@@ -5,6 +5,7 @@ from opsmate.dino import dino
 from collections import deque
 import asyncio
 import structlog
+import uuid
 
 logger = structlog.get_logger(__name__)
 
@@ -39,11 +40,12 @@ class Step:
         steps: List["Step"] = [],
         prev: Optional[Set["Step"]] = None,
     ):
+        self.id = str(uuid.uuid4()).split("-")[0]
         self.fn = fn
         self.fn_name = fn.__name__ if fn else None
-        self.steps: List[Step] = steps
+        self.steps: List[Step] = steps.copy()
         if prev:
-            self.prev = prev
+            self.prev = prev.copy()
         else:
             self.prev = set(self.steps)
         self.op = op
@@ -65,36 +67,39 @@ class Step:
                 steps=[self] + other.steps,
             )
         else:
+            logger.info(
+                "parallel it",
+                left=self,
+                right=other,
+                left_children=self.steps,
+                right_children=other.steps,
+            )
             return Step(
                 op=WorkflowType.PARALLEL,
                 steps=[self, other],
             )
 
-    def __rshift__(self, other: "Step") -> "Step":
+    def __rshift__(self, right: "Step") -> "Step":
+        logger.info("rshift", left=self, right=right)
         seq_step = Step(
             op=WorkflowType.SEQUENTIAL,
-            prev=set([self._right_most_step()]),
-            steps=[self, other],
+            steps=[self],
         )
-        other.prev.add(seq_step)
-        for step in other.__all_children():
-            step.prev.add(seq_step)
-        return seq_step
 
-    def _right_most_step(self):
-        if self.op == WorkflowType.NONE or self.op == WorkflowType.PARALLEL:
-            return self
-        else:
-            return self.steps[1]._right_most_step()
+        for step in right.__all_orphan_children():
+            if seq_step not in step.prev:
+                step.prev.add(seq_step)
+                step.steps.append(seq_step)
 
-    def __all_children(self):
+        return right
+
+    def __all_orphan_children(self):
         result = []
-        if self.op == WorkflowType.NONE:
-            return []
+        if self.op == WorkflowType.NONE and self.steps == []:
+            return [self]
         else:
-            result.extend(self.steps)
             for step in self.steps:
-                result.extend(step.__all_children())
+                result.extend(step.__all_orphan_children())
         return result
 
     def topological_sort(self):
@@ -104,27 +109,19 @@ class Step:
         def visit(step: Step):
             if step in visited:
                 return
-            if step.op == WorkflowType.NONE:
-                sorted.append(step)
-            elif step.op == WorkflowType.PARALLEL:
-                for child in step.steps:
-                    visit(child)
-                sorted.append(step)
-            elif step.op == WorkflowType.SEQUENTIAL:
-                assert len(step.steps) == 2
-                step_a, step_b = step.steps
-                visit(step_a)
-                sorted.append(step)
-                visit(step_b)
+            visited.add(step)
+            for child in step.steps:
+                visit(child)
+            sorted.append(step)
 
         visit(self)
         return sorted
 
     def __repr__(self):
         if self.fn_name:
-            return f"Step({self.fn_name})"
+            return f"Step({self.fn_name}-{self.id})"
         else:
-            return f"Step({self.op})"
+            return f"Step({self.op}-{self.id})"
 
 
 def _tree_from_step(root: Step):
@@ -133,23 +130,9 @@ def _tree_from_step(root: Step):
     def build(node: Step):
         if node not in nodes:
             nodes.add(node)
-            if node.op == WorkflowType.PARALLEL:
-                for child in node.steps:
-                    ch = build(child)
-                    edges.add((ch, node))
-
-                return node
-            elif node.op == WorkflowType.SEQUENTIAL:
-                assert len(node.steps) == 2
-                step_a, step_b = node.steps
-
-                l = build(step_a)
-                r = build(step_b)
-                edges.add((l, node))
-                edges.add((node, r))
-                return r
-            elif node.op == WorkflowType.NONE:
-                return node
+            for child in node.steps:
+                build(child)
+                edges.add((child, node))
 
     build(root)
     return nodes, edges
@@ -229,7 +212,7 @@ class Workflow:
 
 def step(fn: Callable):
     _step = Step(fn)
-    Step.step_bags[_step.fn_name] = _step.fn
+    Step.step_bags[_step.fn_name] = _step
 
     return _step
 
@@ -273,15 +256,23 @@ async def do_e(ctx):
     return "Hello"
 
 
+@step
+@dino("gpt-4o-mini", response_model=str)
+async def do_f(ctx):
+    return "Hello"
+
+
 async def main():
-    root = (do_a | do_b) >> do_c >> (do_d | do_e)
+    root = (do_a | do_b) >> (do_c | (do_d >> do_e)) | do_f
+    # root = (do_a | do_b) >> do_c
+    # root = do_f >> (do_d | do_e)
 
     sorted = root.topological_sort()
 
     for step in sorted:
         print(step, step.prev)
 
-    dot = draw_dot(root, rankdir="LR")
+    dot = draw_dot(root, rankdir="TB")
     dot.render(filename="workflow.dot", view=False)
 
     workflow = Workflow(root)
@@ -289,10 +280,10 @@ async def main():
     await workflow.run(ctx)
     print(ctx.results)
 
-    workflow = Workflow(root)
-    ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
-    await workflow.run(ctx)
-    print(ctx.results)
+    # workflow = Workflow(root)
+    # ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
+    # await workflow.run(ctx)
+    # print(ctx.results)
 
 
 if __name__ == "__main__":

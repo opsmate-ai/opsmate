@@ -37,16 +37,12 @@ class Step:
         fn: Callable[[WorkflowContext], Awaitable[Any]] = None,
         op: WorkflowType = WorkflowType.NONE,
         steps: List["Step"] = [],
-        prev: Optional[Set["Step"]] = None,
     ):
         self.id = str(uuid.uuid4()).split("-")[0]
         self.fn = fn
         self.fn_name = fn.__name__ if fn else None
-        self.steps: List[Step] = steps.copy()
-        if prev:
-            self.prev = prev.copy()
-        else:
-            self.prev = set(self.steps)
+        self.steps: List[Step] = steps
+        self.prev = set(self.steps)
         self.op = op
 
     def __or__(self, other: "Step") -> "Step":
@@ -77,12 +73,23 @@ class Step:
             steps=[self],
         )
 
+        right = right.copy()
+
         for step in right.__all_orphan_children():
             if seq_step not in step.prev:
                 step.prev.add(seq_step)
                 step.steps.append(seq_step)
 
         return right
+
+    def copy(self):
+        step = Step(
+            fn=self.fn,
+            op=self.op,
+            steps=[child.copy() for child in self.steps],
+        )
+        step.id = self.id
+        return step
 
     def __all_orphan_children(self):
         result = []

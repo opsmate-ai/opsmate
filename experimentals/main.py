@@ -6,6 +6,7 @@ from collections import deque
 import asyncio
 import structlog
 import uuid
+from collections import defaultdict
 
 logger = structlog.get_logger(__name__)
 
@@ -67,20 +68,12 @@ class Step:
                 steps=[self] + other.steps,
             )
         else:
-            logger.info(
-                "parallel it",
-                left=self,
-                right=other,
-                left_children=self.steps,
-                right_children=other.steps,
-            )
             return Step(
                 op=WorkflowType.PARALLEL,
                 steps=[self, other],
             )
 
     def __rshift__(self, right: "Step") -> "Step":
-        logger.info("rshift", left=self, right=right)
         seq_step = Step(
             op=WorkflowType.SEQUENTIAL,
             steps=[self],
@@ -103,19 +96,39 @@ class Step:
         return result
 
     def topological_sort(self):
-        sorted = []
+        nodes = {}
+        edges = defaultdict(list)
+
+        def build(node: Step):
+            node_id = str(id(node))
+            if node_id not in nodes:
+                nodes[node_id] = node
+                for child in node.steps:
+                    build(child)
+                    # points from child to parent for the purpose of topological sort
+                    edges[str(id(child))].append(node_id)
+
+        build(self)
+
         visited = set()
+        stack = deque()
 
-        def visit(step: Step):
-            if step in visited:
+        def visit(node_id: str):
+            if node_id in visited:
                 return
-            visited.add(step)
-            for child in step.steps:
-                visit(child)
-            sorted.append(step)
+            visited.add(node_id)
 
-        visit(self)
-        return sorted
+            for parent_id in edges[node_id]:
+                if parent_id not in visited:
+                    visit(parent_id)
+            stack.appendleft(node_id)
+
+        for node_id in nodes:
+            if node_id not in visited:
+                visit(node_id)
+
+        nodes = [nodes[node_id] for node_id in stack]
+        return nodes
 
     def __repr__(self):
         if self.fn_name:

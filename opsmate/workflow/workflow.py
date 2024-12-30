@@ -20,10 +20,14 @@ class WorkflowContext:
         self.results = results
         self.input = input
         self._lock = asyncio.Lock()
+        self.step_results = None
 
     async def set_result(self, key: str, value: Any):
         async with self._lock:
             self.results[key] = value
+
+    def copy(self):
+        return WorkflowContext(results=self.results.copy(), input=self.input.copy())
 
     def __repr__(self):
         return f"WorkflowContext({self.results})"
@@ -44,6 +48,7 @@ class Step:
         self.steps: List[Step] = steps
         self.prev = set(self.steps)
         self.op = op
+        self.result = None
 
     def __or__(self, other: "Step") -> "Step":
         if self.op == WorkflowType.PARALLEL and other.op == WorkflowType.PARALLEL:
@@ -196,17 +201,28 @@ class Workflow:
                 prev_size=len(self.prevs[str(id(step))]),
             )
             if step.op == WorkflowType.NONE:
-                result = await step.fn(ctx)
+                exec_ctx = ctx.copy()
+                if len(step.steps) == 1:
+                    exec_ctx.step_results = step.steps[0].result
+                else:
+                    exec_ctx.step_results = [child.result for child in step.steps]
+                step.result = await step.fn(exec_ctx)
+            elif step.op == WorkflowType.PARALLEL:
+                step.result = [child.result for child in step.steps]
+
+            elif step.op == WorkflowType.SEQUENTIAL:
+                step.result = step.steps[0].result
             else:
-                result = None
+                raise ValueError(f"Invalid step operation: {step.op}")
+
             async with self._lock:
                 for rest_step in self.steps:
                     rest_step_id = str(id(rest_step))
                     if step in self.prevs[rest_step_id]:
                         self.prevs[rest_step_id].remove(step)
 
-        await ctx.set_result(step.fn_name, result)
-        return result
+        await ctx.set_result(step.fn_name, step.result)
+        return step.result
 
     async def run(self, ctx: WorkflowContext = None):
         round = 0

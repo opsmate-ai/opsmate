@@ -192,3 +192,47 @@ class TestStep:
         ctx = WorkflowContext()
         await workflow.run(ctx)
         assert ctx.results["fn3"] == 2
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_using_result(self):
+        @step
+        async def fn1(ctx):
+            assert ctx.step_results == []
+            return 1
+
+        @step
+        async def fn2(ctx):
+            assert ctx.step_results == []
+            return 2
+
+        @step
+        async def fn3(ctx):
+            childrens = ctx.step_results
+            assert len(childrens) == 2
+            assert childrens[0] == 1
+            assert childrens[1] == 2
+            return childrens[0] + childrens[1]
+
+        @step
+        async def fn4(ctx):
+            childrens = ctx.step_results
+            assert len(childrens) == 2
+            assert childrens[0] == 1
+            assert childrens[1] == 2
+            return childrens[0] * childrens[1]
+
+        @step
+        async def fn5(ctx):
+            childrens = ctx.step_results
+            assert len(childrens) == 2
+            assert childrens[0] == 3
+            assert childrens[1] == 2
+            return childrens[0] * childrens[1]
+
+        steps = (fn1 | fn2) >> (fn3 | fn4) >> fn5
+        workflow = Workflow(steps)
+        ctx = WorkflowContext()
+        await workflow.run(ctx)
+        assert ctx.results["fn3"] == 3
+        assert ctx.results["fn4"] == 2
+        assert ctx.results["fn5"] == 6

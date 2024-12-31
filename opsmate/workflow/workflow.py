@@ -318,6 +318,47 @@ class WorkflowExecutor:
 
         self.session.refresh(self.workflow)
 
+    async def mark_rerun(self, step: WorkflowStep):
+        """
+        Mark a workflow as pending and rerun it.
+        A selected step will be re-marked as pending, so are its descendants.
+        """
+        self.workflow.state = WorkflowState.PENDING
+        self.session.commit()
+
+        nodes = {}
+        edges = defaultdict(list)
+
+        def build(node: WorkflowStep):
+            node_id = node.id
+            if node_id not in nodes:
+                nodes[node_id] = node
+                for child in node.prev_steps(self.session):
+                    build(child)
+                    edges[child.id].append(node_id)
+
+        for s in self.workflow.steps:
+            build(s)
+
+        visited = set()
+
+        def visit(node_id: int):
+            if node_id in visited:
+                return
+
+            visited.add(node_id)
+            node = nodes[node_id]
+            node.state = WorkflowState.PENDING
+            node.error = ""
+            node.failed_reason = WorkflowFailedReason.NONE
+            node.result = None
+            self.session.commit()
+
+            for next_node_id in edges[node_id]:
+                visit(next_node_id)
+
+        visit(step.id)
+
     async def _mark_workflow_running(self):
         self.workflow.state = WorkflowState.RUNNING
         self.session.commit()

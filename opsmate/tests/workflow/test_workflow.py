@@ -351,9 +351,6 @@ class TestWorkflow:
 
         assert workflow.state == WorkflowState.FAILED
 
-        print("*" * 100)
-        print(workflow.steps)
-        print("*" * 100)
         hook1 = workflow.find_step("test_hook1", session)
         assert hook1 is not None
         assert hook1.failed_reason == WorkflowFailedReason.NONE
@@ -370,3 +367,36 @@ class TestWorkflow:
         hook4 = workflow.find_step("test_hook4", session)
         assert hook4 is not None
         assert hook4.failed_reason == WorkflowFailedReason.PREV_STEP_FAILED
+
+    @pytest.mark.asyncio
+    async def test_workflow_rerun(self, session):
+        step = (calc_fn1 | calc_fn2) >> (calc_fn3 | calc_fn4) >> calc_fn5
+        workflow = build_workflow("test", "test", step, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        for step in workflow.steps:
+            assert step.state == WorkflowState.COMPLETED
+            assert step.result is not None
+            assert step.failed_reason == WorkflowFailedReason.NONE
+
+        await workflow_executor.mark_rerun(workflow.find_step("calc_fn2", session))
+
+        calc_fn1_step = workflow.find_step("calc_fn1", session)
+        assert calc_fn1_step is not None
+        assert calc_fn1_step.state == WorkflowState.COMPLETED
+
+        for step_name in ["calc_fn2", "calc_fn3", "calc_fn4", "calc_fn5"]:
+            step = workflow.find_step(step_name, session)
+            assert step is not None
+            assert step.state == WorkflowState.PENDING, f"{step_name} should be pending"
+            assert step.failed_reason == WorkflowFailedReason.NONE
+            assert step.error == ""
+            assert step.result is None
+
+        await workflow_executor.run(WorkflowContext())
+
+        for step in workflow.steps:
+            assert step.state == WorkflowState.COMPLETED
+            assert step.result is not None
+            assert step.failed_reason == WorkflowFailedReason.NONE

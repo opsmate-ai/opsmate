@@ -7,6 +7,9 @@ import uuid
 from collections import defaultdict
 from sqlmodel import Session
 from .models import Workflow, WorkflowStep, WorkflowType, WorkflowState
+import pickle
+import importlib
+import traceback
 
 logger = structlog.get_logger(__name__)
 
@@ -192,9 +195,10 @@ def build_workflow(
             workflow_id=workflow.id,
             prev_ids=child_workflow_step_ids,
             name=step.fn_name,
-            fn=step.fn_name,
             step_type=step.op,
         )
+        if step.fn:
+            workflow_step.fn = step.fn.__qualname__
         session.add(workflow_step)
         session.commit()
         visisted[step_id] = workflow_step
@@ -279,3 +283,98 @@ def step(fn: Callable):
     Step.step_bags[_step.fn_name] = _step
 
     return _step
+
+
+class WorkflowExecutor:
+    def __init__(self, workflow: Workflow, session: Session, semerphore_size: int = 4):
+        self.workflow = workflow
+        self.session = session
+        self.semerphore_size = semerphore_size
+        # self.workflow_steps = workflow.topological_sort()
+        self._semaphore = asyncio.Semaphore(semerphore_size)
+        self._lock = asyncio.Lock()
+        # self._workflow_steps: List[WorkflowStep] = self.workflow.topological_sort()
+
+    async def run(self, ctx: WorkflowContext = None):
+
+        round = 0
+        while not self._all_finished():
+            round += 1
+            logger.info("Running round", round=round)
+
+            steps_to_run = self.workflow.runnable_steps(self.session)
+
+            tasks = [self._run_step(step, ctx) for step in steps_to_run]
+            await asyncio.gather(*tasks)
+
+    async def _run_step(self, step: WorkflowStep, ctx: WorkflowContext):
+        async with self._semaphore:
+            logger.info(
+                "Running step",
+                step_id=step.id,
+                step_name=step.name,
+                step_type=step.step_type,
+            )
+            step.state = WorkflowState.RUNNING
+            self.session.commit()
+
+            prev_steps = step.prev_steps(self.session)
+
+            if step.step_type == WorkflowType.SEQUENTIAL:
+                assert len(prev_steps) == 1
+                prev_step = prev_steps[0]
+                step.result = prev_step.result
+                step.state = WorkflowState.COMPLETED
+                self.session.commit()
+                return
+
+            if step.step_type == WorkflowType.PARALLEL:
+                step.result = [prev_step.result for prev_step in prev_steps]
+                step.state = WorkflowState.COMPLETED
+                self.session.commit()
+                return
+
+            try:
+                # xxx: this is a hack, need importlib instead of step_bags
+                logger.info(
+                    "Running step",
+                    step_id=step.id,
+                    step_name=step.name,
+                    step_fn=step.fn,
+                )
+                # if step.fn and "." in step.fn:
+                #     func = importlib.import_module(step.fn).fn
+                # else:
+                #     raise ValueError(f"Invalid step function: {step.fn}")
+                func = Step.step_bags[step.name].fn
+                exec_ctx = ctx.copy()
+
+                if len(prev_steps) == 1:
+                    exec_ctx.step_results = prev_steps[0].result
+                else:
+                    exec_ctx.step_results = [
+                        prev_step.result for prev_step in prev_steps
+                    ]
+                step.result = await func(exec_ctx)
+
+                step.state = WorkflowState.COMPLETED
+                self.session.commit()
+            except Exception as e:
+                logger.error(
+                    "Error running step",
+                    step_id=step.id,
+                    error=str(e),
+                    stacktrace=traceback.format_exc(),
+                )
+                step.state = WorkflowState.FAILED
+                step.error = str(e)
+                self.session.commit()
+
+    def _all_finished(self):
+        for step in self.workflow.steps:
+            if (
+                step.state != WorkflowState.COMPLETED
+                and step.state != WorkflowState.FAILED
+            ):
+                return False
+        return True

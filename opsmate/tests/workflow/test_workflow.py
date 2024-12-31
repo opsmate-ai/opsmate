@@ -4,6 +4,7 @@ from opsmate.workflow.workflow import (
     Step,
     WorkflowType,
     StatelessWorkflowExecutor,
+    WorkflowExecutor,
     WorkflowContext,
     build_workflow,
 )
@@ -43,6 +44,45 @@ async def fn5(ctx):
 @step
 async def fn6(ctx):
     return "Hello"
+
+
+@step
+async def calc_fn1(ctx):
+    assert ctx.step_results == []
+    return 1
+
+
+@step
+async def calc_fn2(ctx):
+    assert ctx.step_results == []
+    return 2
+
+
+@step
+async def calc_fn3(ctx):
+    childrens = ctx.step_results
+    assert len(childrens) == 2
+    assert childrens[0] == 1
+    assert childrens[1] == 2
+    return childrens[0] + childrens[1]
+
+
+@step
+async def calc_fn4(ctx):
+    childrens = ctx.step_results
+    assert len(childrens) == 2
+    assert childrens[0] == 1
+    assert childrens[1] == 2
+    return childrens[0] * childrens[1]
+
+
+@step
+async def calc_fn5(ctx):
+    childrens = ctx.step_results
+    assert len(childrens) == 2
+    assert childrens[0] == 3
+    assert childrens[1] == 2
+    return childrens[0] * childrens[1]
 
 
 class TestWorkflow:
@@ -215,50 +255,16 @@ class TestWorkflow:
 
     @pytest.mark.asyncio
     async def test_workflow_run_using_result(self):
-        @step
-        async def fn1(ctx):
-            assert ctx.step_results == []
-            return 1
-
-        @step
-        async def fn2(ctx):
-            assert ctx.step_results == []
-            return 2
-
-        @step
-        async def fn3(ctx):
-            childrens = ctx.step_results
-            assert len(childrens) == 2
-            assert childrens[0] == 1
-            assert childrens[1] == 2
-            return childrens[0] + childrens[1]
-
-        @step
-        async def fn4(ctx):
-            childrens = ctx.step_results
-            assert len(childrens) == 2
-            assert childrens[0] == 1
-            assert childrens[1] == 2
-            return childrens[0] * childrens[1]
-
-        @step
-        async def fn5(ctx):
-            childrens = ctx.step_results
-            assert len(childrens) == 2
-            assert childrens[0] == 3
-            assert childrens[1] == 2
-            return childrens[0] * childrens[1]
-
-        steps = (fn1 | fn2) >> (fn3 | fn4) >> fn5
+        steps = (calc_fn1 | calc_fn2) >> (calc_fn3 | calc_fn4) >> calc_fn5
         workflow = StatelessWorkflowExecutor(steps)
         ctx = WorkflowContext()
         await workflow.run(ctx)
-        assert ctx.results["fn3"] == 3
-        assert ctx.results["fn4"] == 2
-        assert ctx.results["fn5"] == 6
+        assert ctx.results["calc_fn3"] == 3
+        assert ctx.results["calc_fn4"] == 2
+        assert ctx.results["calc_fn5"] == 6
 
     def test_workflow_build(self, session):
-        step = (fn1 | fn2) >> (fn3 | fn4) >> fn5
+        step = (calc_fn1 | calc_fn2) >> (calc_fn3 | calc_fn4) >> calc_fn5
         workflow = build_workflow("test", "test", step, session)
 
         assert workflow.id is not None
@@ -279,3 +285,36 @@ class TestWorkflow:
             prev_step_ids = [step.id for step in steps[:idx]]
             for prev_step in step.prev_steps(session):
                 assert prev_step.id in prev_step_ids
+
+    @pytest.mark.asyncio
+    async def test_stateful_workflow_run(self, session):
+        step = (calc_fn1 | calc_fn2) >> (calc_fn3 | calc_fn4) >> calc_fn5
+        workflow = build_workflow("test", "test", step, session)
+
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        f5_step = workflow.find_step("calc_fn5", session)
+        assert f5_step is not None
+        assert f5_step.result is not None
+        assert f5_step.result == 6
+
+        f4_step = workflow.find_step("calc_fn4", session)
+        assert f4_step is not None
+        assert f4_step.result is not None
+        assert f4_step.result == 2
+
+        f3_step = workflow.find_step("calc_fn3", session)
+        assert f3_step is not None
+        assert f3_step.result is not None
+        assert f3_step.result == 3
+
+        f2_step = workflow.find_step("calc_fn2", session)
+        assert f2_step is not None
+        assert f2_step.result is not None
+        assert f2_step.result == 2
+
+        f1_step = workflow.find_step("calc_fn1", session)
+        assert f1_step is not None
+        assert f1_step.result is not None
+        assert f1_step.result == 1

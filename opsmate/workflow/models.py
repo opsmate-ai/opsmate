@@ -4,7 +4,8 @@ from typing import List
 from enum import Enum
 import sqlalchemy as sa
 from collections import defaultdict, deque
-from sqlmodel import Session
+from sqlmodel import Session, select
+import pickle
 
 
 class WorkflowType(Enum):
@@ -37,6 +38,17 @@ class Workflow(SQLModel, table=True):
         sa_type=sa.DateTime(timezone=True),
         sa_column_kwargs={"onupdate": sa.func.now(), "server_default": sa.func.now()},
     )
+
+    def runnable_steps(self, session: Session):
+        return [step for step in self.steps if step.runnable(session)]
+
+    def find_step(self, fn_name: str, session: Session):
+        stmt = (
+            select(WorkflowStep)
+            .where(WorkflowStep.workflow_id == self.id)
+            .where(WorkflowStep.fn == fn_name)
+        )
+        return session.exec(stmt).first()
 
     def topological_sort(self, session: Session):
         nodes = {}
@@ -83,7 +95,8 @@ class WorkflowStep(SQLModel, table=True):
     workflow_id: int = Field(foreign_key="workflow.id", index=True)
     workflow: Workflow = Relationship(back_populates="steps")
     prev_ids: List[int] = Field(sa_column=Column(JSON))
-    result: bytes = Field(sa_column=Column(LargeBinary), default=b"")
+    marshalled_result: bytes = Field(sa_column=Column(LargeBinary), default=b"")
+    error: str = Field(default="")
     state: WorkflowState = Field(default=WorkflowState.PENDING)
     created_at: datetime | None = Field(
         default=None,
@@ -97,5 +110,27 @@ class WorkflowStep(SQLModel, table=True):
         sa_column_kwargs={"onupdate": sa.func.now(), "server_default": sa.func.now()},
     )
 
+    # getter and setter for result
+    @property
+    def result(self):
+        return pickle.loads(self.marshalled_result)
+
+    @result.setter
+    def result(self, value):
+        self.marshalled_result = pickle.dumps(value)
+
     def prev_steps(self, session: Session):
         return [session.get(WorkflowStep, prev_id) for prev_id in self.prev_ids]
+
+    def finished(self):
+        return (
+            self.state == WorkflowState.COMPLETED or self.state == WorkflowState.FAILED
+        )
+
+    def runnable(self, session: Session):
+        if self.state != WorkflowState.PENDING:
+            return False
+        for prev_step in self.prev_steps(session):
+            if not prev_step.finished():
+                return False
+        return True

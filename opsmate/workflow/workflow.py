@@ -5,14 +5,10 @@ import asyncio
 import structlog
 import uuid
 from collections import defaultdict
+from sqlmodel import Session
+from .models import Workflow, WorkflowStep, WorkflowType, WorkflowState
 
 logger = structlog.get_logger(__name__)
-
-
-class WorkflowType(Enum):
-    PARALLEL = "parallel"
-    SEQUENTIAL = "sequential"
-    NONE = "none"
 
 
 class WorkflowContext:
@@ -174,7 +170,41 @@ def draw_dot(root, format="svg", rankdir="TB"):
     return dot
 
 
-class Workflow:
+def build_workflow(
+    name: str, description: str, root: Step, session: Session
+) -> Workflow:
+    visisted = defaultdict(WorkflowStep)
+    workflow = Workflow(name=name, description=description)
+    session.add(workflow)
+    session.commit()
+
+    def _build(step: Step):
+        step_id = str(id(step))
+        if step_id in visisted:
+            return visisted[step_id]
+
+        child_workflow_steps = [_build(child) for child in step.steps]
+
+        child_workflow_step_ids = [
+            workflow_step.id for workflow_step in child_workflow_steps
+        ]
+        workflow_step = WorkflowStep(
+            workflow_id=workflow.id,
+            prev_ids=child_workflow_step_ids,
+            name=step.fn_name,
+            fn=step.fn_name,
+            step_type=step.op,
+        )
+        session.add(workflow_step)
+        session.commit()
+        visisted[step_id] = workflow_step
+        return workflow_step
+
+    _build(root)
+    return workflow
+
+
+class StatelessWorkflowExecutor:
     def __init__(self, root: Step, semerphore_size: int = 4):
         self.root = root
         self.steps = deque(root.topological_sort())

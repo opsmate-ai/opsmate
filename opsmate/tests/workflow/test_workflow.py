@@ -1,8 +1,16 @@
 import pytest
 from opsmate.workflow import step
-from opsmate.workflow.workflow import Step, WorkflowType, Workflow, WorkflowContext
+from opsmate.workflow.workflow import (
+    Step,
+    WorkflowType,
+    StatelessWorkflowExecutor,
+    WorkflowContext,
+    build_workflow,
+)
 import asyncio
 import structlog
+from sqlmodel import Session, create_engine, SQLModel
+from sqlalchemy import Engine
 
 logger = structlog.get_logger(__name__)
 
@@ -37,7 +45,19 @@ async def fn6(ctx):
     return "Hello"
 
 
-class TestStep:
+class TestWorkflow:
+
+    @pytest.fixture
+    def engine(self):
+        engine = create_engine("sqlite:///:memory:")
+        return engine
+
+    @pytest.fixture
+    def session(self, engine: Engine):
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            yield session
+
     def test_step_decorator(self):
         assert isinstance(fn1, Step)
         assert asyncio.iscoroutinefunction(fn1.fn)
@@ -188,7 +208,7 @@ class TestStep:
             return ctx.results["fn1"] + ctx.results["fn2"]
 
         steps = (fn1 | fn2) >> fn3
-        workflow = Workflow(steps)
+        workflow = StatelessWorkflowExecutor(steps)
         ctx = WorkflowContext()
         await workflow.run(ctx)
         assert ctx.results["fn3"] == 2
@@ -230,9 +250,32 @@ class TestStep:
             return childrens[0] * childrens[1]
 
         steps = (fn1 | fn2) >> (fn3 | fn4) >> fn5
-        workflow = Workflow(steps)
+        workflow = StatelessWorkflowExecutor(steps)
         ctx = WorkflowContext()
         await workflow.run(ctx)
         assert ctx.results["fn3"] == 3
         assert ctx.results["fn4"] == 2
         assert ctx.results["fn5"] == 6
+
+    def test_workflow_build(self, session):
+        step = (fn1 | fn2) >> (fn3 | fn4) >> fn5
+        workflow = build_workflow("test", "test", step, session)
+
+        assert workflow.id is not None
+        assert workflow.name == "test"
+        assert workflow.description == "test"
+        assert workflow.steps is not None
+        assert len(workflow.steps) == 9
+
+        unsorted_steps = [step for step in workflow.steps]
+
+        for workflow_step in workflow.steps:
+            assert workflow_step.created_at is not None
+            assert workflow_step.updated_at is not None
+
+        steps = workflow.topological_sort(session)
+
+        for idx, step in enumerate(steps):
+            prev_step_ids = [step.id for step in steps[:idx]]
+            for prev_step in step.prev_steps(session):
+                assert prev_step.id in prev_step_ids

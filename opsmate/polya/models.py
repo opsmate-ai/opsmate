@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
+from pydantic import model_validator
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -65,6 +66,13 @@ class QuestionResponse(BaseModel):
     commands: List[Command] = Field(
         description="The command line to be executed to answer the question"
     )
+
+    @model_validator(mode="after")
+    def execute_commands(self):
+        for command in self.commands:
+            if command.result is None:
+                command.execute()
+        return self
 
     def execute(self):
         """
@@ -182,11 +190,21 @@ class ReportExtracted(BaseModel):
 
     summary: str = Field(description="The summary of the problem")
     potential_solutions: List[Solution] = Field(
-        description="The potential solutions to the problem"
+        description="The potential solutions to the problem, the probabilities of solutions must be added up to 100"
     )
 
+    @model_validator(mode="after")
     def sort_potential_solutions(self):
         self.potential_solutions.sort(key=lambda x: x.probability, reverse=True)
+        return self
+
+    @model_validator(mode="after")
+    def validate_potential_solutions(self):
+        total_probability = sum(
+            solution.probability for solution in self.potential_solutions
+        )
+        if total_probability != 100:
+            raise ValueError("The probabilities of solutions must be added up to 100")
         return self
 
 

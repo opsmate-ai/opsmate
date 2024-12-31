@@ -6,7 +6,9 @@ from opsmate.workflow.workflow import (
     StatelessWorkflowExecutor,
     WorkflowExecutor,
     WorkflowContext,
+    WorkflowState,
     build_workflow,
+    WorkflowFailedReason,
 )
 import asyncio
 import structlog
@@ -279,6 +281,8 @@ class TestWorkflow:
             assert workflow_step.created_at is not None
             assert workflow_step.updated_at is not None
 
+        assert workflow.state == WorkflowState.PENDING
+
         steps = workflow.topological_sort(session)
 
         for idx, step in enumerate(steps):
@@ -318,3 +322,51 @@ class TestWorkflow:
         assert f1_step is not None
         assert f1_step.result is not None
         assert f1_step.result == 1
+
+        session.refresh(workflow)
+        assert workflow.state == WorkflowState.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_with_hooks(self, session):
+        @step
+        async def test_hook1(ctx):
+            return 1
+
+        @step
+        async def test_hook2(ctx):
+            raise ValueError("just failed")
+
+        @step
+        async def test_hook3(ctx):
+            return 3
+
+        @step
+        async def test_hook4(ctx):
+            return 4
+
+        blueprint = test_hook1 >> (test_hook2 | test_hook3) >> test_hook4
+        workflow = build_workflow("test", "test", blueprint, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        assert workflow.state == WorkflowState.FAILED
+
+        print("*" * 100)
+        print(workflow.steps)
+        print("*" * 100)
+        hook1 = workflow.find_step("test_hook1", session)
+        assert hook1 is not None
+        assert hook1.failed_reason == WorkflowFailedReason.NONE
+
+        hook2 = workflow.find_step("test_hook2", session)
+        assert hook2 is not None
+        assert hook2.failed_reason == WorkflowFailedReason.RUNTIME_ERROR
+
+        hook3 = workflow.find_step("test_hook3", session)
+        assert hook3 is not None
+        assert hook3.result == 3
+        assert hook3.failed_reason == WorkflowFailedReason.NONE
+
+        hook4 = workflow.find_step("test_hook4", session)
+        assert hook4 is not None
+        assert hook4.failed_reason == WorkflowFailedReason.PREV_STEP_FAILED

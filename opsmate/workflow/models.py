@@ -21,11 +21,18 @@ class WorkflowState(Enum):
     FAILED = "failed"
 
 
+class WorkflowFailedReason(Enum):
+    PREV_STEP_FAILED = "prev_step_failed"
+    RUNTIME_ERROR = "runtime_error"
+    NONE = "none"
+
+
 class Workflow(SQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str
     description: str
     steps: List["WorkflowStep"] = Relationship(back_populates="workflow")
+    state: WorkflowState = Field(default=WorkflowState.PENDING)
 
     created_at: datetime | None = Field(
         default=None,
@@ -46,7 +53,7 @@ class Workflow(SQLModel, table=True):
         stmt = (
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == self.id)
-            .where(WorkflowStep.fn == fn_name)
+            .where(WorkflowStep.name == fn_name)
         )
         return session.exec(stmt).first()
 
@@ -97,6 +104,7 @@ class WorkflowStep(SQLModel, table=True):
     prev_ids: List[int] = Field(sa_column=Column(JSON))
     marshalled_result: bytes = Field(sa_column=Column(LargeBinary), default=b"")
     error: str = Field(default="")
+    failed_reason: WorkflowFailedReason = Field(default=WorkflowFailedReason.NONE)
     state: WorkflowState = Field(default=WorkflowState.PENDING)
     created_at: datetime | None = Field(
         default=None,

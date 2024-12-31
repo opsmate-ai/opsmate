@@ -6,7 +6,13 @@ import structlog
 import uuid
 from collections import defaultdict
 from sqlmodel import Session
-from .models import Workflow, WorkflowStep, WorkflowType, WorkflowState
+from .models import (
+    Workflow,
+    WorkflowStep,
+    WorkflowType,
+    WorkflowState,
+    WorkflowFailedReason,
+)
 import pickle
 import importlib
 import traceback
@@ -290,12 +296,12 @@ class WorkflowExecutor:
         self.workflow = workflow
         self.session = session
         self.semerphore_size = semerphore_size
-        # self.workflow_steps = workflow.topological_sort()
         self._semaphore = asyncio.Semaphore(semerphore_size)
         self._lock = asyncio.Lock()
-        # self._workflow_steps: List[WorkflowStep] = self.workflow.topological_sort()
 
     async def run(self, ctx: WorkflowContext = None):
+        for hook in self.before_run_hooks:
+            await hook(self)
 
         round = 0
         while not self._all_finished():
@@ -307,7 +313,54 @@ class WorkflowExecutor:
             tasks = [self._run_step(step, ctx) for step in steps_to_run]
             await asyncio.gather(*tasks)
 
+        for hook in self.after_run_hooks:
+            await hook(self)
+
+        self.session.refresh(self.workflow)
+
+    async def _mark_workflow_running(self):
+        self.workflow.state = WorkflowState.RUNNING
+        self.session.commit()
+
+    async def _mark_workflow_completed(self):
+        if self.workflow.state == WorkflowState.FAILED:
+            return
+        self.workflow.state = WorkflowState.COMPLETED
+        self.session.commit()
+
+    async def _mark_workflow_failed(self, reason: WorkflowFailedReason):
+        self.workflow.state = WorkflowState.FAILED
+        self.session.commit()
+
+    before_run_hooks = [
+        _mark_workflow_running,
+    ]
+
+    after_run_hooks = [
+        _mark_workflow_completed,
+    ]
+
+    after_step_failed_hooks = [
+        _mark_workflow_failed,
+    ]
+
     async def _run_step(self, step: WorkflowStep, ctx: WorkflowContext):
+        if not await self._can_step_run(step):
+            step.state = WorkflowState.FAILED
+            step.failed_reason = WorkflowFailedReason.PREV_STEP_FAILED
+
+            for hook in self.after_step_failed_hooks:
+                await hook(self, step.failed_reason)
+
+            self.session.commit()
+            logger.error(
+                "Step cannot run",
+                step_id=step.id,
+                step_name=step.name,
+                failed_reason=step.failed_reason,
+            )
+            return
+
         async with self._semaphore:
             logger.info(
                 "Running step",
@@ -342,10 +395,6 @@ class WorkflowExecutor:
                     step_name=step.name,
                     step_fn=step.fn,
                 )
-                # if step.fn and "." in step.fn:
-                #     func = importlib.import_module(step.fn).fn
-                # else:
-                #     raise ValueError(f"Invalid step function: {step.fn}")
                 func = Step.step_bags[step.name].fn
                 exec_ctx = ctx.copy()
 
@@ -367,8 +416,22 @@ class WorkflowExecutor:
                     stacktrace=traceback.format_exc(),
                 )
                 step.state = WorkflowState.FAILED
+                step.failed_reason = WorkflowFailedReason.RUNTIME_ERROR
                 step.error = str(e)
                 self.session.commit()
+                for hook in self.after_step_failed_hooks:
+                    await hook(self, step.failed_reason)
+
+    async def _can_step_run(self, step: WorkflowStep):
+        """
+        Check if previous steps are completed.
+        If any of the previous steps has failed, return False.
+        """
+        prev_steps = step.prev_steps(self.session)
+        for prev_step in prev_steps:
+            if prev_step.state == WorkflowState.FAILED:
+                return False
+        return True
 
     def _all_finished(self):
         for step in self.workflow.steps:

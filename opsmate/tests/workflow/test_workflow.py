@@ -8,7 +8,9 @@ from opsmate.workflow.workflow import (
     WorkflowContext,
     WorkflowState,
     build_workflow,
+    cond,
     WorkflowFailedReason,
+    draw_dot,
 )
 import asyncio
 import structlog
@@ -46,6 +48,16 @@ async def fn5(ctx):
 @step
 async def fn6(ctx):
     return "Hello"
+
+
+@step
+async def fn7(ctx):
+    return True
+
+
+@step
+async def fn8(ctx):
+    return False
 
 
 @step
@@ -184,6 +196,35 @@ class TestWorkflow:
         for fn in [fn1, fn2, fn3]:
             assert len(fn.prev) == 0, f"{fn.fn_name} should not have any prev"
             assert len(fn.steps) == 0, f"{fn.fn_name} should not have any steps"
+
+    @pytest.mark.asyncio
+    async def test_step_conditional_stateless(self):
+        workflow = fn1 >> cond(fn2, (fn3 >> fn4), (fn5 | fn6))
+
+        # dot = draw_dot(workflow, rankdir="TB")
+        # dot.render(filename="workflow.dot", view=False)
+
+        await StatelessWorkflowExecutor(workflow).run(WorkflowContext())
+
+        steps = workflow.topological_sort()
+        for step in steps:
+            print(step)
+
+        def find_step(step_name: str):
+            for step in steps:
+                if step.fn_name == step_name:
+                    return step
+            return None
+
+        for step in ["fn1", "fn2", "fn3", "fn4"]:
+            found = find_step(step)
+            assert found is not None
+            assert found.skip_exec is False, f"{step} should not be skipped"
+
+        for step in ["fn5", "fn6"]:
+            found = find_step(step)
+            assert found is not None
+            assert found.skip_exec is True, f"{step} should be skipped"
 
     def can_find_fn_from_workflow(
         self,

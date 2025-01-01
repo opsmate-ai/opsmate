@@ -12,6 +12,8 @@ class WorkflowType(Enum):
     PARALLEL = "parallel"
     SEQUENTIAL = "sequential"
     NONE = "none"
+    COND_TRUE = "cond_true"
+    COND_FALSE = "cond_false"
 
 
 class WorkflowState(Enum):

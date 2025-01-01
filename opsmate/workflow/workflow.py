@@ -46,6 +46,7 @@ class Step:
         fn: Callable[[WorkflowContext], Awaitable[Any]] = None,
         op: WorkflowType = WorkflowType.NONE,
         steps: List["Step"] = [],
+        skip_exec: bool = False,
     ):
         self.id = str(uuid.uuid4()).split("-")[0]
         self.fn = fn
@@ -54,6 +55,7 @@ class Step:
         self.prev = set(self.steps)
         self.op = op
         self.result = None
+        self.skip_exec = skip_exec
 
     def __or__(self, other: "Step") -> "Step":
         if self.op == WorkflowType.PARALLEL and other.op == WorkflowType.PARALLEL:
@@ -83,32 +85,52 @@ class Step:
             steps=[self],
         )
 
+        logger.info("rshift", left=self, right=right)
+
+        orphans = right.all_orphan_children()
         right = right.copy()
 
-        for step in right.__all_orphan_children():
+        orphans = right.all_orphan_children()
+        for step in orphans:
             if seq_step not in step.prev:
                 step.prev.add(seq_step)
                 step.steps.append(seq_step)
-
         return right
 
     def copy(self):
-        step = Step(
-            fn=self.fn,
-            op=self.op,
-            steps=[child.copy() for child in self.steps],
-        )
-        step.id = self.id
-        return step
+        visisted = {}
 
-    def __all_orphan_children(self):
-        result = []
-        if self.op == WorkflowType.NONE and self.steps == []:
-            return [self]
-        else:
-            for step in self.steps:
-                result.extend(step.__all_orphan_children())
-        return result
+        def _copy(step: Step):
+            if str(id(step)) in visisted:
+                return visisted[str(id(step))]
+
+            copied_step = Step(
+                fn=step.fn,
+                op=step.op,
+                steps=[_copy(child) for child in step.steps],
+            )
+            visisted[str(id(step))] = copied_step
+            copied_step.id = step.id
+            return copied_step
+
+        return _copy(self)
+
+    def all_orphan_children(self):
+        results = set()
+
+        def find(step: Step):
+            if (
+                step.op == WorkflowType.NONE
+                or step.op == WorkflowType.COND_TRUE
+                or step.op == WorkflowType.COND_FALSE
+            ) and step.steps == []:
+                results.add(step)
+            else:
+                for child in step.steps:
+                    find(child)
+
+        find(self)
+        return list(results)
 
     def topological_sort(self):
         nodes = {}
@@ -124,7 +146,6 @@ class Step:
                     edges[str(id(child))].append(node_id)
 
         build(self)
-
         visited = set()
         stack = deque()
 
@@ -240,6 +261,11 @@ class StatelessWorkflowExecutor:
                 step_op=step.op,
                 prev_size=len(self.prevs[str(id(step))]),
             )
+            for child in step.steps:
+                if child.skip_exec:
+                    step.skip_exec = True
+                    break
+
             if step.op == WorkflowType.NONE:
                 exec_ctx = ctx.copy()
                 if len(step.steps) == 1:
@@ -247,6 +273,18 @@ class StatelessWorkflowExecutor:
                 else:
                     exec_ctx.step_results = [child.result for child in step.steps]
                 step.result = await step.fn(exec_ctx)
+            elif (
+                step.op == WorkflowType.COND_TRUE or step.op == WorkflowType.COND_FALSE
+            ):
+                exec_ctx = ctx.copy()
+                assert len(step.steps) == 1
+                exec_ctx.step_results = step.steps[0].result
+                step.result = await step.fn(exec_ctx)
+                if not step.result and WorkflowType.COND_TRUE == step.op:
+                    step.skip_exec = True
+                elif not step.result and WorkflowType.COND_FALSE == step.op:
+                    step.skip_exec = True
+
             elif step.op == WorkflowType.PARALLEL:
                 step.result = [child.result for child in step.steps]
 
@@ -284,11 +322,59 @@ class StatelessWorkflowExecutor:
             await asyncio.gather(*tasks)
 
 
-def step(fn: Callable):
-    _step = Step(fn)
-    Step.step_bags[_step.fn_name] = _step
+def step(op_or_fn=WorkflowType.NONE):
+    # If decorator is used without parentheses and directly on function
+    if asyncio.iscoroutinefunction(op_or_fn):
+        fn = op_or_fn
+        _step = Step(fn, WorkflowType.NONE)
+        Step.step_bags[_step.fn_name] = _step
+        return _step
 
-    return _step
+    # If decorator is used with parentheses: @step(op=...)
+    op = op_or_fn
+
+    def wrapper(fn: Callable):
+        _step = Step(fn, op)
+        Step.step_bags[_step.fn_name] = _step
+        return _step
+
+    return wrapper
+
+
+async def _cond_true(ctx: WorkflowContext):
+    if isinstance(ctx.step_results, list):
+        assert len(ctx.step_results) == 1
+        prev_result = ctx.step_results[0]
+    else:
+        prev_result = ctx.step_results
+    return prev_result
+
+
+async def _cond_false(ctx: WorkflowContext):
+    if isinstance(ctx.step_results, list):
+        assert len(ctx.step_results) == 1
+        prev_result = ctx.step_results[0]
+    else:
+        prev_result = ctx.step_results
+    return not prev_result
+
+
+def cond_true():
+    return Step(_cond_true, WorkflowType.COND_TRUE)
+
+
+def cond_false():
+    return Step(_cond_false, WorkflowType.COND_FALSE)
+
+
+def cond(condition: Step, left: Step, right: Step):
+    """
+    params:
+        condition: a step that returns a boolean
+        left: a step to run if the condition is true
+        right: a step to run if the condition is false
+    """
+    return condition >> ((cond_true() >> left) | (cond_false() >> right))
 
 
 class WorkflowExecutor:

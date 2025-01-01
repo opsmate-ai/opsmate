@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from opsmate.dino import dino
 from opsmate.workflow import Workflow, WorkflowContext, step
-from opsmate.workflow.workflow import draw_dot
+from opsmate.workflow.workflow import draw_dot, cond, StatelessWorkflowExecutor
 import asyncio
 
 
@@ -63,7 +63,7 @@ async def main():
     dot = draw_dot(root, rankdir="TB")
     dot.render(filename="workflow.dot", view=False)
 
-    workflow = Workflow(root)
+    workflow = StatelessWorkflowExecutor(root)
     ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
     await workflow.run(ctx)
     print(ctx.results)

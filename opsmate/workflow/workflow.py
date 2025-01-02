@@ -13,9 +13,8 @@ from .models import (
     WorkflowState,
     WorkflowFailedReason,
 )
-import pickle
-import importlib
 import traceback
+from functools import reduce
 
 logger = structlog.get_logger(__name__)
 
@@ -330,6 +329,9 @@ def step(op_or_fn=WorkflowType.NONE):
         Step.step_bags[_step.fn_name] = _step
         return _step
 
+    if isinstance(op_or_fn, Callable):
+        raise ValueError("The function must be a coroutine function")
+
     # If decorator is used with parentheses: @step(op=...)
     op = op_or_fn
 
@@ -341,6 +343,7 @@ def step(op_or_fn=WorkflowType.NONE):
     return wrapper
 
 
+@step(WorkflowType.COND_TRUE)
 async def _cond_true(ctx: WorkflowContext):
     if isinstance(ctx.step_results, list):
         assert len(ctx.step_results) == 1
@@ -350,6 +353,7 @@ async def _cond_true(ctx: WorkflowContext):
     return prev_result
 
 
+@step(WorkflowType.COND_FALSE)
 async def _cond_false(ctx: WorkflowContext):
     if isinstance(ctx.step_results, list):
         assert len(ctx.step_results) == 1
@@ -359,22 +363,31 @@ async def _cond_false(ctx: WorkflowContext):
     return not prev_result
 
 
-def cond_true():
-    return Step(_cond_true, WorkflowType.COND_TRUE)
-
-
-def cond_false():
-    return Step(_cond_false, WorkflowType.COND_FALSE)
-
-
-def cond(condition: Step, left: Step, right: Step):
+def cond(condition: Step, left: Step = None, right: Step = None):
     """
     params:
         condition: a step that returns a boolean
         left: a step to run if the condition is true
         right: a step to run if the condition is false
     """
-    return condition >> ((cond_true() >> left) | (cond_false() >> right))
+    if left is None and right is None:
+        raise ValueError("Either left or right must be provided")
+
+    conds = []
+    if left:
+        conds.append(_cond_true >> left)
+    if right:
+        conds.append(_cond_false >> right)
+
+    conds = reduce(lambda x, y: x | y, conds)
+
+    print("*" * 100)
+    print(condition)
+    print(conds)
+    print(condition.__class__)
+    print(conds.__class__)
+    print("*" * 100)
+    return condition >> conds
 
 
 class WorkflowExecutor:
@@ -385,12 +398,12 @@ class WorkflowExecutor:
         self._semaphore = asyncio.Semaphore(semerphore_size)
         self._lock = asyncio.Lock()
 
-    async def run(self, ctx: WorkflowContext = None):
+    async def run(self, ctx: WorkflowContext = None, max_rounds: int = 100):
         for hook in self.before_run_hooks:
             await hook(self)
 
         round = 0
-        while not self._all_finished():
+        while not self._all_finished() and round < max_rounds:
             round += 1
             logger.info("Running round", round=round)
 
@@ -472,6 +485,7 @@ class WorkflowExecutor:
     ]
 
     async def _run_step(self, step: WorkflowStep, ctx: WorkflowContext):
+        logger.info("Running step", step_id=step.id, step_name=step.name)
         if not await self._can_step_run(step):
             step.state = WorkflowState.FAILED
             step.failed_reason = WorkflowFailedReason.PREV_STEP_FAILED
@@ -500,6 +514,13 @@ class WorkflowExecutor:
 
             prev_steps = step.prev_steps(self.session)
 
+            for prev_step in prev_steps:
+                if prev_step.state == WorkflowState.SKIPPED:
+                    step.state = WorkflowState.SKIPPED
+                    step.result = None
+                    self.session.commit()
+                    return
+
             if step.step_type == WorkflowType.SEQUENTIAL:
                 assert len(prev_steps) == 1
                 prev_step = prev_steps[0]
@@ -511,6 +532,25 @@ class WorkflowExecutor:
             if step.step_type == WorkflowType.PARALLEL:
                 step.result = [prev_step.result for prev_step in prev_steps]
                 step.state = WorkflowState.COMPLETED
+                self.session.commit()
+                return
+
+            if (
+                step.step_type == WorkflowType.COND_TRUE
+                or step.step_type == WorkflowType.COND_FALSE
+            ):
+                assert len(prev_steps) == 1
+                prev_step = prev_steps[0]
+                exec_ctx = ctx.copy()
+                exec_ctx.step_results = prev_step.result
+                func = Step.step_bags[step.name].fn
+                step.result = await func(exec_ctx)
+                if not step.result and step.step_type == WorkflowType.COND_TRUE:
+                    step.state = WorkflowState.SKIPPED
+                elif not step.result and step.step_type == WorkflowType.COND_FALSE:
+                    step.state = WorkflowState.SKIPPED
+                else:
+                    step.state = WorkflowState.COMPLETED
                 self.session.commit()
                 return
 
@@ -565,6 +605,7 @@ class WorkflowExecutor:
             if (
                 step.state != WorkflowState.COMPLETED
                 and step.state != WorkflowState.FAILED
+                and step.state != WorkflowState.SKIPPED
             ):
                 return False
         return True

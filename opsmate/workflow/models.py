@@ -21,6 +21,7 @@ class WorkflowState(Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 class WorkflowFailedReason(Enum):
@@ -134,7 +135,9 @@ class WorkflowStep(SQLModel, table=True):
 
     def finished(self):
         return (
-            self.state == WorkflowState.COMPLETED or self.state == WorkflowState.FAILED
+            self.state == WorkflowState.COMPLETED
+            or self.state == WorkflowState.FAILED
+            or self.state == WorkflowState.SKIPPED
         )
 
     def runnable(self, session: Session):

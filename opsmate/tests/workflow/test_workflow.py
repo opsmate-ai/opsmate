@@ -99,6 +99,16 @@ async def calc_fn5(ctx):
     return childrens[0] * childrens[1]
 
 
+@step
+async def cond_true(ctx):
+    return True
+
+
+@step
+async def cond_false(ctx):
+    return False
+
+
 class TestWorkflow:
 
     @pytest.fixture
@@ -197,35 +207,6 @@ class TestWorkflow:
             assert len(fn.prev) == 0, f"{fn.fn_name} should not have any prev"
             assert len(fn.steps) == 0, f"{fn.fn_name} should not have any steps"
 
-    @pytest.mark.asyncio
-    async def test_step_conditional_stateless(self):
-        workflow = fn1 >> cond(fn2, (fn3 >> fn4), (fn5 | fn6))
-
-        # dot = draw_dot(workflow, rankdir="TB")
-        # dot.render(filename="workflow.dot", view=False)
-
-        await StatelessWorkflowExecutor(workflow).run(WorkflowContext())
-
-        steps = workflow.topological_sort()
-        for step in steps:
-            print(step)
-
-        def find_step(step_name: str):
-            for step in steps:
-                if step.fn_name == step_name:
-                    return step
-            return None
-
-        for step in ["fn1", "fn2", "fn3", "fn4"]:
-            found = find_step(step)
-            assert found is not None
-            assert found.skip_exec is False, f"{step} should not be skipped"
-
-        for step in ["fn5", "fn6"]:
-            found = find_step(step)
-            assert found is not None
-            assert found.skip_exec is True, f"{step} should be skipped"
-
     def can_find_fn_from_workflow(
         self,
         fn: Step,
@@ -278,23 +259,12 @@ class TestWorkflow:
 
     @pytest.mark.asyncio
     async def test_workflow_run(self):
-        @step
-        async def fn1(ctx):
-            return 1
 
-        @step
-        async def fn2(ctx):
-            return 1
-
-        @step
-        async def fn3(ctx):
-            return ctx.results["fn1"] + ctx.results["fn2"]
-
-        steps = (fn1 | fn2) >> fn3
+        steps = (calc_fn1 | calc_fn2) >> calc_fn3
         workflow = StatelessWorkflowExecutor(steps)
         ctx = WorkflowContext()
         await workflow.run(ctx)
-        assert ctx.results["fn3"] == 2
+        assert ctx.results["calc_fn3"] == 3
 
     @pytest.mark.asyncio
     async def test_workflow_run_using_result(self):
@@ -441,3 +411,111 @@ class TestWorkflow:
             assert step.state == WorkflowState.COMPLETED
             assert step.result is not None
             assert step.failed_reason == WorkflowFailedReason.NONE
+
+    @pytest.mark.asyncio
+    async def test_step_conditional_stateless(self):
+        workflow = fn1 >> cond(fn2, (fn3 >> fn4), (fn5 | fn6))
+
+        # dot = draw_dot(workflow, rankdir="TB")
+        # dot.render(filename="workflow.dot", view=False)
+
+        await StatelessWorkflowExecutor(workflow).run(WorkflowContext())
+
+        steps = workflow.topological_sort()
+        # for step in steps:
+        #     print(step)
+
+        def find_step(step_name: str):
+            for step in steps:
+                if step.fn_name == step_name:
+                    return step
+            return None
+
+        for step in ["fn1", "fn2", "fn3", "fn4"]:
+            found = find_step(step)
+            assert found is not None
+            assert found.skip_exec is False, f"{step} should not be skipped"
+
+        for step in ["fn5", "fn6"]:
+            found = find_step(step)
+            assert found is not None
+            assert found.skip_exec is True, f"{step} should be skipped"
+
+    @pytest.mark.asyncio
+    async def test_build_workflow_with_conditional(self, session):
+        workflow = fn1 >> cond(fn2, (fn3 >> fn4), (fn5 | fn6))
+        workflow = build_workflow("test", "test", workflow, session)
+
+        assert workflow.steps is not None
+
+        executor = WorkflowExecutor(workflow, session)
+        await executor.run(WorkflowContext())
+
+        steps = workflow.topological_sort(session)
+
+        fn1_step = workflow.find_step("fn1", session)
+        assert fn1_step is not None
+        assert fn1_step.state == WorkflowState.COMPLETED
+        assert fn1_step.result is not None
+        assert fn1_step.result == "Hello"
+
+        fn2_step = workflow.find_step("fn2", session)
+        assert fn2_step is not None
+        assert fn2_step.state == WorkflowState.COMPLETED
+        assert fn2_step.result == "Hello"
+
+        fn3_step = workflow.find_step("fn3", session)
+        assert fn3_step is not None
+        assert fn3_step.state == WorkflowState.COMPLETED
+        assert fn3_step.result == "Hello"
+
+        fn4_step = workflow.find_step("fn4", session)
+        assert fn4_step is not None
+        assert fn4_step.state == WorkflowState.COMPLETED
+        assert fn4_step.result == "Hello"
+
+        fn5_step = workflow.find_step("fn5", session)
+        assert fn5_step is not None
+        assert fn5_step.state == WorkflowState.SKIPPED
+        assert fn5_step.result is None
+
+        fn6_step = workflow.find_step("fn6", session)
+        assert fn6_step is not None
+        assert fn6_step.state == WorkflowState.SKIPPED
+        assert fn6_step.result is None
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_with_only_cond_true(self, session):
+
+        workflow = fn1 >> cond(cond_true, fn2, None)
+        workflow = build_workflow("test", "test", workflow, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        fn1_step = workflow.find_step("fn1", session)
+        assert fn1_step is not None
+        assert fn1_step.state == WorkflowState.COMPLETED
+        assert fn1_step.result == "Hello"
+
+        fn2_step = workflow.find_step("fn2", session)
+        assert fn2_step is not None
+        assert fn2_step.state == WorkflowState.COMPLETED
+        assert fn2_step.result == "Hello"
+
+        workflow = fn1 >> cond(cond_false, fn2, None)
+        workflow = build_workflow("test", "test", workflow, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        fn1_step = workflow.find_step("fn1", session)
+        assert fn1_step is not None
+        assert fn1_step.state == WorkflowState.COMPLETED
+        assert fn1_step.result == "Hello"
+
+        fn2_step = workflow.find_step("fn2", session)
+        assert fn2_step is not None
+        assert fn2_step.state == WorkflowState.SKIPPED
+        assert fn2_step.result is None
+
+        with pytest.raises(ValueError, match="Either left or right must be provided"):
+            workflow = fn1 >> cond(cond_true, None, None)

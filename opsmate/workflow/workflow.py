@@ -19,9 +19,15 @@ logger = structlog.get_logger(__name__)
 
 
 class WorkflowContext:
-    def __init__(self, results: Dict[str, Any] = {}, input: Dict[str, Any] = {}):
+    def __init__(
+        self,
+        results: Dict[str, Any] = {},
+        input: Dict[str, Any] = {},
+        metadata: Dict[str, Any] = {},
+    ):
         self.results = results
         self.input = input
+        self.metadata = metadata
         self._lock = asyncio.Lock()
         self.step_results = None
 
@@ -30,7 +36,11 @@ class WorkflowContext:
             self.results[key] = value
 
     def copy(self):
-        return WorkflowContext(results=self.results.copy(), input=self.input.copy())
+        return WorkflowContext(
+            results=self.results.copy(),
+            input=self.input.copy(),
+            metadata=self.metadata.copy(),
+        )
 
     def find_result(self, step_name: str, session: Session):
         if self.id == None or self.workflow_id == None:
@@ -59,6 +69,7 @@ class Step:
         op: WorkflowType = WorkflowType.NONE,
         steps: List["Step"] = [],
         skip_exec: bool = False,
+        metadata: Dict[str, Any] = {},
     ):
         self.id = str(uuid.uuid4()).split("-")[0]
         self.fn = fn
@@ -68,6 +79,7 @@ class Step:
         self.op = op
         self.result = None
         self.skip_exec = skip_exec
+        self.metadata = metadata
 
     def __or__(self, other: "Step") -> "Step":
         if self.op == WorkflowType.PARALLEL and other.op == WorkflowType.PARALLEL:
@@ -120,6 +132,7 @@ class Step:
                 fn=step.fn,
                 op=step.op,
                 steps=[_copy(child) for child in step.steps],
+                metadata=step.metadata.copy(),
             )
             visisted[str(id(step))] = copied_step
             copied_step.id = step.id
@@ -230,12 +243,14 @@ def build_workflow(
         child_workflow_step_ids = [
             workflow_step.id for workflow_step in child_workflow_steps
         ]
+
         workflow_step = WorkflowStep(
             workflow_id=workflow.id,
             prev_ids=child_workflow_step_ids,
             name=step.fn_name,
             step_type=step.op,
         )
+        workflow_step.meta = step.metadata
         if step.fn:
             workflow_step.fn = step.fn.__qualname__
         session.add(workflow_step)
@@ -352,6 +367,16 @@ def step(op_or_fn=WorkflowType.NONE):
         _step = Step(fn, op)
         Step.step_bags[_step.fn_name] = _step
         return _step
+
+    return wrapper
+
+
+def step_factory(step: Step):
+    if len(step.steps) != 0:
+        raise ValueError("step_factory can only be used on steps with no children")
+
+    def wrapper(metadata: Dict[str, Any] = {}):
+        return Step(fn=step.fn, op=step.op, metadata=metadata)
 
     return wrapper
 
@@ -582,6 +607,7 @@ class WorkflowExecutor:
                     ]
                 exec_ctx.id = step.id
                 exec_ctx.workflow_id = step.workflow_id
+                exec_ctx.metadata = step.meta
                 step.result = await func(exec_ctx)
 
                 step.state = WorkflowState.COMPLETED

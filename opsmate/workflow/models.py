@@ -120,6 +120,7 @@ class WorkflowStep(SQLModel, table=True):
     workflow: Workflow = Relationship(back_populates="steps")
     prev_ids: List[int] = Field(sa_column=Column(JSON))
     marshalled_result: bytes = Field(sa_column=Column(LargeBinary), default=b"")
+    marshalled_metadata: bytes = Field(sa_column=Column(LargeBinary), default=b"")
     error: str = Field(default="")
     failed_reason: WorkflowFailedReason = Field(default=WorkflowFailedReason.NONE)
     state: WorkflowState = Field(default=WorkflowState.PENDING)
@@ -143,6 +144,17 @@ class WorkflowStep(SQLModel, table=True):
     @result.setter
     def result(self, value):
         self.marshalled_result = pickle.dumps(value)
+
+    # xxx: metadata is a keyword thus we use meta instead
+    @property
+    def meta(self):
+        if self.marshalled_metadata == b"":
+            return {}
+        return pickle.loads(self.marshalled_metadata)
+
+    @meta.setter
+    def meta(self, value):
+        self.marshalled_metadata = pickle.dumps(value)
 
     def prev_steps(self, session: Session):
         return [session.get(WorkflowStep, prev_id) for prev_id in self.prev_ids]

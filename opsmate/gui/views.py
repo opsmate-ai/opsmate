@@ -41,13 +41,15 @@ import sqlmodel
 import structlog
 import asyncio
 import subprocess
-from jinja2 import Template
 import json
 from opsmate.workflow.workflow import (
     WorkflowContext,
     step,
     WorkflowExecutor,
     build_workflow,
+    cond,
+    Step,
+    step_factory,
 )
 
 logger = structlog.get_logger()
@@ -248,7 +250,6 @@ async def execute_llm_type2_instruction(
         if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
             return await execute_initial_understanding(cell, send, session)
         elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
-            print("yeah yeah yeah")
             return await execute_info_gathering(cell, send, session)
         else:
             return await execute_polya_understanding_instruction(cell, send, session)
@@ -267,9 +268,18 @@ async def execute_polya_understanding_instruction(
     blueprint = (
         empty_cell
         >> insert_initial_understanding_cell
-        >> insert_info_gathering_cells
-        >> insert_potential_solution_cells
-        >> store_report_extracted
+        >> cond(
+            cond_is_technical_query,
+            left=(
+                (
+                    make_info_gathering_cell(0)
+                    | make_info_gathering_cell(1)
+                    | make_info_gathering_cell(2)
+                )
+                >> insert_potential_solution_cells
+                >> store_report_extracted
+            ),
+        )
     )
     opsmate_workflow = build_workflow(
         "understanding",
@@ -438,9 +448,9 @@ async def insert_initial_understanding_cell(
 
 
 @step
-async def cond_is_non_technical_query(ctx: WorkflowContext):
+async def cond_is_technical_query(ctx: WorkflowContext):
     _, iu = ctx.step_results
-    return iu is None
+    return iu is not None
 
 
 @step
@@ -539,6 +549,25 @@ async def execute_info_gathering(
     workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
+
+
+def make_info_gathering_cell(question_id: int):
+    @step_factory
+    @step
+    async def insert_info_gathering_cell(
+        ctx: WorkflowContext,
+    ):
+        session = ctx.input["session"]
+        send = ctx.input["send"]
+        parent_cell, iu = ctx.find_result("insert_initial_understanding_cell", session)
+        info_gather_task = info_gathering(
+            iu.summary, iu.questions[ctx.metadata["question_id"]]
+        )
+        return await __insert_info_gathering_cell(
+            parent_cell, info_gather_task, session, send
+        )
+
+    return insert_info_gathering_cell(metadata={"question_id": question_id})
 
 
 async def __insert_info_gathering_cell(
@@ -670,7 +699,8 @@ async def insert_potential_solution_cells(
 ):
     session = ctx.input["session"]
     send = ctx.input["send"]
-    cells, info_gathered = ctx.step_results
+    cells, info_gathered = zip(*ctx.step_results)
+    cells, info_gathered = list(cells), list(info_gathered)
     initial_understanding_result = ctx.find_result(
         "insert_initial_understanding_cell", session
     )

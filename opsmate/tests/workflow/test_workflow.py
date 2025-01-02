@@ -11,6 +11,7 @@ from opsmate.workflow.workflow import (
     build_workflow,
     cond,
     WorkflowFailedReason,
+    step_factory,
     draw_dot,
 )
 import asyncio
@@ -337,6 +338,45 @@ class TestWorkflow:
 
         session.refresh(workflow)
         assert workflow.state == WorkflowState.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_stateful_workflow_run_with_duplicate_steps(self, session):
+        @step_factory
+        @step
+        async def duplicate_step(ctx):
+            return 1
+
+        @step
+        async def aggregate_result(ctx):
+            return ctx.step_results[0] + ctx.step_results[1]
+
+        blueprint: Step = (duplicate_step() | duplicate_step()) >> aggregate_result
+        workflow = build_workflow("test", "test", blueprint, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        assert workflow.state == WorkflowState.COMPLETED
+        assert workflow.find_step("aggregate_result", session).result == 2
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_with_metadata(self, session):
+        @step_factory
+        @step
+        async def test_step(ctx):
+            print(ctx.metadata)
+            return ctx.metadata["test"]
+
+        blueprint = test_step(metadata={"test": "test"})
+        assert blueprint.metadata == {"test": "test"}
+        workflow = build_workflow("test", "test", blueprint, session)
+        assert workflow.find_step("test_step", session).meta == {"test": "test"}
+
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext())
+
+        assert workflow.state == WorkflowState.COMPLETED
+
+        assert workflow.find_step("test_step", session).result == "test"
 
     @pytest.mark.asyncio
     async def test_workflow_run_with_hooks(self, session):

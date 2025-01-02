@@ -1,6 +1,6 @@
 import enum
 from sqlmodel import (
-    SQLModel,
+    SQLModel as _SQLModel,
     Field,
     Column,
     Enum,
@@ -10,19 +10,22 @@ from sqlmodel import (
     Session,
     JSON,
     Text,
+    MetaData,
 )
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
-import subprocess
-from typing import Optional
-from opsmate.dino.types import ToolCall, Message
+from opsmate.dino.types import Message
 from opsmate.dino import run_react
-from opsmate.tools import ShellCommand
 from opsmate.contexts import k8s_ctx, k8s_tools
+from sqlalchemy.orm import registry
 
 logger = structlog.get_logger(__name__)
+
+
+class SQLModel(_SQLModel, registry=registry()):
+    metadata = MetaData()
 
 
 class CellLangEnum(enum.Enum):
@@ -95,6 +98,7 @@ class BluePrint(SQLModel, table=True):
 
 
 class Workflow(SQLModel, table=True):
+    __tablename__ = "workflow"
     __table_args__ = {
         "extend_existing": True,
         # "UniqueConstraint": UniqueConstraint(

@@ -1,11 +1,24 @@
-from sqlmodel import SQLModel, Field, Column, JSON, LargeBinary, Relationship
+from sqlmodel import (
+    SQLModel as _SQLModel,
+    Field,
+    Column,
+    JSON,
+    LargeBinary,
+    Relationship,
+    MetaData,
+)
 from datetime import datetime
 from typing import List
 from enum import Enum
 import sqlalchemy as sa
 from collections import defaultdict, deque
 from sqlmodel import Session, select
+from sqlalchemy.orm import registry
 import pickle
+
+
+class SQLModel(_SQLModel, registry=registry()):
+    metadata = MetaData()
 
 
 class WorkflowType(Enum):
@@ -31,6 +44,7 @@ class WorkflowFailedReason(Enum):
 
 
 class Workflow(SQLModel, table=True):
+    __tablename__ = "opsmate_workflow"
     id: int = Field(primary_key=True)
     name: str
     description: str
@@ -102,7 +116,7 @@ class WorkflowStep(SQLModel, table=True):
     name: str = Field(default="")
     fn: str = Field(default="")
     step_type: WorkflowType = Field(default=WorkflowType.SEQUENTIAL)
-    workflow_id: int = Field(foreign_key="workflow.id", index=True)
+    workflow_id: int = Field(foreign_key="opsmate_workflow.id", index=True)
     workflow: Workflow = Relationship(back_populates="steps")
     prev_ids: List[int] = Field(sa_column=Column(JSON))
     marshalled_result: bytes = Field(sa_column=Column(LargeBinary), default=b"")

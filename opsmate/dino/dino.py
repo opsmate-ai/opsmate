@@ -77,7 +77,11 @@ def dino(
             provider = Provider.from_model(_model)
 
             system_prompt = fn.__doc__
-            prompt = await fn(*args, **fn_kwargs)
+            # if is coroutine, await it
+            if inspect.iscoroutinefunction(fn):
+                prompt = await fn(*args, **fn_kwargs)
+            else:
+                prompt = fn(*args, **fn_kwargs)
 
             ikwargs = _instructor_kwargs(kwargs, fn_kwargs)
             ikwargs["model"] = _model

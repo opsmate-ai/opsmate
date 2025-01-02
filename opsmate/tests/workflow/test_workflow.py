@@ -1,5 +1,6 @@
 import pytest
 from opsmate.workflow import step
+from opsmate.workflow.models import SQLModel
 from opsmate.workflow.workflow import (
     Step,
     WorkflowType,
@@ -14,7 +15,7 @@ from opsmate.workflow.workflow import (
 )
 import asyncio
 import structlog
-from sqlmodel import Session, create_engine, SQLModel
+from sqlmodel import Session, create_engine
 from sqlalchemy import Engine
 
 logger = structlog.get_logger(__name__)

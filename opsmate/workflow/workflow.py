@@ -1,11 +1,10 @@
-from typing import Callable, Any, Dict, Awaitable, List, Set, Optional
-from enum import Enum
+from typing import Callable, Any, Dict, Awaitable, List, Optional
 from collections import deque
 import asyncio
 import structlog
 import uuid
 from collections import defaultdict
-from sqlmodel import Session
+from sqlmodel import Session, select
 from .models import (
     Workflow,
     WorkflowStep,
@@ -32,6 +31,20 @@ class WorkflowContext:
 
     def copy(self):
         return WorkflowContext(results=self.results.copy(), input=self.input.copy())
+
+    def find_result(self, step_name: str, session: Session):
+        if self.id == None or self.workflow_id == None:
+            raise ValueError("step_id and workflow_id must be set")
+
+        stmt = (
+            select(WorkflowStep)
+            .where(WorkflowStep.workflow_id == self.workflow_id)
+            .where(WorkflowStep.name == step_name)
+        )
+        workflow_step = session.exec(stmt).first()
+        if workflow_step is None:
+            raise ValueError(f"Workflow step {step_name} not found")
+        return workflow_step.result
 
     def __repr__(self):
         return f"WorkflowContext({self.results})"
@@ -363,7 +376,7 @@ async def _cond_false(ctx: WorkflowContext):
     return not prev_result
 
 
-def cond(condition: Step, left: Step = None, right: Step = None):
+def cond(condition: Step, left: Optional[Step] = None, right: Optional[Step] = None):
     """
     params:
         condition: a step that returns a boolean
@@ -381,12 +394,6 @@ def cond(condition: Step, left: Step = None, right: Step = None):
 
     conds = reduce(lambda x, y: x | y, conds)
 
-    print("*" * 100)
-    print(condition)
-    print(conds)
-    print(condition.__class__)
-    print(conds.__class__)
-    print("*" * 100)
     return condition >> conds
 
 
@@ -543,6 +550,8 @@ class WorkflowExecutor:
                 prev_step = prev_steps[0]
                 exec_ctx = ctx.copy()
                 exec_ctx.step_results = prev_step.result
+                exec_ctx.id = step.id
+                exec_ctx.workflow_id = step.workflow_id
                 func = Step.step_bags[step.name].fn
                 step.result = await func(exec_ctx)
                 if not step.result and step.step_type == WorkflowType.COND_TRUE:
@@ -571,6 +580,8 @@ class WorkflowExecutor:
                     exec_ctx.step_results = [
                         prev_step.result for prev_step in prev_steps
                     ]
+                exec_ctx.id = step.id
+                exec_ctx.workflow_id = step.workflow_id
                 step.result = await func(exec_ctx)
 
                 step.state = WorkflowState.COMPLETED

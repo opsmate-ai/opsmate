@@ -2,7 +2,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
-from pydantic import model_validator
+from pydantic import model_validator, field_validator
+from opsmate.dino import dino
+import asyncio
+import concurrent.futures
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -24,6 +27,23 @@ class NonTechnicalQuery(BaseModel):
     )
 
 
+# @dino("gpt-4o-mini", response_model=bool)
+# async def command_has_placeholders(command: str) -> bool:
+#     """
+#     Check if the command has placeholders
+
+#     Example 1:
+#     command: kubectl -n <namespace> get pods
+#     return: True
+
+#     Example 2:
+#     command: kubectl -n finance get pods
+#     return: False
+
+#     """
+#     return command
+
+
 class Command(BaseModel):
     """
     The command line to be executed
@@ -34,6 +54,15 @@ class Command(BaseModel):
         description="what are the informations are provided by the command execution"
     )
     result: Optional[str] = Field(description="DO NOT populate the value")
+
+    # @field_validator("command")
+    # @classmethod
+    # def validate_command(cls, v):
+    #     pool = concurrent.futures.ThreadPoolExecutor(1)
+    #     result = pool.submit(asyncio.run, command_has_placeholders(v)).result()
+    #     if result:
+    #         raise ValueError(f"Command {v} has placeholders")
+    #     return v
 
     def execute(self):
         """

@@ -1,6 +1,6 @@
 from opsmate.gui.seed import seed_blueprints
-from opsmate.gui.models import BluePrint, default_new_cell, ThinkingSystemEnum
-from sqlmodel import Session, create_engine, SQLModel
+from opsmate.gui.models import BluePrint, default_new_cell, ThinkingSystemEnum, SQLModel
+from sqlmodel import Session, create_engine
 from sqlalchemy import Engine
 import pytest
 

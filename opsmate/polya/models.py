@@ -27,21 +27,21 @@ class NonTechnicalQuery(BaseModel):
     )
 
 
-# @dino("gpt-4o-mini", response_model=bool)
-# async def command_has_placeholders(command: str) -> bool:
-#     """
-#     Check if the command has placeholders
+@dino("gpt-4o-mini", response_model=bool)
+async def command_has_placeholders(command: str) -> bool:
+    """
+    Check if the command has placeholders
 
-#     Example 1:
-#     command: kubectl -n <namespace> get pods
-#     return: True
+    Example 1:
+    command: kubectl -n <namespace> get pods
+    return: True
 
-#     Example 2:
-#     command: kubectl -n finance get pods
-#     return: False
+    Example 2:
+    command: kubectl -n finance get pods
+    return: False
 
-#     """
-#     return command
+    """
+    return command
 
 
 class Command(BaseModel):
@@ -55,14 +55,14 @@ class Command(BaseModel):
     )
     result: Optional[str] = Field(description="DO NOT populate the value")
 
-    # @field_validator("command")
-    # @classmethod
-    # def validate_command(cls, v):
-    #     pool = concurrent.futures.ThreadPoolExecutor(1)
-    #     result = pool.submit(asyncio.run, command_has_placeholders(v)).result()
-    #     if result:
-    #         raise ValueError(f"Command {v} has placeholders")
-    #     return v
+    @field_validator("command")
+    @classmethod
+    def validate_command(cls, v):
+        pool = concurrent.futures.ThreadPoolExecutor(1)
+        result = pool.submit(asyncio.run, command_has_placeholders(v)).result()
+        if result:
+            raise ValueError(f"Command {v} has placeholders")
+        return v
 
     def execute(self):
         """

@@ -264,38 +264,12 @@ async def execute_polya_understanding_instruction(
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
-    # outputs = []
-    # await send(
-    #     Div(
-    #         *outputs,
-    #         hx_swap_oob="true",
-    #         id=f"cell-output-{cell.id}",
-    #     )
-    # )
-
-    # initial_understanding_cell, iu = await insert_initial_understanding_cell(
-    #     cell, session, send
-    # )
-    # if iu is None:
-    #     return
-
-    # info_gather_cells, infos_gathered = await insert_info_gathering_cells(
-    #     initial_understanding_cell, iu, session, send
-    # )
-
-    # report_extracted = await insert_potential_solution_cells(
-    #     iu.summary,
-    #     info_gather_cells,
-    #     infos_gathered,
-    #     session,
-    #     send,
-    # )
-
     blueprint = (
         empty_cell
         >> insert_initial_understanding_cell
         >> insert_info_gathering_cells
         >> insert_potential_solution_cells
+        >> store_report_extracted
     )
     opsmate_workflow = build_workflow(
         "understanding",
@@ -305,17 +279,8 @@ async def execute_polya_understanding_instruction(
     )
     executor = WorkflowExecutor(opsmate_workflow, session)
     ctx = WorkflowContext(input={"session": session, "cell": cell, "send": send})
+
     await executor.run(ctx)
-
-    # report_extracted = ctx.results["insert_potential_solution_cells"]
-    report_extracted = opsmate_workflow.find_step(
-        "insert_potential_solution_cells", session
-    )
-
-    workflow = cell.workflow
-    workflow.result = report_extracted.result.model_dump_json()
-    session.add(workflow)
-    session.commit()
 
 
 async def execute_initial_understanding(
@@ -386,7 +351,6 @@ async def empty_cell(ctx: WorkflowContext):
 
 @step
 async def insert_initial_understanding_cell(
-    # parent_cell: Cell, session: sqlmodel.Session, send
     ctx: WorkflowContext,
 ):
     parent_cell = ctx.input["cell"]
@@ -481,10 +445,6 @@ async def cond_is_non_technical_query(ctx: WorkflowContext):
 
 @step
 async def insert_info_gathering_cells(
-    # parent_cell: Cell,
-    # iu: InitialUnderstandingResponse,
-    # session: sqlmodel.Session,
-    # send,
     ctx: WorkflowContext,
 ):
     parent_cell, iu = ctx.step_results
@@ -706,11 +666,6 @@ async def __insert_potential_solution_cell(
 
 @step
 async def insert_potential_solution_cells(
-    # summary: str,
-    # cells: list[Cell],
-    # info_gathered: List[InfoGathered],
-    # session: sqlmodel.Session,
-    # send,
     ctx: WorkflowContext,
 ):
     session = ctx.input["session"]
@@ -730,6 +685,17 @@ async def insert_potential_solution_cells(
         )
     # xxx: pickle issue occur need resolving
     return ReportExtracted(**report_extracted.model_dump())
+
+
+@step
+async def store_report_extracted(ctx: WorkflowContext):
+    cell = ctx.input["cell"]
+    session = ctx.input["session"]
+
+    workflow = Workflow.find_by_id(session, cell.workflow_id)
+    workflow.result = ctx.step_results.model_dump_json()
+    session.add(workflow)
+    session.commit()
 
 
 async def execute_polya_planning_instruction(

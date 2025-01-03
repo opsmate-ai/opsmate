@@ -13,6 +13,9 @@ from opsmate.workflow.workflow import (
     WorkflowFailedReason,
     step_factory,
     draw_dot,
+    pre_run_hook,
+    post_success_hook,
+    post_failure_hook,
 )
 import asyncio
 import structlog
@@ -560,3 +563,39 @@ class TestWorkflow:
 
         with pytest.raises(ValueError, match="Either left or right must be provided"):
             workflow = fn1 >> cond(cond_true, None, None)
+
+    @pytest.mark.asyncio
+    async def test_workflow_run_with_hooks(self, session):
+        @step
+        async def hook_run(ctx):
+            if ctx.input["success"]:
+                return 1
+            else:
+                raise ValueError("failed")
+
+        ran = []
+        errs = []
+
+        @post_success_hook(hook_run)
+        async def hook_success(ctx, result):
+            ran.append("success")
+
+        @post_failure_hook(hook_run)
+        async def hook_failure(ctx, error):
+            ran.append("failure")
+            errs.append(error)
+
+        blueprint = hook_run
+        workflow = build_workflow("test", "test", blueprint, session)
+        workflow_executor = WorkflowExecutor(workflow, session)
+        await workflow_executor.run(WorkflowContext(input={"success": True}))
+
+        assert workflow.state == WorkflowState.COMPLETED
+        assert ran == ["success"]
+
+        ran = []
+        await workflow_executor.mark_rerun(workflow.find_step("hook_run", session))
+        await workflow_executor.run(WorkflowContext(input={"success": False}))
+        assert ran == ["failure"]
+        assert len(errs) == 1
+        assert str(errs[0]) == "failed"

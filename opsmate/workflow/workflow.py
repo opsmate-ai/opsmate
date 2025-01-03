@@ -80,6 +80,9 @@ class Step:
         self.result = None
         self.skip_exec = skip_exec
         self.metadata = metadata
+        self.pre_run_hooks: List[Callable[[Any], Awaitable[Any]]] = []
+        self.post_success_hooks: List[Callable[[Any], Awaitable[Any]]] = []
+        self.post_failure_hooks: List[Callable[[Any], Awaitable[Any]]] = []
 
     def __or__(self, other: "Step") -> "Step":
         if self.op == WorkflowType.PARALLEL and other.op == WorkflowType.PARALLEL:
@@ -381,6 +384,30 @@ def step_factory(step: Step):
     return wrapper
 
 
+def pre_run_hook(step: Step):
+    def wrapper(fn: Callable):
+        step.pre_run_hooks.append(fn)
+        return fn
+
+    return wrapper
+
+
+def post_success_hook(step: Step):
+    def wrapper(fn: Callable):
+        step.post_success_hooks.append(fn)
+        return fn
+
+    return wrapper
+
+
+def post_failure_hook(step: Step):
+    def wrapper(fn: Callable):
+        step.post_failure_hooks.append(fn)
+        return fn
+
+    return wrapper
+
+
 @step(WorkflowType.COND_TRUE)
 async def _cond_true(ctx: WorkflowContext):
     if isinstance(ctx.step_results, list):
@@ -577,8 +604,17 @@ class WorkflowExecutor:
                 exec_ctx.step_results = prev_step.result
                 exec_ctx.id = step.id
                 exec_ctx.workflow_id = step.workflow_id
-                func = Step.step_bags[step.name].fn
+                step_definition = Step.step_bags[step.name]
+                func = step_definition.fn
+
+                for hook in step_definition.pre_run_hooks:
+                    await hook(exec_ctx)
+
                 step.result = await func(exec_ctx)
+
+                for hook in step_definition.post_success_hooks:
+                    await hook(exec_ctx, step.result)
+
                 if not step.result and step.step_type == WorkflowType.COND_TRUE:
                     step.state = WorkflowState.SKIPPED
                 elif not step.result and step.step_type == WorkflowType.COND_FALSE:
@@ -596,7 +632,8 @@ class WorkflowExecutor:
                     step_name=step.name,
                     step_fn=step.fn,
                 )
-                func = Step.step_bags[step.name].fn
+                step_definition = Step.step_bags[step.name]
+                func = step_definition.fn
                 exec_ctx = ctx.copy()
 
                 if len(prev_steps) == 1:
@@ -609,6 +646,10 @@ class WorkflowExecutor:
                 exec_ctx.workflow_id = step.workflow_id
                 exec_ctx.metadata = step.meta
                 step.result = await func(exec_ctx)
+
+                for hook in step_definition.post_success_hooks:
+                    logger.info("Running post success hook", hook=hook)
+                    await hook(exec_ctx, step.result)
 
                 step.state = WorkflowState.COMPLETED
                 self.session.commit()
@@ -623,6 +664,9 @@ class WorkflowExecutor:
                 step.failed_reason = WorkflowFailedReason.RUNTIME_ERROR
                 step.error = str(e)
                 self.session.commit()
+                for hook in step_definition.post_failure_hooks:
+                    await hook(exec_ctx, e)
+
                 for hook in self.after_step_failed_hooks:
                     await hook(self, step.failed_reason)
 

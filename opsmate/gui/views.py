@@ -276,7 +276,12 @@ async def execute_polya_understanding_instruction(
                     | make_info_gathering_cell(1)
                     | make_info_gathering_cell(2)
                 )
-                >> insert_potential_solution_cells
+                >> generate_report_with_breakdown
+                >> (
+                    make_potential_solution_cell(0)
+                    | make_potential_solution_cell(1)
+                    | make_potential_solution_cell(2)
+                )
                 >> store_report_extracted
             ),
         )
@@ -718,12 +723,53 @@ async def insert_potential_solution_cells(
 
 
 @step
+async def generate_report_with_breakdown(ctx: WorkflowContext):
+    session = ctx.input["session"]
+    send = ctx.input["send"]
+    cells, info_gathered = zip(*ctx.step_results)
+    cells, info_gathered = list(cells), list(info_gathered)
+    initial_understanding_result = ctx.find_result(
+        "insert_initial_understanding_cell", session
+    )
+    _, iu = initial_understanding_result
+    summary = iu.summary
+
+    report = await generate_report(summary, info_gathered=info_gathered)
+    report_extracted = await report_breakdown(report)
+
+    return cells, ReportExtracted(**report_extracted.model_dump())
+
+
+def make_potential_solution_cell(solution_id: int):
+    @step_factory
+    @step
+    async def insert_potential_solution_cell(ctx: WorkflowContext):
+        cells, report_extracted = ctx.step_results
+        session = ctx.input["session"]
+        send = ctx.input["send"]
+        solution_id = ctx.metadata["solution_id"]
+        if len(report_extracted.potential_solutions) <= solution_id:
+            return None
+        return await __insert_potential_solution_cell(
+            cells,
+            report_extracted.summary,
+            report_extracted.potential_solutions[solution_id],
+            session,
+            send,
+        )
+
+    return insert_potential_solution_cell(metadata={"solution_id": solution_id})
+
+
+@step
 async def store_report_extracted(ctx: WorkflowContext):
     cell = ctx.input["cell"]
     session = ctx.input["session"]
 
+    _, report_extracted = ctx.find_result("generate_report_with_breakdown", session)
+
     workflow = Workflow.find_by_id(session, cell.workflow_id)
-    workflow.result = ctx.step_results.model_dump_json()
+    workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
 

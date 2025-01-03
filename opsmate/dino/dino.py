@@ -39,7 +39,7 @@ def dino(
             - frequency_penalty
             - presence_penalty
             - system: used by Anthropic as a system prompt.
-
+            - context: a dictionary of context to pass for Pydantic model validation.
     Example:
 
     class UserInfo(BaseModel):

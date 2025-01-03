@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
-from pydantic import model_validator, field_validator
+from pydantic import model_validator, field_validator, ValidationInfo
 from opsmate.dino import dino
 import asyncio
 import concurrent.futures
@@ -15,6 +15,17 @@ class InitialUnderstandingResponse(BaseModel):
 
     summary: str
     questions: List[str]
+
+    @model_validator(mode="after")
+    def validate_questions(self, info: ValidationInfo):
+        if not info.context:
+            return self
+        expected_num_questions = info.context.get("num_questions", 3)
+        if len(self.questions) != expected_num_questions:
+            raise ValueError(
+                f"The number of questions must be {expected_num_questions}"
+            )
+        return self
 
 
 class NonTechnicalQuery(BaseModel):
@@ -234,6 +245,17 @@ class ReportExtracted(BaseModel):
         )
         if total_probability != 100:
             raise ValueError("The probabilities of solutions must be added up to 100")
+        return self
+
+    @model_validator(mode="after")
+    def potention_solutions_count(self, info: ValidationInfo):
+        if not info.context:
+            return self
+        max_num_solutions = info.context.get("max_num_solutions", 3)
+        if len(self.potential_solutions) > max_num_solutions:
+            raise ValueError(
+                f"The number of potential solutions must be less than or equal to {max_num_solutions}"
+            )
         return self
 
 

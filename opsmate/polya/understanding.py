@@ -6,7 +6,7 @@ from opsmate.polya.models import (
     NonTechnicalQuery,
     ReportExtracted,
 )
-from typing import List, Union
+from typing import List, Union, Any
 from jinja2 import Template
 import asyncio
 from opsmate.dino import dino
@@ -25,12 +25,16 @@ extra_sys_prompt = """
 """
 
 
-@dino("gpt-4o", response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery])
+@dino(
+    "gpt-4o",
+    response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
+    context={"num_questions": 3},
+)
 async def initial_understanding(
     query: str,
     prefill: str = extra_sys_prompt,
+    context: dict[str, Any] = {"num_questions": 3},
     chat_history: ListOfMessageOrDict = [],
-    num_questions: int = 3,
 ):
     """
     <assistant>
@@ -67,17 +71,26 @@ async def initial_understanding(
     return [
         Message.system(prefill),
         *Message.normalise(chat_history),
-        Message.user(f"Please ask {num_questions} questions at most"),
+        Message.user(f"Please ask {context['num_questions']} questions at most"),
         Message.user(query),
     ]
 
 
-@dino("gpt-4o", response_model=InitialUnderstandingResponse)
-async def load_inital_understanding(text: str):
+@dino(
+    "gpt-4o",
+    response_model=InitialUnderstandingResponse,
+    context={"num_questions": 3},
+)
+async def load_inital_understanding(
+    text: str, context: dict[str, Any] = {"num_questions": 3}
+):
     """
     You are a world class information extractor. You are good at extracting information from a text.
     """
-    return text
+    return [
+        Message.user(f"provide {context['num_questions']} questions"),
+        Message.user(text),
+    ]
 
 
 @dino(
@@ -196,8 +209,11 @@ async def generate_report(
 @dino(
     "gpt-4o",
     response_model=ReportExtracted,
+    context={"max_num_solutions": 3},
 )
-async def report_breakdown(report: Report):
+async def report_breakdown(
+    report: Report, context: dict[str, Any] = {"max_num_solutions": 3}
+):
     """
     Break down the report into a structured format
     """

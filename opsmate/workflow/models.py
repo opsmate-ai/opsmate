@@ -166,6 +166,11 @@ class WorkflowStep(SQLModel, table=True):
             or self.state == WorkflowState.SKIPPED
         )
 
+    # @classmethod
+    # def find_step_by_name(cls, session: Session, name: str, workflow_id: int):
+    #     stmt = select(cls).where(cls.name == name).where(cls.workflow_id == workflow_id)
+    #     return session.exec(stmt).first()
+
     def runnable(self, session: Session):
         if self.state != WorkflowState.PENDING:
             return False

@@ -458,12 +458,11 @@ manage_potential_solution_cells = [
 
 @step
 async def store_report_extracted(ctx: WorkflowContext):
-    cell = ctx.input["question_cell"]
     session = ctx.input["session"]
 
-    _, report_extracted = ctx.find_result("generate_report_with_breakdown", session)
+    cells, report_extracted = ctx.find_result("generate_report_with_breakdown", session)
 
-    workflow = Workflow.find_by_id(session, cell.workflow_id)
+    workflow = Workflow.find_by_id(session, cells[0].workflow_id)
     workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
@@ -489,12 +488,76 @@ def make_manage_info_gathering_cell(question_id: int):
         session = ctx.input["session"]
         send = ctx.input["send"]
         parent_cell, iu = ctx.find_result("manage_initial_understanding_cell", session)
-        info_gather_task = info_gathering(
-            iu.summary, iu.questions[ctx.metadata["question_id"]]
+        workflow = parent_cell.workflow
+
+        cell = ctx.input.get("current_cell")
+        is_new_cell = cell is None
+
+        if not is_new_cell:
+            await send(
+                Div(
+                    hx_swap_oob="true",
+                    id=f"cell-output-{cell.id}",
+                )
+            )
+        if ctx.input.get("question"):
+            question = ctx.input.get("question")
+        else:
+            question = iu.questions[ctx.metadata["question_id"]]
+        info_gathered = await info_gathering(iu.summary, question)
+        info_gathered = InfoGathered(**info_gathered.model_dump())
+
+        outputs = []
+        outputs.append(
+            {
+                "type": "InfoGathered",
+                "output": info_gathered,
+            }
         )
-        return await __manage_info_gathering_cell(
-            parent_cell, info_gather_task, session, send
-        )
+        if is_new_cell:
+            cells = workflow.cells
+            # get the highest sequence number
+            max_sequence = max(cell.sequence for cell in cells) if cells else 0
+            # get the higest execution sequence number
+            max_execution_sequence = (
+                max(cell.execution_sequence for cell in cells) if cells else 0
+            )
+            cell = Cell(
+                input=info_gathered.question,
+                output=pickle.dumps(outputs),
+                lang=CellLangEnum.TEXT_INSTRUCTION,
+                thinking_system=ThinkingSystemEnum.TYPE2,
+                sequence=max_sequence + 1,
+                execution_sequence=max_execution_sequence + 1,
+                active=True,
+                workflow_id=parent_cell.workflow_id,
+                parent_cell_ids=[parent_cell.id],
+                cell_type=CellType.UNDERSTANDING_GATHER_INFO,
+                created_by=CreatedByType.ASSISTANT,
+                hidden=True,
+            )
+        else:
+            info_gathered = InfoGathered(**info_gathered.model_dump())
+            cell.hidden = True
+
+        session.add(cell)
+        session.commit()
+
+        workflow.activate_cell(session, cell.id)
+        session.commit()
+
+        if is_new_cell:
+            await send(
+                Div(
+                    CellComponent(cell),
+                    hx_swap_oob="beforeend",
+                    id="cells-container",
+                )
+            )
+        else:
+            await send(CellComponent(cell, hx_swap_oob="true"))
+
+        return cell, info_gathered
 
     return manage_info_gathering_cell(metadata={"question_id": question_id})
 
@@ -504,63 +567,6 @@ manage_info_gather_cells = [
     make_manage_info_gathering_cell(1),
     make_manage_info_gathering_cell(2),
 ]
-
-
-async def __manage_info_gathering_cell(
-    parent_cell: Cell,
-    info_gather_task: Coroutine[Any, Any, InfoGathered],
-    session: sqlmodel.Session,
-    send,
-):
-    workflow = parent_cell.workflow
-
-    cells = workflow.cells
-    # get the highest sequence number
-    max_sequence = max(cell.sequence for cell in cells) if cells else 0
-    # get the higest execution sequence number
-    max_execution_sequence = (
-        max(cell.execution_sequence for cell in cells) if cells else 0
-    )
-
-    outputs = []
-    info_gathered = await info_gather_task
-    info_gathered = InfoGathered(**info_gathered.model_dump())
-    outputs.append(
-        {
-            "type": "InfoGathered",
-            "output": info_gathered,
-        }
-    )
-
-    cell = Cell(
-        input=info_gathered.question,
-        output=pickle.dumps(outputs),
-        lang=CellLangEnum.TEXT_INSTRUCTION,
-        thinking_system=ThinkingSystemEnum.TYPE2,
-        sequence=max_sequence + 1,
-        execution_sequence=max_execution_sequence + 1,
-        active=True,
-        workflow_id=parent_cell.workflow_id,
-        parent_cell_ids=[parent_cell.id],
-        cell_type=CellType.UNDERSTANDING_GATHER_INFO,
-        created_by=CreatedByType.ASSISTANT,
-        hidden=True,
-    )
-    session.add(cell)
-    session.commit()
-
-    workflow.activate_cell(session, cell.id)
-    session.commit()
-
-    await send(
-        Div(
-            CellComponent(cell),
-            hx_swap_oob="beforeend",
-            id="cells-container",
-        )
-    )
-
-    return cell, info_gathered
 
 
 async def __manage_potential_solution_cell(
@@ -653,7 +659,7 @@ async def execute_llm_type2_instruction(
         if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
             return await update_initial_understanding(cell, send, session)
         elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
-            return await execute_info_gathering(cell, send, session)
+            return await update_info_gathering(cell, send, session)
         else:
             return await execute_polya_understanding_instruction(cell, send, session)
     elif workflow.name == WorkflowEnum.PLANNING:
@@ -729,82 +735,35 @@ async def update_initial_understanding(
     )
 
 
-async def execute_info_gathering(
+async def update_info_gathering(
     cell: Cell,
     send,
     session: sqlmodel.Session,
 ):
-    outputs = []
-    await send(
-        Div(
-            *outputs,
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-    parent_cells = cell.parent_cells(session)
-    if len(parent_cells) == 0:
-        logger.error("No parent cells found", cell_id=cell.id)
+
+    opsmate_workflow_step = session.exec(
+        select(OpsmateWorkflowStep)
+        .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
+        .where(OpsmateWorkflowStep.workflow_id == cell.internal_workflow_id)
+    ).first()
+    if not opsmate_workflow_step:
+        logger.error("Opsmate workflow step not found", cell_id=cell.id)
         return
+    opsmate_workflow = opsmate_workflow_step.workflow
 
-    parent_cell = parent_cells[0]
+    executor = WorkflowExecutor(opsmate_workflow, session)
+    await executor.mark_rerun(opsmate_workflow_step)
 
-    parent_outputs = pickle.loads(parent_cell.output)
-    iu = parent_outputs[0]["output"]
-    summary = iu.summary
-    info_gather_task = info_gathering(summary, cell.input)
-
-    info_gathered = await info_gather_task
-    info_gathered = InfoGathered(**info_gathered.model_dump())
-
-    outputs.append(
-        {
-            "type": "InfoGathered",
-            "output": info_gathered,
-        }
-    )
-
-    cell.output = pickle.dumps(outputs)
-    cell.hidden = True
-    session.add(cell)
-    session.commit()
-
-    await send(
-        Div(
-            *[CellOutputRenderer(output).render() for output in outputs],
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
+    await executor.run(
+        WorkflowContext(
+            input={
+                "session": session,
+                "send": send,
+                "current_cell": cell,
+                "question": cell.input.rstrip(),
+            }
         )
     )
-
-    info_gather_cells = session.exec(
-        select(Cell).where(
-            Cell.workflow_id == cell.workflow_id,
-            Cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO,
-        )
-    ).all()
-
-    infos_gathered = []
-    for info_gather_cell in info_gather_cells:
-        info_gathered = pickle.loads(info_gather_cell.output)[0]["output"]
-        infos_gathered.append(info_gathered)
-
-    logger.info(
-        "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
-    )
-
-    report_extracted = await manage_potential_solution_cells(
-        iu.summary,
-        info_gather_cells,
-        infos_gathered,
-        session,
-        send,
-    )
-
-    workflow = cell.workflow
-    workflow.result = report_extracted.model_dump_json()
-    session.add(workflow)
-    session.commit()
 
 
 async def execute_polya_planning_instruction(
@@ -1057,9 +1016,3 @@ def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
     if hx_swap_oob:
         div.hx_swap_oob = hx_swap_oob
     return div
-
-
-async def async_wrapper(generator: Generator):
-    for stage in generator:
-        await asyncio.sleep(0)
-        yield stage

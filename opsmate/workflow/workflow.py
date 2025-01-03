@@ -302,7 +302,17 @@ class StatelessWorkflowExecutor:
                     exec_ctx.step_results = step.steps[0].result
                 else:
                     exec_ctx.step_results = [child.result for child in step.steps]
-                step.result = await step.fn(exec_ctx)
+
+                for hook in step.pre_run_hooks:
+                    await hook(exec_ctx)
+
+                try:
+                    step.result = await step.fn(exec_ctx)
+                    for hook in step.post_success_hooks:
+                        await hook(exec_ctx, step.result)
+                except Exception as e:
+                    for hook in step.post_failure_hooks:
+                        await hook(exec_ctx, e)
             elif (
                 step.op == WorkflowType.COND_TRUE or step.op == WorkflowType.COND_FALSE
             ):

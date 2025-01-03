@@ -79,16 +79,13 @@ async def initial_understanding(
 @dino(
     "gpt-4o",
     response_model=InitialUnderstandingResponse,
-    context={"num_questions": 3},
 )
-async def load_inital_understanding(
-    text: str, context: dict[str, Any] = {"num_questions": 3}
-):
+async def load_inital_understanding(text: str):
     """
     You are a world class information extractor. You are good at extracting information from a text.
+    Please be accurate with the number of questions in the text given based on the markdown bullet points.
     """
     return [
-        Message.user(f"provide {context['num_questions']} questions"),
         Message.user(text),
     ]
 

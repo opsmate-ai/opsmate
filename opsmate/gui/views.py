@@ -267,20 +267,20 @@ async def execute_polya_understanding_instruction(
 
     blueprint = (
         empty_cell
-        >> insert_initial_understanding_cell
+        >> manage_initial_understanding_cell
         >> cond(
             cond_is_technical_query,
             left=(
                 (
-                    make_info_gathering_cell(0)
-                    | make_info_gathering_cell(1)
-                    | make_info_gathering_cell(2)
+                    make_manage_info_gathering_cell(0)
+                    | make_manage_info_gathering_cell(1)
+                    | make_manage_info_gathering_cell(2)
                 )
                 >> generate_report_with_breakdown
                 >> (
-                    make_potential_solution_cell(0)
-                    | make_potential_solution_cell(1)
-                    | make_potential_solution_cell(2)
+                    make_manage_potential_solution_cell(0)
+                    | make_manage_potential_solution_cell(1)
+                    | make_manage_potential_solution_cell(2)
                 )
                 >> store_report_extracted
             ),
@@ -333,11 +333,11 @@ async def execute_initial_understanding(
     if iu is None:
         return
 
-    info_gather_cells, infos_gathered = await insert_info_gathering_cells(
+    info_gather_cells, infos_gathered = await manage_info_gathering_cells(
         cell, iu, session, send
     )
 
-    report_extracted = await insert_potential_solution_cells(
+    report_extracted = await manage_potential_solution_cells(
         iu.summary,
         info_gather_cells,
         infos_gathered,
@@ -365,7 +365,7 @@ async def empty_cell(ctx: WorkflowContext):
 
 
 @step
-async def insert_initial_understanding_cell(
+async def manage_initial_understanding_cell(
     ctx: WorkflowContext,
 ):
     parent_cell = ctx.input["cell"]
@@ -459,7 +459,7 @@ async def cond_is_technical_query(ctx: WorkflowContext):
 
 
 @step
-async def insert_info_gathering_cells(
+async def manage_info_gathering_cells(
     ctx: WorkflowContext,
 ):
     parent_cell, iu = ctx.step_results
@@ -470,7 +470,7 @@ async def insert_info_gathering_cells(
     infos_gathered = []
     cells = []
     for i, task in enumerate(finding_tasks):
-        cell, info_gathered = await __insert_info_gathering_cell(
+        cell, info_gathered = await __manage_info_gathering_cell(
             parent_cell, task, session, send
         )
         infos_gathered.append(info_gathered)
@@ -542,7 +542,7 @@ async def execute_info_gathering(
         "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
     )
 
-    report_extracted = await insert_potential_solution_cells(
+    report_extracted = await manage_potential_solution_cells(
         iu.summary,
         info_gather_cells,
         infos_gathered,
@@ -556,26 +556,26 @@ async def execute_info_gathering(
     session.commit()
 
 
-def make_info_gathering_cell(question_id: int):
+def make_manage_info_gathering_cell(question_id: int):
     @step_factory
     @step
-    async def insert_info_gathering_cell(
+    async def manage_info_gathering_cell(
         ctx: WorkflowContext,
     ):
         session = ctx.input["session"]
         send = ctx.input["send"]
-        parent_cell, iu = ctx.find_result("insert_initial_understanding_cell", session)
+        parent_cell, iu = ctx.find_result("manage_initial_understanding_cell", session)
         info_gather_task = info_gathering(
             iu.summary, iu.questions[ctx.metadata["question_id"]]
         )
-        return await __insert_info_gathering_cell(
+        return await __manage_info_gathering_cell(
             parent_cell, info_gather_task, session, send
         )
 
-    return insert_info_gathering_cell(metadata={"question_id": question_id})
+    return manage_info_gathering_cell(metadata={"question_id": question_id})
 
 
-async def __insert_info_gathering_cell(
+async def __manage_info_gathering_cell(
     parent_cell: Cell,
     info_gather_task: Coroutine[Any, Any, InfoGathered],
     session: sqlmodel.Session,
@@ -632,7 +632,7 @@ async def __insert_info_gathering_cell(
     return cell, info_gathered
 
 
-async def __insert_potential_solution_cell(
+async def __manage_potential_solution_cell(
     parent_cells: list[Cell],
     summary: str,
     solution: Solution,
@@ -699,7 +699,7 @@ async def __insert_potential_solution_cell(
 
 
 @step
-async def insert_potential_solution_cells(
+async def manage_potential_solution_cells(
     ctx: WorkflowContext,
 ):
     session = ctx.input["session"]
@@ -707,7 +707,7 @@ async def insert_potential_solution_cells(
     cells, info_gathered = zip(*ctx.step_results)
     cells, info_gathered = list(cells), list(info_gathered)
     initial_understanding_result = ctx.find_result(
-        "insert_initial_understanding_cell", session
+        "manage_initial_understanding_cell", session
     )
     _, iu = initial_understanding_result
     summary = iu.summary
@@ -715,7 +715,7 @@ async def insert_potential_solution_cells(
     report = await generate_report(summary, info_gathered=info_gathered)
     report_extracted = await report_breakdown(report)
     for solution in report_extracted.potential_solutions:
-        await __insert_potential_solution_cell(
+        await __manage_potential_solution_cell(
             cells, report_extracted.summary, solution, session, send
         )
     # xxx: pickle issue occur need resolving
@@ -729,7 +729,7 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
     cells, info_gathered = zip(*ctx.step_results)
     cells, info_gathered = list(cells), list(info_gathered)
     initial_understanding_result = ctx.find_result(
-        "insert_initial_understanding_cell", session
+        "manage_initial_understanding_cell", session
     )
     _, iu = initial_understanding_result
     summary = iu.summary
@@ -740,17 +740,17 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
     return cells, ReportExtracted(**report_extracted.model_dump())
 
 
-def make_potential_solution_cell(solution_id: int):
+def make_manage_potential_solution_cell(solution_id: int):
     @step_factory
     @step
-    async def insert_potential_solution_cell(ctx: WorkflowContext):
+    async def manage_potential_solution_cell(ctx: WorkflowContext):
         cells, report_extracted = ctx.step_results
         session = ctx.input["session"]
         send = ctx.input["send"]
         solution_id = ctx.metadata["solution_id"]
         if len(report_extracted.potential_solutions) <= solution_id:
             return None
-        return await __insert_potential_solution_cell(
+        return await __manage_potential_solution_cell(
             cells,
             report_extracted.summary,
             report_extracted.potential_solutions[solution_id],
@@ -758,7 +758,7 @@ def make_potential_solution_cell(solution_id: int):
             send,
         )
 
-    return insert_potential_solution_cell(metadata={"solution_id": solution_id})
+    return manage_potential_solution_cell(metadata={"solution_id": solution_id})
 
 
 @step

@@ -43,7 +43,7 @@ class WorkflowContext:
         )
 
     def find_result(self, step_name: str, session: Session):
-        if self.id == None or self.workflow_id == None:
+        if self.step_id == None or self.workflow_id == None:
             raise ValueError("step_id and workflow_id must be set")
 
         stmt = (
@@ -70,6 +70,11 @@ class Step:
         steps: List["Step"] = [],
         skip_exec: bool = False,
         metadata: Dict[str, Any] = {},
+        pre_run_hooks: List[Callable[[WorkflowContext], Awaitable[Any]]] = [],
+        post_success_hooks: List[Callable[[WorkflowContext, Any], Awaitable[Any]]] = [],
+        post_failure_hooks: List[
+            Callable[[WorkflowContext, Exception], Awaitable[Any]]
+        ] = [],
     ):
         self.id = str(uuid.uuid4()).split("-")[0]
         self.fn = fn
@@ -80,9 +85,9 @@ class Step:
         self.result = None
         self.skip_exec = skip_exec
         self.metadata = metadata
-        self.pre_run_hooks: List[Callable[[Any], Awaitable[Any]]] = []
-        self.post_success_hooks: List[Callable[[Any], Awaitable[Any]]] = []
-        self.post_failure_hooks: List[Callable[[Any], Awaitable[Any]]] = []
+        self.pre_run_hooks = pre_run_hooks
+        self.post_success_hooks = post_success_hooks
+        self.post_failure_hooks = post_failure_hooks
 
     def __or__(self, other: "Step") -> "Step":
         if self.op == WorkflowType.PARALLEL and other.op == WorkflowType.PARALLEL:
@@ -136,6 +141,9 @@ class Step:
                 op=step.op,
                 steps=[_copy(child) for child in step.steps],
                 metadata=step.metadata.copy(),
+                pre_run_hooks=step.pre_run_hooks.copy(),
+                post_success_hooks=step.post_success_hooks.copy(),
+                post_failure_hooks=step.post_failure_hooks.copy(),
             )
             visisted[str(id(step))] = copied_step
             copied_step.id = step.id
@@ -362,22 +370,49 @@ class StatelessWorkflowExecutor:
             await asyncio.gather(*tasks)
 
 
-def step(op_or_fn=WorkflowType.NONE):
-    # If decorator is used without parentheses and directly on function
-    if asyncio.iscoroutinefunction(op_or_fn):
-        fn = op_or_fn
-        _step = Step(fn, WorkflowType.NONE)
-        Step.step_bags[_step.fn_name] = _step
-        return _step
+def step(
+    *args,
+    op: WorkflowType = WorkflowType.NONE,
+    pre_run_hooks: List[Callable[[WorkflowContext], Awaitable[Any]]] = [],
+    post_success_hooks: List[Callable[[WorkflowContext, Any], Awaitable[Any]]] = [],
+    post_failure_hooks: List[
+        Callable[[WorkflowContext, Exception], Awaitable[Any]]
+    ] = [],
+):
+    """
+    Decorator to define a step in a workflow.
 
-    if isinstance(op_or_fn, Callable):
-        raise ValueError("The function must be a coroutine function")
+    Example:
 
-    # If decorator is used with parentheses: @step(op=...)
-    op = op_or_fn
+    @step
+    async def my_step(ctx: WorkflowContext):
+        pass
+
+    @step(WorkflowType.PARALLEL)
+    async def my_parallel_step(ctx: WorkflowContext):
+        pass
+
+    @step(WorkflowType.None)
+    async def my_none_step(ctx: WorkflowContext):
+    """
+    if len(args) == 1:
+        arg0 = args[0]
+        if asyncio.iscoroutinefunction(arg0):
+            fn = arg0
+            _step = Step(fn, WorkflowType.NONE)
+            Step.step_bags[_step.fn_name] = _step
+            return _step
+        else:
+            raise ValueError("The function must be a coroutine function")
 
     def wrapper(fn: Callable):
-        _step = Step(fn, op)
+        _step = Step(
+            fn,
+            op,
+            pre_run_hooks=pre_run_hooks,
+            post_success_hooks=post_success_hooks,
+            post_failure_hooks=post_failure_hooks,
+        )
         Step.step_bags[_step.fn_name] = _step
         return _step
 
@@ -394,31 +429,39 @@ def step_factory(step: Step):
     return wrapper
 
 
-def pre_run_hook(step: Step):
-    def wrapper(fn: Callable):
-        step.pre_run_hooks.append(fn)
-        return fn
+# xxx: side effect appears to be a problem thus commented out for now
+# def pre_run_hook(s: Step):
+#     def wrapper(fn: Callable):
+#         logger.info("Adding pre run hook", fn=fn, step=s)
+#         step = s.copy()
+#         step.pre_run_hooks.append(fn)
+#         Step.step_bags[step.fn_name] = step
+#         return step
 
-    return wrapper
-
-
-def post_success_hook(step: Step):
-    def wrapper(fn: Callable):
-        step.post_success_hooks.append(fn)
-        return fn
-
-    return wrapper
+#     return wrapper
 
 
-def post_failure_hook(step: Step):
-    def wrapper(fn: Callable):
-        step.post_failure_hooks.append(fn)
-        return fn
+# def post_success_hook(s: Step):
+#     def wrapper(fn: Callable):
+#         logger.info("Adding post success hook", fn=fn, step=s)
+#         step = s.copy()
+#         step.post_success_hooks.append(fn)
+#         return step
 
-    return wrapper
+#     return wrapper
 
 
-@step(WorkflowType.COND_TRUE)
+# def post_failure_hook(s: Step):
+#     def wrapper(fn: Callable):
+#         logger.info("Adding post failure hook", fn=fn, step=s)
+#         step = s.copy()
+#         step.post_failure_hooks.append(fn)
+#         return step
+
+#     return wrapper
+
+
+@step(op=WorkflowType.COND_TRUE)
 async def _cond_true(ctx: WorkflowContext):
     if isinstance(ctx.step_results, list):
         assert len(ctx.step_results) == 1
@@ -428,7 +471,7 @@ async def _cond_true(ctx: WorkflowContext):
     return prev_result
 
 
-@step(WorkflowType.COND_FALSE)
+@step(op=WorkflowType.COND_FALSE)
 async def _cond_false(ctx: WorkflowContext):
     if isinstance(ctx.step_results, list):
         assert len(ctx.step_results) == 1
@@ -612,7 +655,7 @@ class WorkflowExecutor:
                 prev_step = prev_steps[0]
                 exec_ctx = ctx.copy()
                 exec_ctx.step_results = prev_step.result
-                exec_ctx.id = step.id
+                exec_ctx.step_id = step.id
                 exec_ctx.workflow_id = step.workflow_id
                 step_definition = Step.step_bags[step.name]
                 func = step_definition.fn
@@ -652,7 +695,7 @@ class WorkflowExecutor:
                     exec_ctx.step_results = [
                         prev_step.result for prev_step in prev_steps
                     ]
-                exec_ctx.id = step.id
+                exec_ctx.step_id = step.id
                 exec_ctx.workflow_id = step.workflow_id
                 exec_ctx.metadata = step.meta
                 step.result = await func(exec_ctx)

@@ -213,6 +213,9 @@ class Cell(SQLModel, table=True):
     workflow_id: int = Field(foreign_key="workflow.id")
     workflow: Workflow = Relationship(back_populates="cells")
 
+    internal_workflow_id: int = Field(default=0)
+    internal_workflow_step_id: int = Field(default=0)
+
     hidden: bool = Field(default=False)
 
     cell_type: CellType | None = Field(default=None)

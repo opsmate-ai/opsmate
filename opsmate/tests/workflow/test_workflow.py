@@ -13,9 +13,9 @@ from opsmate.workflow.workflow import (
     WorkflowFailedReason,
     step_factory,
     draw_dot,
-    pre_run_hook,
-    post_success_hook,
-    post_failure_hook,
+    # pre_run_hook,
+    # post_success_hook,
+    # post_failure_hook,
 )
 import asyncio
 import structlog
@@ -564,73 +564,161 @@ class TestWorkflow:
         with pytest.raises(ValueError, match="Either left or right must be provided"):
             workflow = fn1 >> cond(cond_true, None, None)
 
+    # @pytest.mark.asyncio
+    # async def test_stateful_workflow_run_with_hooks(self, session):
+    #     @step
+    #     async def hook_run(ctx):
+    #         if ctx.input["success"]:
+    #             return 1
+    #         else:
+    #             raise ValueError("failed")
+
+    #     ran = []
+    #     errs = []
+
+    #     @post_success_hook(hook_run)
+    #     async def hook_success(ctx, result):
+    #         ran.append("success")
+
+    #     print("*****************")
+    #     for name, s in Step.step_bags.items():
+    #         print(f"{name}: {s.post_success_hooks}")
+    #     print("*****************")
+
+    #     @post_failure_hook(hook_run)
+    #     async def hook_failure(ctx, error):
+    #         ran.append("failure")
+    #         errs.append(error)
+
+    #     print("*****************")
+    #     for name, s in Step.step_bags.items():
+    #         print(f"{name}: {s.post_success_hooks}")
+    #     print("*****************")
+
+    #     blueprint = hook_run
+    #     workflow = build_workflow("test", "test", blueprint, session)
+    #     workflow_executor = WorkflowExecutor(workflow, session)
+    #     await workflow_executor.run(WorkflowContext(input={"success": True}))
+
+    #     assert workflow.state == WorkflowState.COMPLETED
+    #     assert ran == ["success"]
+
+    #     ran = []
+    #     await workflow_executor.mark_rerun(workflow.find_step("hook_run", session))
+    #     await workflow_executor.run(WorkflowContext(input={"success": False}))
+    #     assert ran == ["failure"]
+    #     assert len(errs) == 1
+    #     assert str(errs[0]) == "failed"
+
+    # @pytest.mark.asyncio
+    # async def test_stateless_workflow_run_with_hooks(self, session):
+    #     @step
+    #     async def stateless_hook_run(ctx):
+    #         if ctx.input["success"]:
+    #             return 1
+    #         else:
+    #             raise ValueError("failed")
+
+    #     ran = []
+    #     errs = []
+
+    #     @post_success_hook(stateless_hook_run)
+    #     async def hook_success(ctx, result):
+    #         ran.append(True)
+
+    #     @post_failure_hook(stateless_hook_run)
+    #     async def hook_failure(ctx, error):
+    #         ran.append(True)
+    #         errs.append(error)
+
+    #     blueprint = stateless_hook_run
+    #     executor = StatelessWorkflowExecutor(blueprint)
+
+    #     await executor.run(WorkflowContext(input={"success": True}))
+    #     assert ran == [True]
+    #     assert errs == []
+
+    #     ran = []
+    #     errs = []
+    #     blueprint = stateless_hook_run
+    #     executor = StatelessWorkflowExecutor(blueprint)
+    #     await executor.run(WorkflowContext(input={"success": False}))
+    #     assert ran == [True]
+    #     assert len(errs) == 1
+    #     assert str(errs[0]) == "failed"
+
     @pytest.mark.asyncio
-    async def test_stateful_workflow_run_with_hooks(self, session):
-        @step
-        async def hook_run(ctx):
+    async def test_step_with_hooks_predefined_stateful(self, session):
+        ran = []
+        errs = []
+
+        async def post_success_hook(ctx, result):
+            ran.append(True)
+
+        async def post_failure_hook(ctx, error):
+            ran.append(True)
+            errs.append(error)
+
+        @step(
+            post_success_hooks=[post_success_hook],
+            post_failure_hooks=[post_failure_hook],
+        )
+        async def step_with_hooks(ctx):
             if ctx.input["success"]:
                 return 1
             else:
                 raise ValueError("failed")
 
-        ran = []
-        errs = []
-
-        @post_success_hook(hook_run)
-        async def hook_success(ctx, result):
-            ran.append("success")
-
-        @post_failure_hook(hook_run)
-        async def hook_failure(ctx, error):
-            ran.append("failure")
-            errs.append(error)
-
-        blueprint = hook_run
-        workflow = build_workflow("test", "test", blueprint, session)
+        workflow = step_with_hooks
+        workflow = build_workflow("test", "test", workflow, session)
         workflow_executor = WorkflowExecutor(workflow, session)
         await workflow_executor.run(WorkflowContext(input={"success": True}))
 
         assert workflow.state == WorkflowState.COMPLETED
-        assert ran == ["success"]
+        assert ran == [True]
+        assert errs == []
 
         ran = []
-        await workflow_executor.mark_rerun(workflow.find_step("hook_run", session))
+        errs = []
+        await workflow_executor.mark_rerun(
+            workflow.find_step("step_with_hooks", session)
+        )
         await workflow_executor.run(WorkflowContext(input={"success": False}))
-        assert ran == ["failure"]
+        assert ran == [True]
         assert len(errs) == 1
         assert str(errs[0]) == "failed"
 
     @pytest.mark.asyncio
-    async def test_stateless_workflow_run_with_hooks(self, session):
-        @step
-        async def stateless_hook_run(ctx):
+    async def test_step_with_hooks_predefined_stateless(self):
+        ran = []
+        errs = []
+
+        async def post_success_hook(ctx, result):
+            ran.append(True)
+
+        async def post_failure_hook(ctx, error):
+            ran.append(True)
+            errs.append(error)
+
+        @step(
+            post_success_hooks=[post_success_hook],
+            post_failure_hooks=[post_failure_hook],
+        )
+        async def step_with_hooks(ctx):
             if ctx.input["success"]:
                 return 1
             else:
                 raise ValueError("failed")
 
-        ran = []
-        errs = []
-
-        @post_success_hook(stateless_hook_run)
-        async def hook_success(ctx, result):
-            ran.append(True)
-
-        @post_failure_hook(stateless_hook_run)
-        async def hook_failure(ctx, error):
-            ran.append(True)
-            errs.append(error)
-
-        blueprint = stateless_hook_run
+        blueprint = step_with_hooks
         executor = StatelessWorkflowExecutor(blueprint)
-
         await executor.run(WorkflowContext(input={"success": True}))
         assert ran == [True]
         assert errs == []
 
         ran = []
         errs = []
-        blueprint = stateless_hook_run
+        blueprint = step_with_hooks
         executor = StatelessWorkflowExecutor(blueprint)
         await executor.run(WorkflowContext(input={"success": False}))
         assert ran == [True]

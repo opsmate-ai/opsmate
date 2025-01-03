@@ -286,6 +286,7 @@ async def execute_polya_understanding_instruction(
             ),
         )
     )
+
     opsmate_workflow = build_workflow(
         "understanding",
         "Understand the problem",
@@ -364,7 +365,19 @@ async def empty_cell(ctx: WorkflowContext):
     )
 
 
-@step
+async def initial_understanding_success_hook(ctx: WorkflowContext, result):
+    session = ctx.input["session"]
+    cell, _ = result
+    cell = Cell.find_by_id(session, cell.id)
+
+    cell.internal_workflow_id = ctx.workflow_id
+    cell.internal_workflow_step_id = ctx.step_id
+
+    session.add(cell)
+    session.commit()
+
+
+@step(post_success_hooks=[initial_understanding_success_hook])
 async def manage_initial_understanding_cell(
     ctx: WorkflowContext,
 ):
@@ -458,24 +471,24 @@ async def cond_is_technical_query(ctx: WorkflowContext):
     return iu is not None
 
 
-@step
-async def manage_info_gathering_cells(
-    ctx: WorkflowContext,
-):
-    parent_cell, iu = ctx.step_results
-    session = ctx.input["session"]
-    send = ctx.input["send"]
-    finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
+# @step
+# async def manage_info_gathering_cells(
+#     ctx: WorkflowContext,
+# ):
+#     parent_cell, iu = ctx.step_results
+#     session = ctx.input["session"]
+#     send = ctx.input["send"]
+#     finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
 
-    infos_gathered = []
-    cells = []
-    for i, task in enumerate(finding_tasks):
-        cell, info_gathered = await __manage_info_gathering_cell(
-            parent_cell, task, session, send
-        )
-        infos_gathered.append(info_gathered)
-        cells.append(cell)
-    return cells, infos_gathered
+#     infos_gathered = []
+#     cells = []
+#     for i, task in enumerate(finding_tasks):
+#         cell, info_gathered = await __manage_info_gathering_cell(
+#             parent_cell, task, session, send
+#         )
+#         infos_gathered.append(info_gathered)
+#         cells.append(cell)
+#     return cells, infos_gathered
 
 
 async def execute_info_gathering(
@@ -557,8 +570,19 @@ async def execute_info_gathering(
 
 
 def make_manage_info_gathering_cell(question_id: int):
+    async def success_hook(ctx: WorkflowContext, result):
+        session = ctx.input["session"]
+        cell, _ = result
+        cell = Cell.find_by_id(session, cell.id)
+        cell.internal_workflow_id = ctx.workflow_id
+        cell.internal_workflow_step_id = ctx.step_id
+        session.add(cell)
+        session.commit()
+
     @step_factory
-    @step
+    @step(
+        post_success_hooks=[success_hook],
+    )
     async def manage_info_gathering_cell(
         ctx: WorkflowContext,
     ):
@@ -741,8 +765,16 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
 
 
 def make_manage_potential_solution_cell(solution_id: int):
+    async def success_hook(ctx: WorkflowContext, result):
+        session = ctx.input["session"]
+        cell = Cell.find_by_id(session, result.id)
+        cell.internal_workflow_id = ctx.workflow_id
+        cell.internal_workflow_step_id = ctx.step_id
+        session.add(cell)
+        session.commit()
+
     @step_factory
-    @step
+    @step(post_success_hooks=[success_hook])
     async def manage_potential_solution_cell(ctx: WorkflowContext):
         cells, report_extracted = ctx.step_results
         session = ctx.input["session"]

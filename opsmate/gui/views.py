@@ -15,7 +15,6 @@ from opsmate.gui.models import (
 )
 from opsmate.gui.components import CellComponent, CellOutputRenderer
 from opsmate.dino.types import Message, Observation
-from typing import Coroutine, Any
 
 from opsmate.polya.models import (
     InitialUnderstandingResponse,
@@ -39,7 +38,6 @@ from opsmate.polya.planning import planning
 import pickle
 import sqlmodel
 import structlog
-import asyncio
 import subprocess
 import json
 from opsmate.workflow.workflow import (
@@ -48,11 +46,9 @@ from opsmate.workflow.workflow import (
     WorkflowExecutor,
     build_workflow,
     cond,
-    Step,
     step_factory,
 )
 from opsmate.workflow.workflow import (
-    Workflow as OpsmateWorkflow,
     WorkflowStep as OpsmateWorkflowStep,
 )
 
@@ -268,8 +264,7 @@ async def manage_initial_understanding_cell(
     parent_cell = ctx.input["question_cell"]
     session = ctx.input["session"]
     send = ctx.input["send"]
-    workflow = parent_cell.workflow
-
+    workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
     cells = workflow.cells
     # get the highest sequence number
     max_sequence = max(cell.sequence for cell in cells) if cells else 0
@@ -277,9 +272,19 @@ async def manage_initial_understanding_cell(
     max_execution_sequence = (
         max(cell.execution_sequence for cell in cells) if cells else 0
     )
-    cell = ctx.input.get("current_cell")
-    iu = ctx.input.get("iu")
+    context = [
+        conversation for conversation in conversation_context(parent_cell, session)
+    ]
+    cell = ctx.input.get("current_iu_cell")
     is_new_cell = cell is None
+    if is_new_cell:
+        iu = await initial_understanding(
+            parent_cell.input.rstrip(), chat_history=context
+        )
+    else:
+        iu = await load_inital_understanding(cell.input)
+        iu = InitialUnderstandingResponse(**iu.model_dump())
+
     if is_new_cell:
         logger.info("creating new initial understanding cell")
         cell = Cell(
@@ -301,19 +306,22 @@ async def manage_initial_understanding_cell(
 
         workflow.activate_cell(session, cell.id)
         session.commit()
-
-        context = [
-            conversation for conversation in conversation_context(parent_cell, session)
-        ]
-
-        iu = await initial_understanding(
-            parent_cell.input.rstrip(), chat_history=context
-        )
     else:
-        iu = InitialUnderstandingResponse(**iu.model_dump())
+        logger.info("updating existing initial understanding cell", cell_id=cell.id)
         cell.hidden = True
-        logger.info("updating existing initial understanding cell")
-
+        cell.execution_sequence = max_execution_sequence + 1
+        cell.output = pickle.dumps(
+            [
+                {
+                    "type": "InitialUnderstanding",
+                    "output": iu,
+                }
+            ]
+        )
+        session.add(cell)
+        session.commit()
+        await send(CellComponent(cell, hx_swap_oob="true"))
+        return cell, iu
     outputs = []
     await send(
         Div(
@@ -352,22 +360,21 @@ async def manage_initial_understanding_cell(
         }
     )
 
+    logger.info("initial understanding output", outputs=outputs)
+
     cell.output = pickle.dumps(outputs)
 
     cell.input = CellOutputRenderer(outputs[0]).render()[0]
     session.add(cell)
     session.commit()
 
-    if is_new_cell:
-        await send(
-            Div(
-                CellComponent(cell),
-                hx_swap_oob="beforeend",
-                id="cells-container",
-            )
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
         )
-    else:
-        await send(CellComponent(cell, hx_swap_oob="true"))
+    )
 
     return cell, iu
 
@@ -379,35 +386,14 @@ async def cond_is_technical_query(ctx: WorkflowContext):
 
 
 @step
-async def manage_potential_solution_cells(
-    ctx: WorkflowContext,
-):
-    session = ctx.input["session"]
-    send = ctx.input["send"]
-    cells, info_gathered = zip(*ctx.step_results)
-    cells, info_gathered = list(cells), list(info_gathered)
-    initial_understanding_result = ctx.find_result(
-        "manage_initial_understanding_cell", session
-    )
-    _, iu = initial_understanding_result
-    summary = iu.summary
-
-    report = await generate_report(summary, info_gathered=info_gathered)
-    report_extracted = await report_breakdown(report)
-    for solution in report_extracted.potential_solutions:
-        await __manage_potential_solution_cell(
-            cells, report_extracted.summary, solution, session, send
-        )
-    # xxx: pickle issue occur need resolving
-    return ReportExtracted(**report_extracted.model_dump())
-
-
-@step
 async def generate_report_with_breakdown(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
     cells, info_gathered = zip(*ctx.step_results)
-    cells, info_gathered = list(cells), list(info_gathered)
+    cells, info_gathered = (
+        list([cell for cell in cells if cell is not None]),
+        list([info for info in info_gathered if info is not None]),
+    )
     initial_understanding_result = ctx.find_result(
         "manage_initial_understanding_cell", session
     )
@@ -422,6 +408,8 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
 
 def make_manage_potential_solution_cell(solution_id: int):
     async def success_hook(ctx: WorkflowContext, result):
+        if result is None:
+            return
         session = ctx.input["session"]
         cell = Cell.find_by_id(session, result.id)
         cell.internal_workflow_id = ctx.workflow_id
@@ -472,6 +460,8 @@ def make_manage_info_gathering_cell(question_id: int):
     async def success_hook(ctx: WorkflowContext, result):
         session = ctx.input["session"]
         cell, _ = result
+        if cell is None:
+            return
         cell = Cell.find_by_id(session, cell.id)
         cell.internal_workflow_id = ctx.workflow_id
         cell.internal_workflow_step_id = ctx.step_id
@@ -488,9 +478,9 @@ def make_manage_info_gathering_cell(question_id: int):
         session = ctx.input["session"]
         send = ctx.input["send"]
         parent_cell, iu = ctx.find_result("manage_initial_understanding_cell", session)
-        workflow = parent_cell.workflow
+        workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
 
-        cell = ctx.input.get("current_cell")
+        cell = ctx.input.get("current_ig_cell")
         is_new_cell = cell is None
 
         if not is_new_cell:
@@ -500,10 +490,14 @@ def make_manage_info_gathering_cell(question_id: int):
                     id=f"cell-output-{cell.id}",
                 )
             )
+
         if ctx.input.get("question"):
             question = ctx.input.get("question")
         else:
+            if len(iu.questions) <= ctx.metadata["question_id"]:
+                return None, None
             question = iu.questions[ctx.metadata["question_id"]]
+        logger.info("info gathering", question=question)
         info_gathered = await info_gathering(iu.summary, question)
         info_gathered = InfoGathered(**info_gathered.model_dump())
 
@@ -514,14 +508,16 @@ def make_manage_info_gathering_cell(question_id: int):
                 "output": info_gathered,
             }
         )
+
+        cells = workflow.cells
+        # get the highest sequence number
+        max_sequence = max(c.sequence for c in cells) if cells else 0
+        # get the higest execution sequence number
+        max_execution_sequence = (
+            max(c.execution_sequence for c in cells) if cells else 0
+        )
         if is_new_cell:
-            cells = workflow.cells
-            # get the highest sequence number
-            max_sequence = max(cell.sequence for cell in cells) if cells else 0
-            # get the higest execution sequence number
-            max_execution_sequence = (
-                max(cell.execution_sequence for cell in cells) if cells else 0
-            )
+            logger.info("creating new info gathering cell")
             cell = Cell(
                 input=info_gathered.question,
                 output=pickle.dumps(outputs),
@@ -537,7 +533,9 @@ def make_manage_info_gathering_cell(question_id: int):
                 hidden=True,
             )
         else:
+            logger.info("updating existing info gathering cell", cell_id=cell.id)
             info_gathered = InfoGathered(**info_gathered.model_dump())
+            cell.output = pickle.dumps(outputs)
             cell.hidden = True
 
         session.add(cell)
@@ -576,9 +574,7 @@ async def __manage_potential_solution_cell(
     session: sqlmodel.Session,
     send,
 ):
-    # workflow = parent_cells[0].workflow
     workflow = Workflow.find_by_id(session, parent_cells[0].workflow_id)
-
     cells = workflow.cells
     # get the highest sequence number
     max_sequence = max(cell.sequence for cell in cells) if cells else 0
@@ -597,11 +593,6 @@ async def __manage_potential_solution_cell(
             "type": "PotentialSolution",
             "output": output,
         }
-    )
-
-    logger.info(
-        "create potential solution cell",
-        parent_cells=[parent_cell.id for parent_cell in parent_cells],
     )
 
     cell = Cell(
@@ -707,8 +698,6 @@ async def update_initial_understanding(
     send,
     session: sqlmodel.Session,
 ):
-    iu = await load_inital_understanding(cell.input)
-
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
         .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
@@ -727,8 +716,7 @@ async def update_initial_understanding(
             input={
                 "session": session,
                 "question_cell": cell.parent_cells(session)[0],
-                "current_cell": cell,
-                "iu": iu,
+                "current_iu_cell": cell,
                 "send": send,
             }
         )
@@ -759,7 +747,7 @@ async def update_info_gathering(
             input={
                 "session": session,
                 "send": send,
-                "current_cell": cell,
+                "current_ig_cell": cell,
                 "question": cell.input.rstrip(),
             }
         )

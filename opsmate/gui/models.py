@@ -49,7 +49,7 @@ class ThinkingSystemEnum(str, enum.Enum):
 class BluePrint(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     name: str = Field(unique=True, index=True)
     description: str = Field(default="")
 
@@ -106,7 +106,7 @@ class Workflow(SQLModel, table=True):
         # ),
     }
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     name: str = Field(index=True)
     title: str = Field(nullable=False)
     description: str = Field(nullable=False)
@@ -194,7 +194,7 @@ class CreatedByType(str, enum.Enum):
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     input: str = Field(default="")
     output: bytes = Field(sa_column=Column(LargeBinary))
     lang: CellLangEnum = Field(
@@ -265,7 +265,7 @@ class Cell(SQLModel, table=True):
 class KVStore(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     key: str = Field(unique=True, index=True)
     value: JSON = Field(sa_column=Column(JSON))
     created_at: datetime = Field(default=datetime.now())

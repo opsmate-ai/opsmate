@@ -51,6 +51,10 @@ from opsmate.workflow.workflow import (
     Step,
     step_factory,
 )
+from opsmate.workflow.workflow import (
+    Workflow as OpsmateWorkflow,
+    WorkflowStep as OpsmateWorkflowStep,
+)
 
 logger = structlog.get_logger()
 
@@ -242,127 +246,7 @@ async def execute_llm_react_instruction(
     session.commit()
 
 
-async def execute_llm_type2_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
-    workflow = cell.workflow
-    if workflow.name == WorkflowEnum.UNDERSTANDING:
-        if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
-            return await execute_initial_understanding(cell, send, session)
-        elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
-            return await execute_info_gathering(cell, send, session)
-        else:
-            return await execute_polya_understanding_instruction(cell, send, session)
-    elif workflow.name == WorkflowEnum.PLANNING:
-        return await execute_polya_planning_instruction(cell, swap, send, session)
-    elif workflow.name == WorkflowEnum.EXECUTION:
-        return await execute_polya_execution_instruction(cell, swap, send, session)
-
-
-async def execute_polya_understanding_instruction(
-    cell: Cell, send, session: sqlmodel.Session
-):
-    msg = cell.input.rstrip()
-    logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
-
-    blueprint = (
-        empty_cell
-        >> manage_initial_understanding_cell
-        >> cond(
-            cond_is_technical_query,
-            left=(
-                (
-                    make_manage_info_gathering_cell(0)
-                    | make_manage_info_gathering_cell(1)
-                    | make_manage_info_gathering_cell(2)
-                )
-                >> generate_report_with_breakdown
-                >> (
-                    make_manage_potential_solution_cell(0)
-                    | make_manage_potential_solution_cell(1)
-                    | make_manage_potential_solution_cell(2)
-                )
-                >> store_report_extracted
-            ),
-        )
-    )
-
-    opsmate_workflow = build_workflow(
-        "understanding",
-        "Understand the problem",
-        blueprint,
-        session,
-    )
-    executor = WorkflowExecutor(opsmate_workflow, session)
-    ctx = WorkflowContext(input={"session": session, "cell": cell, "send": send})
-
-    await executor.run(ctx)
-
-
-async def execute_initial_understanding(
-    cell: Cell,
-    send,
-    session: sqlmodel.Session,
-):
-    iu = await load_inital_understanding(cell.input)
-    outputs = []
-    await send(
-        Div(
-            *outputs,
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-    outputs = [
-        {
-            "type": "InitialUnderstanding",
-            "output": InitialUnderstandingResponse(**iu.model_dump()),
-        }
-    ]
-    cell.hidden = True
-    cell.output = pickle.dumps(outputs)
-    session.add(cell)
-    session.commit()
-
-    await send(
-        Div(
-            *[CellOutputRenderer(output).render() for output in outputs],
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-    if iu is None:
-        return
-
-    info_gather_cells, infos_gathered = await manage_info_gathering_cells(
-        cell, iu, session, send
-    )
-
-    report_extracted = await manage_potential_solution_cells(
-        iu.summary,
-        info_gather_cells,
-        infos_gathered,
-        session,
-        send,
-    )
-
-    workflow = cell.workflow
-    workflow.result = report_extracted.model_dump_json()
-    session.add(workflow)
-    session.commit()
-
-
-@step
-async def empty_cell(ctx: WorkflowContext):
-    session = ctx.input["session"]
-    cell = ctx.input["cell"]
-    send = ctx.input["send"]
-    await send(
-        Div(
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
+############################## Start of steps ##############################
 
 
 async def initial_understanding_success_hook(ctx: WorkflowContext, result):
@@ -381,7 +265,7 @@ async def initial_understanding_success_hook(ctx: WorkflowContext, result):
 async def manage_initial_understanding_cell(
     ctx: WorkflowContext,
 ):
-    parent_cell = ctx.input["cell"]
+    parent_cell = ctx.input["question_cell"]
     session = ctx.input["session"]
     send = ctx.input["send"]
     workflow = parent_cell.workflow
@@ -393,33 +277,51 @@ async def manage_initial_understanding_cell(
     max_execution_sequence = (
         max(cell.execution_sequence for cell in cells) if cells else 0
     )
+    cell = ctx.input.get("current_cell")
+    iu = ctx.input.get("iu")
+    is_new_cell = cell is None
+    if is_new_cell:
+        logger.info("creating new initial understanding cell")
+        cell = Cell(
+            input="",
+            output=b"",
+            lang=CellLangEnum.TEXT_INSTRUCTION,
+            thinking_system=ThinkingSystemEnum.TYPE2,
+            sequence=max_sequence + 1,
+            execution_sequence=max_execution_sequence + 1,
+            active=True,
+            workflow_id=parent_cell.workflow_id,
+            cell_type=CellType.UNDERSTANDING_ASK_QUESTIONS,
+            created_by=CreatedByType.ASSISTANT,
+            parent_cell_ids=[parent_cell.id],
+            hidden=True,
+        )
+        session.add(cell)
+        session.commit()
 
-    context = [
-        conversation for conversation in conversation_context(parent_cell, session)
-    ]
+        workflow.activate_cell(session, cell.id)
+        session.commit()
 
-    cell = Cell(
-        input="",
-        output=b"",
-        lang=CellLangEnum.TEXT_INSTRUCTION,
-        thinking_system=ThinkingSystemEnum.TYPE2,
-        sequence=max_sequence + 1,
-        execution_sequence=max_execution_sequence + 1,
-        active=True,
-        workflow_id=parent_cell.workflow_id,
-        cell_type=CellType.UNDERSTANDING_ASK_QUESTIONS,
-        created_by=CreatedByType.ASSISTANT,
-        parent_cell_ids=[parent_cell.id],
-        hidden=True,
-    )
-    session.add(cell)
-    session.commit()
+        context = [
+            conversation for conversation in conversation_context(parent_cell, session)
+        ]
 
-    workflow.activate_cell(session, cell.id)
-    session.commit()
+        iu = await initial_understanding(
+            parent_cell.input.rstrip(), chat_history=context
+        )
+    else:
+        iu = InitialUnderstandingResponse(**iu.model_dump())
+        cell.hidden = True
+        logger.info("updating existing initial understanding cell")
 
     outputs = []
-    iu = await initial_understanding(parent_cell.input.rstrip(), chat_history=context)
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
     if isinstance(iu, NonTechnicalQuery):
         outputs.append(
             {
@@ -431,6 +333,8 @@ async def manage_initial_understanding_cell(
         cell.output = pickle.dumps(outputs)
         session.add(cell)
         session.commit()
+
+        # can only be a new cell
         await send(
             Div(
                 CellComponent(cell),
@@ -454,13 +358,16 @@ async def manage_initial_understanding_cell(
     session.add(cell)
     session.commit()
 
-    await send(
-        Div(
-            CellComponent(cell),
-            hx_swap_oob="beforeend",
-            id="cells-container",
+    if is_new_cell:
+        await send(
+            Div(
+                CellComponent(cell),
+                hx_swap_oob="beforeend",
+                id="cells-container",
+            )
         )
-    )
+    else:
+        await send(CellComponent(cell, hx_swap_oob="true"))
 
     return cell, iu
 
@@ -471,99 +378,92 @@ async def cond_is_technical_query(ctx: WorkflowContext):
     return iu is not None
 
 
-# @step
-# async def manage_info_gathering_cells(
-#     ctx: WorkflowContext,
-# ):
-#     parent_cell, iu = ctx.step_results
-#     session = ctx.input["session"]
-#     send = ctx.input["send"]
-#     finding_tasks = [info_gathering(iu.summary, question) for question in iu.questions]
-
-#     infos_gathered = []
-#     cells = []
-#     for i, task in enumerate(finding_tasks):
-#         cell, info_gathered = await __manage_info_gathering_cell(
-#             parent_cell, task, session, send
-#         )
-#         infos_gathered.append(info_gathered)
-#         cells.append(cell)
-#     return cells, infos_gathered
-
-
-async def execute_info_gathering(
-    cell: Cell,
-    send,
-    session: sqlmodel.Session,
+@step
+async def manage_potential_solution_cells(
+    ctx: WorkflowContext,
 ):
-    outputs = []
-    await send(
-        Div(
-            *outputs,
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
+    session = ctx.input["session"]
+    send = ctx.input["send"]
+    cells, info_gathered = zip(*ctx.step_results)
+    cells, info_gathered = list(cells), list(info_gathered)
+    initial_understanding_result = ctx.find_result(
+        "manage_initial_understanding_cell", session
     )
-    parent_cells = cell.parent_cells(session)
-    if len(parent_cells) == 0:
-        logger.error("No parent cells found", cell_id=cell.id)
-        return
-
-    parent_cell = parent_cells[0]
-
-    parent_outputs = pickle.loads(parent_cell.output)
-    iu = parent_outputs[0]["output"]
+    _, iu = initial_understanding_result
     summary = iu.summary
-    info_gather_task = info_gathering(summary, cell.input)
 
-    info_gathered = await info_gather_task
-    info_gathered = InfoGathered(**info_gathered.model_dump())
-
-    outputs.append(
-        {
-            "type": "InfoGathered",
-            "output": info_gathered,
-        }
-    )
-
-    cell.output = pickle.dumps(outputs)
-    cell.hidden = True
-    session.add(cell)
-    session.commit()
-
-    await send(
-        Div(
-            *[CellOutputRenderer(output).render() for output in outputs],
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
+    report = await generate_report(summary, info_gathered=info_gathered)
+    report_extracted = await report_breakdown(report)
+    for solution in report_extracted.potential_solutions:
+        await __manage_potential_solution_cell(
+            cells, report_extracted.summary, solution, session, send
         )
-    )
+    # xxx: pickle issue occur need resolving
+    return ReportExtracted(**report_extracted.model_dump())
 
-    info_gather_cells = session.exec(
-        select(Cell).where(
-            Cell.workflow_id == cell.workflow_id,
-            Cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO,
+
+@step
+async def generate_report_with_breakdown(ctx: WorkflowContext):
+    session = ctx.input["session"]
+    send = ctx.input["send"]
+    cells, info_gathered = zip(*ctx.step_results)
+    cells, info_gathered = list(cells), list(info_gathered)
+    initial_understanding_result = ctx.find_result(
+        "manage_initial_understanding_cell", session
+    )
+    _, iu = initial_understanding_result
+    summary = iu.summary
+
+    report = await generate_report(summary, info_gathered=info_gathered)
+    report_extracted = await report_breakdown(report)
+
+    return cells, ReportExtracted(**report_extracted.model_dump())
+
+
+def make_manage_potential_solution_cell(solution_id: int):
+    async def success_hook(ctx: WorkflowContext, result):
+        session = ctx.input["session"]
+        cell = Cell.find_by_id(session, result.id)
+        cell.internal_workflow_id = ctx.workflow_id
+        cell.internal_workflow_step_id = ctx.step_id
+        session.add(cell)
+        session.commit()
+
+    @step_factory
+    @step(post_success_hooks=[success_hook])
+    async def manage_potential_solution_cell(ctx: WorkflowContext):
+        cells, report_extracted = ctx.step_results
+        session = ctx.input["session"]
+        send = ctx.input["send"]
+        solution_id = ctx.metadata["solution_id"]
+        if len(report_extracted.potential_solutions) <= solution_id:
+            return None
+        return await __manage_potential_solution_cell(
+            cells,
+            report_extracted.summary,
+            report_extracted.potential_solutions[solution_id],
+            session,
+            send,
         )
-    ).all()
 
-    infos_gathered = []
-    for info_gather_cell in info_gather_cells:
-        info_gathered = pickle.loads(info_gather_cell.output)[0]["output"]
-        infos_gathered.append(info_gathered)
+    return manage_potential_solution_cell(metadata={"solution_id": solution_id})
 
-    logger.info(
-        "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
-    )
 
-    report_extracted = await manage_potential_solution_cells(
-        iu.summary,
-        info_gather_cells,
-        infos_gathered,
-        session,
-        send,
-    )
+manage_potential_solution_cells = [
+    make_manage_potential_solution_cell(0),
+    make_manage_potential_solution_cell(1),
+    make_manage_potential_solution_cell(2),
+]
 
-    workflow = cell.workflow
+
+@step
+async def store_report_extracted(ctx: WorkflowContext):
+    cell = ctx.input["question_cell"]
+    session = ctx.input["session"]
+
+    _, report_extracted = ctx.find_result("generate_report_with_breakdown", session)
+
+    workflow = Workflow.find_by_id(session, cell.workflow_id)
     workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()
@@ -597,6 +497,13 @@ def make_manage_info_gathering_cell(question_id: int):
         )
 
     return manage_info_gathering_cell(metadata={"question_id": question_id})
+
+
+manage_info_gather_cells = [
+    make_manage_info_gathering_cell(0),
+    make_manage_info_gathering_cell(1),
+    make_manage_info_gathering_cell(2),
+]
 
 
 async def __manage_info_gathering_cell(
@@ -723,84 +630,178 @@ async def __manage_potential_solution_cell(
 
 
 @step
-async def manage_potential_solution_cells(
-    ctx: WorkflowContext,
+async def empty_cell(ctx: WorkflowContext):
+    session = ctx.input["session"]
+    cell = ctx.input["question_cell"]
+    send = ctx.input["send"]
+    await send(
+        Div(
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+
+############################## End of steps ##############################
+
+
+async def execute_llm_type2_instruction(
+    cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
-    session = ctx.input["session"]
-    send = ctx.input["send"]
-    cells, info_gathered = zip(*ctx.step_results)
-    cells, info_gathered = list(cells), list(info_gathered)
-    initial_understanding_result = ctx.find_result(
-        "manage_initial_understanding_cell", session
-    )
-    _, iu = initial_understanding_result
-    summary = iu.summary
+    workflow = cell.workflow
+    if workflow.name == WorkflowEnum.UNDERSTANDING:
+        if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
+            return await update_initial_understanding(cell, send, session)
+        elif cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO:
+            return await execute_info_gathering(cell, send, session)
+        else:
+            return await execute_polya_understanding_instruction(cell, send, session)
+    elif workflow.name == WorkflowEnum.PLANNING:
+        return await execute_polya_planning_instruction(cell, swap, send, session)
+    elif workflow.name == WorkflowEnum.EXECUTION:
+        return await execute_polya_execution_instruction(cell, swap, send, session)
 
-    report = await generate_report(summary, info_gathered=info_gathered)
-    report_extracted = await report_breakdown(report)
-    for solution in report_extracted.potential_solutions:
-        await __manage_potential_solution_cell(
-            cells, report_extracted.summary, solution, session, send
+
+async def execute_polya_understanding_instruction(
+    cell: Cell, send, session: sqlmodel.Session
+):
+    msg = cell.input.rstrip()
+    logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
+
+    blueprint = (
+        empty_cell
+        >> manage_initial_understanding_cell
+        >> cond(
+            cond_is_technical_query,
+            left=(
+                reduce(lambda x, y: x | y, manage_info_gather_cells)
+                >> generate_report_with_breakdown
+                >> reduce(lambda x, y: x | y, manage_potential_solution_cells)
+                >> store_report_extracted
+            ),
         )
-    # xxx: pickle issue occur need resolving
-    return ReportExtracted(**report_extracted.model_dump())
-
-
-@step
-async def generate_report_with_breakdown(ctx: WorkflowContext):
-    session = ctx.input["session"]
-    send = ctx.input["send"]
-    cells, info_gathered = zip(*ctx.step_results)
-    cells, info_gathered = list(cells), list(info_gathered)
-    initial_understanding_result = ctx.find_result(
-        "manage_initial_understanding_cell", session
     )
-    _, iu = initial_understanding_result
-    summary = iu.summary
 
-    report = await generate_report(summary, info_gathered=info_gathered)
-    report_extracted = await report_breakdown(report)
+    opsmate_workflow = build_workflow(
+        "understanding",
+        "Understand the problem",
+        blueprint,
+        session,
+    )
+    executor = WorkflowExecutor(opsmate_workflow, session)
+    ctx = WorkflowContext(
+        input={"session": session, "question_cell": cell, "send": send}
+    )
 
-    return cells, ReportExtracted(**report_extracted.model_dump())
+    await executor.run(ctx)
 
 
-def make_manage_potential_solution_cell(solution_id: int):
-    async def success_hook(ctx: WorkflowContext, result):
-        session = ctx.input["session"]
-        cell = Cell.find_by_id(session, result.id)
-        cell.internal_workflow_id = ctx.workflow_id
-        cell.internal_workflow_step_id = ctx.step_id
-        session.add(cell)
-        session.commit()
+async def update_initial_understanding(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    iu = await load_inital_understanding(cell.input)
 
-    @step_factory
-    @step(post_success_hooks=[success_hook])
-    async def manage_potential_solution_cell(ctx: WorkflowContext):
-        cells, report_extracted = ctx.step_results
-        session = ctx.input["session"]
-        send = ctx.input["send"]
-        solution_id = ctx.metadata["solution_id"]
-        if len(report_extracted.potential_solutions) <= solution_id:
-            return None
-        return await __manage_potential_solution_cell(
-            cells,
-            report_extracted.summary,
-            report_extracted.potential_solutions[solution_id],
-            session,
-            send,
+    opsmate_workflow_step = session.exec(
+        select(OpsmateWorkflowStep)
+        .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
+        .where(OpsmateWorkflowStep.workflow_id == cell.internal_workflow_id)
+    ).first()
+    if not opsmate_workflow_step:
+        logger.error("Opsmate workflow step not found", cell_id=cell.id)
+        return
+    opsmate_workflow = opsmate_workflow_step.workflow
+
+    executor = WorkflowExecutor(opsmate_workflow, session)
+    await executor.mark_rerun(opsmate_workflow_step)
+
+    await executor.run(
+        WorkflowContext(
+            input={
+                "session": session,
+                "question_cell": cell.parent_cells(session)[0],
+                "current_cell": cell,
+                "iu": iu,
+                "send": send,
+            }
         )
+    )
 
-    return manage_potential_solution_cell(metadata={"solution_id": solution_id})
 
+async def execute_info_gathering(
+    cell: Cell,
+    send,
+    session: sqlmodel.Session,
+):
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    parent_cells = cell.parent_cells(session)
+    if len(parent_cells) == 0:
+        logger.error("No parent cells found", cell_id=cell.id)
+        return
 
-@step
-async def store_report_extracted(ctx: WorkflowContext):
-    cell = ctx.input["cell"]
-    session = ctx.input["session"]
+    parent_cell = parent_cells[0]
 
-    _, report_extracted = ctx.find_result("generate_report_with_breakdown", session)
+    parent_outputs = pickle.loads(parent_cell.output)
+    iu = parent_outputs[0]["output"]
+    summary = iu.summary
+    info_gather_task = info_gathering(summary, cell.input)
 
-    workflow = Workflow.find_by_id(session, cell.workflow_id)
+    info_gathered = await info_gather_task
+    info_gathered = InfoGathered(**info_gathered.model_dump())
+
+    outputs.append(
+        {
+            "type": "InfoGathered",
+            "output": info_gathered,
+        }
+    )
+
+    cell.output = pickle.dumps(outputs)
+    cell.hidden = True
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            *[CellOutputRenderer(output).render() for output in outputs],
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+
+    info_gather_cells = session.exec(
+        select(Cell).where(
+            Cell.workflow_id == cell.workflow_id,
+            Cell.cell_type == CellType.UNDERSTANDING_GATHER_INFO,
+        )
+    ).all()
+
+    infos_gathered = []
+    for info_gather_cell in info_gather_cells:
+        info_gathered = pickle.loads(info_gather_cell.output)[0]["output"]
+        infos_gathered.append(info_gathered)
+
+    logger.info(
+        "info_gather_cells", info_gather_cells=[cell.id for cell in info_gather_cells]
+    )
+
+    report_extracted = await manage_potential_solution_cells(
+        iu.summary,
+        info_gather_cells,
+        infos_gathered,
+        session,
+        send,
+    )
+
+    workflow = cell.workflow
     workflow.result = report_extracted.model_dump_json()
     session.add(workflow)
     session.commit()

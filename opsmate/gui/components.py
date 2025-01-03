@@ -13,17 +13,18 @@ from jinja2 import Template
 
 
 class CellComponent:
-    def __init__(self, cell: Cell):
+    def __init__(self, cell: Cell, hx_swap_oob=None):
         self.cell = cell
         self.cell_size = len(self.cell.workflow.cells)
         self.blueprint = self.cell.workflow.blueprint
+        self.hx_swap_oob = hx_swap_oob
 
     def __ft__(self):
         """Renders a single cell component"""
         # Determine if the cell is active
         active_class = "border-green-500" if self.cell.active else "border-gray-300"
 
-        return Div(
+        div = Div(
             # Add Cell Button Menu
             self.cell_insert_dropdown(),
             # Main Cell Content
@@ -40,6 +41,9 @@ class CellComponent:
             key=self.cell.id,
             id=f"cell-component-{self.cell.id}",
         )
+        if self.hx_swap_oob:
+            div.hx_swap_oob = self.hx_swap_oob
+        return div
 
     def cell_insert_dropdown(self):
         return (

@@ -2,6 +2,10 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
+from pydantic import model_validator, field_validator, ValidationInfo
+from opsmate.dino import dino
+import asyncio
+import concurrent.futures
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -11,6 +15,17 @@ class InitialUnderstandingResponse(BaseModel):
 
     summary: str
     questions: List[str]
+
+    @model_validator(mode="after")
+    def validate_questions(self, info: ValidationInfo):
+        if not info.context:
+            return self
+        expected_num_questions = info.context.get("num_questions", 3)
+        if len(self.questions) != expected_num_questions:
+            raise ValueError(
+                f"The number of questions must be {expected_num_questions}"
+            )
+        return self
 
 
 class NonTechnicalQuery(BaseModel):
@@ -23,6 +38,23 @@ class NonTechnicalQuery(BaseModel):
     )
 
 
+@dino("gpt-4o-mini", response_model=bool)
+async def command_has_placeholders(command: str) -> bool:
+    """
+    Check if the command has placeholders
+
+    Example 1:
+    command: kubectl -n <namespace> get pods
+    return: True
+
+    Example 2:
+    command: kubectl -n finance get pods
+    return: False
+
+    """
+    return command
+
+
 class Command(BaseModel):
     """
     The command line to be executed
@@ -33,6 +65,15 @@ class Command(BaseModel):
         description="what are the informations are provided by the command execution"
     )
     result: Optional[str] = Field(description="DO NOT populate the value")
+
+    @field_validator("command")
+    @classmethod
+    def validate_command(cls, v):
+        pool = concurrent.futures.ThreadPoolExecutor(1)
+        result = pool.submit(asyncio.run, command_has_placeholders(v)).result()
+        if result:
+            raise ValueError(f"Command {v} has placeholders")
+        return v
 
     def execute(self):
         """
@@ -65,6 +106,13 @@ class QuestionResponse(BaseModel):
     commands: List[Command] = Field(
         description="The command line to be executed to answer the question"
     )
+
+    @model_validator(mode="after")
+    def execute_commands(self):
+        for command in self.commands:
+            if command.result is None:
+                command.execute()
+        return self
 
     def execute(self):
         """
@@ -182,11 +230,32 @@ class ReportExtracted(BaseModel):
 
     summary: str = Field(description="The summary of the problem")
     potential_solutions: List[Solution] = Field(
-        description="The potential solutions to the problem"
+        description="The potential solutions to the problem, the probabilities of solutions must be added up to 100"
     )
 
+    @model_validator(mode="after")
     def sort_potential_solutions(self):
         self.potential_solutions.sort(key=lambda x: x.probability, reverse=True)
+        return self
+
+    @model_validator(mode="after")
+    def validate_potential_solutions(self):
+        total_probability = sum(
+            solution.probability for solution in self.potential_solutions
+        )
+        if total_probability != 100:
+            raise ValueError("The probabilities of solutions must be added up to 100")
+        return self
+
+    @model_validator(mode="after")
+    def potention_solutions_count(self, info: ValidationInfo):
+        if not info.context:
+            return self
+        max_num_solutions = info.context.get("max_num_solutions", 3)
+        if len(self.potential_solutions) > max_num_solutions:
+            raise ValueError(
+                f"The number of potential solutions must be less than or equal to {max_num_solutions}"
+            )
         return self
 
 

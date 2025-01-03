@@ -11,7 +11,9 @@ from opsmate.gui.models import (
     Workflow,
     WorkflowEnum,
     default_new_cell,
+    SQLModel as GUISQLModel,
 )
+from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
     tlink,
@@ -48,7 +50,8 @@ engine = sqlmodel.create_engine(
 
 
 def on_startup():
-    sqlmodel.SQLModel.metadata.create_all(engine)
+    GUISQLModel.metadata.create_all(engine)
+    WorkflowSQLModel.metadata.create_all(engine)
 
 
 def before(req, session):

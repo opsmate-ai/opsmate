@@ -1,6 +1,6 @@
 import enum
 from sqlmodel import (
-    SQLModel,
+    SQLModel as _SQLModel,
     Field,
     Column,
     Enum,
@@ -10,19 +10,22 @@ from sqlmodel import (
     Session,
     JSON,
     Text,
+    MetaData,
 )
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
-import subprocess
-from typing import Optional
-from opsmate.dino.types import ToolCall, Message
+from opsmate.dino.types import Message
 from opsmate.dino import run_react
-from opsmate.tools import ShellCommand
 from opsmate.contexts import k8s_ctx, k8s_tools
+from sqlalchemy.orm import registry
 
 logger = structlog.get_logger(__name__)
+
+
+class SQLModel(_SQLModel, registry=registry()):
+    metadata = MetaData()
 
 
 class CellLangEnum(enum.Enum):
@@ -46,7 +49,7 @@ class ThinkingSystemEnum(str, enum.Enum):
 class BluePrint(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     name: str = Field(unique=True, index=True)
     description: str = Field(default="")
 
@@ -95,6 +98,7 @@ class BluePrint(SQLModel, table=True):
 
 
 class Workflow(SQLModel, table=True):
+    __tablename__ = "workflow"
     __table_args__ = {
         "extend_existing": True,
         # "UniqueConstraint": UniqueConstraint(
@@ -102,7 +106,7 @@ class Workflow(SQLModel, table=True):
         # ),
     }
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     name: str = Field(index=True)
     title: str = Field(nullable=False)
     description: str = Field(nullable=False)
@@ -190,7 +194,7 @@ class CreatedByType(str, enum.Enum):
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     input: str = Field(default="")
     output: bytes = Field(sa_column=Column(LargeBinary))
     lang: CellLangEnum = Field(
@@ -208,6 +212,9 @@ class Cell(SQLModel, table=True):
 
     workflow_id: int = Field(foreign_key="workflow.id")
     workflow: Workflow = Relationship(back_populates="cells")
+
+    internal_workflow_id: int = Field(default=0)
+    internal_workflow_step_id: int = Field(default=0)
 
     hidden: bool = Field(default=False)
 
@@ -258,7 +265,7 @@ class Cell(SQLModel, table=True):
 class KVStore(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
-    id: int = Field(primary_key=True)
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     key: str = Field(unique=True, index=True)
     value: JSON = Field(sa_column=Column(JSON))
     created_at: datetime = Field(default=datetime.now())

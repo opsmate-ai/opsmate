@@ -6,7 +6,7 @@ from opsmate.polya.models import (
     NonTechnicalQuery,
     ReportExtracted,
 )
-from typing import List, Union
+from typing import List, Union, Any
 from jinja2 import Template
 import asyncio
 from opsmate.dino import dino
@@ -25,10 +25,15 @@ extra_sys_prompt = """
 """
 
 
-@dino("gpt-4o", response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery])
+@dino(
+    "gpt-4o",
+    response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
+    context={"num_questions": 3},
+)
 async def initial_understanding(
-    question: str,
+    query: str,
     prefill: str = extra_sys_prompt,
+    context: dict[str, Any] = {"num_questions": 3},
     chat_history: ListOfMessageOrDict = [],
 ):
     """
@@ -37,7 +42,7 @@ async def initial_understanding(
     </assistant>
 
     <rules>
-    You will receive a user question that may include a problem description, command line output, logs as the context.
+    You will receive a user query that may include a problem description, command line output, logs as the context.
     *DO NOT* answer non-technical topics from user, just answer I don't know.
     Please maintain a concise and methodical tone in your responses:
     - Clearly identify what you are being asked to do.
@@ -59,7 +64,6 @@ async def initial_understanding(
     - Do not solutionise prematurely.
     - Do not ask any tools or permissions related questions.
     - Do not ask questions that previously has been answered.
-    - Only ask 3 questions at most.
     - Use markdown in your response.
     - Feel free to leave the questions blank if you think you have enough information to solve the problem.
     </important_notes>
@@ -67,22 +71,28 @@ async def initial_understanding(
     return [
         Message.system(prefill),
         *Message.normalise(chat_history),
-        Message.user(question),
+        Message.user(f"Please ask {context['num_questions']} questions at most"),
+        Message.user(query),
     ]
 
 
-@dino("gpt-4o", response_model=InitialUnderstandingResponse)
+@dino(
+    "gpt-4o",
+    response_model=InitialUnderstandingResponse,
+)
 async def load_inital_understanding(text: str):
     """
     You are a world class information extractor. You are good at extracting information from a text.
+    Please be accurate with the number of questions in the text given based on the markdown bullet points.
     """
-    return text
+    return [
+        Message.user(text),
+    ]
 
 
 @dino(
     "gpt-4o",
     response_model=QuestionResponse,
-    after_hook=lambda response: response.execute(),
 )
 async def __info_gathering(
     summary: str, question: str, context: str = extra_sys_prompt
@@ -196,9 +206,11 @@ async def generate_report(
 @dino(
     "gpt-4o",
     response_model=ReportExtracted,
-    after_hook=lambda response: response.sort_potential_solutions(),
+    context={"max_num_solutions": 3},
 )
-async def report_breakdown(report: Report):
+async def report_breakdown(
+    report: Report, context: dict[str, Any] = {"max_num_solutions": 3}
+):
     """
     Break down the report into a structured format
     """

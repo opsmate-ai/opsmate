@@ -1,5 +1,5 @@
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationInfo, model_validator
 from opsmate.dino import dino, dtool
 from typing import Literal, Iterable
 from openai import AsyncOpenAI
@@ -246,6 +246,46 @@ async def test_swap_model():
 
     assert await get_llm_info() == "OpenAI"
     assert await get_llm_info(model="claude-3-5-sonnet-20241022") == "Anthropic"
+
+
+@pytest.mark.asyncio
+async def test_dino_with_func_context():
+    class Brand(BaseModel):
+        brand: Literal["OpenAI", "Anthropic"]
+
+        @model_validator(mode="after")
+        def validate_brand(cls, v: str, info: ValidationInfo):
+            brand = info.context.get("brand")
+            if brand:
+                v.brand = brand
+            return v
+
+    @dino("gpt-4o-mini", response_model=Brand)
+    async def get_llm_info(context):
+        return f"who made you?"
+
+    info = await get_llm_info(context={"brand": "Anthropic"})
+    assert info.brand == "Anthropic"
+
+
+@pytest.mark.asyncio
+async def test_dino_with_decorator_context():
+    class Brand(BaseModel):
+        brand: Literal["OpenAI", "Anthropic"]
+
+        @model_validator(mode="after")
+        def validate_brand(cls, v: str, info: ValidationInfo):
+            brand = info.context.get("brand")
+            if brand:
+                v.brand = brand
+            return v
+
+    @dino("gpt-4o-mini", response_model=Brand, context={"brand": "Anthropic"})
+    async def get_llm_info():
+        return f"who made you?"
+
+    info = await get_llm_info()
+    assert info.brand == "Anthropic"
 
 
 # @pytest.mark.asyncio

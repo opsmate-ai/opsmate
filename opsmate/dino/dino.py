@@ -168,6 +168,7 @@ def dino(
                 initial_response = await provider.chat_completion(
                     messages=messages,
                     response_model=Iterable[Union[tuple(_tools)]],
+                    client=_client,
                     **ikwargs,
                 )
                 for resp in initial_response:

@@ -241,11 +241,35 @@ async def test_swap_model():
     brand = Literal["OpenAI", "Anthropic"]
 
     @dino("gpt-4o-mini", response_model=brand)
-    async def get_llm_info(model: str = None):
+    async def get_llm_info():
         return f"who made you?"
 
     assert await get_llm_info() == "OpenAI"
     assert await get_llm_info(model="claude-3-5-sonnet-20241022") == "Anthropic"
+
+
+@pytest.mark.asyncio
+async def test_dino_with_func_tools():
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"The weather in {location} is sunny"
+
+    @dtool
+    async def get_weather_v2(location: str) -> str:
+        return f"The weather in {location} is cloudy"
+
+    @dino(
+        "gpt-4o-mini",
+        tools=[get_weather, get_weather],
+        response_model=Literal["sunny", "cloudy"],
+    )
+    async def get_weather_info(location: str):
+        """
+        you answer the question about the weather in the given location.
+        """
+        return f"What is the weather in {location}?"
+
+    assert await get_weather_info("San Francisco", tools=[get_weather_v2]) == "cloudy"
 
 
 @pytest.mark.asyncio

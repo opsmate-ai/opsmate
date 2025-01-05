@@ -1,15 +1,33 @@
-from typing import Any, Callable, Coroutine, List, Union, Iterable
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    List,
+    Union,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    Awaitable,
+    Type,
+)
 from pydantic import BaseModel
 import inspect
 from functools import wraps
 from .provider import Provider
 from .types import Message, ToolCall
 from .utils import args_dump
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+P = ParamSpec("P")
+R = TypeVar("R")
+T = TypeVar("T")
 
 
 def dino(
     model: str,
-    response_model: Any,
+    response_model: Type[T],
     after_hook: Callable | Coroutine = None,
     tools: List[ToolCall] = [],
     **kwargs: Any,
@@ -70,10 +88,39 @@ def dino(
         if "response" not in params:
             raise ValueError("after_hook must have `response` as a parameter")
 
-    def wrapper(fn: Callable):
+    decorator_model = model
+    decorator_tools = tools
+
+    def _get_model(model: str, decorator_model: str):
+        if model:
+            logger.debug(
+                "Override the decorator model to the function model",
+                model=model,
+                decorator_model=decorator_model,
+            )
+            return model
+        return decorator_model
+
+    def _get_tools(tools: List[ToolCall], decorator_tools: List[ToolCall]):
+        if tools and isinstance(tools, list):
+            logger.debug(
+                "Override the decorator tools to the function tools",
+                tools=tools,
+                decorator_tools=decorator_tools,
+            )
+            return tools
+        return decorator_tools
+
+    def wrapper(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[T]]:
         @wraps(fn)
-        async def wrapper(*args, **fn_kwargs):
-            _model = fn_kwargs.get("model") or model
+        async def wrapper(
+            *args: P.args,
+            tools: List[ToolCall] = [],
+            model: str = None,
+            **fn_kwargs: P.kwargs,
+        ):
+            _model = _get_model(model, decorator_model)
+            _tools = _get_tools(tools, decorator_tools)
             provider = Provider.from_model(_model)
 
             system_prompt = fn.__doc__
@@ -102,10 +149,10 @@ def dino(
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
             tool_outputs = []
-            if tools:
+            if _tools:
                 initial_response = await provider.chat_completion(
                     messages=messages,
-                    response_model=Iterable[Union[tuple(tools)]],
+                    response_model=Iterable[Union[tuple(_tools)]],
                     **ikwargs,
                 )
                 for resp in initial_response:

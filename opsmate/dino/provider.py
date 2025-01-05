@@ -34,6 +34,7 @@ class Provider(ABC):
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]: ...
 
@@ -71,9 +72,10 @@ class OpenAIProvider(Provider):
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = kwargs.get("client") or cls.default_client()
+        client = client or cls.default_client()
         kwargs.pop("client", None)
 
         messages = [{"role": m.role, "content": m.content} for m in messages]
@@ -114,9 +116,10 @@ class AnthropicProvider(Provider):
         validation_context: dict[str, Any] | None = None,
         context: dict[str, Any] | None = None,  # {{ edit_1 }}
         strict: bool = True,
+        client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = kwargs.get("client") or cls.default_client()
+        client = client or cls.default_client()
         kwargs.pop("client", None)
         messages = [{"role": m.role, "content": m.content} for m in messages]
 

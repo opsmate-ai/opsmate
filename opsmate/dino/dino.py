@@ -1,45 +1,65 @@
-from typing import Any, Callable, Coroutine, List, Union, Iterable
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    List,
+    Union,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    Awaitable,
+    Type,
+)
 from pydantic import BaseModel
 import inspect
 from functools import wraps
 from .provider import Provider
 from .types import Message, ToolCall
 from .utils import args_dump
+import structlog
+from instructor import AsyncInstructor
+
+logger = structlog.get_logger(__name__)
+
+P = ParamSpec("P")
+R = TypeVar("R")
+T = TypeVar("T")
 
 
 def dino(
     model: str,
-    response_model: Any,
+    response_model: Type[T],
     after_hook: Callable | Coroutine = None,
     tools: List[ToolCall] = [],
+    client: AsyncInstructor = None,
     **kwargs: Any,
 ):
     """
-    dino (dino is not openai) is a decorator that makes it easier to use LLMs.
+    Dino (Dino Is Not OpenAI) is a decorator to simplify the use of LLMs.
 
     Parameters:
-        model:
-            The LLM model to use. Conventionally the model provider is automatically detected from the model name.
-        response_model:
+        model (str):
+            The LLM model to use. The model provider is typically inferred from the model name.
+        response_model (Type[T]):
             The model to use for the response.
-        after_hook:
-            A function or a coroutine to call against the response.
-            If it is a coroutine, it will be awaited.
-            If it is a function, it will be called synchronously.
-            If the after_hook returns a non-None value, it will be returned instead of the original response.
-            The after_hook must have `response` as a parameter.
-        tools:
-            A list of tools to use, the tool must be a list of ToolCall.
-        **kwargs:
-            Additional arguments to pass to the provider. It can be:
-            - client: a custom client
-            - max_tokens: required by Anthropic. It will be defaulted to 1000 if not provided.
+        after_hook (Callable | Coroutine, optional):
+            A function or coroutine to process the response. If a coroutine, it will be awaited;
+            if a function, it will be called synchronously. If it returns a non-None value,
+            that value is returned instead of the original response. Must accept `response` as a parameter.
+        tools (List[ToolCall], optional):
+            A list of tools to use, each must be a ToolCall.
+        client (AsyncInstructor, optional):
+            A custom instructor.AsyncInstructor instance. e.g. `instructor.from_openai(AsyncOpenAI()`
+        **kwargs (Any):
+            Additional arguments for the provider, such as:
+            - max_tokens: required by Anthropic, defaults to 1000 if not provided
             - temperature
             - top_p
             - frequency_penalty
             - presence_penalty
-            - system: used by Anthropic as a system prompt.
-            - context: a dictionary of context to pass for Pydantic model validation.
+            - system: used by Anthropic as a system prompt
+            - context: a dictionary for Pydantic model validation
+
     Example:
 
     class UserInfo(BaseModel):
@@ -55,7 +75,7 @@ def dino(
 
     user_info = await get_user_info("User John Doe has an email john.doe@example.com")
     print(user_info)
-    >> UserInfo(name="John Doe", email="john.doe@example.com")
+    # Output: UserInfo(name="John Doe", email="john.doe@example.com")
     """
 
     def _instructor_kwargs(kwargs: dict, fn_kwargs: dict):
@@ -70,10 +90,52 @@ def dino(
         if "response" not in params:
             raise ValueError("after_hook must have `response` as a parameter")
 
-    def wrapper(fn: Callable):
+    decorator_model = model
+    decorator_tools = tools
+    decorator_client = client
+
+    def _get_model(model: str, decorator_model: str):
+        if model:
+            logger.debug(
+                "Override the decorator model to the function model",
+                model=model,
+                decorator_model=decorator_model,
+            )
+            return model
+        return decorator_model
+
+    def _get_tools(tools: List[ToolCall], decorator_tools: List[ToolCall]):
+        if tools and isinstance(tools, list):
+            logger.debug(
+                "Override the decorator tools to the function tools",
+                tools=tools,
+                decorator_tools=decorator_tools,
+            )
+            return tools
+        return decorator_tools
+
+    def _get_client(
+        client: AsyncInstructor | None, decorator_client: AsyncInstructor | None
+    ):
+        if client:
+            logger.debug(
+                "Override the decorator client to the function client",
+            )
+            return client
+        return decorator_client
+
+    def wrapper(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[T]]:
         @wraps(fn)
-        async def wrapper(*args, **fn_kwargs):
-            _model = fn_kwargs.get("model") or model
+        async def wrapper(
+            *args: P.args,
+            tools: List[ToolCall] = [],
+            model: str = None,
+            client: AsyncInstructor = None,
+            **fn_kwargs: P.kwargs,
+        ):
+            _model = _get_model(model, decorator_model)
+            _tools = _get_tools(tools, decorator_tools)
+            _client = _get_client(client, decorator_client)
             provider = Provider.from_model(_model)
 
             system_prompt = fn.__doc__
@@ -102,10 +164,11 @@ def dino(
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
             tool_outputs = []
-            if tools:
+            if _tools:
                 initial_response = await provider.chat_completion(
                     messages=messages,
-                    response_model=Iterable[Union[tuple(tools)]],
+                    response_model=Iterable[Union[tuple(_tools)]],
+                    client=_client,
                     **ikwargs,
                 )
                 for resp in initial_response:
@@ -120,6 +183,7 @@ def dino(
             response = await provider.chat_completion(
                 messages=messages,
                 response_model=response_model,
+                client=_client,
                 **ikwargs,
             )
 

@@ -1,11 +1,11 @@
-from typing import Any, Callable, Optional, Coroutine
-from pydantic import BaseModel, create_model
+from typing import Any, Callable, Optional, Coroutine, Type
+from pydantic import create_model
 import inspect
 from inspect import Parameter
 from .types import ToolCall
 
 
-def dtool(fn: Callable | Coroutine[Any, Any, Any]):
+def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
     """
     dtool is a decorator that turns a function into a Pydantic model.
 

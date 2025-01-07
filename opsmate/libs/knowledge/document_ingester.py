@@ -1,10 +1,10 @@
-from langchain_text_splitters import MarkdownHeaderTextSplitter
 from opentelemetry import trace
 from pydantic import BaseModel, Field
 from typing import Dict
 from .schema import get_runbooks_table
 from lancedb.table import Table
-from langchain_core.documents import Document
+from opsmate.textsplitters.markdown_header import MarkdownHeaderTextSplitter
+from opsmate.textsplitters.base import Chunk
 import glob
 import structlog
 import uuid
@@ -125,7 +125,7 @@ class DocumentIngester:
 
                 span.set_attribute("split_text.docs_count", count)
 
-    def chunk_content(self, document: Document):
+    def chunk_content(self, document: Chunk):
         content = ""
         if document.metadata.get("heading 1"):
             content += document.metadata.get("heading 1")
@@ -134,11 +134,11 @@ class DocumentIngester:
         if document.metadata.get("heading 3"):
             content += document.metadata.get("heading 3")
 
-        content += document.page_content
+        content += document.content
 
         return content
 
-    def chunk_header(self, document: Document):
+    def chunk_header(self, document: Chunk):
         if document.metadata.get("heading 3"):
             return document.metadata.get("heading 3")
         elif document.metadata.get("heading 2"):

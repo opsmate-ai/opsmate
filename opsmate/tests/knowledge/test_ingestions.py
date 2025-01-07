@@ -32,26 +32,25 @@ class TestIngestions(BaseTestCase):
         assert len(docs) == 5
         assert "heading 1" in docs[0].metadata
         assert (
-            docs[0].page_content
-            == "This document is used to test the document ingestion."
+            docs[0].content == "This document is used to test the document ingestion."
         )
 
         assert "heading 1" in docs[1].metadata
         assert "heading 2" in docs[1].metadata
-        assert docs[1].page_content == "Hello this is test 1"
+        assert docs[1].content == "Hello this is test 1"
 
         assert "heading 1" in docs[2].metadata
         assert "heading 2" in docs[2].metadata
-        assert "Hello this is test 2, here is some code:" in docs[2].page_content
+        assert "Hello this is test 2, here is some code:" in docs[2].content
 
         assert "heading 1" in docs[3].metadata
         assert "heading 2" in docs[3].metadata
         assert "heading 3" in docs[3].metadata
-        assert "go run main.go" in docs[3].page_content
+        assert "go run main.go" in docs[3].content
 
         assert "heading 1" in docs[4].metadata
         assert "heading 2" in docs[4].metadata
-        assert "nginx-service" in docs[4].page_content
+        assert "nginx-service" in docs[4].content
 
     def test_document_ingestion(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))

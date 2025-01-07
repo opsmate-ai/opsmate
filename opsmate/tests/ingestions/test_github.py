@@ -172,13 +172,14 @@ async def test_integration():
         repo="jingkaihe/hjktech-metal",
         github_token=os.getenv("GITHUB_TOKEN"),
         branch="main",
+        glob="**/*.md",
     )
 
     try:
-        # async for doc in github_ingestion.load():
-        #     print(doc.metadata)
-        #     print(doc.content)
         docs = [doc async for doc in github_ingestion.load()]
-        assert len(docs) > 0
+        assert len(docs) == 1
+        assert docs[0].metadata["path"] == "README.md"
+        assert docs[0].metadata["repo"] == "jingkaihe/hjktech-metal"
+        assert docs[0].metadata["branch"] == "main"
     except Exception as e:
         assert False, f"Should not raise error but got: {e}"

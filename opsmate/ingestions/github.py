@@ -54,7 +54,7 @@ class GithubIngestion(BaseIngestion):
         for item in tree:
             if item.get("type") == "blob":
                 path = item.get("path")
-                if self.glob and not fnmatch.fnmatch(path, self.glob):
+                if self.glob and not fnmatch.fnmatch(f"./{path}", self.glob):
                     continue
                 yield path
 

@@ -45,8 +45,6 @@ async def test_validate_github_token():
         GithubIngestion(repo="owner/repo")
     if old_token:
         os.environ["GITHUB_TOKEN"] = old_token
-    else:
-        del os.environ["GITHUB_TOKEN"]
 
 
 @pytest.mark.asyncio

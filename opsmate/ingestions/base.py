@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, AsyncGenerator, List, Callable, Awaitable
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from opsmate.textsplitters import TextSplitter, RecursiveTextSplitter
 from opsmate.textsplitters.base import Chunk
 
@@ -13,23 +13,26 @@ class Document(BaseModel):
 PostChunkHook = Callable[[Chunk], Awaitable[Chunk]]
 
 
-class BaseIngestion(ABC):
-    def __init__(
-        self,
-        splitter: Optional[TextSplitter] = None,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 0,
-        separators: Optional[List[str]] = None,
-        post_chunk_hooks: Optional[List[PostChunkHook]] = None,
-    ):
-        self.splitter = splitter
-        if self.splitter is None:
-            self.splitter = RecursiveTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                separators=separators,
+class BaseIngestion(ABC, BaseModel):
+    class Config:
+        arbitrary_types_allowed = True
+
+    splitter: Optional[TextSplitter] = Field(default=None)
+    chunk_size: int = Field(default=1000)
+    chunk_overlap: int = Field(default=0)
+    separators: Optional[List[str]] = None
+    post_chunk_hooks: Optional[List[PostChunkHook]] = None
+
+    @model_validator(mode="after")
+    @classmethod
+    def load_splitter(cls, v):
+        if v.splitter is None:
+            v.splitter = RecursiveTextSplitter(
+                chunk_size=v.chunk_size,
+                chunk_overlap=v.chunk_overlap,
+                separators=v.separators,
             )
-        self.post_chunk_hooks = post_chunk_hooks
+        return v
 
     async def ingest(self):
         async for document in self.load():

@@ -6,16 +6,8 @@ from os import path
 
 
 class FsIngestion(BaseIngestion):
-    def __init__(
-        self,
-        *args,
-        local_path: str,
-        glob_pattern: str = "**/*",
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.local_path = local_path
-        self.glob_pattern = glob_pattern
+    local_path: str = Field(..., description="The local path to the files")
+    glob_pattern: str = Field("**/*", description="The glob pattern to match the files")
 
     async def load(self) -> AsyncGenerator[Document, None]:
         glob_pattern = path.join(self.local_path, self.glob_pattern)

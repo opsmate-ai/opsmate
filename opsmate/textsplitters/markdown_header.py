@@ -4,6 +4,7 @@
 
 from typing import List, Tuple, Dict, TypedDict
 from opsmate.ingestions.base import Chunk
+from .base import TextSplitter
 
 
 class LineType(TypedDict):
@@ -21,7 +22,7 @@ class HeaderType(TypedDict):
     data: str
 
 
-class MarkdownHeaderTextSplitter:
+class MarkdownHeaderTextSplitter(TextSplitter):
     """Splitting markdown files based on specified headers."""
 
     def __init__(

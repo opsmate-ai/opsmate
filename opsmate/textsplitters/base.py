@@ -1,9 +1,25 @@
 from abc import ABC, abstractmethod
 from typing import List
+from pydantic import BaseModel, Field
+
+
+class Chunk(BaseModel):
+    metadata: dict = Field(default_factory=dict)
+    content: str
 
 
 class TextSplitter(ABC):
-    default_separators = ["\n\n", "\n", " ", ""]
+    default_separators = [
+        "\n\n",
+        "\n",
+        ".",
+        "?",
+        "!",
+        ";",
+        ",",
+        " ",
+        "",
+    ]
 
     def __init__(
         self,
@@ -26,4 +42,4 @@ class TextSplitter(ABC):
             self.separators = self.default_separators
 
     @abstractmethod
-    def split_text(self, text: str) -> List[str]: ...
+    def split_text(self, text: str) -> List[Chunk]: ...

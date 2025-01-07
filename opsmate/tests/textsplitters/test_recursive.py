@@ -1,5 +1,5 @@
 from opsmate.textsplitters.recursive import RecursiveTextSplitter
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from opsmate.textsplitters.base import Chunk
 
 
 def test_recursive_text_splitter():
@@ -8,17 +8,39 @@ def test_recursive_text_splitter():
         chunk_size=7, chunk_overlap=3, separators=[".", ","]
     )
     output = splitter.split_text(text)
-    expected_output = ["Apple", "banana", "orange and tomato"]
+    expected_output = [
+        Chunk(content="Apple", metadata={"seperator": ","}),
+        Chunk(content="banana", metadata={"seperator": ","}),
+        Chunk(content="orange and tomato", metadata={"seperator": ","}),
+    ]
     assert output == expected_output
 
     text = "This is a piece of text."
     splitter = RecursiveTextSplitter(chunk_size=10, chunk_overlap=5)
     output = splitter.split_text(text)
-    expected_output = ["This is a", "piece of text.", "text."]
+    expected_output = [
+        Chunk(content="This is a", metadata={"seperator": " "}),
+        Chunk(content="piece of text", metadata={"seperator": " "}),
+        Chunk(content="text", metadata={"seperator": " "}),
+    ]
     assert output == expected_output
 
     text = "This is a piece of text."
     splitter = RecursiveTextSplitter(chunk_size=10, chunk_overlap=0)
     output = splitter.split_text(text)
-    expected_output = ["This is a", "piece of", "text."]
+    expected_output = [
+        Chunk(content="This is a", metadata={"seperator": " "}),
+        Chunk(content="piece of", metadata={"seperator": " "}),
+        Chunk(content="text", metadata={"seperator": " "}),
+    ]
+    assert output == expected_output
+
+    text = "This is a piece of text."
+    splitter = RecursiveTextSplitter(chunk_size=10, chunk_overlap=0, separators=[" "])
+    output = splitter.split_text(text)
+    expected_output = [
+        Chunk(content="This is a", metadata={"seperator": " "}),
+        Chunk(content="piece of", metadata={"seperator": " "}),
+        Chunk(content="text.", metadata={"seperator": " "}),
+    ]
     assert output == expected_output

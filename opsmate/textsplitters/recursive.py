@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from .base import TextSplitter
+from .base import TextSplitter, Chunk
 
 
 class RecursiveTextSplitter(TextSplitter):
@@ -11,12 +11,22 @@ class RecursiveTextSplitter(TextSplitter):
         splits = self._merge_splits(splits)
         return self._handle_overlap(splits)
 
-    def _split_text(self, text: str, separatorLevel: int) -> List[Tuple[str, str]]:
+    def _split_text(self, text: str, separatorLevel: int) -> List[Chunk]:
         if separatorLevel == len(self.separators):
-            return [(self.separators[-1], text)]
+            return [
+                Chunk(
+                    content=text,
+                    metadata={"seperator": self.separators[-1]},
+                )
+            ]
 
         if len(text) <= self.chunk_size:
-            return [(self.separators[separatorLevel - 1], text)]
+            return [
+                Chunk(
+                    content=text,
+                    metadata={"seperator": self.separators[separatorLevel - 1]},
+                )
+            ]
 
         separator = self.separators[separatorLevel]
         splits = text.split(separator)
@@ -28,37 +38,50 @@ class RecursiveTextSplitter(TextSplitter):
 
         return result
 
-    def _merge_splits(self, splits: List[Tuple[str, str]]) -> List[str]:
+    def _merge_splits(self, splits: List[Chunk]) -> List[Chunk]:
         result = []
         idx = 0
         while idx < len(splits):
-            sep1, add = splits[idx]
+            sep1, add = splits[idx].metadata["seperator"], splits[idx].content
             idx += 1
             while idx < len(splits):
-                sep2, chunk = splits[idx]
+                sep2, chunk = splits[idx].metadata["seperator"], splits[idx].content
                 if len(add) + len(sep2) + len(chunk) <= self.chunk_size:
                     add += sep2 + chunk
                     idx += 1
                 else:
                     break
-            result.append((sep1, add))
+            result.append(
+                Chunk(
+                    content=add,
+                    metadata={"seperator": sep1},
+                )
+            )
         return result
 
-    def _handle_overlap(self, splits: List[Tuple[str, str]]) -> str:
+    def _handle_overlap(self, splits: List[Chunk]) -> List[Chunk]:
         result = []
         for idx, split in enumerate(splits):
-            _, add = split
+            sep1, add = split.metadata["seperator"], split.content
             overlap_remain = self.chunk_overlap + self.chunk_size - len(add)
 
             while overlap_remain > 0:
                 for idx2 in range(idx + 1, len(splits)):
-                    sep, chunk = splits[idx2]
-                    if len(sep) + len(chunk) <= overlap_remain:
-                        add += sep + chunk
-                        overlap_remain -= len(chunk) - len(sep)
+                    sep2, chunk = (
+                        splits[idx2].metadata["seperator"],
+                        splits[idx2].content,
+                    )
+                    if len(sep2) + len(chunk) <= overlap_remain:
+                        add += sep2 + chunk
+                        overlap_remain -= len(chunk) - len(sep2)
                     else:
                         break
                 break
-            result.append(add)
+            result.append(
+                Chunk(
+                    content=add,
+                    metadata={"seperator": sep1},
+                )
+            )
 
         return result

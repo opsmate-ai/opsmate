@@ -35,16 +35,18 @@ class GithubIngestion(BaseIngestion):
         v["github_token"] = token
         return v
 
-    def headers(self, accept: str = "application/vnd.github+json"):
+    @property
+    def headers(self):
         return {
             "Authorization": f"Bearer {self.github_token}",
-            "Accept": accept,
+            "Accept": "application/vnd.github+json",
             "User-Agent": "opsmate / 0.1.0 (https://github.com/jingkaihe/opsmate)",
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
     async def get_files(self) -> AsyncGenerator[str, None]:
-        url = f"{self.github_api_url}/api/v3/repos/{self.repo}/git/trees/{self.branch}?recursive=1"
+        # https://api.github.com/repos/OWNER/REPO/git/trees/TREE_SHA
+        url = f"{self.github_api_url}/repos/{self.repo}/git/trees/{self.branch}?recursive=1"
         response = await self.client.get(url, headers=self.headers)
         response.raise_for_status()
 
@@ -57,7 +59,8 @@ class GithubIngestion(BaseIngestion):
                 yield path
 
     async def get_file_content(self, file_path: str) -> str:
-        url = f"{self.github_api_url}/api/v3/repos/{self.repo}/contents/{file_path}"
+        # https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
+        url = f"{self.github_api_url}/repos/{self.repo}/contents/{file_path}"
 
         response = await self.client.get(url, headers=self.headers)
         response.raise_for_status()

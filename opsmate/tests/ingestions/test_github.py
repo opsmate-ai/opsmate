@@ -39,8 +39,14 @@ async def test_validate_github_token():
         del os.environ["GITHUB_TOKEN"]
 
     # Test with missing token
+    old_token = os.getenv("GITHUB_TOKEN")
+    del os.environ["GITHUB_TOKEN"]
     with pytest.raises(ValueError, match="GitHub token is required"):
         GithubIngestion(repo="owner/repo")
+    if old_token:
+        os.environ["GITHUB_TOKEN"] = old_token
+    else:
+        del os.environ["GITHUB_TOKEN"]
 
 
 @pytest.mark.asyncio
@@ -157,3 +163,22 @@ async def test_load(github_ingestion):
         "repo": "owner/repo",
         "branch": "main",
     }
+
+
+@pytest.mark.skipif(os.getenv("GITHUB_TOKEN") is None, reason="GITHUB_TOKEN is not set")
+@pytest.mark.asyncio
+async def test_integration():
+    github_ingestion = GithubIngestion(
+        repo="jingkaihe/hjktech-metal",
+        github_token=os.getenv("GITHUB_TOKEN"),
+        branch="main",
+    )
+
+    try:
+        # async for doc in github_ingestion.load():
+        #     print(doc.metadata)
+        #     print(doc.content)
+        docs = [doc async for doc in github_ingestion.load()]
+        assert len(docs) > 0
+    except Exception as e:
+        assert False, f"Should not raise error but got: {e}"

@@ -17,7 +17,7 @@ click = "^8.1.7"
 openai-otel = "^0.1.0a1"
 opentelemetry-exporter-otlp = "^1.27.0"
 rich = "^13.8.1"
-lancedb = "^0.15.0"
+lancedb = "0.17.0"
 pydantic-settings = "^2.6.1"
 fastapi = {extras = ["standard"], version = "^0.115.5"}
 python-fasthtml = "^0.10.0"

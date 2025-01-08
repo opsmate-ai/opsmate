@@ -18,6 +18,7 @@ from .types import Message, ToolCall
 from .utils import args_dump
 import structlog
 from instructor import AsyncInstructor
+import asyncio
 
 logger = structlog.get_logger(__name__)
 
@@ -171,14 +172,28 @@ def dino(
                     client=_client,
                     **ikwargs,
                 )
-                for resp in initial_response:
-                    if isinstance(resp, BaseModel):
-                        if inspect.iscoroutinefunction(resp.__call__):
-                            await resp.__call__()
-                        else:
-                            resp.__call__()
-                        messages.append(Message.user(resp.model_dump_json()))
-                        tool_outputs.append(resp)
+                async_resps = [
+                    resp
+                    for resp in initial_response
+                    if isinstance(resp, ToolCall)
+                    and inspect.iscoroutinefunction(resp.__call__)
+                ]
+                sync_resps = [
+                    resp
+                    for resp in initial_response
+                    if isinstance(resp, ToolCall)
+                    and not inspect.iscoroutinefunction(resp.__call__)
+                ]
+
+                async_resp_tasks = [resp.__call__() for resp in async_resps]
+                await asyncio.gather(*async_resp_tasks)
+
+                for sync_resp in sync_resps:
+                    sync_resp()
+
+                for resp in [*async_resps, *sync_resps]:
+                    messages.append(Message.user(resp.model_dump_json()))
+                    tool_outputs.append(resp)
 
             response = await provider.chat_completion(
                 messages=messages,

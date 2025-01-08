@@ -10,7 +10,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def _react_prompt(
-    question: str, message_history: List[Message] = [], tools: List[BaseModel] = []
+    question: str, message_history: List[Message] = [], tool_names: List[BaseModel] = []
 ):
     """
     <assistant>
@@ -58,7 +58,7 @@ async def _react_prompt(
         Message.user(
             f"""
 Here is a list of tools you can use:
-{"\n".join(f"<tool>{t.__name__}: {t.__doc__}</tool>" for t in tools)}
+{"\n".join(f"<tool>{t.__name__}: {t.__doc__}</tool>" for t in tool_names)}
 """,
         ),
         Message.user(question),
@@ -117,7 +117,7 @@ thought: {react.thoughts}
         message_history.append(ctx)
     for _ in range(max_iter):
         react_result = await react(
-            question, message_history=message_history, tools=tools
+            question, message_history=message_history, tool_names=tools
         )
         if isinstance(react_result, React):
             message_history.append(Message.assistant(react_result.model_dump_json()))

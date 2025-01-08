@@ -86,7 +86,6 @@ class OpenAIProvider(Provider):
             for message in messages:
                 if message["role"] == "system":
                     message["role"] = "user"
-
         filtered_kwargs = cls._filter_kwargs(kwargs)
         return await client.chat.completions.create(
             response_model=response_model,

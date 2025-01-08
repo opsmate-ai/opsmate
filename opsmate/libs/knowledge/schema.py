@@ -27,8 +27,6 @@ class DatabaseConnection:
                     cls._instance = cls.__new__(cls)
                     cls._instance.db = lancedb.connect(config.embeddings_db_path)
                     cls.init_db(cls._instance.db)
-
-                    return cls._instance.db
         return cls._instance.db
 
     @classmethod

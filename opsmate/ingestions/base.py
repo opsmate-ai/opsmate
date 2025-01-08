@@ -36,12 +36,12 @@ class BaseIngestion(ABC, BaseModel):
 
     async def ingest(self):
         async for document in self.load():
-            print(document)
             for chunk in self.splitter.split_text(document.content):
-                print(chunk)
                 ch = chunk.model_copy()
                 for key, value in document.metadata.items():
                     ch.metadata[key] = value
+                ch.metadata["data_source"] = self.data_source()
+                ch.metadata["data_source_provider"] = self.data_source_provider()
                 if self.post_chunk_hooks:
                     for hook in self.post_chunk_hooks:
                         ch = await hook(ch)
@@ -49,4 +49,12 @@ class BaseIngestion(ABC, BaseModel):
 
     @abstractmethod
     async def load(self) -> AsyncGenerator[Document, None]:
+        pass
+
+    @abstractmethod
+    def data_source(self) -> str:
+        pass
+
+    @abstractmethod
+    def data_source_provider(self) -> str:
         pass

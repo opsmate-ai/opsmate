@@ -3,6 +3,7 @@ from .base import BaseIngestion, Document
 from pydantic import BaseModel, Field
 from glob import glob
 from os import path
+from pathlib import Path
 
 
 class FsIngestion(BaseIngestion):
@@ -13,6 +14,9 @@ class FsIngestion(BaseIngestion):
         glob_pattern = path.join(self.local_path, self.glob_pattern)
         files = glob(glob_pattern, recursive=True)
         for filename in files:
+            # skip if filename is a directory
+            if path.isdir(filename):
+                continue
             with open(filename, "r") as f:
                 content = f.read()
             base_name = path.basename(filename)
@@ -28,3 +32,9 @@ class FsIngestion(BaseIngestion):
                     "path": path_name,
                 },
             )
+
+    def data_source(self) -> str:
+        return str(Path(self.local_path) / self.glob_pattern)
+
+    def data_source_provider(self) -> str:
+        return "fs"

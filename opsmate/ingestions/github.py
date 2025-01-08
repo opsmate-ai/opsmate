@@ -92,3 +92,9 @@ class GithubIngestion(BaseIngestion):
             # Process completed tasks
             for task in asyncio.as_completed(tasks):
                 yield await task
+
+    def data_source(self) -> str:
+        return self.repo
+
+    def data_source_provider(self) -> str:
+        return "github"

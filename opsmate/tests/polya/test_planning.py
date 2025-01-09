@@ -67,10 +67,11 @@ async def test_planning():
     )
 
     plan = await planning(
-        "can you solve the problem based on the context?",
-        context=report_extracted.potential_solutions[0].summarize(
+        summary=report_extracted.potential_solutions[0].summarize(
             report_extracted.summary
         ),
+        facts=[],
+        instruction="can you solve the problem based on the context?",
     )
 
     assert plan.goal is not None

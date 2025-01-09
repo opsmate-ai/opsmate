@@ -1,8 +1,7 @@
 import tempfile
 import os
 import pytest
-from opsmate.libs.config import config
-from opsmate.libs.knowledge import DatabaseConnection
+from opsmate.libs.config import Config
 import structlog
 
 logger = structlog.get_logger()
@@ -14,9 +13,11 @@ class BaseTestCase:
         pid = os.getpid()
         prefix = f"opsmate-embeddings-{pid}"
         tempdir = tempfile.mkdtemp(prefix=prefix)
-        config.embeddings_db_path = tempdir
+        config = Config(
+            embeddings_db_path=tempdir,
+        )
         logger.info("Created temp dir for embeddings", path=config.embeddings_db_path)
-        DatabaseConnection.get_instance()
+        # DatabaseConnection.get_instance()
 
         yield
 

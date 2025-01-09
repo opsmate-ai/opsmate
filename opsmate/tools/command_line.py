@@ -3,31 +3,33 @@ from typing import Optional
 from pydantic import Field
 from opsmate.dino.types import ToolCall
 import structlog
+import asyncio
 
 logger = structlog.get_logger(__name__)
 
 
 class ShellCommand(ToolCall):
     """
-    The command to run
+    ShellCommand tool allows you to run shell commands and get the output.
     """
 
     description: str = Field(description="Explain what the command is doing")
     command: str = Field(description="The command to run")
-    output: Optional[str] = None
+    output: Optional[str] = Field(
+        description="The output of the command - DO NOT POPULATE"
+    )
 
-    def __call__(self):
+    async def __call__(self):
         logger.info("running shell command", command=self.command)
         try:
-            result = subprocess.run(
+            process = await asyncio.create_subprocess_shell(
                 self.command,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
             )
-            self.output = result.stdout
-        except subprocess.SubprocessError as e:
+            stdout, _ = await process.communicate()
+            self.output = stdout.decode()
+        except Exception as e:
             self.output = str(e)
         return self.output
 

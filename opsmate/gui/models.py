@@ -19,6 +19,7 @@ import structlog
 from opsmate.dino.types import Message
 from opsmate.dino import run_react
 from opsmate.contexts import k8s_ctx, k8s_tools
+from opsmate.tools import ShellCommand, KnowledgeRetrieval
 from sqlalchemy.orm import registry
 
 logger = structlog.get_logger(__name__)
@@ -185,6 +186,10 @@ class CellType(str, enum.Enum):
     UNDERSTANDING_REPORT_BREAKDOWN = "understanding_report_breakdown"
     UNDERSTANDING_SOLUTION = "understanding_solution"
 
+    PLANNING_OPTIMAL_SOLUTION = "planning_optimal_solution"
+    PLANNING_KNOWLEDGE_RETRIEVAL = "planning_knowledge_retrieval"
+    PLANNING_TASK_PLAN = "planning_task_plan"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"
@@ -310,5 +315,5 @@ def k8s_react(question: str, chat_history: List[Message]):
         question,
         contexts=[k8s_ctx()],
         chat_history=chat_history,
-        tools=k8s_tools(),
+        tools=[ShellCommand, KnowledgeRetrieval],
     )

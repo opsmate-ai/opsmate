@@ -1,0 +1,89 @@
+from typing import List, Optional
+
+from pydantic import Field
+
+from opsmate.knowledgestore.models import KnowledgeStore, openai_reranker, conn, aconn
+from opsmate.dino.types import ToolCall, Message
+from opsmate.dino.dino import dino
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+
+class KnowledgeRetrieval(ToolCall):
+    """
+    Knowledge retrieval tool allows you to search for relevant knowledge from the knowledge base.
+    """
+
+    _aconn = None
+    _conn = None
+    query: str = Field(description="The query to search for")
+    result: Optional[str] = Field(
+        description="The result of the search - DO NOT POPULATE THIS FIELD",
+        default=None,
+    )
+
+    async def __call__(self):
+        logger.info("running knowledge retrieval tool", query=self.query)
+        # conn = self.conn()
+
+        # table = conn.open_table("knowledge_store")
+        # results: List[KnowledgeStore] = (
+        #     table.search(self.query, query_type="hybrid")
+        #     .limit(10)
+        #     .rerank(openai_reranker)
+        #     .to_pydantic(KnowledgeStore)
+        # )
+
+        # if len(results) >= 5:
+        #     results = results[:5]
+
+        # results = [result.content for result in results]
+
+        conn = await self.aconn()
+        table = await conn.open_table("knowledge_store")
+        results = (
+            await table.query()
+            .nearest_to_text(self.query)
+            .select(["content"])
+            .to_list()
+        )  # .limit(10).to_list()
+        results = [result["content"] for result in results]
+
+        self.result = await self.summary(self.query, results)
+        return self.result
+
+    @dino(
+        model="gpt-4o-mini",
+        response_model=str,
+    )
+    async def summary(self, question: str, results: List[str]):
+        """
+        Given the following question and relevant knowledge snippets, provide a clear and
+        comprehensive summary that directly addresses the question. Focus on synthesizing
+        key information from the knowledge provided, maintaining accuracy, and presenting
+        a cohesive response. If there are any gaps or contradictions in the provided
+        knowledge, acknowledge them in your summary.
+        """
+        context = "\n".join(
+            f"""
+            <knowledge {idx}>
+            {result}
+            </knowledge {idx}>
+            """
+            for idx, result in enumerate(results)
+        )
+        return [
+            Message.user(context),
+            Message.user(question),
+        ]
+
+    async def aconn(self):
+        if not self._aconn:
+            self._aconn = await aconn()
+        return self._aconn
+
+    def conn(self):
+        if not self._conn:
+            self._conn = conn()
+        return self._conn

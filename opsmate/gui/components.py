@@ -8,6 +8,7 @@ from opsmate.polya.models import (
     InfoGathered,
     NonTechnicalQuery,
     TaskPlan,
+    Facts,
 )
 from jinja2 import Template
 
@@ -366,6 +367,27 @@ def render_notes_output_markdown(output: str):
     )
 
 
+def render_facts_markdown(output: Facts):
+    tmpl = """
+## Facts
+
+{% for fact in output.facts %}
+* {{ fact.fact }}
+{% endfor %}
+"""
+    return Div(
+        Template(tmpl).render(output=output),
+        cls="marked prose max-w-none",
+    )
+
+
+def render_solution_for_planning_markdown(output: str):
+    return Div(
+        output,
+        cls="marked prose max-w-none",
+    )
+
+
 class CellOutputRenderer:
     cell_output_render_func = {
         "React": render_react_markdown,
@@ -378,6 +400,8 @@ class CellOutputRenderer:
         "PotentialSolution": UnderstandingRenderer.render_potential_solution_markdown,
         "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
         "TaskPlan": render_task_plan_markdown,
+        "Facts": render_facts_markdown,
+        "SolutionForPlanning": render_solution_for_planning_markdown,
     }
 
     def __init__(self, output: dict):

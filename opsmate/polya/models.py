@@ -339,3 +339,12 @@ class TaskPlan(BaseModel):
 
         self.subtasks = sorted
         return sorted
+
+
+class Fact(BaseModel):
+    fact: str = Field(description="Fact that will help to resolve the problem")
+    weight: int = Field(description="Weight of the fact, 1-10")
+
+
+class Facts(BaseModel):
+    facts: list[Fact] = Field(description="Facts that will help to resolve the problem")

@@ -186,6 +186,10 @@ class CellType(str, enum.Enum):
     UNDERSTANDING_REPORT_BREAKDOWN = "understanding_report_breakdown"
     UNDERSTANDING_SOLUTION = "understanding_solution"
 
+    PLANNING_OPTIMAL_SOLUTION = "planning_optimal_solution"
+    PLANNING_KNOWLEDGE_RETRIEVAL = "planning_knowledge_retrieval"
+    PLANNING_TASK_PLAN = "planning_task_plan"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"

@@ -1,25 +1,9 @@
-import instructor
-from anthropic import Anthropic, AsyncAnthropic
-from openai import AsyncOpenAI
-from opsmate.polya.models import TaskPlan, Report
-from opsmate.polya.understanding import ReportExtracted, report_breakdown
-from typing import List, Union
-import subprocess
-from jinja2 import Template
+from opsmate.polya.models import TaskPlan, Facts
 import asyncio
-from opsmate.tools import ShellCommand, KnowledgeRetrieval
+from opsmate.tools import KnowledgeRetrieval
 from pydantic import BaseModel, Field
 from opsmate.dino import dino
 from opsmate.dino.types import Message
-
-
-class Fact(BaseModel):
-    fact: str = Field(description="Fact that will help to resolve the problem")
-    weight: int = Field(description="Weight of the fact, 1-10")
-
-
-class Facts(BaseModel):
-    facts: list[Fact] = Field(description="Facts that will help to resolve the problem")
 
 
 @dino(model="gpt-4o", response_model=Facts, tools=[KnowledgeRetrieval])

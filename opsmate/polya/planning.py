@@ -13,8 +13,13 @@ from opsmate.dino import dino
 from opsmate.dino.types import Message
 
 
+class Fact(BaseModel):
+    fact: str = Field(description="Fact that will help to resolve the problem")
+    weight: int = Field(description="Weight of the fact, 1-10")
+
+
 class Facts(BaseModel):
-    facts: list[str] = Field(description="Facts that will help to resolve the problem")
+    facts: list[Fact] = Field(description="Facts that will help to resolve the problem")
 
 
 @dino(model="gpt-4o", response_model=Facts, tools=[KnowledgeRetrieval])
@@ -53,79 +58,45 @@ async def summary_breakdown(summary: str) -> str:
     ]
 
 
-planning_sys_prompt = """
-<assistant>
-You are a world class SRE who is capable of breaking apart tasks into dependant subtasks.
-</assistant>
+@dino(model="gpt-4o", response_model=TaskPlan)
+async def planning(summary: str, facts: list[str], instruction: str):
+    """
+    <assistant>
+    You are a world class SRE who is capable of breaking apart tasks into dependant subtasks.
+    You are given:
+    - a summary of the problem with the findings and solution
+    - a list of facts that will help to resolve the problem
+    - a user instruction on what to do
+    </assistant>
 
-<rules>
-- You do not need to break down the task is simple enough to be answered in a single step (e.g. a simple command).
-- The subtasks must be independent of each other.
-- Your answer must enable the system to complete the user task.
-- Do not complete the user task, simply provide a correct compute graph with good specific tasks to ask and relevant subtasks.
-- Before completing the list of tasks, think step by step to get a better understanding the problem.
-- The tasks must be based on the context provided, DO NOT make up tasks that are unrelated to the context.
-- Use as few tasks as possible.
-- Each task must be highly actionable.
-</rules>
+    <rules>
+    - You do not need to break down the task is simple enough to be answered in a single step (e.g. a simple command).
+    - The subtasks must be independent of each other.
+    - Your answer must enable the system to complete the user task.
+    - Do not complete the user task, simply provide a correct compute graph with good specific tasks to ask and relevant subtasks.
+    - Before completing the list of tasks, think step by step to get a better understanding the problem.
+    - The tasks must be based on the context provided, DO NOT make up tasks that are unrelated to the context.
+    - Use as few tasks as possible.
+    - Each task must be highly actionable.
+    </rules>
+    """
+    facts = "\n".join(
+        [
+            f"""
+---
+fact {idx}:
+{fact.fact}
+weight: {fact.weight}
+---
 """
-
-
-async def planning(instruction: str, context: str) -> TaskPlan:
-    """
-    Plan the tasks to complete the user task
-    """
-
-    openai = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.TOOLS)
-    response: TaskPlan = await openai.messages.create(
-        messages=[
-            {
-                "role": "system",
-                "content": planning_sys_prompt,
-            },
-            {
-                "role": "user",
-                "content": f"""
-    <context>
-    {context}
-    </context>
-    """,
-            },
-            {
-                "role": "user",
-                "content": instruction,
-            },
-        ],
-        model="gpt-4o",
-        response_model=TaskPlan,
+            for idx, fact in enumerate(facts)
+        ]
     )
-    #     anthropic = instructor.from_anthropic(
-    #         AsyncAnthropic(), mode=instructor.Mode.ANTHROPIC_TOOLS
-    #     )
-
-    #     response: TaskPlan = await anthropic.messages.create(
-    #         system=planning_sys_prompt,
-    #         messages=[
-    #             {
-    #                 "role": "user",
-    #                 "content": f"""
-    # <context>
-    # {context}
-    # </context>
-    # """,
-    #             },
-    #             {
-    #                 "role": "user",
-    #                 "content": instruction,
-    #             },
-    #         ],
-    #         model="claude-3-5-sonnet-20241022",
-    #         max_tokens=1000,
-    #         response_model=TaskPlan,
-    #     )
-
-    response.topological_sort()
-    return response
+    return [
+        Message.user(f"<summary>{summary}</summary>"),
+        Message.user(f"<facts>{facts}</facts>"),
+        Message.user(f"<instruction>{instruction}</instruction>"),
+    ]
 
 
 async def main():
@@ -144,11 +115,15 @@ Verify and ensure that the '/health' endpoint is correctly defined and reachable
 This will involve checking configurations and confirming that the HTTP server is set to the correct port and path.
 """
     questions = await summary_breakdown(solution)
-    print(questions)
     facts = await knowledge_retrieval(questions)
     for fact in facts.facts:
         print(fact)
         print("-" * 100)
+
+    task_plan = await planning(
+        solution, facts.facts, "how to solve the problem based on the summary and facts"
+    )
+    print(task_plan)
 
 
 if __name__ == "__main__":

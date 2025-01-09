@@ -6,6 +6,7 @@ import httpx
 import asyncio
 import base64
 import fnmatch
+from typing import Dict, List
 
 
 class GithubIngestion(BaseIngestion):
@@ -98,3 +99,15 @@ class GithubIngestion(BaseIngestion):
 
     def data_source_provider(self) -> str:
         return "github"
+
+    @classmethod
+    def from_config(cls, config: Dict[str, str]) -> List["GithubIngestion"]:
+        ingestions = []
+        for repo, glob_pattern in config.items():
+            maybe_branch = repo.split(":")
+            if len(maybe_branch) == 2:
+                repo, branch = maybe_branch
+            else:
+                repo, branch = repo, "main"
+            ingestions.append(cls(repo=repo, glob=glob_pattern, branch=branch))
+        return ingestions

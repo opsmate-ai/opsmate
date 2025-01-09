@@ -181,3 +181,22 @@ async def test_integration():
         assert docs[0].metadata["branch"] == "main"
     except Exception as e:
         assert False, f"Should not raise error but got: {e}"
+
+
+def test_from_config():
+    config = {
+        "opsmate/opsmate:main": "*.md",
+        "opsmate/opsmate2": "*.txt",
+        "opsmate/opsmate3:dev": "*.txt",
+    }
+    ingestions = GithubIngestion.from_config(config)
+    assert len(ingestions) == 3
+    assert ingestions[0].repo == "opsmate/opsmate"
+    assert ingestions[0].branch == "main"
+    assert ingestions[0].glob == "*.md"
+    assert ingestions[1].repo == "opsmate/opsmate2"
+    assert ingestions[1].branch == "main"
+    assert ingestions[1].glob == "*.txt"
+    assert ingestions[2].repo == "opsmate/opsmate3"
+    assert ingestions[2].branch == "dev"
+    assert ingestions[2].glob == "*.txt"

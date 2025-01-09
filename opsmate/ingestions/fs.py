@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from glob import glob
 from os import path
 from pathlib import Path
+from typing import Dict, List
 
 
 class FsIngestion(BaseIngestion):
@@ -38,3 +39,10 @@ class FsIngestion(BaseIngestion):
 
     def data_source_provider(self) -> str:
         return "fs"
+
+    @classmethod
+    def from_config(cls, config: Dict[str, str]) -> List["FsIngestion"]:
+        ingestions = []
+        for path, glob_pattern in config.items():
+            ingestions.append(cls(local_path=path, glob_pattern=glob_pattern))
+        return ingestions

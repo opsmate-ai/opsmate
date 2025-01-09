@@ -2,14 +2,15 @@ import lancedb
 from lancedb.pydantic import LanceModel, Vector
 from lancedb.embeddings import get_registry
 from lancedb.index import FTS
-from pydantic import Field, BaseModel
+from pydantic import Field
 from opsmate.libs.config import config
-from typing import Dict, List
-import structlog
+from typing import List
 import uuid
 from lancedb.rerankers import OpenaiReranker
 
 registry = get_registry()
+
+# embeddings is the embedding function used to embed the knowledge store
 embeddings = registry.get(config.embedding_registry_name).create(
     name=config.embedding_model_name
 )
@@ -32,14 +33,23 @@ openai_reranker = OpenaiReranker(model_name="gpt-4o-mini", column="content")
 
 
 async def aconn():
+    """
+    Create an async connection to the lancedb based on the config.embeddings_db_path
+    """
     return await lancedb.connect_async(config.embeddings_db_path)
 
 
 def conn():
+    """
+    Create a connection to the lancedb based on the config.embeddings_db_path
+    """
     return lancedb.connect(config.embeddings_db_path)
 
 
 async def init_table():
+    """
+    init the knowledge store table based on the config.embeddings_db_path
+    """
     db = await aconn()
     table = await db.create_table(
         "knowledge_store", schema=KnowledgeStore, exist_ok=True

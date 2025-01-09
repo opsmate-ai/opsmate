@@ -81,3 +81,15 @@ class TestFsIngestion(BaseTestCase):
         assert "h1" in chunks[5].metadata
         assert "This is a test 2" in chunks[5].content
         assert chunks[5].metadata["path"] == "/nested/TEST2.md"
+
+    def test_from_config(self):
+        config = {
+            "/tmp/foo": "*.md",
+            "/tmp/bar": "*.txt",
+        }
+        ingestions = FsIngestion.from_config(config)
+        assert len(ingestions) == 2
+        assert ingestions[0].local_path == "/tmp/foo"
+        assert ingestions[0].glob_pattern == "*.md"
+        assert ingestions[1].local_path == "/tmp/bar"
+        assert ingestions[1].glob_pattern == "*.txt"

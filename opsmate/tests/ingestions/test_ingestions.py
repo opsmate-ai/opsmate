@@ -3,10 +3,14 @@ from opsmate.ingestions import ingestions_from_config
 from opsmate.tests.base import BaseTestCase
 from opsmate.libs.config import Config
 from opsmate.ingestions import GithubIngestion, FsIngestion
+import os
 
 
 class TestIngestions(BaseTestCase):
     def test_ingestions_from_env(self):
+        old_token = os.getenv("GITHUB_TOKEN")
+        os.environ["GITHUB_TOKEN"] = "env-token"
+
         cfg = Config(
             github_embeddings_config={
                 "opsmate/opsmate:dev": "*.md",
@@ -45,3 +49,8 @@ class TestIngestions(BaseTestCase):
         assert ingestions[3].data_source() == "your_repo_path2/*.txt"
         assert ingestions[3].local_path == "your_repo_path2"
         assert ingestions[3].glob_pattern == "*.txt"
+
+        if old_token:
+            os.environ["GITHUB_TOKEN"] = old_token
+        else:
+            del os.environ["GITHUB_TOKEN"]

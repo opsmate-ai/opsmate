@@ -40,7 +40,8 @@ async def test_validate_github_token():
 
     # Test with missing token
     old_token = os.getenv("GITHUB_TOKEN")
-    del os.environ["GITHUB_TOKEN"]
+    if old_token:
+        del os.environ["GITHUB_TOKEN"]
     with pytest.raises(ValueError, match="GitHub token is required"):
         GithubIngestion(repo="owner/repo")
     if old_token:
@@ -184,6 +185,9 @@ async def test_integration():
 
 
 def test_from_config():
+    old_token = os.getenv("GITHUB_TOKEN")
+    os.environ["GITHUB_TOKEN"] = "env-token"
+
     config = {
         "opsmate/opsmate:main": "*.md",
         "opsmate/opsmate2": "*.txt",
@@ -200,3 +204,8 @@ def test_from_config():
     assert ingestions[2].repo == "opsmate/opsmate3"
     assert ingestions[2].branch == "dev"
     assert ingestions[2].glob == "*.txt"
+
+    if old_token:
+        os.environ["GITHUB_TOKEN"] = old_token
+    else:
+        del os.environ["GITHUB_TOKEN"]

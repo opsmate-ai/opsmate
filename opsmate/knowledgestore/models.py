@@ -7,6 +7,7 @@ from opsmate.libs.config import config
 from typing import List
 import uuid
 from lancedb.rerankers import OpenaiReranker
+from enum import Enum
 
 registry = get_registry()
 
@@ -14,6 +15,15 @@ registry = get_registry()
 embeddings = registry.get(config.embedding_registry_name).create(
     name=config.embedding_model_name
 )
+
+
+class Category(Enum):
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+    MAINTENANCE = "maintenance"
+    APPLICATION = "application"
+    INFRASTRUCTURE = "infrastructure"
+    PRODUCTION = "production"
 
 
 class KnowledgeStore(LanceModel):

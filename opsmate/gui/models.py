@@ -19,6 +19,7 @@ import structlog
 from opsmate.dino.types import Message
 from opsmate.dino import run_react
 from opsmate.contexts import k8s_ctx, k8s_tools
+from opsmate.tools import ShellCommand, KnowledgeRetrieval
 from sqlalchemy.orm import registry
 
 logger = structlog.get_logger(__name__)
@@ -310,5 +311,5 @@ def k8s_react(question: str, chat_history: List[Message]):
         question,
         contexts=[k8s_ctx()],
         chat_history=chat_history,
-        tools=k8s_tools(),
+        tools=[ShellCommand, KnowledgeRetrieval],
     )

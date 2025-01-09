@@ -5,23 +5,13 @@ from typing import List
 from opsmate.libs.config import Config
 import structlog
 from opsmate.dino import dino
-from enum import Enum
-from opsmate.knowledgestore.models import init_table, aconn
+from opsmate.knowledgestore.models import init_table, aconn, Category
 from opsmate.ingestions.base import Chunk
 import uuid
 
 logger = structlog.get_logger(__name__)
 
 __all__ = ["BaseIngestion", "FsIngestion", "GithubIngestion"]
-
-
-class Category(Enum):
-    SECURITY = "security"
-    PERFORMANCE = "performance"
-    MAINTENANCE = "maintenance"
-    APPLICATION = "application"
-    INFRASTRUCTURE = "infrastructure"
-    PRODUCTION = "production"
 
 
 @dino(

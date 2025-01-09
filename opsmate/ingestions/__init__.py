@@ -55,6 +55,7 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
     db_conn = await aconn()
     table = await db_conn.open_table("knowledge_store")
 
+    logger.info("start ingesting")
     for ingestion in ingestions:
         logger.info(
             "Ingesting",
@@ -75,3 +76,5 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
                 "content": chunk.content,
             }
             await table.add([kb])
+
+    logger.info("ingestion completed")

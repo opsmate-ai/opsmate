@@ -83,6 +83,15 @@ weight: {fact.weight}
     ]
 
 
+@dino(model="gpt-4o", response_model=Facts)
+def load_facts(text: str) -> Facts:
+    """
+    You are a world class information extractor. You are good at extracting information from a text.
+    Please be accurate with the number of facts in the text given.
+    """
+    return text
+
+
 async def main():
     solution = """
 ## Summary

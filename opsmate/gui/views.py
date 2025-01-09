@@ -35,7 +35,12 @@ from opsmate.polya.understanding import (
     generate_report,
     report_breakdown,
 )
-from opsmate.polya.planning import planning, summary_breakdown, knowledge_retrieval
+from opsmate.polya.planning import (
+    planning,
+    summary_breakdown,
+    knowledge_retrieval,
+    load_facts,
+)
 import pickle
 import sqlmodel
 import structlog
@@ -659,7 +664,7 @@ async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
     parent_cell = ctx.input["question_cell"]
     session = ctx.input["session"]
     send = ctx.input["send"]
-    report_extracted: ReportExtracted = ctx.input["report_extracted"]
+    report_extracted: ReportExtracted | None = ctx.input.get("report_extracted")
     workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
     cells = workflow.cells
     # get the highest sequence number
@@ -678,18 +683,14 @@ async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
         # xxx: fill the extra context
         solution = report_extracted.potential_solutions[0]
         summary = report_extracted.summary
-        solution_summary = solution.summarize(summary)
+        solution_for_planning = solution.summarize(summary)
     else:
-        solution_summary = cell.input
-
+        solution_for_planning = cell.input.rstrip()
     outputs = []
-    output = {
-        "summary": summary,
-        "solution": Solution(**solution.model_dump()),
-    }
+    output = solution_for_planning
     outputs.append(
         {
-            "type": "PotentialSolution",
+            "type": "SolutionForPlanning",
             "output": output,
         }
     )
@@ -699,7 +700,7 @@ async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
         cell = Cell(
             input=CellOutputRenderer(outputs[0]).render()[0],
             output=pickle.dumps(outputs),
-            lang=CellLangEnum.NOTES,
+            lang=CellLangEnum.TEXT_INSTRUCTION,
             thinking_system=ThinkingSystemEnum.TYPE2,
             sequence=max_sequence + 1,
             execution_sequence=max_execution_sequence + 1,
@@ -734,7 +735,7 @@ async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
         session.commit()
 
         await send(CellComponent(cell, hx_swap_oob="true"))
-    return cell, solution.summarize(summary)
+    return cell, solution_for_planning
 
 
 @step(post_success_hooks=[success_hook])
@@ -747,20 +748,19 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
 
     cell = ctx.input.get("current_pkr_cell")
+    cell = Cell.find_by_id(session, cell.id)
     is_new_cell = cell is None
 
     if is_new_cell:
-        # await send(
-        #     Div(
-        #         hx_swap_oob="true",
-        #         id=f"cell-output-{cell.id}",
-        #     )
-        # )
         questions = await summary_breakdown(summary)
         logger.info("questions", questions=questions)
         facts = await knowledge_retrieval(questions)
-        facts = Facts(**facts.model_dump())
-        logger.info("facts", facts=facts)
+
+    else:
+        logger.info("loading facts from existing cell", cell_id=cell.id)
+        facts = await load_facts(cell.input.rstrip())
+    facts = Facts(**facts.model_dump())
+    logger.info("facts", facts=facts)
 
     cells = workflow.cells
     # get the highest sequence number
@@ -781,7 +781,7 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
         cell = Cell(
             input=CellOutputRenderer(outputs[0]).render()[0],
             output=pickle.dumps(outputs),
-            lang=CellLangEnum.NOTES,
+            lang=CellLangEnum.TEXT_INSTRUCTION,
             thinking_system=ThinkingSystemEnum.TYPE2,
             sequence=max_sequence + 1,
             execution_sequence=max_execution_sequence + 1,
@@ -797,7 +797,9 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
         logger.info(
             "updating existing planning knowledge retrieval cell", cell_id=cell.id
         )
-        # xxx; to be implemented
+        cell.hidden = True
+        cell.execution_sequence = max_execution_sequence + 1
+        cell.output = pickle.dumps(outputs)
 
     session.add(cell)
     session.commit()
@@ -813,6 +815,8 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
                 id="cells-container",
             )
         )
+    else:
+        await send(CellComponent(cell, hx_swap_oob="true"))
 
     return cell, facts
 
@@ -837,7 +841,9 @@ async def execute_llm_type2_instruction(
         else:
             return await execute_polya_understanding_instruction(cell, send, session)
     elif workflow.name == WorkflowEnum.PLANNING:
-        if cell.cell_type == CellType.PLANNING_KNOWLEDGE_RETRIEVAL:
+        if cell.cell_type == CellType.PLANNING_OPTIMAL_SOLUTION:
+            return await update_planning_optimial_solution(cell, send, session)
+        elif cell.cell_type == CellType.PLANNING_KNOWLEDGE_RETRIEVAL:
             return await update_planning_knowledge_retrieval(cell, swap, send, session)
         elif cell.cell_type == CellType.PLANNING_TASK_PLAN:
             return await update_planning_task_plan(cell, swap, send, session)
@@ -942,10 +948,61 @@ async def update_info_gathering(
     )
 
 
+async def update_planning_optimial_solution(
+    cell: Cell, send, session: sqlmodel.Session
+):
+    opsmate_workflow_step = session.exec(
+        select(OpsmateWorkflowStep)
+        .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
+        .where(OpsmateWorkflowStep.workflow_id == cell.internal_workflow_id)
+    ).first()
+    if not opsmate_workflow_step:
+        logger.error("Opsmate workflow step not found", cell_id=cell.id)
+        return
+
+    opsmate_workflow = opsmate_workflow_step.workflow
+
+    executor = WorkflowExecutor(opsmate_workflow, session)
+    await executor.mark_rerun(opsmate_workflow_step)
+
+    await executor.run(
+        WorkflowContext(
+            input={
+                "session": session,
+                "send": send,
+                "current_pos_cell": cell,
+                "question_cell": cell.parent_cells(session)[0],
+            }
+        )
+    )
+
+
 async def update_planning_knowledge_retrieval(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
-    pass
+    opsmate_workflow_step = session.exec(
+        select(OpsmateWorkflowStep)
+        .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
+        .where(OpsmateWorkflowStep.workflow_id == cell.internal_workflow_id)
+    ).first()
+    if not opsmate_workflow_step:
+        logger.error("Opsmate workflow step not found", cell_id=cell.id)
+        return
+
+    opsmate_workflow = opsmate_workflow_step.workflow
+
+    executor = WorkflowExecutor(opsmate_workflow, session)
+    await executor.mark_rerun(opsmate_workflow_step)
+
+    await executor.run(
+        WorkflowContext(
+            input={
+                "session": session,
+                "send": send,
+                "current_pkr_cell": cell,
+            }
+        )
+    )
 
 
 async def update_planning_task_plan(

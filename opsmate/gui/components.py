@@ -372,16 +372,18 @@ def render_facts_markdown(output: Facts):
 ## Facts
 
 {% for fact in output.facts %}
-**Fact:** {{ fact.fact }}
-
-**Weight:** {{ fact.weight }}
-
----
-
+* {{ fact.fact }}
 {% endfor %}
 """
     return Div(
         Template(tmpl).render(output=output),
+        cls="marked prose max-w-none",
+    )
+
+
+def render_solution_for_planning_markdown(output: str):
+    return Div(
+        output,
         cls="marked prose max-w-none",
     )
 
@@ -399,6 +401,7 @@ class CellOutputRenderer:
         "NonTechnicalQuery": UnderstandingRenderer.render_non_technical_query_markdown,
         "TaskPlan": render_task_plan_markdown,
         "Facts": render_facts_markdown,
+        "SolutionForPlanning": render_solution_for_planning_markdown,
     }
 
     def __init__(self, output: dict):

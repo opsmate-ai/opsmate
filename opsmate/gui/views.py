@@ -748,7 +748,8 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
 
     cell = ctx.input.get("current_pkr_cell")
-    cell = Cell.find_by_id(session, cell.id)
+    if cell:
+        cell = Cell.find_by_id(session, cell.id)
     is_new_cell = cell is None
 
     if is_new_cell:
@@ -823,7 +824,67 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
 
 @step(post_success_hooks=[success_hook])
 async def manage_planning_task_plan_cell(ctx: WorkflowContext):
-    pass
+    session = ctx.input["session"]
+    send = ctx.input["send"]
+    parent_cell, facts = ctx.find_result(
+        "manage_planning_knowledge_retrieval_cell", session
+    )
+    _, solution_for_planning = ctx.find_result(
+        "manage_planning_optimial_solution_cell", session
+    )
+    workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
+    cells = workflow.cells
+    # get the highest sequence number
+    max_sequence = max(cell.sequence for cell in cells) if cells else 0
+    # get the higest execution sequence number
+    max_execution_sequence = (
+        max(cell.execution_sequence for cell in cells) if cells else 0
+    )
+
+    task_plan = await planning(
+        summary=solution_for_planning,
+        facts=facts.facts,
+        instruction="how to solve the problem?",
+    )
+    task_plan = TaskPlan(**task_plan.model_dump())
+    outputs = []
+    output = {
+        "type": "TaskPlan",
+        "output": task_plan,
+    }
+    outputs.append(output)
+
+    # xxx: always create a new cell for now
+    cell = Cell(
+        input=CellOutputRenderer(outputs[0]).render()[0],
+        output=pickle.dumps(outputs),
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.TYPE2,
+        sequence=max_sequence + 1,
+        execution_sequence=max_execution_sequence + 1,
+        active=True,
+        workflow_id=parent_cell.workflow_id,
+        parent_cell_ids=[parent_cell.id],
+        cell_type=CellType.PLANNING_TASK_PLAN,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+
+    session.add(cell)
+    session.commit()
+
+    workflow.activate_cell(session, cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell, task_plan
 
 
 ############################## End of steps ##############################
@@ -1046,44 +1107,6 @@ async def execute_polya_planning_instruction(
         }
     )
     await executor.run(ctx)
-    # pick the most optimal solution
-    # report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
-    # solution = report_extracted.potential_solutions[0]
-    # summary = report_extracted.summary
-
-    # outputs = []
-    # await send(
-    #     Div(
-    #         *outputs,
-    #         hx_swap_oob="true",
-    #         id=f"cell-output-{cell.id}",
-    #     )
-    # )
-
-    # task_plan = await planning(msg, solution.summarize(summary))
-    # outputs.append(
-    #     {
-    #         "type": "TaskPlan",
-    #         "output": TaskPlan(**task_plan.model_dump()),
-    #     }
-    # )
-
-    # await send(
-    #     Div(
-    #         *[CellOutputRenderer(output).render() for output in outputs],
-    #         hx_swap_oob=swap,
-    #         id=f"cell-output-{cell.id}",
-    #     )
-    # )
-
-    # cell.output = pickle.dumps(outputs)
-    # session.add(cell)
-    # session.commit()
-
-    # workflow = cell.workflow
-    # workflow.result = task_plan.model_dump_json()
-    # session.add(workflow)
-    # session.commit()
 
 
 async def execute_polya_execution_instruction(

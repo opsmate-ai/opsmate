@@ -1,4 +1,4 @@
-from opsmate.polya.models import TaskPlan, Facts
+from opsmate.polya.models import TaskPlan, Facts, Fact
 import asyncio
 from opsmate.tools import KnowledgeRetrieval
 from pydantic import BaseModel, Field
@@ -43,7 +43,7 @@ async def summary_breakdown(summary: str) -> str:
 
 
 @dino(model="gpt-4o", response_model=TaskPlan)
-async def planning(summary: str, facts: list[str], instruction: str):
+async def planning(summary: str, facts: list[Fact], instruction: str):
     """
     <assistant>
     You are a world class SRE who is capable of breaking apart tasks into dependant subtasks.

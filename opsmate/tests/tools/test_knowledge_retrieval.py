@@ -15,8 +15,7 @@ class TestKnowledgeRetrieval(BaseTestCase):
         aconn = await tool.aconn()
         assert aconn is not None
 
-        result = await tool()
-        print(result)
+        result = await tool.run()
         assert result is not None
         assert result == tool.output
 

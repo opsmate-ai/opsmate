@@ -172,26 +172,10 @@ def dino(
                     client=_client,
                     **ikwargs,
                 )
-                async_resps = [
-                    resp
-                    for resp in initial_response
-                    if isinstance(resp, ToolCall)
-                    and inspect.iscoroutinefunction(resp.__call__)
-                ]
-                sync_resps = [
-                    resp
-                    for resp in initial_response
-                    if isinstance(resp, ToolCall)
-                    and not inspect.iscoroutinefunction(resp.__call__)
-                ]
+                tasks = [resp.run() for resp in initial_response]
+                await asyncio.gather(*tasks)
 
-                async_resp_tasks = [resp.__call__() for resp in async_resps]
-                await asyncio.gather(*async_resp_tasks)
-
-                for sync_resp in sync_resps:
-                    sync_resp()
-
-                for resp in [*async_resps, *sync_resps]:
+                for resp in initial_response:
                     messages.append(Message.user(resp.model_dump_json()))
                     tool_outputs.append(resp)
 

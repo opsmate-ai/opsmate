@@ -13,7 +13,7 @@ class TestCommandLine(BaseTestCase):
         )
         assert tool.output is None
 
-        result = await tool()
+        result = await tool.run()
         assert result is not None
         assert result == tool.output
 

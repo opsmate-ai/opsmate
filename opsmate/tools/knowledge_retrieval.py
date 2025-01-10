@@ -3,14 +3,14 @@ from typing import List, Optional
 from pydantic import Field
 
 from opsmate.knowledgestore.models import KnowledgeStore, openai_reranker, conn, aconn
-from opsmate.dino.types import ToolCall, Message
+from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
 import structlog
 
 logger = structlog.get_logger(__name__)
 
 
-class KnowledgeRetrieval(ToolCall):
+class KnowledgeRetrieval(ToolCall, PresentationMixin):
     """
     Knowledge retrieval tool allows you to search for relevant knowledge from the knowledge base.
     """
@@ -54,8 +54,7 @@ class KnowledgeRetrieval(ToolCall):
         )  # .limit(10).to_list()
         results = [result["content"] for result in results]
 
-        self.output = await self.summary(self.query, results)
-        return self.output
+        return await self.summary(self.query, results)
 
     @dino(
         model="gpt-4o-mini",

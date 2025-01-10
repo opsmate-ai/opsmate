@@ -1,8 +1,10 @@
 import tempfile
 import os
 import pytest
-from opsmate.libs.config import Config
+from opsmate.libs.config import config
+from opsmate.knowledgestore.models import init_table
 import structlog
+import asyncio
 
 logger = structlog.get_logger()
 
@@ -13,11 +15,9 @@ class BaseTestCase:
         pid = os.getpid()
         prefix = f"opsmate-embeddings-{pid}"
         tempdir = tempfile.mkdtemp(prefix=prefix)
-        config = Config(
-            embeddings_db_path=tempdir,
-        )
+        config.embeddings_db_path = tempdir
         logger.info("Created temp dir for embeddings", path=config.embeddings_db_path)
-        # DatabaseConnection.get_instance()
+        asyncio.run(init_table())
 
         yield
 

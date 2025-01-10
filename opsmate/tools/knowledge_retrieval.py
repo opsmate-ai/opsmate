@@ -25,6 +25,10 @@ class KnowledgeRetrieval(ToolCall):
 
     async def __call__(self):
         logger.info("running knowledge retrieval tool", query=self.query)
+
+        # XXX: sync based lancedb is more feature complete when it comes to query and reranks
+        # however it comes with big penalty when it comes to latency
+        # some of the features will land in 0.17.1+
         # conn = self.conn()
 
         # table = conn.open_table("knowledge_store")
@@ -77,6 +81,13 @@ class KnowledgeRetrieval(ToolCall):
             Message.user(context),
             Message.user(question),
         ]
+
+    def markdown(self):
+        return f"""
+### Knowledge
+
+{self.result}
+"""
 
     async def aconn(self):
         if not self._aconn:

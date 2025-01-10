@@ -3,14 +3,14 @@ from typing import List, Optional
 from pydantic import Field
 
 from opsmate.knowledgestore.models import KnowledgeStore, openai_reranker, conn, aconn
-from opsmate.dino.types import ToolCall, Message
+from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
 import structlog
 
 logger = structlog.get_logger(__name__)
 
 
-class KnowledgeRetrieval(ToolCall):
+class KnowledgeRetrieval(ToolCall, PresentationMixin):
     """
     Knowledge retrieval tool allows you to search for relevant knowledge from the knowledge base.
     """
@@ -18,13 +18,17 @@ class KnowledgeRetrieval(ToolCall):
     _aconn = None
     _conn = None
     query: str = Field(description="The query to search for")
-    result: Optional[str] = Field(
-        description="The result of the search - DO NOT POPULATE THIS FIELD",
+    output: Optional[str] = Field(
+        description="The summarised output of the search - DO NOT POPULATE THIS FIELD",
         default=None,
     )
 
     async def __call__(self):
         logger.info("running knowledge retrieval tool", query=self.query)
+
+        # XXX: sync based lancedb is more feature complete when it comes to query and reranks
+        # however it comes with big penalty when it comes to latency
+        # some of the features will land in 0.17.1+
         # conn = self.conn()
 
         # table = conn.open_table("knowledge_store")
@@ -50,8 +54,7 @@ class KnowledgeRetrieval(ToolCall):
         )  # .limit(10).to_list()
         results = [result["content"] for result in results]
 
-        self.result = await self.summary(self.query, results)
-        return self.result
+        return await self.summary(self.query, results)
 
     @dino(
         model="gpt-4o-mini",
@@ -64,6 +67,8 @@ class KnowledgeRetrieval(ToolCall):
         key information from the knowledge provided, maintaining accuracy, and presenting
         a cohesive response. If there are any gaps or contradictions in the provided
         knowledge, acknowledge them in your summary.
+
+        If you are not sure about the answer, please respond with "knowledge not found".
         """
         context = "\n".join(
             f"""
@@ -77,6 +82,13 @@ class KnowledgeRetrieval(ToolCall):
             Message.user(context),
             Message.user(question),
         ]
+
+    def markdown(self):
+        return f"""
+### Knowledge
+
+{self.output}
+"""
 
     async def aconn(self):
         if not self._aconn:

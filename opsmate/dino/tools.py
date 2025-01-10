@@ -32,8 +32,11 @@ def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
 
     # make sure fn returns a string
     _validate_fn(fn)
-    # add output field
-    kw["output"] = (Optional[str | ToolCall], None)
+    # Determine the return type of the function
+    return_type = fn.__annotations__.get("return", Optional[str | ToolCall])
+
+    # Use the return type of fn for the output field
+    kw["output"] = (Optional[return_type], None)
     m = create_model(
         fn.__name__,
         __doc__=fn.__doc__,
@@ -47,16 +50,14 @@ def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
         async def call(self):
             s = self.model_dump()
             s.pop("output")
-            self.output = await fn(**s)
-            return self.output
+            return await fn(**s)
 
     else:
 
         def call(self):
             s = self.model_dump()
             s.pop("output")
-            self.output = fn(**s)
-            return self.output
+            return fn(**s)
 
     m.__call__ = call
 

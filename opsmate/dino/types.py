@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Any, List, Optional, Literal, Dict, Union, Type
 import structlog
+from abc import ABC, abstractmethod
+import inspect
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +53,20 @@ class ReactAnswer(BaseModel):
     answer: str = Field(description="Your final answer to the question")
 
 
-class ToolCall(BaseModel): ...
+class ToolCall(BaseModel):
+    async def run(self):
+        """Run the tool call and return the output"""
+        if inspect.iscoroutinefunction(self.__call__):
+            self.output = await self()
+        else:
+            self.output = self()
+        return self.output
+
+
+class PresentationMixin(ABC):
+    @abstractmethod
+    def markdown(self):
+        pass
 
 
 class Observation(BaseModel):

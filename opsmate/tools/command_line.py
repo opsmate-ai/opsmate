@@ -1,14 +1,14 @@
 import subprocess
 from typing import Optional
 from pydantic import Field
-from opsmate.dino.types import ToolCall
+from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
 import asyncio
 
 logger = structlog.get_logger(__name__)
 
 
-class ShellCommand(ToolCall):
+class ShellCommand(ToolCall, PresentationMixin):
     """
     ShellCommand tool allows you to run shell commands and get the output.
     """
@@ -16,7 +16,8 @@ class ShellCommand(ToolCall):
     description: str = Field(description="Explain what the command is doing")
     command: str = Field(description="The command to run")
     output: Optional[str] = Field(
-        description="The output of the command - DO NOT POPULATE"
+        description="The output of the command - DO NOT POPULATE",
+        default=None,
     )
 
     async def __call__(self):
@@ -28,10 +29,9 @@ class ShellCommand(ToolCall):
                 stderr=asyncio.subprocess.STDOUT,
             )
             stdout, _ = await process.communicate()
-            self.output = stdout.decode()
+            return stdout.decode()
         except Exception as e:
-            self.output = str(e)
-        return self.output
+            return str(e)
 
     def markdown(self):
         return f"""

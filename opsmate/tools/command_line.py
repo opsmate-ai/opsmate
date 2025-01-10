@@ -16,7 +16,8 @@ class ShellCommand(ToolCall):
     description: str = Field(description="Explain what the command is doing")
     command: str = Field(description="The command to run")
     output: Optional[str] = Field(
-        description="The output of the command - DO NOT POPULATE"
+        description="The output of the command - DO NOT POPULATE",
+        default=None,
     )
 
     async def __call__(self):

@@ -18,8 +18,8 @@ class KnowledgeRetrieval(ToolCall):
     _aconn = None
     _conn = None
     query: str = Field(description="The query to search for")
-    result: Optional[str] = Field(
-        description="The result of the search - DO NOT POPULATE THIS FIELD",
+    output: Optional[str] = Field(
+        description="The summarised output of the search - DO NOT POPULATE THIS FIELD",
         default=None,
     )
 
@@ -54,8 +54,8 @@ class KnowledgeRetrieval(ToolCall):
         )  # .limit(10).to_list()
         results = [result["content"] for result in results]
 
-        self.result = await self.summary(self.query, results)
-        return self.result
+        self.output = await self.summary(self.query, results)
+        return self.output
 
     @dino(
         model="gpt-4o-mini",
@@ -68,6 +68,8 @@ class KnowledgeRetrieval(ToolCall):
         key information from the knowledge provided, maintaining accuracy, and presenting
         a cohesive response. If there are any gaps or contradictions in the provided
         knowledge, acknowledge them in your summary.
+
+        If you are not sure about the answer, please respond with "knowledge not found".
         """
         context = "\n".join(
             f"""
@@ -86,7 +88,7 @@ class KnowledgeRetrieval(ToolCall):
         return f"""
 ### Knowledge
 
-{self.result}
+{self.output}
 """
 
     async def aconn(self):

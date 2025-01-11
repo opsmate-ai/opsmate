@@ -49,3 +49,15 @@ To have the human-in-the-loop experience you can run
 ```bash
 opsmate chat
 ```
+
+## Serve the API server
+
+To serve the Opsmate with a web interface and API you can run the following command:
+
+```bash
+opsmate serve
+```
+
+You can access the web interface at [http://localhost:8080](http://localhost:8080).
+
+API documentation is available at [http://localhost:8080/api/docs](http://localhost:8080/api/docs).

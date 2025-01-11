@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opsmate"
-version = "0.1.10.alpha1"
+version = "0.1.11.alpha"
 description = "opsmate is a SRE AI assistant"
 authors = ["Jingkai <jingkai@hey.com>"]
 readme = "README.md"
@@ -36,6 +36,10 @@ jupyterlab = "^4.3.0"
 ipywidgets = "^8.1.5"
 pandas = "^2.2.3"
 pytest-asyncio = "^0.24.0"
+
+
+[tool.poetry.group.docs.dependencies]
+mkdocs-material = "^9.5.49"
 
 [build-system]
 requires = ["poetry-core"]

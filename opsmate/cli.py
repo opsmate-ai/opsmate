@@ -287,6 +287,22 @@ def list_contexts():
     console.print(table)
 
 
+@opsmate_cli.command()
+@click.option("--host", default="0.0.0.0", help="Host to serve on")
+@click.option("--port", default=8080, help="Port to serve on")
+@coro
+async def serve(host, port):
+    """
+    Start the OpsMate server.
+    """
+    from opsmate.apiserver.apiserver import app
+    import uvicorn
+
+    config = uvicorn.Config(app, host=host, port=port)
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
 def get_context(ctx_name: str):
     ctx = contexts.get(ctx_name)
     if not ctx:

@@ -6,6 +6,7 @@ from functools import wraps
 import os
 import sys
 import importlib
+import inspect
 
 logger = structlog.get_logger(__name__)
 # Type variables for better type hints
@@ -24,6 +25,7 @@ class Metadata(BaseModel):
     )
 
     is_async: bool = Field(description="Whether the plugin is async", default=False)
+    source: str = Field(description="The source of the plugin")
 
 
 class Plugin(BaseModel):
@@ -59,16 +61,26 @@ class PluginRegistry(BaseModel):
             plugin_name = name or func.__name__
             plugin_description = description or func.__doc__
             is_async = asyncio.iscoroutinefunction(func)
+
+            # Get the caller's frame and file path
+            caller_frame = inspect.currentframe().f_back
+            source_file = inspect.getfile(caller_frame)
+            abs_source_path = os.path.abspath(source_file)
+
             metadata = Metadata(
                 name=plugin_name,
                 description=plugin_description,
                 version=version,
                 author=author,
                 is_async=is_async,
+                source=abs_source_path,  # Use the absolute path from caller
             )
 
             if cls._plugins.get(plugin_name):
-                raise ValueError(f"Plugin {plugin_name} already exists")
+                conflict_source = cls._plugins[plugin_name].metadata.source
+                raise ValueError(
+                    f"Plugin {plugin_name} already exists at {conflict_source}"
+                )
 
             cls._plugins[plugin_name] = Plugin(
                 name=plugin_name,
@@ -87,7 +99,7 @@ class PluginRegistry(BaseModel):
         return decorator
 
     @classmethod
-    def discover(cls, plugin_dir: str):
+    def discover(cls, plugin_dir: str, ignore_conflicts: bool = False):
         """discover plugins in a directory"""
         if not os.path.exists(plugin_dir):
             logger.warning("Plugin directory does not exist", plugin_dir=plugin_dir)
@@ -102,12 +114,12 @@ class PluginRegistry(BaseModel):
         for filename in os.listdir(plugin_dir):
             if filename.endswith(".py") and not filename.startswith("__"):
                 plugin_path = os.path.join(plugin_dir, filename)
-                cls._load_plugin_file(plugin_path)
+                cls._load_plugin_file(plugin_path, ignore_conflicts)
 
         sys.path.remove(os.path.abspath(plugin_dir))
 
     @classmethod
-    def _load_plugin_file(cls, plugin_path: str):
+    def _load_plugin_file(cls, plugin_path: str, ignore_conflicts: bool = False):
         """load a plugin file"""
         logger.info("loading plugin file", plugin_path=plugin_path)
         try:
@@ -122,6 +134,8 @@ class PluginRegistry(BaseModel):
             logger.info("loaded plugin file", plugin_path=plugin_path)
         except Exception as e:
             logger.error("failed to load plugin file", plugin_path=plugin_path, error=e)
+            if not ignore_conflicts:
+                raise e
 
     @classmethod
     def get_plugin(cls, plugin_name: str) -> Plugin:

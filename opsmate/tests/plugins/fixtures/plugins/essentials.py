@@ -14,7 +14,6 @@ async def my_creator():
 
 
 @dtool
-@dino(model="gpt-4o-mini", response_model=str)
 def get_weather(location: str) -> str:
     return f"The location is {location}. if it's London return raining other wise return sunny"
 

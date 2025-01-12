@@ -54,3 +54,17 @@ async def test_plugin_with_conflicts(plugins_dir):
     conflicts_dir = path.join(current_dir, "fixtures/conflicts")
     with pytest.raises(ValueError, match="Plugin my_creator already exists"):
         PluginRegistry.discover(conflicts_dir, ignore_conflicts=False)
+
+
+@pytest.mark.asyncio
+async def test_load_dtools(plugins_dir):
+    get_weather = PluginRegistry.get_tool("get_weather")
+    assert get_weather is not None
+    assert (
+        await get_weather(location="London").run()
+        == "The location is London. if it's London return raining other wise return sunny"
+    )
+
+    assert PluginRegistry.get_tools() == {
+        "get_weather": get_weather,
+    }

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Callable, Optional, TypeVar, ParamSpec, ClassVar, List
+from opsmate.dino.types import ToolCall
 import asyncio
 import structlog
 from functools import wraps
@@ -46,6 +47,8 @@ class PluginRegistry(BaseModel):
     """Function-based plugin registry with directory loading support"""
 
     _plugins: ClassVar[Dict[str, Plugin]] = {}
+    _tools: ClassVar[Dict[str, ToolCall]] = {}
+    _tool_sources: ClassVar[Dict[str, str]] = {}
 
     @classmethod
     def auto_discover(
@@ -131,11 +134,34 @@ class PluginRegistry(BaseModel):
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
+            print(module)
+            cls._load_dtools(module, ignore_conflicts)
+
             logger.info("loaded plugin file", plugin_path=plugin_path)
         except Exception as e:
             logger.error("failed to load plugin file", plugin_path=plugin_path, error=e)
             if not ignore_conflicts:
                 raise e
+
+    @classmethod
+    def _load_dtools(cls, module, ignore_conflicts: bool = False):
+        """load dtools from a module"""
+        for item_name, item in inspect.getmembers(module):
+            if inspect.isclass(item) and issubclass(item, ToolCall):
+                logger.info("loading dtool", dtool=item_name)
+                if item_name in cls._tools:
+                    conflict_source = cls._tool_sources[item_name]
+                    logger.warning(
+                        "tool already exists",
+                        tool=item_name,
+                        conflict_source=conflict_source,
+                    )
+                    if not ignore_conflicts:
+                        raise ValueError(
+                            f"Tool {item_name} already exists at {conflict_source}"
+                        )
+                cls._tools[item_name] = item
+                cls._tool_sources[item_name] = module.__file__
 
     @classmethod
     def get_plugin(cls, plugin_name: str) -> Plugin:
@@ -146,6 +172,16 @@ class PluginRegistry(BaseModel):
     def get_plugins(cls) -> List[Metadata]:
         """get all plugins"""
         return list(cls._metadata.values())
+
+    @classmethod
+    def get_tool(cls, tool_name: str) -> ToolCall:
+        """get a tool by name"""
+        return cls._tools.get(tool_name)
+
+    @classmethod
+    def get_tools(cls) -> Dict[str, ToolCall]:
+        """get all tools"""
+        return cls._tools
 
     @classmethod
     def clear(cls):

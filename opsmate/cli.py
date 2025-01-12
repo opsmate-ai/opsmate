@@ -17,7 +17,6 @@ import structlog
 import logging
 from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
-from opsmate.tools import ShellCommand
 from opsmate.contexts import contexts
 import asyncio
 from functools import wraps

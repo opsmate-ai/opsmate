@@ -38,3 +38,10 @@ async def test_plugin_registy_with_tool(plugins_dir):
     weather = PluginRegistry.get_plugin("fake_weather")
     assert await weather.execute(location="London") == "rainy"
     assert await weather.execute(location="San Francisco") == "sunny"
+
+
+@pytest.mark.asyncio
+async def test_plugin_with_sync_tool(plugins_dir):
+    weather = PluginRegistry.get_plugin("fake_weather_sync")
+    assert await weather.execute(location="London") == "rainy"
+    assert await weather.execute(location="San Francisco") == "sunny"

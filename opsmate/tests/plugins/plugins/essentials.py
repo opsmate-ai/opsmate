@@ -31,3 +31,18 @@ def get_weather(location: str) -> str:
 async def weather(location: str):
     """the the current weather"""
     return f"check the weather for {location}"
+
+
+@auto_discover(
+    name="fake_weather_sync",
+    description="the the current weather",
+    author="opsmate",
+    version="0.1.0",
+)
+@dino(
+    model="gpt-4o-mini", response_model=Literal["sunny", "rainy"], tools=[get_weather]
+)
+# same function name is supported as long as it's auto-discovered with a different name
+def weather(location: str) -> str:
+    """the the current weather"""
+    return f"check the weather for {location}"

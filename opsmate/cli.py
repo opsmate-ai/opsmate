@@ -20,6 +20,7 @@ from opsmate.dino.types import Observation, ReactAnswer, React, Message
 from opsmate.contexts import contexts
 import asyncio
 from functools import wraps
+from opsmate.plugins import PluginRegistry
 
 
 def coro(f):
@@ -65,6 +66,31 @@ def opsmate_cli():
     pass
 
 
+def common_params(func):
+    @click.option("--tools", default="")
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
+        _tool_names = kwargs.pop("tools")
+        _tool_names = _tool_names.split(",")
+        _tool_names = [t for t in _tool_names if t != ""]
+        tools = []
+        for tool_name in _tool_names:
+            tool = PluginRegistry.get_tool(tool_name)
+            if not tool:
+                console.print(
+                    f"Tool {tool_name} not found. Run the list-tools command to see all the tools available."
+                )
+                exit(1)
+            tools.append(tool)
+
+        kwargs["tools"] = tools
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @opsmate_cli.command()
 @click.argument("instruction")
 @click.option(
@@ -80,18 +106,23 @@ def opsmate_cli():
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@common_params
 @traceit
 @coro
-async def run(instruction, ask, model, context):
+# async def run(instruction, ask, model, context):
+async def run(instruction, ask, model, context, tools):
     """
     Run a task with the OpsMate.
     """
 
     ctx = get_context(context)
 
+    if len(tools) == 0:
+        tools = ctx.tools
+
     logger.info("Running on", instruction=instruction, model=model)
 
-    @dino("gpt-4o", response_model=Observation, tools=ctx.tools)
+    @dino("gpt-4o", response_model=Observation, tools=tools)
     async def run_command(instruction: str):
         return [
             Message.system(ctx.ctx()),
@@ -123,20 +154,24 @@ async def run(instruction, ask, model, context):
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@common_params
 @traceit
 @coro
-async def solve(instruction, model, max_iter, context):
+async def solve(instruction, model, max_iter, context, tools):
     """
     Solve a problem with the OpsMate.
     """
     ctx = get_context(context)
+
+    if len(tools) == 0:
+        tools = ctx.tools
 
     async for output in run_react(
         instruction,
         contexts=[Message.system(ctx.ctx())],
         model=model,
         max_iter=max_iter,
-        tools=ctx.tools,
+        tools=tools,
     ):
         if isinstance(output, React):
             console.print(
@@ -195,14 +230,18 @@ Commands:
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@common_params
 @traceit
 @coro
-async def chat(model, max_iter, context):
+async def chat(model, max_iter, context, tools):
     """
     Chat with the OpsMate.
     """
 
     ctx = get_context(context)
+
+    if len(tools) == 0:
+        tools = ctx.tools
 
     opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
@@ -224,7 +263,7 @@ async def chat(model, max_iter, context):
             contexts=[Message.system(ctx.ctx())],
             model=model,
             max_iter=max_iter,
-            tools=ctx.tools,
+            tools=tools,
             chat_history=chat_history,
         )
         chat_history.append(Message.user(user_input))
@@ -300,6 +339,23 @@ async def serve(host, port):
     config = uvicorn.Config(app, host=host, port=port)
     server = uvicorn.Server(config)
     await server.serve()
+
+
+@opsmate_cli.command()
+def list_tools():
+    """
+    List all the tools available.
+    """
+    PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
+
+    table = Table(title="Tools", show_header=True, show_lines=True)
+    table.add_column("Tool")
+    table.add_column("Description")
+
+    for tool_name, tool in PluginRegistry.get_tools().items():
+        table.add_row(tool_name, tool.__doc__)
+
+    console.print(table)
 
 
 def get_context(ctx_name: str):

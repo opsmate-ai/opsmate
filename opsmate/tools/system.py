@@ -229,7 +229,7 @@ class FilesList(Fs):
 
     async def __call__(self):
         if not self.recursive:
-            return os.listdir(self.path)
+            return "\n".join(os.listdir(self.path))
 
         file_list: List[str] = []
         for root, _, files in os.walk(self.path):

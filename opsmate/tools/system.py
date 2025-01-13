@@ -219,8 +219,8 @@ class FileAppend(Fs):
 """
 
 
-class ListFiles(Fs):
-    """ListFiles tool allows you to list files in a directory recursively"""
+class FilesList(Fs):
+    """FilesList tool allows you to list files in a directory recursively"""
 
     path: str = Field(description="The path to the directory to list")
     recursive: bool = Field(
@@ -255,8 +255,8 @@ class ListFiles(Fs):
 """
 
 
-class FindFiles(Fs):
-    """FindFiles tool allows you to find files in a directory"""
+class FilesFind(Fs):
+    """FilesFind tool allows you to find files in a directory"""
 
     path: str = Field(description="The path to the directory to search")
     filename: str = Field(description="The filename to search for")

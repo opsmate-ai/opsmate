@@ -6,8 +6,8 @@ from opsmate.tools.system import (
     FileRead,
     FileWrite,
     FileAppend,
-    ListFiles,
-    FindFiles,
+    FilesList,
+    FilesFind,
     FileDelete,
     SysStats,
     SysEnv,
@@ -147,7 +147,7 @@ async def test_list_files(temp_dir):
     open(os.path.join(temp_dir, "file1.txt"), "w").close()
     open(os.path.join(temp_dir, "subdir/file2.txt"), "w").close()
 
-    list_files = ListFiles(path=temp_dir)
+    list_files = FilesList(path=temp_dir)
     result = await list_files.run()
     assert "file1.txt" in result
     assert "subdir/file2.txt" in result
@@ -163,7 +163,7 @@ async def test_find_files(temp_dir):
     test_file = "findme.txt"
     open(os.path.join(temp_dir, test_file), "w").close()
 
-    find_files = FindFiles(path=temp_dir, filename=test_file)
+    find_files = FilesFind(path=temp_dir, filename=test_file)
     result = await find_files.run()
     assert test_file in result
 

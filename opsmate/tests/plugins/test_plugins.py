@@ -14,6 +14,29 @@ def plugins_dir():
 
 
 @pytest.mark.asyncio
+async def test_builtin_tools_registry(plugins_dir):
+    tools = [
+        "ShellCommand",
+        "KnowledgeRetrieval",
+        "current_time",
+        "datetime_extraction",
+        "HttpGet",
+        "HttpCall",
+        "HttpToText",
+        "FileRead",
+        "FileWrite",
+        "FileAppend",
+        "FileDelete",
+        "FilesList",
+        "FilesFind",
+        "SysStats",
+        "SysEnv",
+    ]
+    for tool in tools:
+        assert tool in PluginRegistry.get_tools()
+
+
+@pytest.mark.asyncio
 async def test_plugin_registry_basic(plugins_dir):
     my_creator = PluginRegistry.get_plugin("my_creator")
     assert my_creator.metadata.description == "you are a LLM"

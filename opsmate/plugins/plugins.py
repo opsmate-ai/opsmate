@@ -104,6 +104,8 @@ class PluginRegistry(BaseModel):
     @classmethod
     def discover(cls, plugin_dir: str, ignore_conflicts: bool = False):
         """discover plugins in a directory"""
+        cls._load_builtin(ignore_conflicts=True)
+
         if not os.path.exists(plugin_dir):
             logger.warning("Plugin directory does not exist", plugin_dir=plugin_dir)
             return
@@ -134,7 +136,6 @@ class PluginRegistry(BaseModel):
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            print(module)
             cls._load_dtools(module, ignore_conflicts)
 
             logger.info("loaded plugin file", plugin_path=plugin_path)
@@ -142,6 +143,18 @@ class PluginRegistry(BaseModel):
             logger.error("failed to load plugin file", plugin_path=plugin_path, error=e)
             if not ignore_conflicts:
                 raise e
+
+    @classmethod
+    def _load_builtin(
+        cls,
+        ignore_conflicts: bool = True,
+        builtin_modules: List[str] = ["opsmate.tools"],
+    ):
+        logger.info("loading builtin tools")
+        for builtin_module in builtin_modules:
+            logger.info("loading builtin tools from", builtin_module=builtin_module)
+            module = importlib.import_module(builtin_module)
+            cls._load_dtools(module, ignore_conflicts)
 
     @classmethod
     def _load_dtools(cls, module, ignore_conflicts: bool = False):

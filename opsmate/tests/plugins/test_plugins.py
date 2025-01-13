@@ -65,6 +65,4 @@ async def test_load_dtools(plugins_dir):
         == "The location is London. if it's London return raining other wise return sunny"
     )
 
-    assert PluginRegistry.get_tools() == {
-        "get_weather": get_weather,
-    }
+    assert "get_weather" in PluginRegistry.get_tools()

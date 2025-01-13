@@ -18,7 +18,7 @@ class HttpBase(ToolCall, PresentationMixin):
     """Base class for HTTP tools"""
 
     url: str = Field(description="The URL to interact with")
-    output: Optional[str] = Field(
+    output: Optional[HttpResponse] = Field(
         description="The response from the URL - DO NOT POPULATE", default=None
     )
     _client: httpx.AsyncClient = None

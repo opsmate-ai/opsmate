@@ -11,7 +11,7 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     CellType,
     CreatedByType,
-    k8s_react,
+    gen_k8s_react,
 )
 from opsmate.gui.components import CellComponent, CellOutputRenderer
 from opsmate.dino.types import Message, Observation
@@ -57,8 +57,13 @@ from opsmate.workflow.workflow import (
 from opsmate.workflow.workflow import (
     WorkflowStep as OpsmateWorkflowStep,
 )
+from opsmate.gui.models import Config
 
 logger = structlog.get_logger()
+
+config = Config()
+
+k8s_react = gen_k8s_react(config)
 
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")

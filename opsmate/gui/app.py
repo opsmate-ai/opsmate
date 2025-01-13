@@ -11,7 +11,7 @@ from opsmate.gui.models import (
     WorkflowEnum,
     default_new_cell,
     SQLModel as GUISQLModel,
-    load_plugins,
+    Config,
 )
 from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
@@ -31,15 +31,9 @@ from opsmate.gui.views import (
     home_body,
 )
 from opsmate.ingestions import ingest_from_config
-from opsmate.libs.config import Config as OpsmateConfig
+
 
 logger = structlog.get_logger()
-
-
-class Config(OpsmateConfig):
-    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
-    session_name: str = Field(default="session", alias="OPSMATE_SESSION_NAME")
-    token: str = Field(default="", alias="OPSMATE_TOKEN")
 
 
 config = Config()
@@ -56,8 +50,6 @@ async def on_startup():
     WorkflowSQLModel.metadata.create_all(engine)
 
     await ingest_from_config(config)
-
-    load_plugins()
 
 
 def before(req, session):

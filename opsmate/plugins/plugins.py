@@ -102,9 +102,15 @@ class PluginRegistry(BaseModel):
         return decorator
 
     @classmethod
-    def discover(cls, plugin_dir: str, ignore_conflicts: bool = False):
+    def discover(cls, *plugin_dirs: str, ignore_conflicts: bool = False):
         """discover plugins in a directory"""
         cls._load_builtin(ignore_conflicts=True)
+        for plugin_dir in plugin_dirs:
+            cls._discover(plugin_dir, ignore_conflicts)
+
+    @classmethod
+    def _discover(cls, plugin_dir: str, ignore_conflicts: bool = False):
+        """discover plugins in a directory"""
 
         if not os.path.exists(plugin_dir):
             logger.warning("Plugin directory does not exist", plugin_dir=plugin_dir)
@@ -195,6 +201,16 @@ class PluginRegistry(BaseModel):
     def get_tools(cls) -> Dict[str, ToolCall]:
         """get all tools"""
         return cls._tools
+
+    @classmethod
+    def get_tools_from_list(cls, tool_names: List[str]) -> List[ToolCall]:
+        """get tools from a list of tool names"""
+        result = []
+        for tool_name in tool_names:
+            if tool_name not in cls._tools:
+                raise ValueError(f"Tool {tool_name} not found")
+            result.append(cls._tools[tool_name])
+        return result
 
     @classmethod
     def clear(cls):

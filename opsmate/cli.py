@@ -74,15 +74,13 @@ def common_params(func):
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
-        tools = []
-        for tool_name in _tool_names:
-            tool = PluginRegistry.get_tool(tool_name)
-            if not tool:
-                console.print(
-                    f"Tool {tool_name} not found. Run the list-tools command to see all the tools available."
-                )
-                exit(1)
-            tools.append(tool)
+        try:
+            tools = PluginRegistry.get_tools_from_list(_tool_names)
+        except ValueError as e:
+            console.print(
+                f"Tool {e} not found. Run the list-tools command to see all the tools available."
+            )
+            exit(1)
 
         kwargs["tools"] = tools
 

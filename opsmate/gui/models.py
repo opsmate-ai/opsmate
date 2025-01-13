@@ -52,12 +52,7 @@ class Config(OpsmateConfig):
         return v
 
     def optmate_tools(self):
-        result = []
-        for tool in self.tools:
-            if tool not in PluginRegistry.get_tools():
-                raise ValueError(f"Tool {tool} not found")
-            result.append(PluginRegistry.get_tools()[tool])
-        return result
+        return PluginRegistry.get_tools_from_list(self.tools)
 
 
 class SQLModel(_SQLModel, registry=registry()):

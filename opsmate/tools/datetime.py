@@ -36,6 +36,9 @@ class DatetimeRange(BaseModel):
 
 @dtool
 async def current_time() -> str:
+    """
+    Get the current time in %Y-%m-%dT%H:%M:%SZ format
+    """
     return datetime.now(pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

@@ -2,7 +2,7 @@ from typing import Any, Callable, Optional, Coroutine, Type
 from pydantic import create_model
 import inspect
 from inspect import Parameter
-from .types import ToolCall
+from .types import ToolCall, BaseModel
 
 
 def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
@@ -66,7 +66,7 @@ def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
 
 def _validate_fn(fn: Callable | Coroutine[Any, Any, Any]):
     if not _is_fn_returning_str(fn) and not _is_fn_returning_base_model(fn):
-        raise ValueError("fn must return a string or a subclass of ToolCall")
+        raise ValueError("fn must return a string or a subclass of BaseModel")
 
 
 def _is_fn_returning_str(fn: Callable | Coroutine[Any, Any, Any]):
@@ -75,4 +75,4 @@ def _is_fn_returning_str(fn: Callable | Coroutine[Any, Any, Any]):
 
 def _is_fn_returning_base_model(fn: Callable | Coroutine[Any, Any, Any]):
     return_type = fn.__annotations__.get("return")
-    return isinstance(return_type, type) and issubclass(return_type, ToolCall)
+    return isinstance(return_type, type) and issubclass(return_type, BaseModel)

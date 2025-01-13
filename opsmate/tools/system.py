@@ -1,18 +1,26 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 import httpx
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pydantic import Field
 import json
 import html2text
 import os
 import shutil
+from pydantic import BaseModel
+
+
+class HttpResponse(BaseModel):
+    status_code: int
+    text: str
 
 
 class HttpBase(ToolCall, PresentationMixin):
     """Base class for HTTP tools"""
 
     url: str = Field(description="The URL to interact with")
-    output: str = Field(description="The response from the URL")
+    output: Optional[str] = Field(
+        description="The response from the URL - DO NOT POPULATE", default=None
+    )
     _client: httpx.AsyncClient = None
 
     def aconn(self) -> httpx.AsyncClient:
@@ -24,9 +32,9 @@ class HttpBase(ToolCall, PresentationMixin):
 class HttpGet(HttpBase):
     """HttpGet tool allows you to get the content of a URL"""
 
-    async def __call__(self):
+    async def __call__(self) -> str:
         resp = await self.aconn().get(self.url)
-        return resp.text
+        return HttpResponse(status_code=resp.status_code, text=resp.text)
 
     def markdown(self):
         return f"""
@@ -38,8 +46,10 @@ class HttpGet(HttpBase):
 
 ### Output
 
+resp code: {self.output.status_code}
+
 ```
-{self.output}
+{self.output.text}
 ```
 """
 
@@ -75,7 +85,7 @@ class HttpCall(HttpBase):
         resp = await self.aconn().request(
             self.method, self.url, json=data, headers=self.headers
         )
-        return resp.text
+        return HttpResponse(status_code=resp.status_code, text=resp.text)
 
     def markdown(self):
         return f"""
@@ -87,8 +97,10 @@ class HttpCall(HttpBase):
 
 ### Output
 
+resp code: {self.output.status_code}
+
 ```
-{self.output}
+{self.output.text}
 ```
 """
 
@@ -98,7 +110,9 @@ class HttpToText(HttpBase):
 
     async def __call__(self):
         resp = await self.aconn().get(self.url)
-        return html2text.html2text(resp.text)
+        return HttpResponse(
+            status_code=resp.status_code, text=html2text.html2text(resp.text)
+        )
 
     def markdown(self):
         return f"""
@@ -110,13 +124,25 @@ class HttpToText(HttpBase):
 
 ### Output
 
+resp code: {self.output.status_code}
+
 ```
-{self.output}
+{self.output.text}
 ```
 """
 
 
-class FileRead(ToolCall, PresentationMixin):
+class Fs(ToolCall, PresentationMixin):
+    """Fs tool allows you to read and write to the filesystem"""
+
+    output: Optional[str] = Field(
+        description="The content of the file - DO NOT POPULATE", default=None
+    )
+
+    def markdown(self): ...
+
+
+class FileRead(Fs):
     """FileRead tool allows you to read a file"""
 
     path: str = Field(description="The path to the file to read")
@@ -141,7 +167,7 @@ class FileRead(ToolCall, PresentationMixin):
 """
 
 
-class FileWrite(ToolCall, PresentationMixin):
+class FileWrite(Fs):
     """FileWrite tool allows you to write to a file"""
 
     path: str = Field(description="The path to the file to write")
@@ -167,7 +193,7 @@ class FileWrite(ToolCall, PresentationMixin):
 """
 
 
-class FileAppend(ToolCall, PresentationMixin):
+class FileAppend(Fs):
     """FileAppend tool allows you to append to a file"""
 
     path: str = Field(description="The path to the file to append")
@@ -193,7 +219,7 @@ class FileAppend(ToolCall, PresentationMixin):
 """
 
 
-class ListFiles(ToolCall, PresentationMixin):
+class ListFiles(Fs):
     """ListFiles tool allows you to list files in a directory recursively"""
 
     path: str = Field(description="The path to the directory to list")
@@ -229,7 +255,7 @@ class ListFiles(ToolCall, PresentationMixin):
 """
 
 
-class FindFiles(ToolCall, PresentationMixin):
+class FindFiles(Fs):
     """FindFiles tool allows you to find files in a directory"""
 
     path: str = Field(description="The path to the directory to search")
@@ -257,7 +283,7 @@ class FindFiles(ToolCall, PresentationMixin):
 """
 
 
-class FileDelete(ToolCall, PresentationMixin):
+class FileDelete(Fs):
     """FileDelete tool allows you to delete a file"""
 
     path: str = Field(description="The path to the file to delete")
@@ -281,7 +307,7 @@ class FileDelete(ToolCall, PresentationMixin):
 """
 
 
-class SysStats(ToolCall, PresentationMixin):
+class SysStats(Fs):
     """SysStats tool allows you to get the stats of a file"""
 
     path: str = Field(description="The path to the file to get stats")
@@ -305,7 +331,7 @@ class SysStats(ToolCall, PresentationMixin):
 """
 
 
-class SysEnv(ToolCall, PresentationMixin):
+class SysEnv(Fs):
     """SysEnv tool allows you to get the environment variables"""
 
     env_vars: List[str] = Field(

@@ -160,10 +160,11 @@ def react(
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
 
+        _tools = set(tools)
         for ctx in contexts:
             if isinstance(ctx, Context):
                 for tool in ctx.all_tools():
-                    tools.append(tool)
+                    _tools.add(tool)
 
         @wraps(fn)
         async def wrapper(*args, **kwargs):
@@ -171,7 +172,7 @@ def react(
                 prompt = await fn(*args, **kwargs)
             else:
                 prompt = fn(*args, **kwargs)
-
+            chat_history = kwargs.get("chat_history", [])
             if iterable:
 
                 def gen():
@@ -179,15 +180,20 @@ def react(
                         prompt,
                         model=model,
                         contexts=ctxs,
-                        tools=tools,
+                        tools=list(_tools),
                         max_iter=max_iter,
                         **react_kwargs,
+                        chat_history=chat_history,
                     )
 
                 return gen()
             else:
                 async for result in run_react(
-                    prompt, contexts=ctxs, tools=tools, max_iter=max_iter
+                    prompt,
+                    contexts=ctxs,
+                    tools=list(_tools),
+                    max_iter=max_iter,
+                    chat_history=chat_history,
                 ):
                     if callback:
                         if inspect.iscoroutinefunction(callback):

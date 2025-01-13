@@ -17,8 +17,8 @@ from typing import List
 from sqlmodel import Relationship
 import structlog
 from opsmate.dino.types import Message
-from opsmate.dino import run_react
-from opsmate.contexts import k8s_ctx, k8s_tools
+from opsmate.dino.react import react
+from opsmate.contexts import k8s_ctx
 from opsmate.tools import ShellCommand, KnowledgeRetrieval
 from sqlalchemy.orm import registry
 
@@ -294,26 +294,26 @@ def default_new_cell(workflow: Workflow):
     )
 
 
-k8s_context = """
-<assistant>
-You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
-</assistant>
-
-<important>
-- When you do `kubectl logs ...` do not log more than 50 lines.
-- When you look into any issues scoped to the namespaces, look into the events in the given namespaces.
-- When you execute `kubectl exec -it ...` use /bin/sh instead of bash.
-- Always use --show-labels for querying resources when -ojson or -oyaml are not being used.
-- Never use placeholder such as `kubectl -n <namespace> get po <pod-name>`.
-- Always make sure that you are using the right context and namespace. For example never do `kuebctl get po xxx` without specifying the namespace.
-</important>
-"""
+# def k8s_react(question: str, chat_history: List[Message]):
+#     return run_react(
+#         question,
+#         contexts=[k8s_ctx()],
+#         chat_history=chat_history,
+#         tools=[ShellCommand, KnowledgeRetrieval],
+#     )
 
 
-def k8s_react(question: str, chat_history: List[Message]):
-    return run_react(
-        question,
-        contexts=[k8s_ctx()],
-        chat_history=chat_history,
-        tools=[ShellCommand, KnowledgeRetrieval],
-    )
+def load_plugins():
+    from opsmate.plugins import PluginRegistry
+
+    PluginRegistry.discover("./plugins")
+
+
+@react(
+    model="gpt-4o",
+    contexts=[k8s_ctx()],
+    tools=[ShellCommand, KnowledgeRetrieval],
+    iterable=True,
+)
+async def k8s_react(question: str, chat_history: List[Message] = []):
+    return question

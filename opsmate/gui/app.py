@@ -1,6 +1,5 @@
 import structlog
 from pydantic import Field
-from pydantic_settings import BaseSettings
 import sqlmodel
 from fasthtml.common import *
 from opsmate.gui.models import (
@@ -12,6 +11,7 @@ from opsmate.gui.models import (
     WorkflowEnum,
     default_new_cell,
     SQLModel as GUISQLModel,
+    load_plugins,
 )
 from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
@@ -56,6 +56,8 @@ async def on_startup():
     WorkflowSQLModel.metadata.create_all(engine)
 
     await ingest_from_config(config)
+
+    load_plugins()
 
 
 def before(req, session):

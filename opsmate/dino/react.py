@@ -73,7 +73,9 @@ async def run_react(
     tools: List[ToolCall] = [],
     chat_history: List[Message] = [],
     max_iter: int = 10,
-    react_prompt: Coroutine[Any, Any, List[Message]] = _react_prompt,
+    react_prompt: Callable[
+        [str, List[Message], List[ToolCall]], Coroutine[Any, Any, List[Message]]
+    ] = _react_prompt,
     **kwargs: Any,
 ):
     ctxs = []

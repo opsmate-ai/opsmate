@@ -4,7 +4,7 @@ from os import path
 from opsmate.plugins import PluginRegistry
 
 
-@pytest.fixture
+@pytest.fixture(scope="session", autouse=True)
 def plugins_dir():
     current_dir = path.dirname(path.abspath(__file__))
     plugins_dir = path.join(current_dir, "fixtures/plugins")

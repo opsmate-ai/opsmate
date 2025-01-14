@@ -3,6 +3,7 @@ from typing import Any, List, Optional, Literal, Dict, Union, Type
 import structlog
 from abc import ABC, abstractmethod
 import inspect
+import traceback
 
 logger = structlog.get_logger(__name__)
 
@@ -63,7 +64,10 @@ class ToolCall(BaseModel):
                 self.output = self()
         except Exception as e:
             logger.error(
-                "Tool execution failed", error=str(e), tool=self.__class__.__name__
+                "Tool execution failed",
+                error=str(e),
+                tool=self.__class__.__name__,
+                stack=traceback.format_exc(),
             )
             self.output = f"Error executing tool {self.__class__.__name__}: {str(e)}"
         return self.output

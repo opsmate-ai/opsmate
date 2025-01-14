@@ -216,3 +216,5 @@ class PluginRegistry(BaseModel):
     def clear(cls):
         """clear all plugins"""
         cls._plugins = {}
+        cls._tools = {}
+        cls._tool_sources = {}

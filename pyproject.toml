@@ -42,6 +42,7 @@ respx = "^0.22.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs-material = "^9.5.49"
+mkdocs-jupyter = "^0.25.1"
 
 [build-system]
 requires = ["poetry-core"]

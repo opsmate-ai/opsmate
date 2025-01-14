@@ -156,9 +156,9 @@ class PluginRegistry(BaseModel):
         ignore_conflicts: bool = True,
         builtin_modules: List[str] = ["opsmate.tools"],
     ):
-        logger.info("loading builtin tools")
+        logger.debug("loading builtin tools")
         for builtin_module in builtin_modules:
-            logger.info("loading builtin tools from", builtin_module=builtin_module)
+            logger.debug("loading builtin tools from", builtin_module=builtin_module)
             module = importlib.import_module(builtin_module)
             cls._load_dtools(module, ignore_conflicts)
 
@@ -167,7 +167,7 @@ class PluginRegistry(BaseModel):
         """load dtools from a module"""
         for item_name, item in inspect.getmembers(module):
             if inspect.isclass(item) and issubclass(item, ToolCall):
-                logger.info("loading dtool", dtool=item_name)
+                logger.debug("loading dtool", dtool=item_name)
                 if item_name in cls._tools:
                     conflict_source = cls._tool_sources[item_name]
                     logger.warning(

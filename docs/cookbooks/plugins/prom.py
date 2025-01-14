@@ -77,7 +77,7 @@ class PromQuery(ToolCall, DatetimeRange, PresentationMixin):
         plt.figure(figsize=(12, 6))
         plt.plot(df["timestamp"], df["measurement"], marker="o")
         plt.grid(True)
-        plt.title(self.title)
+        plt.title(f"{self.title} - {self.query}")
         plt.xlabel(self.x_label)
         plt.ylabel(self.y_label)
         plt.xticks(rotation=45)
@@ -92,7 +92,7 @@ class PromQuery(ToolCall, DatetimeRange, PresentationMixin):
     author="Micky",
 )
 @dino(
-    model="gpt-4o-mini",
+    model="gpt-4o",
     response_model=PromQuery,
     tools=[datetime_extraction],
 )

@@ -56,10 +56,16 @@ class ReactAnswer(BaseModel):
 class ToolCall(BaseModel):
     async def run(self):
         """Run the tool call and return the output"""
-        if inspect.iscoroutinefunction(self.__call__):
-            self.output = await self()
-        else:
-            self.output = self()
+        try:
+            if inspect.iscoroutinefunction(self.__call__):
+                self.output = await self()
+            else:
+                self.output = self()
+        except Exception as e:
+            logger.error(
+                "Tool execution failed", error=str(e), tool=self.__class__.__name__
+            )
+            self.output = f"Error executing tool {self.__class__.__name__}: {str(e)}"
         return self.output
 
 

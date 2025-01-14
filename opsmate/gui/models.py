@@ -12,17 +12,47 @@ from sqlmodel import (
     Text,
     MetaData,
 )
+from pydantic import model_validator
 from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
 from opsmate.dino.types import Message
-from opsmate.dino import run_react
-from opsmate.contexts import k8s_ctx, k8s_tools
-from opsmate.tools import ShellCommand, KnowledgeRetrieval
+from opsmate.dino.react import react
 from sqlalchemy.orm import registry
+from opsmate.libs.config import Config as OpsmateConfig
+from opsmate.contexts import k8s_ctx
+import os
+from pathlib import Path
+from opsmate.plugins import PluginRegistry
+
 
 logger = structlog.get_logger(__name__)
+
+
+class Config(OpsmateConfig):
+    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
+    session_name: str = Field(default="session", alias="OPSMATE_SESSION_NAME")
+    token: str = Field(default="", alias="OPSMATE_TOKEN")
+    plugins_dir: str = Field(
+        default=str(Path(os.getenv("HOME"), ".opsmate", "plugins")),
+        alias="OPSMATE_PLUGINS_DIR",
+    )
+    tools: List[str] = Field(
+        default=["ShellCommand", "KnowledgeRetrieval"], alias="OPSMATE_TOOLS"
+    )
+    system_prompt: str = Field(
+        alias="OPSMATE_SYSTEM_PROMPT",
+        default_factory=k8s_ctx,
+    )
+
+    @model_validator(mode="after")
+    def validate_tools(cls, v):
+        PluginRegistry.discover(v.plugins_dir)
+        return v
+
+    def optmate_tools(self):
+        return PluginRegistry.get_tools_from_list(self.tools)
 
 
 class SQLModel(_SQLModel, registry=registry()):
@@ -294,26 +324,14 @@ def default_new_cell(workflow: Workflow):
     )
 
 
-k8s_context = """
-<assistant>
-You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
-</assistant>
-
-<important>
-- When you do `kubectl logs ...` do not log more than 50 lines.
-- When you look into any issues scoped to the namespaces, look into the events in the given namespaces.
-- When you execute `kubectl exec -it ...` use /bin/sh instead of bash.
-- Always use --show-labels for querying resources when -ojson or -oyaml are not being used.
-- Never use placeholder such as `kubectl -n <namespace> get po <pod-name>`.
-- Always make sure that you are using the right context and namespace. For example never do `kuebctl get po xxx` without specifying the namespace.
-</important>
-"""
-
-
-def k8s_react(question: str, chat_history: List[Message]):
-    return run_react(
-        question,
-        contexts=[k8s_ctx()],
-        chat_history=chat_history,
-        tools=[ShellCommand, KnowledgeRetrieval],
+def gen_k8s_react(config: Config):
+    @react(
+        model="gpt-4o",
+        contexts=[config.system_prompt],
+        tools=config.optmate_tools(),
+        iterable=True,
     )
+    async def k8s_react(question: str, chat_history: List[Message] = []):
+        return question
+
+    return k8s_react

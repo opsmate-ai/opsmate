@@ -43,7 +43,14 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+plugins:
+  - mkdocs-jupyter:
+      ignore_h1_titles: true
+      execute: false
 nav:
   - Introduction: index.md
   - CLI: cli.md
   - Production: production.md
+  - Cookbooks:
+    - Cookbooks: cookbooks/index.md
+    - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb

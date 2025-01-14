@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "0.1.11.alpha"
+__version__ = "0.1.12.alpha"
 
 # import apis into sdk package
 from api.default_api import DefaultApi

@@ -24,5 +24,12 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material
-      - run: mkdocs gh-deploy --force
+      - name: Install dependencies
+        run: |
+          pipx install poetry --python $(which python3.12)
+      - name: Install docs dependencies
+        run: |
+          poetry install --with docs
+      - name: Deploy docs
+        run: |
+          poetry run mkdocs gh-deploy --force

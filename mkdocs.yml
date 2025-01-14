@@ -55,3 +55,4 @@ nav:
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
+    - Plugin System: cookbooks/plugin-system.ipynb

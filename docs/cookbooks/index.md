@@ -10,3 +10,4 @@ Welcome to the Opsmate Cookbook Collection. Here you will find a variety of exam
 ## Links
 
 - [Use Opsmate for Automation](automation-using-python-runtime.ipynb)
+- [Plugin System](plugin-system.ipynb)

@@ -7,6 +7,7 @@ import html2text
 import os
 import shutil
 from pydantic import BaseModel
+import fnmatch
 
 
 class HttpResponse(BaseModel):
@@ -259,13 +260,14 @@ class FilesFind(Fs):
     """FilesFind tool allows you to find files in a directory"""
 
     path: str = Field(description="The path to the directory to search")
-    filename: str = Field(description="The filename to search for")
+    filename: str = Field(description="The filename pattern to search for")
 
     async def __call__(self):
         found: List[str] = []
         for root, _, files in os.walk(self.path):
-            if self.filename in files:
-                found.append(os.path.join(root, self.filename))
+            for file in files:
+                if fnmatch.fnmatch(file, self.filename):
+                    found.append(os.path.join(root, file))
         return "\n".join(found)
 
     def markdown(self):

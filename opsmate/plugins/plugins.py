@@ -104,7 +104,7 @@ class PluginRegistry(BaseModel):
     @classmethod
     def discover(cls, *plugin_dirs: str, ignore_conflicts: bool = False):
         """discover plugins in a directory"""
-        cls._load_builtin(ignore_conflicts=True)
+        cls._load_builtin(ignore_conflicts=ignore_conflicts)
         for plugin_dir in plugin_dirs:
             cls._discover(plugin_dir, ignore_conflicts)
 
@@ -142,7 +142,7 @@ class PluginRegistry(BaseModel):
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            cls._load_dtools(module, ignore_conflicts)
+            cls._load_dtools(module, ignore_conflicts=ignore_conflicts)
 
             logger.info("loaded plugin file", plugin_path=plugin_path)
         except Exception as e:
@@ -168,12 +168,16 @@ class PluginRegistry(BaseModel):
         for item_name, item in inspect.getmembers(module):
             if inspect.isclass(item) and issubclass(item, ToolCall):
                 logger.debug("loading dtool", dtool=item_name)
-                if item_name in cls._tools:
+                if (
+                    item_name in cls._tools
+                    and cls._tool_sources[item_name] != module.__file__
+                ):
                     conflict_source = cls._tool_sources[item_name]
                     logger.warning(
                         "tool already exists",
                         tool=item_name,
                         conflict_source=conflict_source,
+                        current_source=module.__file__,
                     )
                     if not ignore_conflicts:
                         raise ValueError(

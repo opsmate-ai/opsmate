@@ -11,3 +11,4 @@ Welcome to the Opsmate Cookbook Collection. Here you will find a variety of exam
 
 - [Use Opsmate for Automation](automation-using-python-runtime.ipynb)
 - [Plugin System](plugin-system.ipynb)
+- [5 Levels of Workflow Orchestration](5-levels-of-workflow-orchestration.ipynb)

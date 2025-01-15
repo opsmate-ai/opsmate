@@ -1,5 +1,4 @@
 import structlog
-from pydantic import Field
 import sqlmodel
 from fasthtml.common import *
 from opsmate.gui.models import (
@@ -11,8 +10,8 @@ from opsmate.gui.models import (
     WorkflowEnum,
     default_new_cell,
     SQLModel as GUISQLModel,
-    Config,
 )
+from opsmate.gui.config import Config
 from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
@@ -32,11 +31,10 @@ from opsmate.gui.views import (
 )
 from opsmate.ingestions import ingest_from_config
 
+config = Config()
+
 
 logger = structlog.get_logger()
-
-
-config = Config()
 
 
 # start a sqlite database

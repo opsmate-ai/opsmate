@@ -142,7 +142,7 @@ class PluginRegistry(BaseModel):
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            cls._load_dtools(module, ignore_conflicts)
+            cls._load_dtools(module, ignore_conflicts=True)
 
             logger.info("loaded plugin file", plugin_path=plugin_path)
         except Exception as e:

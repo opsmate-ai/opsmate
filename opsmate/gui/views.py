@@ -225,7 +225,10 @@ async def execute_llm_react_instruction(
                     {
                         "type": "Observation",
                         "output": Observation(
-                            tool_outputs=output.tool_outputs,
+                            tool_outputs=[
+                                output.__class__(**output.model_dump())
+                                for output in output.tool_outputs
+                            ],
                             observation=output.observation,
                         ),
                     }
@@ -342,7 +345,7 @@ async def manage_initial_understanding_cell(
         outputs.append(
             {
                 "type": "NonTechnicalQuery",
-                "output": iu,
+                "output": NonTechnicalQuery(**iu.model_dump()),
             }
         )
 
@@ -364,7 +367,7 @@ async def manage_initial_understanding_cell(
     outputs.append(
         {
             "type": "InitialUnderstanding",
-            "output": iu,
+            "output": InitialUnderstandingResponse(**iu.model_dump()),
         }
     )
 
@@ -411,7 +414,7 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
     report = await generate_report(summary, info_gathered=info_gathered)
     report_extracted = await report_breakdown(report)
 
-    return cells, report_extracted
+    return cells, ReportExtracted(**report_extracted.model_dump())
 
 
 def make_manage_potential_solution_cell(solution_id: int):
@@ -507,6 +510,7 @@ def make_manage_info_gathering_cell(question_id: int):
             question = iu.questions[ctx.metadata["question_id"]]
         logger.info("info gathering", question=question)
         info_gathered = await info_gathering(iu.summary, question)
+        info_gathered = InfoGathered(**info_gathered.model_dump())
 
         outputs = []
         outputs.append(
@@ -541,6 +545,7 @@ def make_manage_info_gathering_cell(question_id: int):
             )
         else:
             logger.info("updating existing info gathering cell", cell_id=cell.id)
+            info_gathered = InfoGathered(**info_gathered.model_dump())
             cell.output = pickle.dumps(outputs)
             cell.hidden = True
 
@@ -592,7 +597,7 @@ async def __manage_potential_solution_cell(
     outputs = []
     output = {
         "summary": summary,
-        "solution": solution,
+        "solution": Solution(**solution.model_dump()),
     }
     outputs.append(
         {
@@ -760,6 +765,7 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     else:
         logger.info("loading facts from existing cell", cell_id=cell.id)
         facts = await load_facts(cell.input.rstrip())
+    facts = Facts(**facts.model_dump())
     logger.info("facts", facts=facts)
 
     cells = workflow.cells
@@ -845,6 +851,7 @@ async def manage_planning_task_plan_cell(ctx: WorkflowContext):
         facts=facts.facts,
         instruction="how to solve the problem?",
     )
+    task_plan = TaskPlan(**task_plan.model_dump())
     outputs = []
     output = {
         "type": "TaskPlan",

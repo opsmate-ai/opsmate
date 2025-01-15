@@ -160,6 +160,23 @@ class WorkflowStep(SQLModel, table=True):
         # to deal with instructor monkey patching
         # we need to remove the _raw_response field from the value
         # it is done via re-importing the class and creating a new instance of it
+        value = self._recursive_remove_raw_response(value)
+        self.marshalled_result = pickle.dumps(value)
+
+    def _recursive_remove_raw_response(self, value):
+        if isinstance(value, BaseModel):
+            value = self._remove_raw_response(value)
+        elif isinstance(value, dict):
+            for key, val in value.items():
+                value[key] = self._recursive_remove_raw_response(val)
+        elif isinstance(value, list):
+            for i, val in enumerate(value):
+                value[i] = self._recursive_remove_raw_response(val)
+        elif isinstance(value, tuple):
+            value = tuple(self._recursive_remove_raw_response(val) for val in value)
+        return value
+
+    def _remove_raw_response(self, value: BaseModel):
         if hasattr(value, "_raw_response") and isinstance(value, BaseModel):
             cls = value.__class__
             # re import the class
@@ -168,7 +185,7 @@ class WorkflowStep(SQLModel, table=True):
             module = importlib.import_module(module_name)
             cls = getattr(module, class_name)
             value = cls(**value.model_dump())
-        self.marshalled_result = pickle.dumps(value)
+        return value
 
     # xxx: metadata is a keyword thus we use meta instead
     @property

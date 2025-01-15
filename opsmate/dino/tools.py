@@ -1,11 +1,24 @@
-from typing import Any, Callable, Optional, Coroutine, Type
+from typing import (
+    Any,
+    Callable,
+    Optional,
+    Coroutine,
+    Type,
+    ParamSpec,
+    TypeVar,
+    Awaitable,
+)
 from pydantic import create_model
 import inspect
 from inspect import Parameter
 from .types import ToolCall, BaseModel
 
 
-def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def dtool(fn: Callable[P, T] | Callable[P, Awaitable[T]]) -> Type[ToolCall]:
     """
     dtool is a decorator that turns a function into a Pydantic model.
 
@@ -47,14 +60,14 @@ def dtool(fn: Callable | Coroutine[Any, Any, Any]) -> Type[ToolCall]:
     # patch the __call__ method
     if inspect.iscoroutinefunction(fn):
 
-        async def call(self):
+        async def call(self) -> T:
             s = self.model_dump()
             s.pop("output")
             return await fn(**s)
 
     else:
 
-        def call(self):
+        def call(self) -> T:
             s = self.model_dump()
             s.pop("output")
             return fn(**s)

@@ -52,6 +52,13 @@ async def _react_prompt(
     <important 2>
     If you know the answer straight away, feel free to give the answer without going through the thought process.
     </important 2>
+
+    <important 3>
+    Action must be atomic.
+
+    Good: find all the processes that use 100%+ CPU
+    Bad: find all the processes that use 100%+ CPU and kill them
+    </important 3>
     """
 
     return [
@@ -88,14 +95,15 @@ async def run_react(
             raise ValueError(f"Invalid context type: {type(ctx)}")
 
     @dino(model, response_model=Observation, tools=tools, **kwargs)
-    async def run_action(question: str, react: React):
+    async def run_action(react: React):
         """
-        You are asked to perform the action.
-        The question gives you the big picture.
-        Please stictly only run the action given.
+        You are a world class expert to carry out action using the tools you are given.
+        Please stictly only carry out the action within the <action>...</action> tag.
+        The tools you use must be relevant to the action.
         """
         return [
             *ctxs,
+            *message_history,
             Message.assistant(
                 f"""
 <context>
@@ -103,7 +111,7 @@ thought: {react.thoughts}
 </context>
             """,
             ),
-            Message.assistant(
+            Message.user(
                 f"""<action>
 {react.action}
 </action>"""
@@ -122,10 +130,10 @@ thought: {react.thoughts}
             question, message_history=message_history, tool_names=tools
         )
         if isinstance(react_result, React):
-            message_history.append(Message.assistant(react_result.model_dump_json()))
+            message_history.append(Message.user(react_result.model_dump_json()))
             yield react_result
-            observation = await run_action(question, react_result)
-            message_history.append(Message.assistant(observation.model_dump_json()))
+            observation = await run_action(react_result)
+            message_history.append(Message.user(observation.model_dump_json()))
             yield observation
         elif isinstance(react_result, ReactAnswer):
             yield react_result

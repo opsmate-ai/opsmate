@@ -12,9 +12,12 @@ from typing import List
 from enum import Enum
 import sqlalchemy as sa
 from collections import defaultdict, deque
+from pydantic import BaseModel
 from sqlmodel import Session, select
 from sqlalchemy.orm import registry
+from typing import Dict, Any
 import pickle
+import importlib
 
 
 class SQLModel(_SQLModel, registry=registry()):
@@ -66,12 +69,23 @@ class Workflow(SQLModel, table=True):
     def runnable_steps(self, session: Session):
         return [step for step in self.steps if step.runnable(session)]
 
-    def find_step(self, fn_name: str, session: Session):
+    def find_step(self, fn_name: str, session: Session, metadata: Dict[str, Any] = {}):
         stmt = (
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == self.id)
             .where(WorkflowStep.name == fn_name)
         )
+        if metadata:
+            out = session.exec(stmt).all()
+            for step in out:
+                matches = True
+                for key, value in metadata.items():
+                    if step.meta.get(key) != value:
+                        matches = False
+                        break
+                if matches:
+                    return step
+            return None
         return session.exec(stmt).first()
 
     def topological_sort(self, session: Session):
@@ -143,6 +157,17 @@ class WorkflowStep(SQLModel, table=True):
 
     @result.setter
     def result(self, value):
+        # to deal with instructor monkey patching
+        # we need to remove the _raw_response field from the value
+        # it is done via re-importing the class and creating a new instance of it
+        if hasattr(value, "_raw_response") and isinstance(value, BaseModel):
+            cls = value.__class__
+            # re import the class
+            module_name = cls.__module__
+            class_name = cls.__name__
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+            value = cls(**value.model_dump())
         self.marshalled_result = pickle.dumps(value)
 
     # xxx: metadata is a keyword thus we use meta instead

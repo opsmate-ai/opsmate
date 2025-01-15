@@ -168,5 +168,5 @@ eval/notebooks/opsmate-embedding
 
 .sesskey
 
-/workflow.dot
-/workflow.dot.svg
+workflow.dot
+workflow.dot.svg

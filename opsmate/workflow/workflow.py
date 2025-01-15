@@ -310,6 +310,7 @@ class StatelessWorkflowExecutor:
                     exec_ctx.step_results = step.steps[0].result
                 else:
                     exec_ctx.step_results = [child.result for child in step.steps]
+                exec_ctx.metadata = step.metadata
 
                 for hook in step.pre_run_hooks:
                     await hook(exec_ctx)
@@ -529,13 +530,15 @@ class WorkflowExecutor:
 
         self.session.refresh(self.workflow)
 
-    async def mark_rerun(self, step: WorkflowStep):
+    async def mark_rerun(self, step: WorkflowStep, self_rerun: bool = True):
         """
-        Mark a workflow as pending and rerun it.
-        A selected step will be re-marked as pending, so are its descendants.
+        Marks:
+        - a workflow and its descendants as pending if `self_rerun` is True
+        - or the descendants of the selected step as pending if `self_rerun` is False
         """
-        self.workflow.state = WorkflowState.PENDING
-        self.session.commit()
+        if self_rerun:
+            self.workflow.state = WorkflowState.PENDING
+            self.session.commit()
 
         nodes = {}
         edges = defaultdict(list)
@@ -559,11 +562,12 @@ class WorkflowExecutor:
 
             visited.add(node_id)
             node = nodes[node_id]
-            node.state = WorkflowState.PENDING
-            node.error = ""
-            node.failed_reason = WorkflowFailedReason.NONE
-            node.result = None
-            self.session.commit()
+            if self_rerun or node.id != step.id:
+                node.state = WorkflowState.PENDING
+                node.error = ""
+                node.failed_reason = WorkflowFailedReason.NONE
+                node.result = None
+                self.session.commit()
 
             for next_node_id in edges[node_id]:
                 visit(next_node_id)

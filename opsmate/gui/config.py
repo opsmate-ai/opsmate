@@ -5,6 +5,8 @@ from pathlib import Path
 from opsmate.contexts import k8s_ctx
 from opsmate.plugins import PluginRegistry
 import os
+import structlog
+import logging
 
 
 class Config(OpsmateConfig):
@@ -22,6 +24,16 @@ class Config(OpsmateConfig):
         alias="OPSMATE_SYSTEM_PROMPT",
         default_factory=k8s_ctx,
     )
+    loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+
+    @model_validator(mode="after")
+    def validate_loglevel(self) -> Self:
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(
+                logging.getLevelNamesMapping()[self.loglevel]
+            ),
+        )
+        return self
 
     @model_validator(mode="after")
     def validate_tools(self) -> Self:

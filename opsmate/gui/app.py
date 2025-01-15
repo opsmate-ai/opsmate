@@ -31,11 +31,11 @@ from opsmate.gui.views import (
 )
 from opsmate.ingestions import ingest_from_config
 
+config = Config()
+
 
 logger = structlog.get_logger()
 
-
-config = Config()
 
 # start a sqlite database
 engine = sqlmodel.create_engine(

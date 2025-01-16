@@ -10,7 +10,7 @@ python = "^3.12"
 pydantic = "^2.8.2"
 openai = "^1.37.2"
 jinja2 = "^3.1.4"
-instructor = {extras = ["anthropic"], version = "^1.6.3"}
+instructor = {extras = ["google-generativeai"], version = "^1.7.2"}
 structlog = "^24.4.0"
 pyyaml = "^6.0.2"
 click = "^8.1.7"
@@ -25,6 +25,7 @@ sqlmodel = "^0.0.22"
 graphviz = "^0.20.3"
 httpx = "0.27.2"
 html2text = "^2024.2.26"
+anthropic = "^0.43.0"
 
 [tool.poetry.scripts]
 opsmate = "opsmate.cli:opsmate_cli"

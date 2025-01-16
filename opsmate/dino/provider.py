@@ -6,6 +6,7 @@ from typing import Any, Awaitable, TypeVar, List, Dict
 from instructor.client import T, ChatCompletionMessageParam
 from tenacity import AsyncRetrying
 from openai import AsyncOpenAI
+import google.generativeai as genai
 from anthropic import AsyncAnthropic
 from functools import cache
 
@@ -151,7 +152,64 @@ class AnthropicProvider(Provider):
         return instructor.from_anthropic(AsyncAnthropic())
 
 
+class GeminiProvider(Provider):
+    models = [
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash-8b",
+    ]
+
+    @classmethod
+    async def chat_completion(
+        cls,
+        response_model: type[T],
+        messages: List[Message],
+        max_retries: int | AsyncRetrying = 3,
+        validation_context: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,  # {{ edit_1 }}
+        strict: bool = True,
+        client: AsyncInstructor | None = None,
+        **kwargs: Any,
+    ) -> Awaitable[T]:
+        model = kwargs.pop("model")
+        client = client or cls.client(model)
+        kwargs.pop("client", None)
+
+        messages = [{"role": m.role, "content": m.content} for m in messages]
+
+        filtered_kwargs = cls._filter_kwargs(kwargs)
+
+        return client.chat.completions.create(
+            response_model=response_model,
+            messages=messages,
+            max_retries=max_retries,
+            validation_context=validation_context,
+            context=context,
+            strict=strict,
+            **filtered_kwargs,
+        )
+
+    @classmethod
+    def default_client(cls) -> AsyncInstructor:
+        raise NotImplementedError("Gemini doesn't have a default client")
+
+    _clients: Dict[str, AsyncInstructor] = {}
+
+    @classmethod
+    def client(cls, model_name: str) -> AsyncInstructor:
+        if model_name not in cls.models:
+            raise ValueError(f"Model {model_name} not supported")
+        if model_name not in cls._clients:
+            cls._clients[model_name] = instructor.from_gemini(
+                client=genai.GenerativeModel(model_name=model_name),
+                mode=instructor.Mode.GEMINI_TOOLS,
+            )
+        return cls._clients[model_name]
+
+
 Provider.providers = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
+    "gemini": GeminiProvider,
 }

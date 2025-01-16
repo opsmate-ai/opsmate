@@ -6,7 +6,7 @@ from openai import AsyncOpenAI
 import instructor
 from instructor import AsyncInstructor
 
-MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022", "gemini-1.5-pro"]
 
 
 @pytest.mark.asyncio

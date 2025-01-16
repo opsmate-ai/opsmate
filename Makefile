@@ -5,7 +5,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-VERSION=0.1.12.alpha2
+VERSION=0.1.12.alpha3
 IMAGE_NAME=opsmate
 CONTAINER_REGISTRY=europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images
 

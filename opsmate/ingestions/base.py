@@ -3,6 +3,9 @@ from typing import Optional, AsyncGenerator, List, Callable, Awaitable
 from pydantic import BaseModel, Field, model_validator
 from opsmate.textsplitters import TextSplitter, RecursiveTextSplitter
 from opsmate.textsplitters.base import Chunk
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class Document(BaseModel):
@@ -36,6 +39,7 @@ class BaseIngestion(ABC, BaseModel):
 
     async def ingest(self):
         async for document in self.load():
+            logger.info("ingesting document", document=document.metadata["path"])
             for chunk in self.splitter.split_text(document.content):
                 ch = chunk.model_copy()
                 for key, value in document.metadata.items():

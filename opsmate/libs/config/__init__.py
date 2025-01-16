@@ -48,6 +48,9 @@ class Config(BaseSettings):
     github_embeddings_config: Dict[str, str] = Field(
         default={}, description=github_embedding_desc
     )
+    categorise: bool = Field(
+        default=True, description="Whether to categorise the embeddings"
+    )
 
 
 config = Config()

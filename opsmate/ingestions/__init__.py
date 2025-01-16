@@ -39,8 +39,11 @@ def ingestions_from_config(cfg: Config) -> List[BaseIngestion]:
     ingestions.extend(github_ingestions)
     ingestions.extend(fs_ingestions)
 
-    for ingestion in ingestions:
-        ingestion.post_chunk_hooks = [categorize_chunk]
+    if cfg.categorise:
+        for ingestion in ingestions:
+            ingestion.post_chunk_hooks = [categorize_chunk]
+    else:
+        logger.info("categorise is disabled")
 
     return ingestions
 
@@ -64,7 +67,10 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
         )
 
         async for chunk in ingestion.ingest():
-            categories = [cat.value for cat in chunk.metadata["categories"]]
+            if "categories" in chunk.metadata:
+                categories = [cat.value for cat in chunk.metadata["categories"]]
+            else:
+                categories = []
 
             kb = {
                 "uuid": str(uuid.uuid4()),

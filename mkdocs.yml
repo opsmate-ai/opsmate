@@ -57,3 +57,4 @@ nav:
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb
+    - Knowledge Management: cookbooks/knowledge-management.ipynb

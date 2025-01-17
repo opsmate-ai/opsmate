@@ -220,3 +220,45 @@ async def test_file_update(test_file):
         result5.output
         == "Old content occurs more than once in file, please make sure its uniqueness"
     )
+
+
+@pytest.mark.asyncio
+async def test_file_search(test_file):
+    tool = ACITool(
+        command="create",
+        path=test_file,
+        content="this is cool\nvery very cool\nOK OK",
+    )
+    result = await tool.run()
+    assert result.output == "File created successfully"
+
+    tool2 = ACITool(command="search", path=test_file, content="this is cool")
+    result2 = await tool2.run()
+    assert result2.output == "   0 | this is cool"
+
+    tool3 = ACITool(command="search", path=test_file, content="cool")
+    result3 = await tool3.run()
+    assert result3.output == "   0 | this is cool\n   1 | very very cool"
+
+    tool4 = ACITool(command="search", path=test_file, content="this is cool\nOK")
+    result4 = await tool4.run()
+    assert result4.output == "   0 | this is cool\n   2 | OK OK"
+
+
+@pytest.mark.asyncio
+async def test_file_search_directory(temp_dir):
+    # create subdirs
+    dir = Path(temp_dir) / "subdir1"
+    dir.mkdir()
+    dir = str(dir)
+
+    file = Path(dir) / "file1.txt"
+    file = str(file)
+
+    tool = ACITool(command="create", path=file, content="this is cool")
+    result = await tool.run()
+    assert result.output == "File created successfully"
+
+    tool2 = ACITool(command="search", path=dir, content="cool")
+    result2 = await tool2.run()
+    assert result2.output == f"{dir}/file1.txt\n---\n   0 | this is cool\n"

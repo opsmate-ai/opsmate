@@ -5,6 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from opsmate.tools.utils import maybe_truncate_text
 import asyncio
+import os
 
 
 class Result(BaseModel):
@@ -301,3 +302,58 @@ class ACITool(ToolCall):
         latest_content = self._file_history[path][-1]
         path.write_text(latest_content)
         return Result(output="Last file operation undone")
+
+    async def search(self) -> Result:
+        """
+        Search for a pattern in a file or directory using regex.
+        """
+        path = Path(self.path)
+        try:
+            if path.is_file():
+                result = await self._search_file(path)
+                return Result(output=maybe_truncate_text(result))
+
+            elif path.is_dir():
+                results = ""
+                for root, _dirs, files in os.walk(path):
+                    print("*" * 100)
+                    print(root, _dirs, files)
+                    print("*" * 100)
+                    for file in files:
+                        if file.startswith("."):
+                            continue
+                        result = await self._search_file(os.path.join(root, file))
+                        if result:
+                            results += f"{root}/{file}\n---\n{result}\n"
+                return Result(output=maybe_truncate_text(results))
+
+            else:
+                return Result(output=f"Invalid path: {path}")
+
+        except asyncio.TimeoutError:
+            return Result(output="Search timed out after 5 seconds")
+        except Exception as e:
+            return Result(output=f"Failed to search: {e}")
+
+    async def _search_file(self, filename: str) -> str:
+        try:
+            cmd = f"grep -En '{self.content}' {filename}"
+            process = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
+            result = stdout.decode().strip()
+
+            if not result:
+                return "Pattern not found"
+
+            formatted_lines = []
+            for line in result.splitlines():
+                line_num, content = line.split(":", 1)
+                formatted_lines.append(f"{int(line_num)-1:4d} | {content.rstrip()}")
+
+            return "\n".join(formatted_lines)
+        except Exception as e:
+            return f"Failed to search file: {e}"

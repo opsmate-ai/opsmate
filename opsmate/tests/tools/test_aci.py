@@ -116,3 +116,71 @@ async def test_file_insert(test_file):
         result3.output
         == "Failed to insert content into file: end line number 4 is out of range (file has 3 lines)"
     )
+
+
+@pytest.mark.asyncio
+async def test_file_update(test_file):
+    tool = ACITool(
+        command="create",
+        path=test_file,
+        content="Hello, world!\nThis is cool.\nVery very cool\nVery very cool",
+    )
+    result = await tool.run()
+    assert result.output == "File created successfully"
+
+    tool2 = ACITool(
+        command="update",
+        path=test_file,
+        old_content="This is cool.",
+        content="This is cold.",
+    )
+    result2 = await tool2.run()
+    assert result2.output == "Content updated successfully"
+
+    assert_file_content(
+        test_file, "Hello, world!\nThis is cold.\nVery very cool\nVery very cool"
+    )
+
+    await recover_file(test_file)
+
+    assert_file_content(
+        test_file, "Hello, world!\nThis is cool.\nVery very cool\nVery very cool"
+    )
+
+    # update with empty content
+    tool3 = ACITool(
+        command="update", path=test_file, old_content="This is cool.\n", content=""
+    )
+    result3 = await tool3.run()
+    assert result3.output == "Content updated successfully"
+
+    assert_file_content(test_file, "Hello, world!\nVery very cool\nVery very cool")
+
+    await recover_file(test_file)
+
+    assert_file_content(
+        test_file, "Hello, world!\nThis is cool.\nVery very cool\nVery very cool"
+    )
+
+    # update with non-existent content
+    tool4 = ACITool(
+        command="update",
+        path=test_file,
+        old_content="This is awesome.",
+        content="This is hot.",
+    )
+    result4 = await tool4.run()
+    assert result4.output == "Old content not found in file"
+
+    # update with multiple occurrences of old content
+    tool5 = ACITool(
+        command="update",
+        path=test_file,
+        old_content="Very very cool",
+        content="This is hot.",
+    )
+    result5 = await tool5.run()
+    assert (
+        result5.output
+        == "Old content occurs more than once in file, please make sure its uniqueness"
+    )

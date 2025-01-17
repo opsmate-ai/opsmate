@@ -48,13 +48,13 @@ class ACITool(ToolCall):
 
     ## Update
 
-    To update a file, use the following command. Note both the old and new content can be empty.
+    To update a file, use the following command. Note:
+
+    * when the new content is an empty string, the old content will be removed.
+    * The old content must occur only once in the file to ensure uniqueness.
 
     update <file_path> <old_content> <new_content>
 
-    To update the content between a line range, use the following command. Note both the old and new content can be empty.
-
-    update <file_path> <start_line> <end_line> <old_content> <new_content>
 
     ## Insert
 
@@ -241,6 +241,25 @@ class ACITool(ToolCall):
             return Result(output="Content inserted successfully")
         except Exception as e:
             return Result(output=f"Failed to insert content into file: {e}")
+
+    async def update(self) -> Result:
+        """
+        Replace the old content with the new content.
+        """
+        path = Path(self.path)
+        file_content = path.read_text()
+
+        occurrences = file_content.count(self.old_content)
+        if occurrences == 0:
+            return Result(output="Old content not found in file")
+        elif occurrences > 1:
+            return Result(
+                output="Old content occurs more than once in file, please make sure its uniqueness"
+            )
+        file_content = file_content.replace(self.old_content, self.content)
+        path.write_text(file_content)
+        self._file_history[path].append(file_content)
+        return Result(output="Content updated successfully")
 
     async def undo(self) -> Result:
         """

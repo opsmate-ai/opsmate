@@ -1,6 +1,8 @@
 import pytest
 from opsmate.tools.aci import ACITool
 from pathlib import Path
+import tempfile
+import shutil
 
 
 def test_aci_file_history_persistence():
@@ -69,6 +71,40 @@ async def test_file_view(test_file):
     assert (
         result.output
         == "Failed to view file: end line number 3 is out of range (file has 3 lines)"
+    )
+
+
+@pytest.fixture
+def temp_dir():
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir)
+
+
+@pytest.mark.asyncio
+async def test_file_view_directory(temp_dir):
+    # create subdirs
+    (Path(temp_dir) / "subdir1").mkdir()
+    (Path(temp_dir) / "subdir2").mkdir()
+    (Path(temp_dir) / "subdir2" / "subdir3").mkdir()
+
+    (Path(temp_dir) / "subdir1" / "file1.txt").touch()
+    (Path(temp_dir) / "subdir1" / "file2.txt").touch()
+    (Path(temp_dir) / "subdir2" / "file3.txt").touch()
+    (Path(temp_dir) / "subdir2" / "subdir3" / "file4.txt").touch()
+
+    tool = ACITool(command="view", path=str(temp_dir))
+    result = await tool.run()
+    assert (
+        result.output
+        == f"""{temp_dir}
+{temp_dir}/subdir1
+{temp_dir}/subdir1/file1.txt
+{temp_dir}/subdir1/file2.txt
+{temp_dir}/subdir2
+{temp_dir}/subdir2/file3.txt
+{temp_dir}/subdir2/subdir3
+"""
     )
 
 

@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Tuple, Dict, List, Optional, ClassVar, Self
 from collections import defaultdict
 from pathlib import Path
+from opsmate.tools.utils import maybe_truncate_text
+import asyncio
 
 
 class Result(BaseModel):
@@ -39,6 +41,11 @@ class ACITool(ToolCall):
     To view the contents of a file with 0-indexed line range, use the following command:
 
     view <file_path> <start_line> <end_line>
+
+    To view a directory, use the command below. This will recursively display 2-depth
+    of the directory structure with dotfiles ignored to avoid reading .git directories.
+
+    view <directory_path>
 
     ## Create
 
@@ -195,9 +202,14 @@ class ACITool(ToolCall):
         return Result(output="File created successfully")
 
     async def view(self) -> Result:
-        """
-        Return the contents with line numbers of the file.
-        """
+        if Path(self.path).is_file():
+            return await self._view_file()
+        elif Path(self.path).is_dir():
+            return await self._view_directory()
+        else:
+            return Result(output=f"Invalid path: {self.path}")
+
+    async def _view_file(self) -> Result:
         try:
             with open(self.path, "r") as f:
                 lines = f.readlines()
@@ -217,9 +229,26 @@ class ACITool(ToolCall):
                 line_number = i if not self.line_range else i + self.line_range[0]
                 numbered_contents += f"{line_number:4d} | {line}"
 
-            return Result(output=numbered_contents)
+            return Result(output=maybe_truncate_text(numbered_contents))
         except Exception as e:
             return Result(output=f"Failed to view file: {e}")
+
+    async def _view_directory(self) -> Result:
+        try:
+            process = await asyncio.create_subprocess_shell(
+                rf"find {self.path} -maxdepth 2 -not -path '*/\.*' -not -name '.*' | sort",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            # Add 5 second timeout to communicate
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
+            return Result(output=maybe_truncate_text(stdout.decode()))
+        except asyncio.TimeoutError:
+            # Kill the process if it times out
+            process.kill()
+            return Result(output="Directory listing timed out after 5 seconds")
+        except Exception as e:
+            return Result(output=f"Failed to view directory: {e}")
 
     async def insert(self) -> Result:
         """

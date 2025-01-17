@@ -220,3 +220,36 @@ class ACITool(ToolCall):
             return Result(output=numbered_contents)
         except Exception as e:
             return Result(output=f"Failed to view file: {e}")
+
+    async def insert(self) -> Result:
+        """
+        Insert content into a file at a specific line number.
+        """
+        try:
+            with open(self.path, "r") as f:
+                lines = [line.rstrip() for line in f.readlines()]
+            if self.insert_line_number < 0 or self.insert_line_number >= len(lines):
+                raise ValueError(
+                    f"end line number {self.insert_line_number} is out of range (file has {len(lines)} lines)"
+                )
+            lines.insert(self.insert_line_number, self.content)
+
+            new_content = "\n".join(lines)
+            Path(self.path).write_text(new_content)
+            self._file_history[Path(self.path)].append(new_content)
+
+            return Result(output="Content inserted successfully")
+        except Exception as e:
+            return Result(output=f"Failed to insert content into file: {e}")
+
+    async def undo(self) -> Result:
+        """
+        Undo the last file operation.
+        """
+        path = Path(self.path)
+        if len(self._file_history[path]) <= 1:
+            return Result(output="There is no history of file operations")
+        self._file_history[path].pop()
+        latest_content = self._file_history[path][-1]
+        path.write_text(latest_content)
+        return Result(output="Last file operation undone")

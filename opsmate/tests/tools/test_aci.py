@@ -70,3 +70,49 @@ async def test_file_view(test_file):
         result.output
         == "Failed to view file: end line number 3 is out of range (file has 3 lines)"
     )
+
+
+async def recover_file(file_path):
+    tool = ACITool(command="undo", path=file_path)
+    result = await tool.run()
+    assert result.output == "Last file operation undone"
+
+
+def assert_file_content(file_path, expected_content):
+    with open(file_path, "r") as f:
+        assert f.read() == expected_content
+
+
+@pytest.mark.asyncio
+async def test_file_insert(test_file):
+    tool = ACITool(
+        command="create",
+        path=test_file,
+        content="Hello, world!\nThis is cool.\nVery very cool",
+    )
+    result = await tool.run()
+    assert result.output == "File created successfully"
+
+    tool2 = ACITool(
+        command="insert", path=test_file, content="Hello, world!", insert_line_number=1
+    )
+    result2 = await tool2.run()
+    assert result2.output == "Content inserted successfully"
+
+    assert_file_content(
+        test_file, "Hello, world!\nHello, world!\nThis is cool.\nVery very cool"
+    )
+
+    await recover_file(test_file)
+
+    assert_file_content(test_file, "Hello, world!\nThis is cool.\nVery very cool")
+
+    # insert out of range
+    tool3 = ACITool(
+        command="insert", path=test_file, content="Hello, world!", insert_line_number=4
+    )
+    result3 = await tool3.run()
+    assert (
+        result3.output
+        == "Failed to insert content into file: end line number 4 is out of range (file has 3 lines)"
+    )

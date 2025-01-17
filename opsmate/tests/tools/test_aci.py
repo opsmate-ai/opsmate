@@ -3,6 +3,7 @@ from opsmate.tools.aci import ACITool
 from pathlib import Path
 import tempfile
 import shutil
+from opsmate.tools.aci import coder
 
 
 def test_aci_file_history_persistence():
@@ -57,7 +58,7 @@ async def test_file_view(test_file):
    2 | Very very cool"""
     )
 
-    tool3 = ACITool(command="view", path=test_file, line_range=(1, 2))
+    tool3 = ACITool(command="view", path=test_file, line_start=1, line_end=2)
     result3 = await tool3.run()
     assert (
         result3.output
@@ -66,7 +67,7 @@ async def test_file_view(test_file):
     )
 
     # with pytest.raises(ValueError, match="end line number 3 is out of range"):
-    tool = ACITool(command="view", path=test_file, line_range=(1, 3))
+    tool = ACITool(command="view", path=test_file, line_start=1, line_end=3)
     result = await tool.run()
     assert (
         result.output
@@ -262,3 +263,11 @@ async def test_file_search_directory(temp_dir):
     tool2 = ACITool(command="search", path=dir, content="cool")
     result2 = await tool2.run()
     assert result2.output == f"{dir}/file1.txt\n---\n   0 | this is cool\n"
+
+
+@pytest.mark.asyncio
+async def test_coder(test_file):
+    tool_call = await coder(f"what's in README.md")
+
+    out = await tool_call.run()
+    print(out.output)

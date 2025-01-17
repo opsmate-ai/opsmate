@@ -4,8 +4,12 @@ from typing import Tuple, Dict, List, Optional, ClassVar, Self
 from collections import defaultdict
 from pathlib import Path
 from opsmate.tools.utils import maybe_truncate_text
+from opsmate.dino import dino
 import asyncio
 import os
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class Result(BaseModel):
@@ -18,64 +22,21 @@ class Result(BaseModel):
 
 class ACITool(ToolCall):
     """
-    ACITool is a tool that specialised in searching, viewing, creating, appending, and updating files
-    in the operating system file system.
+    # ACITool
 
-    Here are a list of valid operations:
+    File system utility with the following commands:
 
-    ## Search
+    search <file|dir> <content>           # Search in file/directory
+    view <file|dir> [start] [end]        # View file (optional line range) or directory
+    create <file> <content>          # Create new file
+    update <file> <old> <new>        # Replace content (old must be unique)
+    append <file> <line> <content>   # Insert at line number
+    undo <file>                      # Undo last file change
 
-    To search for a pattern in a file, use the following command:
-
-    search <file_path> <content>
-
-    To search for a pattern in a directory, use the following command:
-
-    search <directory_path> <content>
-
-    ## View
-
-    To view the contents of a file, use the following command:
-
-    view <file_path>
-
-    To view the contents of a file with 0-indexed line range, use the following command:
-
-    view <file_path> <start_line> <end_line>
-
-    To view a directory, use the command below. This will recursively display 2-depth
-    of the directory structure with dotfiles ignored to avoid reading .git directories.
-
-    view <directory_path>
-
-    ## Create
-
-    To create a file, use the following command:
-
-    create <file_path> <content>
-
-    ## Update
-
-    To update a file, use the following command. Note:
-
-    * when the new content is an empty string, the old content will be removed.
-    * The old content must occur only once in the file to ensure uniqueness.
-
-    update <file_path> <old_content> <new_content>
-
-
-    ## Insert
-
-    To insert content into a file, use the following command. Note that the line number is 0-indexed.
-
-    append <file_path> <line_number> <content>
-
-
-    ## Undo
-
-    To undo the last file operation, use the following command:
-
-    undo <file_path>
+    Notes:
+    - Line numbers are 0-indexed
+    - Directory view: 2-depth, ignores dotfiles
+    - Empty new content in update deletes old content
     """
 
     _file_history: ClassVar[Dict[Path, List[str]]] = defaultdict(list)
@@ -97,8 +58,12 @@ class ACITool(ToolCall):
         default=None,
     )
 
-    line_range: Optional[Tuple[int, int]] = Field(
-        description="The line number range to be operated on, only applicable for the 'view' command. Note the line number is 0-indexed.",
+    line_start: Optional[int] = Field(
+        description="The start line number to be operated on, only applicable for the 'view' command. Note the line number is 0-indexed.",
+        default=None,
+    )
+    line_end: Optional[int] = Field(
+        description="The end line number to be operated on, only applicable for the 'view' command. Note the line number is 0-indexed.",
         default=None,
     )
 
@@ -132,16 +97,17 @@ class ACITool(ToolCall):
     @model_validator(mode="after")
     def validate_view_command(self) -> Self:
         if self.command == "view":
-            if self.line_range:
-                if len(self.line_range) != 2:
-                    raise ValueError("line_range must be a tuple of two integers")
-                start, end = self.line_range
-                if start < 0:
-                    raise ValueError("start line number cannot be negative")
-                if end < start:
+            if self.line_start is None and self.line_end is not None:
+                raise ValueError("line_start is required when line_end is provided")
+            if self.line_end is None and self.line_start is not None:
+                raise ValueError("line_end is required when line_start is provided")
+
+            if self.line_start is not None and self.line_end is not None:
+                if self.line_start < 0 or self.line_end < self.line_start:
                     raise ValueError(
-                        "end line number must be greater than or equal to start line number"
+                        "line_end must be greater than or equal to line_start"
                     )
+
         return self
 
     @model_validator(mode="after")
@@ -179,6 +145,16 @@ class ACITool(ToolCall):
         return self
 
     async def __call__(self) -> Result:
+        logger.info(
+            "executing command",
+            command=self.command,
+            path=self.path,
+            content=self.content,
+            old_content=self.old_content,
+            insert_line_number=self.insert_line_number,
+            line_start=self.line_start,
+            line_end=self.line_end,
+        )
         if self.command == "search":
             return await self.search()
         elif self.command == "view":
@@ -216,18 +192,17 @@ class ACITool(ToolCall):
                 lines = f.readlines()
 
             # Handle line range if specified
-            if self.line_range:
-                start, end = self.line_range
-                if end >= len(lines):
+            if self.line_start is not None and self.line_end is not None:
+                if self.line_end >= len(lines):
                     raise ValueError(
-                        f"end line number {end} is out of range (file has {len(lines)} lines)"
+                        f"end line number {self.line_end} is out of range (file has {len(lines)} lines)"
                     )
-                lines = lines[start : end + 1]
+                lines = lines[self.line_start : self.line_end + 1]
 
             # Format lines with line numbers (0-indexed)
             numbered_contents = ""
             for i, line in enumerate(lines):
-                line_number = i if not self.line_range else i + self.line_range[0]
+                line_number = i if self.line_start is None else i + self.line_start
                 numbered_contents += f"{line_number:4d} | {line}"
 
             return Result(output=maybe_truncate_text(numbered_contents))
@@ -316,15 +291,13 @@ class ACITool(ToolCall):
             elif path.is_dir():
                 results = ""
                 for root, _dirs, files in os.walk(path):
-                    print("*" * 100)
-                    print(root, _dirs, files)
-                    print("*" * 100)
                     for file in files:
-                        if file.startswith("."):
+                        if file.startswith(".") or root.startswith("."):
                             continue
                         result = await self._search_file(os.path.join(root, file))
                         if result:
                             results += f"{root}/{file}\n---\n{result}\n"
+                logger.info("search results", results=results)
                 return Result(output=maybe_truncate_text(results))
 
             else:
@@ -357,3 +330,18 @@ class ACITool(ToolCall):
             return "\n".join(formatted_lines)
         except Exception as e:
             return f"Failed to search file: {e}"
+
+
+@dino(
+    model="gpt-4o",
+    response_model=ACITool,
+)
+async def coder(instruction: str):
+    """
+    You are a world class file system editor specialised in the `ACITool` tool.
+    You will be given instructions to perform search, view, create, update,
+    insert, and undo operations on files and directories.
+
+    You will be returned the ACITool object to be executed.
+    """
+    return instruction

@@ -3,7 +3,7 @@ from opsmate.tools.aci import ACITool
 from pathlib import Path
 import tempfile
 import shutil
-from opsmate.tools.aci import coder
+from opsmate.tools.aci import coder, Result
 
 
 def test_aci_file_history_persistence():
@@ -69,9 +69,10 @@ async def test_file_view(test_file):
     # with pytest.raises(ValueError, match="end line number 3 is out of range"):
     tool = ACITool(command="view", path=test_file, line_start=1, line_end=3)
     result = await tool.run()
-    assert (
-        result.output
-        == "Failed to view file: end line number 3 is out of range (file has 3 lines)"
+    assert result == Result(
+        error="Failed to view file: end line number 3 is out of range (file has 3 lines)",
+        operation="view",
+        path=test_file,
     )
 
 
@@ -112,7 +113,11 @@ async def test_file_view_directory(temp_dir):
 async def recover_file(file_path):
     tool = ACITool(command="undo", path=file_path)
     result = await tool.run()
-    assert result.output == "Last file operation undone"
+    assert result == Result(
+        output="File rolled back to previous state",
+        operation="undo",
+        path=file_path,
+    )
 
 
 def assert_file_content(file_path, expected_content):
@@ -149,9 +154,12 @@ async def test_file_insert(test_file):
         command="insert", path=test_file, content="Hello, world!", insert_line_number=4
     )
     result3 = await tool3.run()
-    assert (
-        result3.output
-        == "Failed to insert content into file: end line number 4 is out of range (file has 3 lines)"
+    assert result3 == Result(
+        error="Failed to insert content into file: end line number 4 is out of range (file has 3 lines)",
+        operation="insert",
+        path=test_file,
+        content="Hello, world!",
+        insert_line_number=4,
     )
 
 
@@ -207,7 +215,12 @@ async def test_file_update(test_file):
         content="This is hot.",
     )
     result4 = await tool4.run()
-    assert result4.output == "Old content not found in file"
+    assert result4 == Result(
+        error="Old content not found in file",
+        operation="update",
+        path=test_file,
+        old_content="This is awesome.",
+    )
 
     # update with multiple occurrences of old content
     tool5 = ACITool(
@@ -217,9 +230,11 @@ async def test_file_update(test_file):
         content="This is hot.",
     )
     result5 = await tool5.run()
-    assert (
-        result5.output
-        == "Old content occurs more than once in file, please make sure its uniqueness"
+    assert result5 == Result(
+        error="Old content occurs more than once in file, please make sure its uniqueness",
+        operation="update",
+        path=test_file,
+        old_content="Very very cool",
     )
 
 

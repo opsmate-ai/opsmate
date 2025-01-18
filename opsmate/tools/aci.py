@@ -17,7 +17,39 @@ class Result(BaseModel):
     Result is a model that represents the result of a tool call.
     """
 
-    output: str
+    output: Optional[str] = Field(
+        description="The output of the tool call",
+        default=None,
+    )
+    error: Optional[str] = Field(
+        description="The error of the tool call",
+        default=None,
+    )
+
+    operation: Optional[str] = Field(
+        description="The operation that is being performed",
+        default=None,
+    )
+
+    path: Optional[str] = Field(
+        description="The path of the file or directory to be operated on",
+        default=None,
+    )
+
+    old_content: Optional[str] = Field(
+        description="The old content to be replaced by the new content",
+        default=None,
+    )
+
+    content: Optional[str] = Field(
+        description="The new content that is being operated on",
+        default=None,
+    )
+
+    insert_line_number: Optional[int] = Field(
+        description="The line number to insert the content at, only applicable for the `insert` command. Note the line number is 0-indexed.",
+        default=None,
+    )
 
 
 class ACITool(ToolCall):
@@ -175,8 +207,18 @@ class ACITool(ToolCall):
             Path(self.path).write_text(self.content)
             self._file_history[Path(self.path)].append(self.content)
         except Exception as e:
-            return Result(output=f"Failed to create file: {e}")
-        return Result(output="File created successfully")
+            return Result(
+                error=str(e),
+                operation="create",
+                path=self.path,
+                content=self.content,
+            )
+        return Result(
+            output="File created successfully",
+            operation="create",
+            path=self.path,
+            content=self.content,
+        )
 
     async def view(self) -> Result:
         if Path(self.path).is_file():
@@ -184,7 +226,11 @@ class ACITool(ToolCall):
         elif Path(self.path).is_dir():
             return await self._view_directory()
         else:
-            return Result(output=f"Invalid path: {self.path}")
+            return Result(
+                error=f"The path {self.path} is not a file or directory",
+                operation="view",
+                path=self.path,
+            )
 
     async def _view_file(self) -> Result:
         try:
@@ -205,9 +251,17 @@ class ACITool(ToolCall):
                 line_number = i if self.line_start is None else i + self.line_start
                 numbered_contents += f"{line_number:4d} | {line}"
 
-            return Result(output=maybe_truncate_text(numbered_contents))
+            return Result(
+                output=maybe_truncate_text(numbered_contents),
+                operation="view",
+                path=self.path,
+            )
         except Exception as e:
-            return Result(output=f"Failed to view file: {e}")
+            return Result(
+                error=f"Failed to view file: {e}",
+                operation="view",
+                path=self.path,
+            )
 
     async def _view_directory(self) -> Result:
         try:
@@ -218,13 +272,25 @@ class ACITool(ToolCall):
             )
             # Add 5 second timeout to communicate
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5.0)
-            return Result(output=maybe_truncate_text(stdout.decode()))
+            return Result(
+                output=maybe_truncate_text(stdout.decode()),
+                operation="view",
+                path=self.path,
+            )
         except asyncio.TimeoutError:
             # Kill the process if it times out
             process.kill()
-            return Result(output="Directory listing timed out after 5 seconds")
+            return Result(
+                error="Directory listing timed out after 5 seconds",
+                operation="view",
+                path=self.path,
+            )
         except Exception as e:
-            return Result(output=f"Failed to view directory: {e}")
+            return Result(
+                error=f"Failed to view directory: {e}",
+                operation="view",
+                path=self.path,
+            )
 
     async def insert(self) -> Result:
         """
@@ -243,9 +309,21 @@ class ACITool(ToolCall):
             Path(self.path).write_text(new_content)
             self._file_history[Path(self.path)].append(new_content)
 
-            return Result(output="Content inserted successfully")
+            return Result(
+                output="Content inserted successfully",
+                operation="insert",
+                path=self.path,
+                content=self.content,
+                insert_line_number=self.insert_line_number,
+            )
         except Exception as e:
-            return Result(output=f"Failed to insert content into file: {e}")
+            return Result(
+                error=f"Failed to insert content into file: {e}",
+                operation="insert",
+                path=self.path,
+                content=self.content,
+                insert_line_number=self.insert_line_number,
+            )
 
     async def update(self) -> Result:
         """
@@ -256,15 +334,27 @@ class ACITool(ToolCall):
 
         occurrences = file_content.count(self.old_content)
         if occurrences == 0:
-            return Result(output="Old content not found in file")
+            return Result(
+                error="Old content not found in file",
+                operation="update",
+                path=self.path,
+                old_content=self.old_content,
+            )
         elif occurrences > 1:
             return Result(
-                output="Old content occurs more than once in file, please make sure its uniqueness"
+                error="Old content occurs more than once in file, please make sure its uniqueness",
+                operation="update",
+                path=self.path,
+                old_content=self.old_content,
             )
         file_content = file_content.replace(self.old_content, self.content)
         path.write_text(file_content)
         self._file_history[path].append(file_content)
-        return Result(output="Content updated successfully")
+        return Result(
+            output="Content updated successfully",
+            operation="update",
+            path=self.path,
+        )
 
     async def undo(self) -> Result:
         """
@@ -272,11 +362,19 @@ class ACITool(ToolCall):
         """
         path = Path(self.path)
         if len(self._file_history[path]) <= 1:
-            return Result(output="There is no history of file operations")
+            return Result(
+                error="There is no history of file operations",
+                operation="undo",
+                path=self.path,
+            )
         self._file_history[path].pop()
         latest_content = self._file_history[path][-1]
         path.write_text(latest_content)
-        return Result(output="Last file operation undone")
+        return Result(
+            output="File rolled back to previous state",
+            operation="undo",
+            path=self.path,
+        )
 
     async def search(self) -> Result:
         """
@@ -298,15 +396,35 @@ class ACITool(ToolCall):
                         if result:
                             results += f"{root}/{file}\n---\n{result}\n"
                 logger.info("search results", results=results)
-                return Result(output=maybe_truncate_text(results))
+                return Result(
+                    output=maybe_truncate_text(results),
+                    operation="search",
+                    path=self.path,
+                    content=self.content,
+                )
 
             else:
-                return Result(output=f"Invalid path: {path}")
+                return Result(
+                    error=f"Path {path} is not a file or directory",
+                    operation="search",
+                    path=self.path,
+                    content=self.content,
+                )
 
         except asyncio.TimeoutError:
-            return Result(output="Search timed out after 5 seconds")
+            return Result(
+                error="Search timed out after 5 seconds",
+                operation="search",
+                path=self.path,
+                content=self.content,
+            )
         except Exception as e:
-            return Result(output=f"Failed to search: {e}")
+            return Result(
+                error=f"Failed to search: {e}",
+                operation="search",
+                path=self.path,
+                content=self.content,
+            )
 
     async def _search_file(self, filename: str) -> str:
         try:

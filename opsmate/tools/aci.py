@@ -8,6 +8,8 @@ from opsmate.dino import dino
 import asyncio
 import os
 import structlog
+import traceback
+import re
 
 logger = structlog.get_logger(__name__)
 
@@ -72,6 +74,9 @@ class ACITool(ToolCall):
     """
 
     _file_history: ClassVar[Dict[Path, List[str]]] = defaultdict(list)
+
+    # number of lines before and after the match
+    search_context_window: ClassVar[int] = 4
 
     output: Result = Field(
         description="The result of the file operation, DO NOT POPULATE THIS FIELD",
@@ -428,7 +433,7 @@ class ACITool(ToolCall):
 
     async def _search_file(self, filename: str) -> str:
         try:
-            cmd = f"grep -En '{self.content}' {filename}"
+            cmd = f"grep -En -A {self.search_context_window} -B {self.search_context_window} '{self.content}' {filename}"
             process = await asyncio.create_subprocess_shell(
                 cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -442,11 +447,24 @@ class ACITool(ToolCall):
 
             formatted_lines = []
             for line in result.splitlines():
-                line_num, content = line.split(":", 1)
-                formatted_lines.append(f"{int(line_num)-1:4d} | {content.rstrip()}")
+                # line_num, content = re.split(r"[:-]", line)
+                match = re.split(r"([:-])", line, maxsplit=1)
+                if len(match) >= 3:
+                    line_num, sep, content = match
+                else:
+                    raise ValueError(f"Failed to split line: {line}")
+                line_num, sep, content = match
+
+                if sep == ":":
+                    sep = "|"
+
+                formatted_lines.append(f"{int(line_num)-1:4d} {sep} {content.rstrip()}")
 
             return "\n".join(formatted_lines)
         except Exception as e:
+            logger.error(
+                "Failed to search file", error=e, traceback=traceback.format_exc()
+            )
             return f"Failed to search file: {e}"
 
 

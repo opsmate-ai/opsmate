@@ -6,14 +6,14 @@ from opsmate.dino.context import context
 from opsmate.dino.types import React, ReactAnswer, Observation, ToolCall, Message
 
 
-MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+MODELS = ["gpt-4o", "claude-3-5-sonnet-20241022"]
 
 
 class CalcResult(ToolCall):
     result: int
 
 
-@dino("gpt-4o-mini", response_model=int)
+@dino("gpt-4o", response_model=int)
 async def get_answer(answer: str):
     """
     extract the answer from the text
@@ -78,7 +78,7 @@ async def test_run_react_with_messages_as_contexts():
 @pytest.mark.asyncio
 async def test_react_decorator():
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
     )
@@ -98,7 +98,7 @@ async def test_react_decorator_callback():
         outs.append(result)
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         callback=callback,
@@ -117,7 +117,7 @@ async def test_react_decorator_callback():
 @pytest.mark.asyncio
 async def test_react_decorator_iterable():
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         iterable=True,
@@ -140,7 +140,7 @@ async def test_react_decorator_with_contexts():
         return "don't do caculation yourself only use the calculator"
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         contexts=[use_calculator()],
         iterable=False,
         callback=lambda x: print(x),
@@ -162,7 +162,7 @@ async def test_react_decorator_with_extra_contexts():
         return "don't do caculation yourself only use the calculator"
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         iterable=False,
         callback=lambda x: print(x),
     )
@@ -180,7 +180,7 @@ async def test_react_decorator_with_extra_tools():
         return "don't do caculation yourself only use the calculator"
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         tools=[calc],
         contexts=[use_calculator()],
         iterable=False,
@@ -197,7 +197,7 @@ async def test_react_decorator_with_extra_tools():
 async def test_react_decorator_with_custom_model():
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         iterable=False,
         callback=lambda x: print(x),
     )

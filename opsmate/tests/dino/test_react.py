@@ -6,14 +6,14 @@ from opsmate.dino.context import context
 from opsmate.dino.types import React, ReactAnswer, Observation, ToolCall, Message
 
 
-MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+MODELS = ["gpt-4o", "claude-3-5-sonnet-20241022"]
 
 
 class CalcResult(ToolCall):
     result: int
 
 
-@dino("gpt-4o-mini", response_model=int)
+@dino("gpt-4o", response_model=int)
 async def get_answer(answer: str):
     """
     extract the answer from the text
@@ -150,3 +150,63 @@ async def test_react_decorator_with_contexts():
 
     answer = await calc_agent("what is (1 + 1) * 2?")
     assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_extra_contexts():
+    @context(
+        name="calc",
+        tools=[calc],
+    )
+    def use_calculator():
+        return "don't do caculation yourself only use the calculator"
+
+    @react(
+        model="gpt-4o",
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def calc_agent(query: str):
+        return f"answer the query: {query}"
+
+    answer = await calc_agent("what is (1 + 1) * 2?", extra_contexts=[use_calculator()])
+    assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_extra_tools():
+    @context(name="calc")
+    def use_calculator():
+        return "don't do caculation yourself only use the calculator"
+
+    @react(
+        model="gpt-4o",
+        tools=[calc],
+        contexts=[use_calculator()],
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def calc_agent(query: str):
+        return f"answer the query: {query}"
+
+    answer = await calc_agent("what is (1 + 1) * 2?", extra_tools=[calc])
+    assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_custom_model():
+
+    @react(
+        model="gpt-4o",
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def what_is_the_llm():
+        return "what is your name? \
+            answer should be either OpenAI or Anthropic."
+
+    answer = await what_is_the_llm()
+    assert answer.answer == "OpenAI"
+
+    answer = await what_is_the_llm(model="claude-3-5-sonnet-20241022")
+    assert answer.answer == "Anthropic"

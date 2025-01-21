@@ -1,10 +1,20 @@
-from typing import List, Union, Callable, Coroutine, Any
+from typing import (
+    List,
+    Union,
+    Callable,
+    Coroutine,
+    Any,
+    ParamSpec,
+    TypeVar,
+    Awaitable,
+)
 from pydantic import BaseModel
 from .dino import dino
 from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
 from functools import wraps
 import inspect
 import structlog
+import yaml
 
 logger = structlog.get_logger(__name__)
 
@@ -133,7 +143,15 @@ thought: {react.thoughts}
             message_history.append(Message.user(react_result.model_dump_json()))
             yield react_result
             observation = await run_action(react_result)
-            message_history.append(Message.user(observation.model_dump_json()))
+
+            observation_out = observation.model_dump()
+            for idx, tool_output in enumerate(observation.tool_outputs):
+                if isinstance(tool_output, ToolCall):
+                    observation_out["tool_outputs"][idx] = tool_output.model_dump()
+                elif isinstance(tool_output, str):
+                    observation_out["tool_outputs"][idx] = tool_output
+
+            message_history.append(Message.user(yaml.dump(observation_out)))
             yield observation
         elif isinstance(react_result, ReactAnswer):
             yield react_result
@@ -153,34 +171,69 @@ def react(
     Decorator to run a function in a loop of question, thought, action.
 
     Example:
+
+    ```
     @react(model="gpt-4o", tools=[knowledge_query], context="you are a domain knowledge expert")
     async def knowledge_agent(query: str):
         return f"answer the query: {query}"
+    ```
     """
 
-    def wrapper(fn):
-        ctxs = []
+    P = ParamSpec("P")
+    T = TypeVar("T")
+
+    def _extend_contexts(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, str):
-                ctxs.append(Message.system(ctx))
+                yield Message.system(ctx)
             elif isinstance(ctx, Context):
-                ctxs.extend(ctx.all_contexts())
+                yield from ctx.all_contexts()
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
 
-        _tools = set(tools)
+    def _extend_tools(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, Context):
                 for tool in ctx.all_tools():
-                    _tools.add(tool)
+                    yield tool
+
+    def wrapper(fn: Callable[P, Awaitable[T]]):
+        ctxs = []
+        for ctx in _extend_contexts(contexts):
+            ctxs.append(ctx)
+
+        _tools = set(tools)
+        for tool in _extend_tools(contexts):
+            _tools.add(tool)
+
+        _model = model
 
         @wraps(fn)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(
+            *args: P.args,
+            model: str = None,
+            extra_contexts: List[str | Context] = [],
+            extra_tools: List[ToolCall] = [],
+            **kwargs: P.kwargs,
+        ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
                 prompt = await fn(*args, **kwargs)
             else:
                 prompt = fn(*args, **kwargs)
             chat_history = kwargs.get("chat_history", [])
+
+            for ctx in _extend_contexts(extra_contexts):
+                ctxs.append(ctx)
+
+            for tool in _extend_tools(extra_contexts):
+                _tools.add(tool)
+
+            for tool in extra_tools:
+                _tools.add(tool)
+
+            model = model or _model
+            logger.debug("react model", model=model)
+
             if iterable:
 
                 def gen():
@@ -198,6 +251,7 @@ def react(
             else:
                 async for result in run_react(
                     prompt,
+                    model=model,
                     contexts=ctxs,
                     tools=list(_tools),
                     max_iter=max_iter,

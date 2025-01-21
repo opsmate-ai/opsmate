@@ -1,77 +1,49 @@
-from pydantic import BaseModel, Field
-from opsmate.dino import dino
-from opsmate.workflow import Workflow, WorkflowContext, step
-from opsmate.workflow.workflow import draw_dot, cond, StatelessWorkflowExecutor
+from opsmate.tools.aci import ACITool
+from opsmate.tools import ShellCommand
+from opsmate.dino.react import react
 import asyncio
 
 
-class Location(BaseModel):
-    city: str = Field(description="The city name")
-
-
-@step
-@dino("gpt-4o-mini", response_model=Location)
-async def do_a(ctx):
-    return f"Home town of {ctx.input["person_a"]}"
-
-
-@step
-@dino("gpt-4o-mini", response_model=Location)
-async def do_b(ctx):
-    return f"Home town of {ctx.input["person_b"]}"
-
-
-@step
-@dino("gpt-4o-mini", response_model=str)
-async def do_c(ctx):
+@react(
+    model="claude-3-5-sonnet-20241022",
+    tools=[ACITool, ShellCommand],
+    contexts=["you are an SRE who is tasked to modify the infra as code"],
+    iterable=True,
+)
+async def iac_editor(instruction: str):
     """
-    You are very good at estimating the distance between two cities.
+    You are an SRE who is tasked to modify the infra as code.
+
+    <rule 1>
+    Before making any changes, you must read the file(s) to understand:
+    * the purpose of the file (e.g. a terraform file deploying IaC, or a yaml file deploying k8s resources)
+    * Have a basic understanding of the file's structure
+    </rule 1>
+
+    <rule 2>
+    Edit must be precise and specific:
+    * Tabs and spaces must be used correctly
+    * The line range must be specified when you are performing an update operation against a file
+    * Stick to the task you are given, don't make drive-by changes
+    </rule 2>
+
+    <rule 3>
+    After you make the change, you must verify the updated content is correct using the `ACITool.view` or `ACITool.search` commands.
+    </rule 3>
+
+    <rule 4>
+    Never ever use vim or any other text editor to make changes, instead use the `ACITool` tool.
+    </rule 4>
     """
-    a_result = ctx.results["do_a"]
-    b_result = ctx.results["do_b"]
-    return f"The distance between {a_result.city} and {b_result.city}"
-
-
-@step
-@dino("gpt-4o-mini", response_model=str)
-async def do_d(ctx):
-    return "Hello"
-
-
-@step
-@dino("gpt-4o-mini", response_model=str)
-async def do_e(ctx):
-    return "Hello"
-
-
-@step
-@dino("gpt-4o-mini", response_model=str)
-async def do_f(ctx):
-    return "Hello"
+    return instruction
 
 
 async def main():
-    root = (do_a | do_b) >> (do_c | (do_d >> do_e)) | do_f
-    # root = (do_a | do_b) >> do_c
-    # root = do_f >> (do_d | do_e)
-
-    sorted = root.topological_sort()
-
-    for step in sorted:
-        print(step, step.prev)
-
-    dot = draw_dot(root, rankdir="TB")
-    dot.render(filename="workflow.dot", view=False)
-
-    workflow = StatelessWorkflowExecutor(root)
-    ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
-    await workflow.run(ctx)
-    print(ctx.results)
-
-    # workflow = Workflow(root)
-    # ctx = WorkflowContext(input={"person_a": "Elon Musk", "person_b": "Boris Johnson"})
-    # await workflow.run(ctx)
-    # print(ctx.results)
+    async for result in await iac_editor(
+        "change the k8s health check path to `/status` in `./hack`",
+        model="gpt-4o",
+    ):
+        print(result.model_dump())
 
 
 if __name__ == "__main__":

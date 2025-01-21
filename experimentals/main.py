@@ -5,7 +5,7 @@ import asyncio
 
 
 @react(
-    model="gpt-4o",
+    model="claude-3-5-sonnet-20241022",
     tools=[ACITool, ShellCommand],
     contexts=["you are an SRE who is tasked to modify the infra as code"],
     iterable=True,

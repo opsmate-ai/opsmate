@@ -1,4 +1,13 @@
-from typing import List, Union, Callable, Coroutine, Any
+from typing import (
+    List,
+    Union,
+    Callable,
+    Coroutine,
+    Any,
+    ParamSpec,
+    TypeVar,
+    Awaitable,
+)
 from pydantic import BaseModel
 from .dino import dino
 from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
@@ -170,7 +179,10 @@ def react(
     ```
     """
 
-    def wrapper(fn):
+    P = ParamSpec("P")
+    T = TypeVar("T")
+
+    def wrapper(fn: Callable[P, Awaitable[T]]):
         ctxs = []
         for ctx in contexts:
             if isinstance(ctx, str):
@@ -187,7 +199,9 @@ def react(
                     _tools.add(tool)
 
         @wraps(fn)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
                 prompt = await fn(*args, **kwargs)
             else:

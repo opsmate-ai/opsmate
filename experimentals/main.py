@@ -1,11 +1,12 @@
 from opsmate.tools.aci import ACITool
+from opsmate.tools import ShellCommand
 from opsmate.dino.react import react
 import asyncio
 
 
 @react(
     model="gpt-4o",
-    tools=[ACITool],
+    tools=[ACITool, ShellCommand],
     contexts=["you are an SRE who is tasked to modify the infra as code"],
     iterable=True,
 )
@@ -25,13 +26,21 @@ async def iac_editor(instruction: str):
     * The line range must be specified when you are performing an update operation against a file
     * Stick to the task you are given, don't make drive-by changes
     </rule 2>
+
+    <rule 3>
+    After you make the change, you must verify the updated content is correct using the `ACITool.view` or `ACITool.search` commands.
+    </rule 3>
+
+    <rule 4>
+    Never ever use vim or any other text editor to make changes, instead use the `ACITool` tool.
+    </rule 4>
     """
     return instruction
 
 
 async def main():
     async for result in await iac_editor(
-        "change the health check path to /status in `./hack/deploy.yml`"
+        "change the k8s health check path to `/status` in `./hack`"
     ):
         print(result.model_dump())
 

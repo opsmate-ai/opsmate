@@ -53,6 +53,15 @@ class Result(BaseModel):
         default=None,
     )
 
+    line_start: Optional[int] = Field(
+        description="The start line number to be operated on, only applicable for the 'update' command. Note the line number is 0-indexed.",
+        default=None,
+    )
+    line_end: Optional[int] = Field(
+        description="The end line number to be operated on, only applicable for the 'update' command. Note the line number is 0-indexed.",
+        default=None,
+    )
+
 
 class ACITool(ToolCall):
     """
@@ -61,9 +70,9 @@ class ACITool(ToolCall):
     File system utility with the following commands:
 
     search <file|dir> <content>           # Search in file/directory
-    view <file|dir> [start] [end]        # View file (optional line range) or directory
+    view <file|dir> [start] [end]        # View file (optional 0-indexed line range) or directory
     create <file> <content>          # Create new file
-    update <file> <old> <new>        # Replace content (old must be unique)
+    update <file> <old> <new> [start] [end]       # Replace content (old must be unique), with optional 0-indexed line range
     append <file> <line> <content>   # Insert at line number
     undo <file>                      # Undo last file change
 
@@ -332,29 +341,62 @@ class ACITool(ToolCall):
 
     async def update(self) -> Result:
         """
-        Replace the old content with the new content.
+        Replace the old content with the new content within a specified line range.
         """
         path = Path(self.path)
         file_content = path.read_text()
+        lines = file_content.splitlines()
 
-        occurrences = file_content.count(self.old_content)
-        if occurrences == 0:
+        # Determine the range of lines to operate on
+        start = self.line_start if self.line_start is not None else 0
+        end = self.line_end if self.line_end is not None else len(lines) - 1
+
+        # Validate line range
+        if start < 0 or end >= len(lines) or start > end:
             return Result(
-                error="Old content not found in file",
+                error="Invalid line range specified",
                 operation="update",
                 path=self.path,
                 old_content=self.old_content,
+                line_start=start,
+                line_end=end,
+            )
+
+        # Join the lines within the specified range
+        range_content = "\n".join(lines[start : end + 1])
+
+        # Check for occurrences within the specified range
+        occurrences = range_content.count(self.old_content)
+        if occurrences == 0:
+            return Result(
+                error="Old content not found in the specified line range",
+                operation="update",
+                path=self.path,
+                old_content=self.old_content,
+                line_start=start,
+                line_end=end,
             )
         elif occurrences > 1:
             return Result(
-                error="Old content occurs more than once in file, please make sure its uniqueness",
+                error="Old content occurs more than once in the specified line range, please make sure its uniqueness",
                 operation="update",
                 path=self.path,
                 old_content=self.old_content,
+                line_start=start,
+                line_end=end,
             )
-        file_content = file_content.replace(self.old_content, self.content)
-        path.write_text(file_content)
-        self._file_history[path].append(file_content)
+
+        # Replace the old content with the new content within the range
+        updated_range_content = range_content.replace(self.old_content, self.content)
+
+        # Update the lines with the modified content
+        lines[start : end + 1] = updated_range_content.splitlines()
+
+        # Write the updated content back to the file
+        new_file_content = "\n".join(lines)
+        path.write_text(new_file_content)
+        self._file_history[path].append(new_file_content)
+
         return Result(
             output="Content updated successfully",
             operation="update",

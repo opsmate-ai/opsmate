@@ -216,10 +216,12 @@ async def test_file_update(test_file):
     )
     result4 = await tool4.run()
     assert result4 == Result(
-        error="Old content not found in file",
+        error="Old content not found in the specified line range",
         operation="update",
         path=test_file,
         old_content="This is awesome.",
+        line_start=0,
+        line_end=3,
     )
 
     # update with multiple occurrences of old content
@@ -231,10 +233,28 @@ async def test_file_update(test_file):
     )
     result5 = await tool5.run()
     assert result5 == Result(
-        error="Old content occurs more than once in file, please make sure its uniqueness",
+        error="Old content occurs more than once in the specified line range, please make sure its uniqueness",
         operation="update",
         path=test_file,
         old_content="Very very cool",
+        line_start=0,
+        line_end=3,
+    )
+
+    # update with line range
+    tool6 = ACITool(
+        command="update",
+        path=test_file,
+        old_content="Very very cool",
+        content="This is hot.",
+        line_start=0,
+        line_end=2,
+    )
+    result6 = await tool6.run()
+    assert result6.output == "Content updated successfully"
+
+    assert_file_content(
+        test_file, "Hello, world!\nThis is cool.\nThis is hot.\nVery very cool"
     )
 
 

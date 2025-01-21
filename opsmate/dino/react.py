@@ -5,6 +5,7 @@ from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
 from functools import wraps
 import inspect
 import structlog
+import yaml
 
 logger = structlog.get_logger(__name__)
 
@@ -133,7 +134,15 @@ thought: {react.thoughts}
             message_history.append(Message.user(react_result.model_dump_json()))
             yield react_result
             observation = await run_action(react_result)
-            message_history.append(Message.user(observation.model_dump_json()))
+
+            observation_out = observation.model_dump()
+            for idx, tool_output in enumerate(observation.tool_outputs):
+                if isinstance(tool_output, ToolCall):
+                    observation_out["tool_outputs"][idx] = tool_output.model_dump()
+                elif isinstance(tool_output, str):
+                    observation_out["tool_outputs"][idx] = tool_output
+
+            message_history.append(Message.user(yaml.dump(observation_out)))
             yield observation
         elif isinstance(react_result, ReactAnswer):
             yield react_result
@@ -153,9 +162,12 @@ def react(
     Decorator to run a function in a loop of question, thought, action.
 
     Example:
+
+    ```
     @react(model="gpt-4o", tools=[knowledge_query], context="you are a domain knowledge expert")
     async def knowledge_agent(query: str):
         return f"answer the query: {query}"
+    ```
     """
 
     def wrapper(fn):

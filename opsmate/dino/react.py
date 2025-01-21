@@ -198,15 +198,21 @@ def react(
                 for tool in ctx.all_tools():
                     _tools.add(tool)
 
+        _model = model
+
         @wraps(fn)
         async def wrapper(
-            *args: P.args, **kwargs: P.kwargs
+            *args: P.args,
+            model: str = None,
+            **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
                 prompt = await fn(*args, **kwargs)
             else:
                 prompt = fn(*args, **kwargs)
             chat_history = kwargs.get("chat_history", [])
+
+            model = model or _model
             if iterable:
 
                 def gen():
@@ -224,6 +230,7 @@ def react(
             else:
                 async for result in run_react(
                     prompt,
+                    model=model,
                     contexts=ctxs,
                     tools=list(_tools),
                     max_iter=max_iter,

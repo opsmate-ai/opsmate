@@ -40,7 +40,8 @@ async def iac_editor(instruction: str):
 
 async def main():
     async for result in await iac_editor(
-        "change the k8s health check path to `/status` in `./hack`"
+        "change the k8s health check path to `/status` in `./hack`",
+        model="gpt-4o",
     ):
         print(result.model_dump())
 

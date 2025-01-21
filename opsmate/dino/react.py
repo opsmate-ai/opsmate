@@ -182,21 +182,29 @@ def react(
     P = ParamSpec("P")
     T = TypeVar("T")
 
-    def wrapper(fn: Callable[P, Awaitable[T]]):
-        ctxs = []
+    def _extend_contexts(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, str):
-                ctxs.append(Message.system(ctx))
+                yield Message.system(ctx)
             elif isinstance(ctx, Context):
-                ctxs.extend(ctx.all_contexts())
+                yield from ctx.all_contexts()
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
 
-        _tools = set(tools)
+    def _extend_tools(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, Context):
                 for tool in ctx.all_tools():
-                    _tools.add(tool)
+                    yield tool
+
+    def wrapper(fn: Callable[P, Awaitable[T]]):
+        ctxs = []
+        for ctx in _extend_contexts(contexts):
+            ctxs.append(ctx)
+
+        _tools = set(tools)
+        for tool in _extend_tools(contexts):
+            _tools.add(tool)
 
         _model = model
 
@@ -204,6 +212,8 @@ def react(
         async def wrapper(
             *args: P.args,
             model: str = None,
+            extra_contexts: List[str | Context] = [],
+            extra_tools: List[ToolCall] = [],
             **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
@@ -212,7 +222,18 @@ def react(
                 prompt = fn(*args, **kwargs)
             chat_history = kwargs.get("chat_history", [])
 
+            for ctx in _extend_contexts(extra_contexts):
+                ctxs.append(ctx)
+
+            for tool in _extend_tools(extra_contexts):
+                _tools.add(tool)
+
+            for tool in extra_tools:
+                _tools.add(tool)
+
             model = model or _model
+            logger.debug("react model", model=model)
+
             if iterable:
 
                 def gen():

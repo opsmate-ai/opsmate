@@ -78,7 +78,7 @@ async def test_run_react_with_messages_as_contexts():
 @pytest.mark.asyncio
 async def test_react_decorator():
     @react(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
     )
@@ -98,7 +98,7 @@ async def test_react_decorator_callback():
         outs.append(result)
 
     @react(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         callback=callback,
@@ -117,7 +117,7 @@ async def test_react_decorator_callback():
 @pytest.mark.asyncio
 async def test_react_decorator_iterable():
     @react(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         iterable=True,
@@ -140,7 +140,7 @@ async def test_react_decorator_with_contexts():
         return "don't do caculation yourself only use the calculator"
 
     @react(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         contexts=[use_calculator()],
         iterable=False,
         callback=lambda x: print(x),
@@ -150,3 +150,63 @@ async def test_react_decorator_with_contexts():
 
     answer = await calc_agent("what is (1 + 1) * 2?")
     assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_extra_contexts():
+    @context(
+        name="calc",
+        tools=[calc],
+    )
+    def use_calculator():
+        return "don't do caculation yourself only use the calculator"
+
+    @react(
+        model="gpt-4o-mini",
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def calc_agent(query: str):
+        return f"answer the query: {query}"
+
+    answer = await calc_agent("what is (1 + 1) * 2?", extra_contexts=[use_calculator()])
+    assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_extra_tools():
+    @context(name="calc")
+    def use_calculator():
+        return "don't do caculation yourself only use the calculator"
+
+    @react(
+        model="gpt-4o-mini",
+        tools=[calc],
+        contexts=[use_calculator()],
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def calc_agent(query: str):
+        return f"answer the query: {query}"
+
+    answer = await calc_agent("what is (1 + 1) * 2?", extra_tools=[calc])
+    assert await get_answer(answer.answer) == 4
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_custom_model():
+
+    @react(
+        model="gpt-4o-mini",
+        iterable=False,
+        callback=lambda x: print(x),
+    )
+    async def what_is_the_llm():
+        return "what is your name? \
+            answer should be either OpenAI or Anthropic."
+
+    answer = await what_is_the_llm()
+    assert answer.answer == "OpenAI"
+
+    answer = await what_is_the_llm(model="claude-3-5-sonnet-20241022")
+    assert answer.answer == "Anthropic"

@@ -93,6 +93,7 @@ async def run_react(
     react_prompt: Callable[
         [str, List[Message], List[ToolCall]], Coroutine[Any, Any, List[Message]]
     ] = _react_prompt,
+    tool_calls_per_action: int = 1,
     **kwargs: Any,
 ):
     ctxs = []
@@ -105,20 +106,10 @@ async def run_react(
             raise ValueError(f"Invalid context type: {type(ctx)}")
 
     @dino(model, response_model=Observation, tools=tools, **kwargs)
-    async def run_actions(react: React):
-        """
+    async def run_action(react: React):
+        f"""
         You are a world class expert to carry out actions using the tools you are given.
         Please stictly only carry out the action within the <action>...</action> tag.
-        <important>
-        * The tools you use must be relevant to the action.
-        * Each of the tool calls must be independent of each other, since they are executed in parallel.
-
-        BAD EXAMPLE:
-            git commit -m "fix bug"
-            git push origin branch-name
-        The above is bad because the `git commit` and `git push` are not independent of each other.
-
-        </important>
         """
         return [
             *ctxs,
@@ -128,9 +119,15 @@ async def run_react(
 <question-from-user>
 {question}
 </question-from-user>
+
 <context>
 thought: {react.thoughts}
 </context>
+
+<important>
+* The tool you use must be relevant to the action.
+* Please use {tool_calls_per_action} tool calls at a time.
+</important>
             """,
             ),
             Message.user(

@@ -35,14 +35,14 @@ async def iac_cme(instruction: str):
     </rule 3>
 
     <rule 4>
-    Never ever use vim or any other text editor to make changes, instead use the `ACITool` tool.
+    NEVER EVER use vi/vim/nano/view or any other text editor to make changes, instead use the `ACITool` tool.
     </rule 4>
 
     <rule 5>
     Tool usage:
-    * `ACITool` for file search, view, create, update, append and undo.
-    * `ShellCommand` for running shell commands that cannot be covered by `ACITool`.
-    * `SysChdir` for changing the current working directory
+    * `ACITool` tool for file search, view, create, update, append and undo.
+    * `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`.
+    * `SysChdir` tool for changing the current working directory
     </rule 5>
     """
     return instruction
@@ -62,7 +62,7 @@ async def main():
 
     async for result in await iac_cme(
         plan_to_md,
-        model="gpt-4o",
+        # model="gpt-4o",
     ):
         if isinstance(result, React):
             print(

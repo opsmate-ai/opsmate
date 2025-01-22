@@ -105,17 +105,29 @@ async def run_react(
             raise ValueError(f"Invalid context type: {type(ctx)}")
 
     @dino(model, response_model=Observation, tools=tools, **kwargs)
-    async def run_action(react: React):
+    async def run_actions(react: React):
         """
-        You are a world class expert to carry out action using the tools you are given.
+        You are a world class expert to carry out actions using the tools you are given.
         Please stictly only carry out the action within the <action>...</action> tag.
-        The tools you use must be relevant to the action.
+        <important>
+        * The tools you use must be relevant to the action.
+        * Each of the tool calls must be independent of each other, since they are executed in parallel.
+
+        BAD EXAMPLE:
+            git commit -m "fix bug"
+            git push origin branch-name
+        The above is bad because the `git commit` and `git push` are not independent of each other.
+
+        </important>
         """
         return [
             *ctxs,
             *message_history,
             Message.assistant(
                 f"""
+<question-from-user>
+{question}
+</question-from-user>
 <context>
 thought: {react.thoughts}
 </context>

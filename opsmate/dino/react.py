@@ -93,7 +93,7 @@ async def run_react(
     react_prompt: Callable[
         [str, List[Message], List[ToolCall]], Coroutine[Any, Any, List[Message]]
     ] = _react_prompt,
-    tool_calls_per_action: int = 1,
+    tool_calls_per_action: int = 3,
     **kwargs: Any,
 ):
     ctxs = []
@@ -174,6 +174,7 @@ def react(
     max_iter: int = 10,
     iterable: bool = False,
     callback: Callable[[React | ReactAnswer | Observation], None] = None,
+    tool_calls_per_action: int = 3,
     react_kwargs: Any = {},
 ):
     """
@@ -216,6 +217,7 @@ def react(
             _tools.add(tool)
 
         _model = model
+        _tool_calls_per_action = tool_calls_per_action
 
         @wraps(fn)
         async def wrapper(
@@ -223,6 +225,7 @@ def react(
             model: str = None,
             extra_contexts: List[str | Context] = [],
             extra_tools: List[ToolCall] = [],
+            tool_calls_per_action: int = _tool_calls_per_action,
             **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
@@ -252,6 +255,7 @@ def react(
                         contexts=ctxs,
                         tools=list(_tools),
                         max_iter=max_iter,
+                        tool_calls_per_action=tool_calls_per_action,
                         **react_kwargs,
                         chat_history=chat_history,
                     )
@@ -264,6 +268,7 @@ def react(
                     contexts=ctxs,
                     tools=list(_tools),
                     max_iter=max_iter,
+                    tool_calls_per_action=tool_calls_per_action,
                     chat_history=chat_history,
                 ):
                     if callback:

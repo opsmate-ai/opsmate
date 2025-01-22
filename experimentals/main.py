@@ -11,6 +11,7 @@ import yaml
     model="claude-3-5-sonnet-20241022",
     tools=[ACITool, ShellCommand, SysChdir],
     contexts=["you are an SRE who is tasked to modify the infra as code"],
+    tool_calls_per_action=1,
     iterable=True,
 )
 async def iac_cme(instruction: str):
@@ -42,7 +43,7 @@ async def iac_cme(instruction: str):
     Tool usage:
     * `ACITool` tool for file search, view, create, update, append and undo.
     * `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`.
-    * `SysChdir` tool for changing the current working directory
+    * `SysChdir` tool for changing the current working directory, DO NOT use `cd` command.
     </rule 5>
     """
     return instruction

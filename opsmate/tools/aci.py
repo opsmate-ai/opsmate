@@ -1,4 +1,4 @@
-from opsmate.dino.types import ToolCall
+from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import BaseModel, Field, model_validator
 from typing import Dict, List, Optional, ClassVar, Self
 from collections import defaultdict
@@ -10,6 +10,7 @@ import os
 import structlog
 import traceback
 import re
+from jinja2 import Template
 
 logger = structlog.get_logger(__name__)
 
@@ -105,11 +106,11 @@ class ACITool(ToolCall):
     )
 
     line_start: Optional[int] = Field(
-        description="The start line number to be operated on, only applicable for the 'view' command. Note the line number is 0-indexed.",
+        description="The start line number to be operated on, only applicable to the 'view' and 'update' commands. Note the line number is 0-indexed.",
         default=None,
     )
     line_end: Optional[int] = Field(
-        description="The end line number to be operated on, only applicable for the 'view' command. Note the line number is 0-indexed.",
+        description="The end line number to be operated on, only applicable to the 'view' and 'update' commands. Note the line number is 0-indexed.",
         default=None,
     )
 
@@ -508,6 +509,188 @@ class ACITool(ToolCall):
                 "Failed to search file", error=e, traceback=traceback.format_exc()
             )
             return f"Failed to search file: {e}"
+
+    def markdown(self):
+        match self.command:
+            case "search":
+                return self._render_search_markdown()
+            case "view":
+                return self._render_view_markdown()
+            case "create":
+                return self._render_create_markdown()
+            case "update":
+                return self._render_update_markdown()
+            case "insert":
+                return self._render_insert_markdown()
+            case "undo":
+                return self._render_undo_markdown()
+            case _:
+                return self.output
+
+    def _render_search_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `search`
+
+search: `{{ output.content }}`
+
+path: `{{ output.path }}`
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
+
+    def _render_view_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `view`
+
+path: `{{ output.path }}`
+
+{% if output.line_start %}
+line_start: `{{ output.line_start }}`
+line_end: `{{ output.line_end }}`
+{% endif %}
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
+
+    def _render_create_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `create`
+
+path: `{{ output.path }}`
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
+
+    def _render_insert_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `insert`
+
+path: `{{ output.path }}`
+
+content: `{{ output.content }}`
+
+line_number: `{{ output.insert_line_number }}`
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
+
+    def _render_undo_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `undo`
+
+path: `{{ output.path }}`
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
+
+    def _render_update_markdown(self) -> str:
+        template = Template(
+            """
+## ACI Results
+
+action: `update`
+
+path: `{{ output.path }}`
+
+old_content: `{{ output.old_content }}`
+
+new_content: `{{ output.content }}`
+
+{% if output.line_start %}
+line_start: `{{ output.line_start }}`
+
+line_end: `{{ output.line_end }}`
+{% endif %}
+
+{% if output.error %}
+### Error
+```
+{{ output.error }}
+```
+{% else %}
+### Output
+```
+{{ output.output }}
+```
+{% endif %}
+"""
+        )
+        return template.render(output=self.output)
 
 
 @dino(

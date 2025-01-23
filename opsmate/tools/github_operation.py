@@ -80,6 +80,7 @@ class GithubCloneAndCD(ToolCall, PresentationMixin):
             return f"""
 ## Repo clone success
 
-Repo name: {self.repo}
-Repo path: {self.repo_path}
+Repo name: `{self.repo}`
+
+Repo path: `{self.repo_path}`
 """

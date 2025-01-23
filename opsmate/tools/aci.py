@@ -14,6 +14,8 @@ from jinja2 import Template
 
 logger = structlog.get_logger(__name__)
 
+PATTERN_NOT_FOUND = "Pattern not found"
+
 
 class Result(BaseModel):
     """
@@ -428,20 +430,24 @@ class ACITool(ToolCall):
         """
         Search for a pattern in a file or directory using regex.
         """
-        path = Path(self.path)
+        path = self.path
+        if path == ".":
+            path = os.getcwd()
+        path_type_check = Path(path)
+        logger.info("searching", path=path, content=self.content)
         try:
-            if path.is_file():
+            if path_type_check.is_file():
                 result = await self._search_file(path)
                 return Result(output=maybe_truncate_text(result))
 
-            elif path.is_dir():
+            elif path_type_check.is_dir():
                 results = ""
                 for root, _dirs, files in os.walk(path):
                     for file in files:
                         if file.startswith(".") or root.startswith("."):
                             continue
                         result = await self._search_file(os.path.join(root, file))
-                        if result:
+                        if result and result != PATTERN_NOT_FOUND:
                             results += f"{root}/{file}\n---\n{result}\n"
                 logger.info("search results", results=results)
                 return Result(
@@ -486,7 +492,7 @@ class ACITool(ToolCall):
             result = stdout.decode().strip()
 
             if not result:
-                return "Pattern not found"
+                return PATTERN_NOT_FOUND
 
             formatted_lines = []
             for line in result.splitlines():
@@ -667,9 +673,9 @@ action: `update`
 
 path: `{{ output.path }}`
 
-old_content: `{{ output.old_content }}`
+old_content: `{{ old_content }}`
 
-new_content: `{{ output.content }}`
+new_content: `{{ content }}`
 
 {% if output.line_start %}
 line_start: `{{ output.line_start }}`
@@ -690,7 +696,9 @@ line_end: `{{ output.line_end }}`
 {% endif %}
 """
         )
-        return template.render(output=self.output)
+        return template.render(
+            output=self.output, old_content=self.old_content, content=self.content
+        )
 
 
 @dino(

@@ -1168,6 +1168,13 @@ Here are the tasks to be performed **ONLY**:
     """
 
     outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
     async for result in await iac_sme(instruction):
         output = result
 

@@ -11,6 +11,7 @@ from opsmate.polya.models import (
     Facts,
 )
 from jinja2 import Template
+import yaml
 
 
 class CellComponent:
@@ -242,11 +243,17 @@ def render_react_answer_markdown(output: ReactAnswer):
 
 def render_observation_markdown(output: Observation):
 
+    tool_out = []
+    for tool_output in output.tool_outputs:
+        if hasattr(tool_output, "markdown"):
+            tool_out.append(tool_output.markdown())
+        else:
+            tool_out.append(yaml.dump(tool_output.model_dump()))
     return Div(
         f"""
 ## Observation
 
-{"\n".join([tool_output.markdown() for tool_output in output.tool_outputs])}
+{"\n".join(tool_out)}
 
 {output.observation}
 """,

@@ -1,5 +1,6 @@
 from opsmate.dino.types import React, ReactAnswer, Observation
 from opsmate.tools import ShellCommand, ACITool, GithubCloneAndCD
+from opsmate.tools.system import SysChdir
 from opsmate.dino.react import react
 import asyncio
 import structlog
@@ -10,12 +11,12 @@ logger = structlog.get_logger(__name__)
 
 @react(
     model="claude-3-5-sonnet-20241022",
-    tools=[ACITool, ShellCommand, GithubCloneAndCD],
+    tools=[ACITool, ShellCommand, GithubCloneAndCD, SysChdir],
     contexts=["you are an SRE who is tasked to modify the infra as code"],
     tool_calls_per_action=1,
     iterable=True,
 )
-async def iac_cme(instruction: str):
+async def iac_sme(instruction: str):
     """
     You are an SRE who is tasked to modify the infra as code.
 
@@ -79,7 +80,7 @@ Here are the tasks to be performed **ONLY**:
 * Commit and push the changes to the repository
 </tasks>
 """
-    async for result in await iac_cme(instruction):
+    async for result in await iac_sme(instruction):
         if isinstance(result, React):
             print(
                 f"""

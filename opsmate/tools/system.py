@@ -341,7 +341,10 @@ class SysChdir(Fs):
     _prev_dir: str = None
 
     async def __call__(self):
-        self._prev_dir = os.getcwd()
+        try:
+            self._prev_dir = os.getcwd()
+        except Exception as e:
+            self._prev_dir = None
         os.chdir(self.path)
 
     def markdown(self):

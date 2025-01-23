@@ -1,13 +1,29 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pydantic import Field
 
 from opsmate.knowledgestore.models import KnowledgeStore, openai_reranker, conn, aconn
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
+from pydantic import BaseModel
+from typing import Union
 import structlog
+from jinja2 import Template
 
 logger = structlog.get_logger(__name__)
+
+
+class RretrievalResult(BaseModel):
+    summary: str = Field(description="The summary of the knowledge")
+    citations: List[str] = Field(
+        description="The citations to the knowledge summary if any. Must be in the format of URL or file path"
+    )
+
+
+class KnowledgeNotFound(BaseModel):
+    """
+    This is a special case where the knowledge is not found.
+    """
 
 
 class KnowledgeRetrieval(ToolCall, PresentationMixin):
@@ -18,7 +34,7 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
     _aconn = None
     _conn = None
     query: str = Field(description="The query to search for")
-    output: Optional[str] = Field(
+    output: Optional[Union[RretrievalResult, KnowledgeNotFound]] = Field(
         description="The summarised output of the search - DO NOT POPULATE THIS FIELD",
         default=None,
     )
@@ -49,46 +65,70 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
         results = (
             await table.query()
             .nearest_to_text(self.query)
-            .select(["content"])
+            .select(["content", "data_source", "path", "metadata"])
             .to_list()
-        )  # .limit(10).to_list()
-        results = [result["content"] for result in results]
+        )
 
         return await self.summary(self.query, results)
 
     @dino(
         model="gpt-4o-mini",
-        response_model=str,
+        response_model=Union[RretrievalResult, KnowledgeNotFound],
     )
-    async def summary(self, question: str, results: List[str]):
+    async def summary(self, question: str, results: List[Dict[str, Any]]):
         """
         Given the following question and relevant knowledge snippets, provide a clear and
-        comprehensive summary that directly addresses the question. Focus on synthesizing
+        comprehensive summary that directly addresses the question with citations to the source. Focus on synthesizing
         key information from the knowledge provided, maintaining accuracy, and presenting
         a cohesive response. If there are any gaps or contradictions in the provided
         knowledge, acknowledge them in your summary.
 
         If you are not sure about the answer, please respond with "knowledge not found".
         """
+
         context = "\n".join(
             f"""
             <knowledge {idx}>
-            {result}
+                <metadata>
+                {result["metadata"]}
+                </metadata>
+                <content>
+                {result["content"]}
+                </content>
             </knowledge {idx}>
             """
             for idx, result in enumerate(results)
         )
+
+        print(context)
         return [
             Message.user(context),
             Message.user(question),
         ]
 
     def markdown(self):
-        return f"""
-### Knowledge
+        match self.output:
+            case RretrievalResult():
+                template = Template(
+                    """
+## Knowledge
 
-{self.output}
+{{ summary }}
+
+{% if citations %}
+### Citations
+
+{% for citation in citations %}
+- {{ citation }}
+{% endfor %}
+{% endif %}
 """
+                )
+                return template.render(
+                    summary=self.output.summary, citations=self.output.citations
+                )
+            case KnowledgeNotFound():
+                return "Knowledge not found"
 
     async def aconn(self):
         if not self._aconn:

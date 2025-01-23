@@ -372,7 +372,7 @@ def render_facts_markdown(output: Facts):
 ## Facts
 
 {% for fact in output.facts %}
-* {{ fact.fact }}
+* {{ fact.fact }} ({{ fact.source }})
 {% endfor %}
 """
     return Div(

@@ -32,6 +32,7 @@ class KnowledgeStore(LanceModel):
     categories: List[str] = Field(description="The categories of the knowledge")
     data_source_provider: str = Field(description="The provider of the data source")
     data_source: str = Field(description="The source of the knowledge")
+    metadata: str = Field(description="The metadata of the knowledge json encoded")
     path: str = Field(description="The path of the knowledge", default="")
     vector: Vector(embeddings.ndims()) = embeddings.VectorField()
     content: str = (

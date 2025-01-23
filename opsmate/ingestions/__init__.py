@@ -8,6 +8,7 @@ from opsmate.dino import dino
 from opsmate.knowledgestore.models import init_table, aconn, Category
 from opsmate.ingestions.base import Chunk
 import uuid
+import json
 
 logger = structlog.get_logger(__name__)
 
@@ -79,6 +80,7 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
                 "data_source": chunk.metadata["data_source"],
                 "path": chunk.metadata["path"],
                 "categories": categories,
+                "metadata": json.dumps(chunk.metadata),
                 "content": chunk.content,
             }
             await table.add([kb])

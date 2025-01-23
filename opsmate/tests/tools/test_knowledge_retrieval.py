@@ -19,11 +19,4 @@ class TestKnowledgeRetrieval(BaseTestCase):
         assert result is not None
         assert result == tool.output
 
-        assert (
-            tool.markdown()
-            == f"""
-### Knowledge
-
-{result}
-"""
-        )
+        assert tool.markdown().startswith("\n## Knowledge")

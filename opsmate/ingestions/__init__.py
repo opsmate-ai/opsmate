@@ -73,6 +73,8 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
             else:
                 categories = []
 
+            del chunk.metadata["categories"]
+
             kb = {
                 "uuid": str(uuid.uuid4()),
                 # "summary": chunk.metadata["summary"],

@@ -100,7 +100,6 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
             for idx, result in enumerate(results)
         )
 
-        print(context)
         return [
             Message.user(context),
             Message.user(question),

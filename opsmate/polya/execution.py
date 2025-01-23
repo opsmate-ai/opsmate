@@ -1,204 +1,167 @@
-import instructor
-from anthropic import Anthropic
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
-from typing import List, Union
-import subprocess
-from jinja2 import Template
-from opsmate.polya.models import TaskPlan
-from opsmate.polya.planning import planning
-from opsmate.polya.understanding import (
-    generate_report,
-    initial_understanding,
-    info_gathering,
-)
+from opsmate.dino.types import ToolCall, React, ReactAnswer, Observation
+from opsmate.tools.aci import ACITool
+from opsmate.tools import ShellCommand
+from opsmate.dino.react import react
+from typing import Optional, ClassVar
+import os
 import asyncio
-import tempfile
+import structlog
 import yaml
 
-
-async def execute(task_plan: TaskPlan):
-    task_map = {}
-    for task in task_plan.subtasks:
-        task_map[task.id] = task
-
-    all_task_results = {}
-
-    for task in task_plan.subtasks:
-        task_results = []
-        for subtask in task.subtasks:
-            task_result = all_task_results.get(subtask.id, None)
-            if task_result is not None:
-                task_results.append(task_result)
-
-        task_result = await task.execute(task_map, task_results)
-        all_task_results[task.id] = task_result
-
-    return all_task_results
+logger = structlog.get_logger(__name__)
 
 
-executor_sys_prompt = """
-<assistant>
-You are a world classSRE who is good at solving problems. You are specialised in kubernetes and python.
-You are tasked to solve the problem by executing python code
-</assistant>
-
-<rules>
-- Comes up with solutions using python code
-- Use stdlib, do not use any third party libraries that needs pip install
-- Feel free to shell out to kubectl, helm etc to get the information you need
-- Make sure that the stdout and stderr are printed out instead of returned
-- Do not hallucinate, only use the information provided in the context
-</rules>
-
-<important>
-- The script you are executing is mission critical, so make sure it is precise and correct
-</important>
-"""
-
-
-class PythonCode(BaseModel):
+class GithubCloneAndCD(ToolCall):
     """
-    The python code to be executed to answer the question
+    Clone a github repository and cd into the directory
     """
 
-    code: str = Field(description="The python code to be executed")
-    description: str = Field(
-        description="The description of the python code to be executed"
+    output: str = Field(..., description="The output of the tool call, DO NOT POPULATE")
+    github_domain: ClassVar[str] = "github.com"
+    github_token: ClassVar[str] = os.getenv("GITHUB_TOKEN")
+
+    repo: str = Field(
+        ..., description="The github repository in the format of owner/repo"
+    )
+    github_token: Optional[str] = Field(
+        ...,
+        description="The github token to use, DO NOT POPULATE",
+        default_factory=lambda: os.getenv("GITHUB_TOKEN"),
     )
 
-    async def execute(self):
-        # write the code into a tempfile and execute it
-        with tempfile.NamedTemporaryFile(suffix=".py") as temp_file:
-            temp_file.write(self.code.encode())
-            temp_file.flush()
-            temp_file_path = temp_file.name
+    @property
+    def clone_url(self) -> str:
+        return f"https://{self.github_token}@{self.github_domain}/{self.repo}.git"
 
-            print(f"Executing code from {temp_file_path}")
+    async def __call__(self, *args, **kwargs):
+        logger.info("cloning repository", repo=self.repo, domain=self.github_domain)
 
-            try:
-                result = subprocess.run(
-                    ["python", temp_file_path],
-                    shell=False,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                )
-                return PythonCodeResult(
-                    code=self,
-                    result=result.stdout,
-                )
-            except subprocess.SubprocessError as e:
-                return PythonCodeResult(
-                    code=self,
-                    result=str(e),
-                )
+        try:
+            process = await asyncio.create_subprocess_shell(
+                f"git clone {self.clone_url}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=60.0)
 
+            # check the exit code
+            if process.returncode != 0:
+                raise Exception(f"Failed to clone repository: {stdout.decode()}")
 
-class PythonCodeResult(BaseModel):
-    code: PythonCode
-    result: str
+            repo_path = self.repo.split("/")[-1]
+            logger.info("changing directory", path=repo_path)
+            os.chdir(repo_path)
+
+            return stdout.decode()
+        except asyncio.TimeoutError:
+            return "Failed to clone repository due to timeout"
+        except Exception as e:
+            return f"Failed to clone repository: {e}"
 
 
-class Execution(BaseModel):
-    python_codes: List[PythonCode] = Field(
-        description="The python code to be executed to answer the question"
-    )
+@react(
+    model="claude-3-5-sonnet-20241022",
+    tools=[ACITool, ShellCommand, GithubCloneAndCD],
+    contexts=["you are an SRE who is tasked to modify the infra as code"],
+    tool_calls_per_action=1,
+    iterable=True,
+)
+async def iac_cme(instruction: str):
+    """
+    You are an SRE who is tasked to modify the infra as code.
+
+    <rule 1>
+    Before making any changes, you must read the file(s) to understand:
+    * the purpose of the file (e.g. a terraform file deploying IaC, or a yaml file deploying k8s resources)
+    * Have a basic understanding of the file's structure
+    </rule 1>
+
+    <rule 2>
+    Edit must be precise and specific:
+    * Tabs and spaces must be used correctly
+    * The line range must be specified when you are performing an update operation against a file
+    * Stick to the task you are given, don't make drive-by changes
+    </rule 2>
+
+    <rule 3>
+    After you make the change, you must verify the updated content is correct using the `ACITool.view` or `ACITool.search` commands.
+    </rule 3>
+
+    <rule 4>
+    NEVER EVER use vi/vim/nano/view or any other text editor to make changes, instead use the `ACITool` tool.
+    </rule 4>
+
+    <rule 5>
+    Tool usage:
+    * `ACITool` tool for file search, view, create, update, append and undo.
+    * `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`.
+    * `SysChdir` tool for changing the current working directory, DO NOT use `cd` command.
+    </rule 5>
+    """
+    return instruction
 
 
 async def main():
-    background_context = """
-## Summary
+    instruction = """
+Given the facts:
 
-The deployment "payment-service" within the "payment" namespace is facing rollout issues due to readiness probe failures. The HTTP endpoint is returning a 404 status code, causing pods to be marked as unhealthy, leading to repeated restarts and delays in deployment, with "ProgressDeadlineExceeded" condition noted.
+<facts>
+fact='The payment service uses readinessProbe and livenessProbe for health checks in its deployment manifest' source='https://github.com/jingkaihe/opsmate-payment-service/blob/main/README.md' weight=8
+----------------------------------------------------------------------------------------------------
+fact='The health checks are configured to use the /status endpoint instead of conventional /healthz endpoints' source='https://github.com/jingkaihe/opsmate-payment-service/blob/main/README.md' weight=7
+----------------------------------------------------------------------------------------------------
+fact='The deployment configuration is specified in deploy.yml file' source='https://github.com/jingkaihe/opsmate-payment-service/blob/main/README.md' weight=6
+----------------------------------------------------------------------------------------------------
+fact='The service is deployed to the payment namespace using kubectl apply -f deploy.yml' source='https://github.com/jingkaihe/opsmate-payment-service/blob/main/README.md' weight=5
+----------------------------------------------------------------------------------------------------
+fact='The main application code is located in app.py file' source='https://github.com/jingkaihe/opsmate-payment-service/blob/main/README.md' weight=4
+----------------------------------------------------------------------------------------------------
+</facts>
 
-## Findings
+And the goal:
 
+<goal>
+Fix the health check endpoint mismatch in payment-service deployment causing rollout failures
+</goal>
 
-- The readiness probe for the pods is set up to send HTTP requests to a specific endpoint, which is failing with a 404 status code. This suggests that the service or endpoint expected to be up and running is either not available, misconfigured, or incorrectly specified.
+Here are the tasks to be performed **ONLY**:
 
-## Solution
-
-Verify HTTP Endpoint Configuration. Check and validate the service endpoint that the readiness probe targets. Ensure the route (URL path) and the service is correctly configured to handle requests and is actively running.
+<tasks>
+* Clone the opsmate-payment-service repository
+* Create a new git branch named 'opsmate-fix-health-probe-path-001'
+* Locate and review the deploy.yml file in the repository
+* Update the readiness and liveness probe configurations in deploy.yml to use '/status' instead of '/health'
+* Commit and push the changes to the repository
+</tasks>
 """
-    task = "Verify readiness probe configuration in deployment manifest."
+    async for result in await iac_cme(instruction):
+        if isinstance(result, React):
+            print(
+                f"""
+## action
+{result.action}
 
-    openai = instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.TOOLS)
+## thoughts
+{result.thoughts}
+                """
+            )
+        elif isinstance(result, Observation):
+            print(
+                f"""
+## observation
+{result.observation}
 
-    messages = [
-        {
-            "role": "system",
-            "content": executor_sys_prompt,
-        },
-        {
-            "role": "user",
-            "content": f"""
-<context>
-{background_context}
-</context>
-""",
-        },
-        {"role": "user", "content": task},
-    ]
-
-    execution = await openai.messages.create(
-        messages=messages,
-        model="gpt-4o",
-        response_model=Execution,
-    )
-
-    for python_code in execution.python_codes:
-        print(python_code.code)
-        print(python_code.description)
-
-    result = await asyncio.gather(
-        *[python_code.execute() for python_code in execution.python_codes]
-    )
-
-    result_template = Template(
-        """
-<result>
-{% for result in results %}
-## Execution description
-
-{{ result.code.description }}
-
-## Execution result
-```
-{{ result.result }}
-```
-{% endfor %}
-</result>
+## tool outputs
+{yaml.dump([tool.model_dump() for tool in result.tool_outputs])}
 """
-    )
-
-    rendered_result = result_template.render(results=result)
-    print(rendered_result)
-    messages.append(
-        {
-            "role": "user",
-            "content": f"""
-<result>
-{rendered_result}
-</result>
-""",
-        }
-    )
-
-    messages.append(
-        {
-            "role": "user",
-            "content": "What is the result of the task?",
-        }
-    )
-
-    response = await openai.messages.create(
-        messages=messages,
-        model="gpt-4o",
-        response_model=str,
-    )
-
-    print(response)
+            )
+        elif isinstance(result, ReactAnswer):
+            print(
+                f"""
+{result.answer}
+"""
+            )
 
 
 if __name__ == "__main__":

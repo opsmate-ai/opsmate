@@ -37,15 +37,11 @@ async def iac_cme(instruction: str):
     </rule 3>
 
     <rule 4>
-    NEVER EVER use vi/vim/nano/view or any other text editor to make changes, instead use the `ACITool` tool.
-    </rule 4>
-
-    <rule 5>
     Tool usage:
     * `ACITool` tool for file search, view, create, update, append and undo.
-    * `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`.
+    * `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`, in other words, do not use `ShellCommand` to run `view/vim/emacs/nano/vi` commands.
     * `SysChdir` tool for changing the current working directory, DO NOT use `cd` command.
-    </rule 5>
+    </rule 4>
     """
     return instruction
 

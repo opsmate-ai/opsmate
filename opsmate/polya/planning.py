@@ -6,16 +6,19 @@ from opsmate.dino import dino
 from opsmate.dino.types import Message
 
 
-@dino(model="gpt-4o", response_model=Facts, tools=[KnowledgeRetrieval])
+@dino(
+    model="claude-3-5-sonnet-20241022", response_model=Facts, tools=[KnowledgeRetrieval]
+)
 async def knowledge_retrieval(questions: list[str]) -> str:
     """
     Retrieve relevant information from the knowledge base based on the question
     and break down the information into facts
+    Please also list the source of the fact. The source must be a fqdn of the source e.g. https://github.com/opsmate/opsmate/tree
     """
     return "\n".join(questions)
 
 
-@dino(model="gpt-4o", response_model=list[str])
+@dino(model="claude-3-5-sonnet-20241022", response_model=list[str])
 async def summary_breakdown(summary: str) -> str:
     """
     Break down the summary into a 2 questions that will help to resolve the problem
@@ -42,7 +45,7 @@ async def summary_breakdown(summary: str) -> str:
     ]
 
 
-@dino(model="gpt-4o", response_model=TaskPlan)
+@dino(model="claude-3-5-sonnet-20241022", response_model=TaskPlan)
 async def planning(summary: str, facts: list[Fact], instruction: str):
     """
     <assistant>
@@ -54,15 +57,23 @@ async def planning(summary: str, facts: list[Fact], instruction: str):
     </assistant>
 
     <rules>
-    - You do not need to break down the task is simple enough to be answered in a single step (e.g. a simple command).
-    - The subtasks must be independent of each other.
-    - Your answer must enable the system to complete the user task.
-    - Do not complete the user task, simply provide a correct compute graph with good specific tasks to ask and relevant subtasks.
-    - Before completing the list of tasks, think step by step to get a better understanding the problem.
-    - The tasks must be based on the context provided, DO NOT make up tasks that are unrelated to the context.
-    - Use as few tasks as possible.
-    - Each task must be highly actionable.
+    - Only break down complex tasks that require multiple steps
+    - Each subtask must be independent
+    - Tasks must be actionable and specific
+    - Tasks must relate directly to the given context
+    - Think step by step before listing tasks
+    - Provide a correct compute graph but don't execute the tasks
+    - Use minimum necessary number of tasks
     </rules>
+
+    <important>
+    Given the work you are faces are commonly related to Infra as code, a typical route to fix are:
+    * git clone the repo and change directory to the repo
+    * git checkout to a new branch. the branch name follows the format of opsmate-<short_description>-<6-chars-random-string>
+    * make the changes to the code to fix the issue
+    * validation is typically performed by the CI so you don't need to run it locally
+    * git add, commit and push the changes
+    </important>
     """
     facts = "\n".join(
         [
@@ -70,6 +81,7 @@ async def planning(summary: str, facts: list[Fact], instruction: str):
 ---
 fact {idx}:
 {fact.fact}
+source: {fact.source}
 weight: {fact.weight}
 ---
 """
@@ -83,7 +95,7 @@ weight: {fact.weight}
     ]
 
 
-@dino(model="gpt-4o", response_model=Facts)
+@dino(model="claude-3-5-sonnet-20241022", response_model=Facts)
 def load_facts(text: str) -> Facts:
     """
     You are a world class information extractor. You are good at extracting information from a text.

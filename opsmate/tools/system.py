@@ -333,6 +333,36 @@ class SysStats(Fs):
 """
 
 
+class SysChdir(Fs):
+    """SysChdir tool allows you to change the current working directory"""
+
+    path: str = Field(description="The path to change the current working directory to")
+
+    _prev_dir: str = None
+
+    async def __call__(self):
+        try:
+            self._prev_dir = os.getcwd()
+        except Exception as e:
+            self._prev_dir = None
+        os.chdir(self.path)
+
+    def markdown(self):
+        return f"""
+### Current Directory
+
+```bash
+{self._prev_dir}
+```
+
+### New Directory
+
+```bash
+{self.path}
+```
+"""
+
+
 class SysEnv(Fs):
     """SysEnv tool allows you to get the environment variables"""
 

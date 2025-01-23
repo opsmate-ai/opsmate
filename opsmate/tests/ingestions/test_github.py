@@ -93,19 +93,25 @@ async def test_get_files_with_glob(github_ingestion, mock_client):
 
 
 @pytest.mark.asyncio
-async def test_get_file_content(github_ingestion, mock_client):
+async def test_get_file_with_metadata(github_ingestion, mock_client):
     content = "Hello, World!"
     encoded_content = base64.b64encode(content.encode()).decode()
 
     mock_response = Mock(spec=httpx.Response)
-    mock_response.json.return_value = {"content": encoded_content}
+    mock_response.json.return_value = {
+        "content": encoded_content,
+        "html_url": "https://github.com/owner/repo/blob/main/test.txt",
+        "sha": "1234567890",
+    }
     mock_response.raise_for_status.return_value = None
 
     github_ingestion.client = mock_client
     mock_client.get.return_value = mock_response
 
-    result = await github_ingestion.get_file_content("test.txt")
-    assert result == content
+    result = await github_ingestion.get_file_with_metadata("test.txt")
+    assert result.get("content") == content
+    assert result.get("sha") == "1234567890"
+    assert result.get("html_url") == "https://github.com/owner/repo/blob/main/test.txt"
 
 
 @pytest.mark.asyncio
@@ -123,13 +129,17 @@ async def test_load(github_ingestion):
 
     file_1_content_response = Mock(spec=httpx.Response)
     file_1_content_response.json.return_value = {
-        "content": base64.b64encode("content1".encode()).decode()
+        "content": base64.b64encode("content1".encode()).decode(),
+        "html_url": "https://github.com/owner/repo/blob/main/file1.txt",
+        "sha": "1234567890",
     }
     file_1_content_response.raise_for_status.return_value = None
 
     file_2_content_response = Mock(spec=httpx.Response)
     file_2_content_response.json.return_value = {
-        "content": base64.b64encode("content2".encode()).decode()
+        "content": base64.b64encode("content2".encode()).decode(),
+        "html_url": "https://github.com/owner/repo/blob/main/file2.py",
+        "sha": "1234567890",
     }
     file_2_content_response.raise_for_status.return_value = None
 
@@ -155,12 +165,20 @@ async def test_load(github_ingestion):
         "path": "file1.txt",
         "repo": "owner/repo",
         "branch": "main",
+        "data_source_provider": "github",
+        "data_source": "owner/repo",
+        "source": "https://github.com/owner/repo/blob/main/file1.txt",
+        "sha": "1234567890",
     }
     assert documents[1].content == "content2"
     assert documents[1].metadata == {
         "path": "file2.py",
         "repo": "owner/repo",
         "branch": "main",
+        "data_source_provider": "github",
+        "data_source": "owner/repo",
+        "source": "https://github.com/owner/repo/blob/main/file2.py",
+        "sha": "1234567890",
     }
 
 

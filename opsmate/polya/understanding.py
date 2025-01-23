@@ -26,7 +26,7 @@ extra_sys_prompt = """
 
 
 @dino(
-    "gpt-4o",
+    "claude-3-5-sonnet-20241022",
     response_model=Union[InitialUnderstandingResponse, NonTechnicalQuery],
     context={"num_questions": 3},
 )
@@ -77,7 +77,7 @@ async def initial_understanding(
 
 
 @dino(
-    "gpt-4o",
+    "claude-3-5-sonnet-20241022",
     response_model=InitialUnderstandingResponse,
 )
 async def load_inital_understanding(text: str):
@@ -91,7 +91,7 @@ async def load_inital_understanding(text: str):
 
 
 @dino(
-    "gpt-4o",
+    "claude-3-5-sonnet-20241022",
     response_model=QuestionResponse,
 )
 async def __info_gathering(
@@ -129,7 +129,7 @@ async def __info_gathering(
     ]
 
 
-@dino("gpt-4o", response_model=str)
+@dino("claude-3-5-sonnet-20241022", response_model=str)
 async def __summarise_info_gathered(question: QuestionResponse):
     """
     You are a world class SRE.
@@ -149,7 +149,7 @@ async def info_gathering(summary: str, question: str):
     )
 
 
-@dino("gpt-4o", response_model=Report)
+@dino("claude-3-5-sonnet-20241022", response_model=Report)
 async def generate_report(
     summary: str,
     info_gathered: List[InfoGathered],
@@ -204,7 +204,7 @@ async def generate_report(
 
 
 @dino(
-    "gpt-4o",
+    "claude-3-5-sonnet-20241022",
     response_model=ReportExtracted,
     context={"max_num_solutions": 3},
 )

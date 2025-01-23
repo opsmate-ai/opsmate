@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opsmatesdk"
-version = "0.1.14.alpha"
+version = "0.1.15.alpha"
 description = "FastAPI"
 authors = ["OpenAPI Generator Community <team@openapitools.org>"]
 license = "NoLicense"

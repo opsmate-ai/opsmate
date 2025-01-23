@@ -1,5 +1,7 @@
 from .command_line import ShellCommand
 from .knowledge_retrieval import KnowledgeRetrieval
+from .github_operation import GithubCloneAndCD
+from .aci import ACITool
 from .datetime import current_time, datetime_extraction
 from .system import (
     HttpGet,
@@ -22,6 +24,8 @@ __all__ = [
     "datetime_extraction",
     "ShellCommand",
     "KnowledgeRetrieval",
+    "ACITool",
+    "GithubCloneAndCD",
     "HttpGet",
     "HttpCall",
     "HttpToText",

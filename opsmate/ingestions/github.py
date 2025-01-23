@@ -59,14 +59,19 @@ class GithubIngestion(BaseIngestion):
                     continue
                 yield path
 
-    async def get_file_content(self, file_path: str) -> str:
+    async def get_file_with_metadata(self, file_path: str) -> Dict[str, str]:
         # https://docs.github.com/en/rest/repos/contents?apiVersion=2022-11-28
         url = f"{self.github_api_url}/repos/{self.repo}/contents/{file_path}"
 
         response = await self.client.get(url, headers=self.headers)
         response.raise_for_status()
-        content_encoded = response.json().get("content")
-        return base64.b64decode(content_encoded).decode("utf-8")
+        body = response.json()
+        content_encoded = body.get("content")
+        return {
+            "content": base64.b64decode(content_encoded).decode("utf-8"),
+            "html_url": body.get("html_url"),
+            "sha": body.get("sha"),
+        }
 
     async def load(self) -> AsyncGenerator[Document, None]:
         # semaphore to limit the number of concurrent requests
@@ -74,13 +79,17 @@ class GithubIngestion(BaseIngestion):
 
         async def process_file(file: str) -> Document:
             async with semaphore:
-                content = await self.get_file_content(file)
+                content_with_metadata = await self.get_file_with_metadata(file)
                 return Document(
-                    content=content,
+                    content=content_with_metadata.get("content"),
                     metadata={
                         "path": file,
                         "repo": self.repo,
                         "branch": self.branch,
+                        "data_source_provider": "github",
+                        "data_source": self.repo,
+                        "source": content_with_metadata.get("html_url"),
+                        "sha": content_with_metadata.get("sha"),
                     },
                 )
 

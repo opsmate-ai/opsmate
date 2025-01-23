@@ -41,6 +41,7 @@ from opsmate.polya.planning import (
     knowledge_retrieval,
     load_facts,
 )
+from opsmate.polya.execution import iac_sme
 import pickle
 import sqlmodel
 import structlog
@@ -58,6 +59,7 @@ from opsmate.workflow.workflow import (
     WorkflowStep as OpsmateWorkflowStep,
 )
 from opsmate.gui.models import Config
+import yaml
 
 logger = structlog.get_logger()
 
@@ -892,6 +894,23 @@ async def manage_planning_task_plan_cell(ctx: WorkflowContext):
     return cell, task_plan
 
 
+@step
+async def store_facts_and_plans(ctx: WorkflowContext):
+    session = ctx.input["session"]
+
+    _, task_plan = ctx.find_result("manage_planning_task_plan_cell", session)
+    cell, facts = ctx.find_result("manage_planning_knowledge_retrieval_cell", session)
+    workflow = Workflow.find_by_id(session, cell.workflow_id)
+    workflow.result = json.dumps(
+        {
+            "task_plan": task_plan.model_dump(),
+            "facts": facts.model_dump(),
+        }
+    )
+    session.add(workflow)
+    session.commit()
+
+
 ############################## End of steps ##############################
 
 
@@ -1094,6 +1113,7 @@ async def execute_polya_planning_instruction(
         >> manage_planning_optimial_solution_cell
         >> manage_planning_knowledge_retrieval_cell
         >> manage_planning_task_plan_cell
+        >> store_facts_and_plans
     )
 
     opsmate_workflow = build_workflow(
@@ -1121,24 +1141,99 @@ async def execute_polya_execution_instruction(
     logger.info("executing polya execution instruction", cell_id=cell.id, input=msg)
 
     blueprint = cell.workflow.blueprint
-    understanding_workflow: Workflow = blueprint.find_workflow_by_name(
-        session, WorkflowEnum.UNDERSTANDING
-    )
-    report_extracted_json = understanding_workflow.result
-    report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
-
-    solution_summary = report_extracted.potential_solutions[0].summarize(
-        report_extracted.summary, show_probability=False
-    )
-
     planning_workflow: Workflow = blueprint.find_workflow_by_name(
         session, WorkflowEnum.PLANNING
     )
-    task_plan_json = planning_workflow.result
+    workflow_result = json.loads(planning_workflow.result)
+    task_plan = TaskPlan.model_validate(workflow_result["task_plan"])
+    facts = Facts.model_validate(workflow_result["facts"])
 
-    task_plan = TaskPlan.model_validate_json(task_plan_json)
+    instruction = f"""
+Given the facts:
 
-    print(task_plan.model_dump_json(indent=2))
+<facts>
+{yaml.dump(facts.model_dump())}
+</facts>
+
+And the goal:
+<goal>
+{task_plan.goal}
+</goal>
+
+Here are the tasks to be performed **ONLY**:
+
+<tasks>
+{"\n".join(f"* {task.task}" for task in task_plan.subtasks)}
+</tasks>
+    """
+
+    outputs = []
+    await send(
+        Div(
+            *outputs,
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    async for result in await iac_sme(instruction):
+        output = result
+
+        logger.info("output", output=output)
+
+        partial = CellOutputRenderer.render_model(output)
+        if partial:
+            match output:
+                case Observation():
+                    outputs.append(
+                        {
+                            "type": "Observation",
+                            "output": Observation(
+                                tool_outputs=[
+                                    output.__class__(**output.model_dump())
+                                    for output in output.tool_outputs
+                                ],
+                                observation=output.observation,
+                            ),
+                        }
+                    )
+                case _:
+                    outputs.append(
+                        {
+                            "type": type(output).__name__,
+                            "output": output,
+                        }
+                    )
+        await send(
+            Div(
+                partial,
+                hx_swap_oob=swap,
+                id=f"cell-output-{cell.id}",
+            )
+        )
+
+    cell.output = pickle.dumps(outputs)
+    session.add(cell)
+    session.commit()
+
+    # understanding_workflow: Workflow = blueprint.find_workflow_by_name(
+    # understanding_workflow: Workflow = blueprint.find_workflow_by_name(
+    #     session, WorkflowEnum.UNDERSTANDING
+    # )
+    # report_extracted_json = understanding_workflow.result
+    # report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
+
+    # solution_summary = report_extracted.potential_solutions[0].summarize(
+    #     report_extracted.summary, show_probability=False
+    # )
+
+    # planning_workflow: Workflow = blueprint.find_workflow_by_name(
+    #     session, WorkflowEnum.PLANNING
+    # )
+    # task_plan_json = planning_workflow.result
+
+    # task_plan = TaskPlan.model_validate_json(task_plan_json)
+
+    # print(task_plan.model_dump_json(indent=2))
 
 
 async def execute_notes_instruction(

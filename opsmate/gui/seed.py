@@ -25,8 +25,7 @@ Now that we understand the problem, let's develop a strategy:
 
 1. Have you seen similar problems before?
 2. Can we break this into smaller sub-problems?
-3. What mathematical techniques might be relevant?
-4. Should we try solving a simpler version first?
+3. Should we try solving a simpler version first?
 
 Share your thoughts on possible approaches.
         """,

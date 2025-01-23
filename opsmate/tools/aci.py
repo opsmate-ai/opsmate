@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall
 from pydantic import BaseModel, Field, model_validator
-from typing import Tuple, Dict, List, Optional, ClassVar, Self
+from typing import Dict, List, Optional, ClassVar, Self
 from collections import defaultdict
 from pathlib import Path
 from opsmate.tools.utils import maybe_truncate_text

@@ -1,11 +1,9 @@
 from opsmate.dino.types import React, ReactAnswer, Observation
-from opsmate.tools.aci import ACITool
-from opsmate.tools import ShellCommand
+from opsmate.tools import ShellCommand, ACITool, GithubCloneAndCD
 from opsmate.dino.react import react
 import asyncio
 import structlog
 import yaml
-from opsmate.tools.github_operation import GithubCloneAndCD
 
 logger = structlog.get_logger(__name__)
 

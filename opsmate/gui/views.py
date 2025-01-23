@@ -892,6 +892,23 @@ async def manage_planning_task_plan_cell(ctx: WorkflowContext):
     return cell, task_plan
 
 
+@step
+async def store_facts_and_plans(ctx: WorkflowContext):
+    session = ctx.input["session"]
+
+    _, task_plan = ctx.find_result("manage_planning_task_plan_cell", session)
+    cell, facts = ctx.find_result("manage_planning_knowledge_retrieval_cell", session)
+    workflow = Workflow.find_by_id(session, cell.workflow_id)
+    workflow.result = json.dumps(
+        {
+            "task_plan": task_plan.model_dump(),
+            "facts": facts.model_dump(),
+        }
+    )
+    session.add(workflow)
+    session.commit()
+
+
 ############################## End of steps ##############################
 
 
@@ -1094,6 +1111,7 @@ async def execute_polya_planning_instruction(
         >> manage_planning_optimial_solution_cell
         >> manage_planning_knowledge_retrieval_cell
         >> manage_planning_task_plan_cell
+        >> store_facts_and_plans
     )
 
     opsmate_workflow = build_workflow(

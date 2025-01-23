@@ -69,8 +69,9 @@ async def planning(summary: str, facts: list[Fact], instruction: str):
     <important>
     Given the work you are faces are commonly related to Infra as code, a typical route to fix are:
     * git clone the repo and change directory to the repo
-    * git checkout to a new branch. the branch name follows the format of opsmate-<short_description>-<short-id>
+    * git checkout to a new branch. the branch name follows the format of opsmate-<short_description>-<6-chars-random-string>
     * make the changes to the code to fix the issue
+    * validation is typically performed by the CI so you don't need to run it locally
     * git add, commit and push the changes
     </important>
     """

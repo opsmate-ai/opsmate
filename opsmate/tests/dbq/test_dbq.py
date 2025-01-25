@@ -124,3 +124,15 @@ class TestDbq:
             task = await await_task_completion(session, task_id, 3)
             assert task.result == {"a": 1, "b": 2}
             assert task.status == TaskStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_task_with_priority(self, session: Session):
+        task_id = enqueue_task(session, dummy, 1, 2, priority=1)
+        task_id2 = enqueue_task(session, dummy, 1, 2, priority=2)
+        async with self.with_worker(session):
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 3
+            task2 = await await_task_completion(session, task_id2, 3)
+            assert task2.result == 3
+
+            assert task.updated_at > task2.updated_at

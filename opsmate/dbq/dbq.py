@@ -18,6 +18,9 @@ class TaskStatus(Enum):
     FAILED = "failed"
 
 
+DEFAULT_PRIORITY = 5
+
+
 class TaskItem(SQLModel, table=True):
     id: int = Field(primary_key=True)
     args: List[Any] = Field(sa_column=Column(JSON))
@@ -32,11 +35,14 @@ class TaskItem(SQLModel, table=True):
     created_at: datetime = Field(default=datetime.now(UTC))
     updated_at: datetime = Field(default=datetime.now(UTC))
 
+    priority: int = Field(default=DEFAULT_PRIORITY)
+
 
 def enqueue_task(
     session: Session,
     fn: Callable[..., Awaitable[Any]],
     *args: List[Any],
+    priority: int = DEFAULT_PRIORITY,
     **kwargs: Dict[str, Any],
 ):
     fn_module = fn.__module__
@@ -46,6 +52,7 @@ def enqueue_task(
         func=f"{fn_module}.{fn_name}",
         args=args,
         kwargs=kwargs,
+        priority=priority,
     )
     session.add(task)
     session.commit()
@@ -55,9 +62,9 @@ def enqueue_task(
 
 def dequeue_task(session: Session):
     task = session.exec(
-        select(TaskItem).where(
-            TaskItem.status == TaskStatus.PENDING,
-        )
+        select(TaskItem)
+        .where(TaskItem.status == TaskStatus.PENDING)
+        .order_by(TaskItem.priority.desc())
     ).first()
 
     if not task:
@@ -136,11 +143,15 @@ class Worker:
             logger.info("task completed", task_id=task.id, result=result)
             task.result = result
             task.status = TaskStatus.COMPLETED
+            task.updated_at = datetime.now(UTC)
+            task.generation_id = task.generation_id + 1
             self.session.commit()
         except Exception as e:
             logger.error("error running task", error=e)
             task.error = str(e)
             task.status = TaskStatus.FAILED
+            task.updated_at = datetime.now(UTC)
+            task.generation_id = task.generation_id + 1
             self.session.commit()
             return
 

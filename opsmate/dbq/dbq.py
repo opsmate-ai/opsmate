@@ -2,7 +2,15 @@ from typing import List, Any, Dict, Callable, Awaitable, Optional
 from sqlmodel import Column, JSON
 from enum import Enum
 from datetime import datetime, UTC
-from sqlmodel import Session, select, SQLModel, Field, update
+from sqlmodel import (
+    SQLModel as _SQLModel,
+    Session,
+    MetaData,
+    Field,
+    update,
+    select,
+)
+from sqlalchemy.orm import registry
 import importlib
 import asyncio
 import structlog
@@ -19,6 +27,10 @@ class TaskStatus(Enum):
 
 
 DEFAULT_PRIORITY = 5
+
+
+class SQLModel(_SQLModel, registry=registry()):
+    metadata = MetaData()
 
 
 class TaskItem(SQLModel, table=True):

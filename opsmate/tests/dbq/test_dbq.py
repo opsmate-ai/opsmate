@@ -1,7 +1,8 @@
 import pytest
-from sqlmodel import Session, create_engine, SQLModel, select
+from sqlmodel import Session, create_engine, select
 from sqlalchemy import Engine
 from opsmate.dbq.dbq import (
+    SQLModel,
     enqueue_task,
     dequeue_task,
     TaskItem,

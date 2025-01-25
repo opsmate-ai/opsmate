@@ -83,6 +83,27 @@ class TestDbq:
             assert task.result == 3
 
     @pytest.mark.asyncio
+    async def test_worker_with_concurrency(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy, 1, 2)
+            task_id2 = enqueue_task(session, dummy, 2, 3)
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 3
+            task2 = await await_task_completion(session, task_id2, 3)
+            assert task2.result == 5
+
+    @pytest.mark.asyncio
+    async def test_worker_with_exception(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy, 1, "abc")
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result is None
+            assert task.status == TaskStatus.FAILED
+            assert task.error.startswith(
+                "unsupported operand type(s) for +: 'int' and 'str'"
+            )
+
+    @pytest.mark.asyncio
     async def test_task_with_complex_signature(self, session: Session):
         async with self.with_worker(session):
             task_id = enqueue_task(

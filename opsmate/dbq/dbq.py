@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Callable, Awaitable
+from typing import List, Any, Dict, Callable, Awaitable, Optional
 from sqlmodel import Column, JSON
 from enum import Enum
 from datetime import datetime, UTC
@@ -25,6 +25,7 @@ class TaskItem(SQLModel, table=True):
     func: str
 
     result: Any = Field(sa_column=Column(JSON))
+    error: Optional[str] = Field(default=None, nullable=True)
     status: TaskStatus = Field(default=TaskStatus.PENDING)
 
     generation_id: int = Field(default=1)
@@ -62,7 +63,7 @@ def dequeue_task(session: Session):
     if not task:
         return None
 
-    # run the update statement
+    # an optimistic lock to prevent race condition
     result = session.exec(
         update(TaskItem)
         .where(TaskItem.id == task.id)
@@ -138,7 +139,7 @@ class Worker:
             self.session.commit()
         except Exception as e:
             logger.error("error running task", error=e)
-            task.result = str(e)
+            task.error = str(e)
             task.status = TaskStatus.FAILED
             self.session.commit()
             return

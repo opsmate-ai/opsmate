@@ -88,9 +88,6 @@ Repo path: `{self.repo_path}`
 
 
 class GithubRaisePR(ToolCall, PresentationMixin):
-    # class Config:
-    #     arbitrary_types_allowed = True
-
     """
     Raise a PR for a given github repository
     """

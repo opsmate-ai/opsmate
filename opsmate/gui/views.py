@@ -1154,7 +1154,7 @@ async def execute_polya_execution_instruction(
     chdir_call = SysChdir(
         path=os.path.join(os.getenv("HOME"), ".opsmate", "github_repo")
     )
-    chdir_call()
+    await chdir_call()
 
     instruction = f"""
 Given the facts:

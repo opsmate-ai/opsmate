@@ -41,7 +41,7 @@ class TaskItem(SQLModel, table=True):
 
     result: Any = Field(sa_column=Column(JSON))
     error: Optional[str] = Field(default=None, nullable=True)
-    status: TaskStatus = Field(default=TaskStatus.PENDING)
+    status: TaskStatus = Field(default=TaskStatus.PENDING, index=True)
 
     generation_id: int = Field(default=1)
     created_at: datetime = Field(default=datetime.now(UTC))
@@ -109,7 +109,6 @@ async def await_task_completion(
     start = time.time()
     while True:
         task = session.exec(select(TaskItem).where(TaskItem.id == task_id)).first()
-        logger.info("task status", task_id=task_id, status=task.status)
         if task.status == TaskStatus.COMPLETED or task.status == TaskStatus.FAILED:
             return task
         if time.time() - start > timeout:

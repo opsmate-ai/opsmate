@@ -4,7 +4,8 @@ from typing import ClassVar, Optional
 import os
 import asyncio
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+import httpx
 
 logger = structlog.get_logger(__name__)
 
@@ -84,3 +85,65 @@ Repo name: `{self.repo}`
 
 Repo path: `{self.repo_path}`
 """
+
+
+class GithubRaisePR(ToolCall, PresentationMixin):
+    # class Config:
+    #     arbitrary_types_allowed = True
+
+    """
+    Raise a PR for a given github repository
+    """
+
+    github_api_url: ClassVar[str] = "https://api.github.com"
+    github_token: ClassVar[str] = os.getenv("GITHUB_TOKEN")
+
+    repo: str = Field(..., description="The repository in the format of owner/repo")
+    branch: str = Field(..., description="The branch to raise the PR")
+    base_branch: str = Field("main", description="The base branch to raise the PR")
+    title: str = Field(..., description="The title of the PR")
+    body: str = Field(..., description="The body of the PR")
+
+    output: Result = Field(
+        ..., description="The output of the tool call, DO NOT POPULATE"
+    )
+
+    @property
+    def headers(self):
+        return {
+            "Authorization": f"Bearer {self.github_token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "opsmate / 0.1.0 (https://github.com/jingkaihe/opsmate)",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+    async def __call__(self, *args, **kwargs):
+        logger.info(
+            "raising PR",
+            title=self.title,
+            repo=self.repo,
+            body=self.body,
+            head=self.branch,
+        )
+        url = f"{self.github_api_url}/repos/{self.repo}/pulls"
+        response = await httpx.AsyncClient().post(
+            url,
+            headers=self.headers,
+            json={
+                "title": self.title,
+                "body": self.body,
+                "head": self.branch,
+                "base": self.base_branch,
+            },
+        )
+
+        if response.status_code != 201:
+            return Result(error=response.text)
+
+        return Result(output="PR raised successfully")
+
+    def markdown(self):
+        if self.output.error:
+            return f"Failed to raise PR: {self.output.error}"
+        else:
+            return "PR raised successfully"

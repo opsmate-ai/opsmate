@@ -1,6 +1,6 @@
 from .command_line import ShellCommand
 from .knowledge_retrieval import KnowledgeRetrieval
-from .github_operation import GithubCloneAndCD
+from .github_operation import GithubCloneAndCD, GithubRaisePR
 from .aci import ACITool
 from .datetime import current_time, datetime_extraction
 from .system import (
@@ -26,6 +26,7 @@ __all__ = [
     "KnowledgeRetrieval",
     "ACITool",
     "GithubCloneAndCD",
+    "GithubRaisePR",
     "HttpGet",
     "HttpCall",
     "HttpToText",

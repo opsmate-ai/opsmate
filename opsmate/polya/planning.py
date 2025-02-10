@@ -73,6 +73,7 @@ async def planning(summary: str, facts: list[Fact], instruction: str):
     * make the changes to the code to fix the issue
     * validation is typically performed by the CI so you don't need to run it locally
     * git add, commit and push the changes
+    * create a PR to be reviewed by the team
     </important>
     """
     facts = "\n".join(

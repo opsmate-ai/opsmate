@@ -25,6 +25,7 @@ from opsmate.polya.models import (
     ReportExtracted,
     Facts,
 )
+from opsmate.tools.system import SysChdir
 
 from sqlmodel import select
 
@@ -1148,6 +1149,13 @@ async def execute_polya_execution_instruction(
     task_plan = TaskPlan.model_validate(workflow_result["task_plan"])
     facts = Facts.model_validate(workflow_result["facts"])
 
+    # switch to the working directory
+    logger.info("switching to working directory")
+    chdir_call = SysChdir(
+        path=os.path.join(os.getenv("HOME"), ".opsmate", "github_repo")
+    )
+    chdir_call()
+
     instruction = f"""
 Given the facts:
 
@@ -1165,6 +1173,11 @@ Here are the tasks to be performed **ONLY**:
 <tasks>
 {"\n".join(f"* {task.task}" for task in task_plan.subtasks)}
 </tasks>
+
+<important>
+* PR **must be raised** if you are asked to do so
+* Verify the tasks are correct if you are working on a pre-existing branch
+</important>
     """
 
     outputs = []

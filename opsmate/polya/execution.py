@@ -1,5 +1,5 @@
 from opsmate.dino.types import React, ReactAnswer, Observation
-from opsmate.tools import ShellCommand, ACITool, GithubCloneAndCD
+from opsmate.tools import ShellCommand, ACITool, GithubCloneAndCD, GithubRaisePR
 from opsmate.tools.system import SysChdir
 from opsmate.dino.react import react
 import asyncio
@@ -30,7 +30,9 @@ After you make the change, you must verify the updated content is correct using 
 <rule 4>
 Tool usage:
 * `ACITool` tool for file search, view, create, update, append and undo.
-* `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`, in other words, do not use `ShellCommand` to run `view/vim/emacs/nano/vi` commands.
+* `ShellCommand` tool for running shell commands that cannot be covered by `ACITool`, in other words, **DO NOT** use `ShellCommand` to run `view/vim/emacs/nano/vi` commands.
+* `GithubCloneAndCD` tool for cloning a github repository and changing the current working directory to the repository, **DO NOT use `gh` command**.
+* `GithubRaisePR` tool for raising a PR to the github repository, **DO NOT use `gh` command**.
 * `SysChdir` tool for changing the current working directory, **DO NOT** use `cd` command.
 </rule 4>
 """
@@ -38,9 +40,10 @@ Tool usage:
 
 @react(
     model="claude-3-5-sonnet-20241022",
-    tools=[ACITool, ShellCommand, GithubCloneAndCD, SysChdir],
+    tools=[ACITool, ShellCommand, GithubCloneAndCD, GithubRaisePR, SysChdir],
     contexts=[iac_sme_context],
     tool_calls_per_action=1,
+    max_iter=20,
     iterable=True,
 )
 async def iac_sme(instruction: str):
@@ -81,6 +84,7 @@ Here are the tasks to be performed **ONLY**:
 * Locate and review the deploy.yml file in the repository
 * Update the readiness and liveness probe configurations in deploy.yml to use '/status' instead of '/health'
 * Commit and push the changes to the repository
+* Raise a PR for the changes
 </tasks>
 """
     async for result in await iac_sme(instruction):

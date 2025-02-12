@@ -177,7 +177,9 @@ def conversation_context(cell: Cell, session: sqlmodel.Session):
                 if isinstance(marshalled_output, dict) or isinstance(
                     marshalled_output, list
                 ):
-                    assistant_response += json.dumps(marshalled_output, indent=2) + "\n"
+                    assistant_response += (
+                        yaml.dump(marshalled_output, indent=2) + "\n---\n"
+                    )
                 else:
                     assistant_response += marshalled_output + "\n"
             except Exception as e:

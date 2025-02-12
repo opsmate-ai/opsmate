@@ -173,20 +173,22 @@ def conversation_context(cell: Cell, session: sqlmodel.Session):
         assistant_response = ""
         if previous_cell.output is None:
             continue
+        assistant_resp = []
+
         for output in pickle.loads(previous_cell.output):
             o = output["output"]
             marshalled_output = normalize_output_format(o)
+
             try:
                 if isinstance(marshalled_output, dict) or isinstance(
                     marshalled_output, list
                 ):
-                    assistant_response += (
-                        yaml.dump(marshalled_output, indent=2) + "\n---\n"
-                    )
+                    assistant_resp.append(yaml.dump(marshalled_output, indent=2))
                 else:
-                    assistant_response += marshalled_output + "\n"
+                    assistant_resp.append(marshalled_output)
             except Exception as e:
                 logger.error("Error marshalling output", error=e)
+        assistant_resp = "---\n".join(assistant_resp)
 
         conversation = f"""
 Conversation {idx + 1}:
@@ -196,7 +198,7 @@ Conversation {idx + 1}:
 </user instruction>
 
 <assistant response>
-{assistant_response}
+{assistant_resp}
 </assistant response>
 """
         yield conversation

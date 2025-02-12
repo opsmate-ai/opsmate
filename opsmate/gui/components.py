@@ -1,5 +1,11 @@
 from fasthtml.common import *
-from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystemEnum
+from opsmate.gui.models import (
+    Cell,
+    CellLangEnum,
+    CreatedByType,
+    ThinkingSystemEnum,
+    WorkflowEnum,
+)
 from opsmate.gui.assets import *
 import pickle
 from opsmate.dino.types import React, ReactAnswer, Observation
@@ -114,10 +120,10 @@ class CellComponent:
                     ),
                     Select(
                         Option(
-                            "Type 1 - Fast",
-                            value=ThinkingSystemEnum.TYPE1.value,
+                            "Reasoning - Fast",
+                            value=ThinkingSystemEnum.REASONING.value,
                             selected=self.cell.thinking_system
-                            == ThinkingSystemEnum.TYPE1
+                            == ThinkingSystemEnum.REASONING
                             or self.cell.lang == CellLangEnum.BASH,
                         ),
                         Option(
@@ -125,6 +131,7 @@ class CellComponent:
                             value=ThinkingSystemEnum.TYPE2.value,
                             selected=self.cell.thinking_system
                             == ThinkingSystemEnum.TYPE2,
+                            disabled=self.cell.workflow.name == WorkflowEnum.FREESTYLE,
                         ),
                         name="thinking_system",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",

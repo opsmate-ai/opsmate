@@ -38,6 +38,7 @@ class CellLangEnum(enum.Enum):
 
 
 class WorkflowEnum(str, enum.Enum):
+    FREESTYLE = "freestyle"
     UNDERSTANDING = "understanding"
     PLANNING = "planning"
     EXECUTION = "execution"
@@ -45,7 +46,7 @@ class WorkflowEnum(str, enum.Enum):
 
 
 class ThinkingSystemEnum(str, enum.Enum):
-    TYPE1 = "type-1"
+    REASONING = "reasoning"
     TYPE2 = "type-2"
 
 
@@ -212,7 +213,7 @@ class Cell(SQLModel, table=True):
             index=False,
         )
     )
-    thinking_system: ThinkingSystemEnum = Field(default=ThinkingSystemEnum.TYPE1)
+    thinking_system: ThinkingSystemEnum = Field(default=ThinkingSystemEnum.REASONING)
     sequence: int = Field(default=0)
     execution_sequence: int = Field(default=0)
     active: bool = Field(default=False)
@@ -286,7 +287,7 @@ def default_new_cell(workflow: Workflow):
     if workflow.blueprint.name == "polya":
         thinking_system = ThinkingSystemEnum.TYPE2
     else:
-        thinking_system = ThinkingSystemEnum.TYPE1
+        thinking_system = ThinkingSystemEnum.REASONING
 
     return Cell(
         input="",

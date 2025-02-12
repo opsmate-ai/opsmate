@@ -266,9 +266,9 @@ async def put(
                 selected_cell.lang = CellLangEnum.NOTES
 
         if thinking_system is not None:
-            if thinking_system == ThinkingSystemEnum.TYPE1.value:
+            if thinking_system == ThinkingSystemEnum.REASONING.value:
                 logger.info("setting thinking system to type 1")
-                selected_cell.thinking_system = ThinkingSystemEnum.TYPE1
+                selected_cell.thinking_system = ThinkingSystemEnum.REASONING
             elif thinking_system == ThinkingSystemEnum.TYPE2.value:
                 logger.info("setting thinking system to type 2")
                 selected_cell.thinking_system = ThinkingSystemEnum.TYPE2
@@ -410,7 +410,7 @@ async def ws(cell_id: int, input: str, send, session):
         )
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
-            if cell.thinking_system == ThinkingSystemEnum.TYPE1:
+            if cell.thinking_system == ThinkingSystemEnum.REASONING:
                 await execute_llm_react_instruction(cell, swap, send, session)
             elif cell.thinking_system == ThinkingSystemEnum.TYPE2:
                 await execute_llm_type2_instruction(cell, swap, send, session)

@@ -403,7 +403,7 @@ async def __manage_potential_solution_cell(
         input=CellOutputRenderer(outputs[0]).render()[0],
         output=pickle.dumps(outputs),
         lang=CellLangEnum.NOTES,
-        thinking_system=ThinkingSystemEnum.TYPE1,
+        thinking_system=ThinkingSystemEnum.REASONING,
         sequence=max_sequence + 1,
         execution_sequence=max_execution_sequence + 1,
         active=True,

@@ -4,6 +4,7 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     CellType,
     CreatedByType,
+    Workflow,
 )
 
 from opsmate.polya.models import (
@@ -32,12 +33,8 @@ from opsmate.polya.models import (
     TaskPlan,
     Facts,
 )
-from opsmate.polya.execution import (
-    execution,
-)
 from opsmate.workflow.workflow import (
     WorkflowContext,
-    Workflow,
     step,
     step_factory,
 )

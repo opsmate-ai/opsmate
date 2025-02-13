@@ -50,7 +50,6 @@ from opsmate.workflow.workflow import (
 )
 from opsmate.gui.models import Config
 from opsmate.gui.steps import (
-    empty_cell,
     manage_initial_understanding_cell,
     cond_is_technical_query,
     manage_info_gather_cells,
@@ -337,18 +336,16 @@ async def execute_polya_understanding_instruction(cell: Cell, send, session: Ses
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
-    blueprint = (
-        empty_cell
-        >> manage_initial_understanding_cell
-        >> cond(
-            cond_is_technical_query,
-            left=(
-                reduce(lambda x, y: x | y, manage_info_gather_cells)
-                >> generate_report_with_breakdown
-                >> reduce(lambda x, y: x | y, manage_potential_solution_cells)
-                >> store_report_extracted
-            ),
-        )
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.RUNNING)
+
+    blueprint = manage_initial_understanding_cell >> cond(
+        cond_is_technical_query,
+        left=(
+            reduce(lambda x, y: x | y, manage_info_gather_cells)
+            >> generate_report_with_breakdown
+            >> reduce(lambda x, y: x | y, manage_potential_solution_cells)
+            >> store_report_extracted
+        ),
     )
 
     opsmate_workflow = build_workflow(
@@ -363,6 +360,8 @@ async def execute_polya_understanding_instruction(cell: Cell, send, session: Ses
     )
 
     await executor.run(ctx)
+
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
 async def update_initial_understanding(

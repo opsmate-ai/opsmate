@@ -56,6 +56,21 @@ class WorkflowContext:
             raise ValueError(f"Workflow step {step_name} not found")
         return workflow_step.result
 
+    def step(self, session: Session):
+        if self.step_id == None or self.workflow_id == None:
+            raise ValueError("step_id and workflow_id must be set")
+
+        stmt = (
+            select(WorkflowStep)
+            .where(WorkflowStep.id == self.step_id)
+            .where(WorkflowStep.workflow_id == self.workflow_id)
+        )
+
+        workflow_step = session.exec(stmt).first()
+        if workflow_step is None:
+            raise ValueError(f"Workflow step {self.step_id} not found")
+        return workflow_step
+
     def __repr__(self):
         return f"WorkflowContext({self.results})"
 
@@ -313,6 +328,7 @@ class StatelessWorkflowExecutor:
                 exec_ctx.metadata = step.metadata
 
                 for hook in step.pre_run_hooks:
+                    logger.info("Running pre run hook", hook=hook)
                     await hook(exec_ctx)
 
                 try:
@@ -665,9 +681,13 @@ class WorkflowExecutor:
                 func = step_definition.fn
 
                 for hook in step_definition.pre_run_hooks:
+                    logger.info("Running pre run hook", hook=hook)
                     await hook(exec_ctx)
 
-                step.result = await func(exec_ctx)
+                self.session.refresh(step)
+
+                if step.state != WorkflowState.SKIPPED:
+                    step.result = await func(exec_ctx)
 
                 for hook in step_definition.post_success_hooks:
                     await hook(exec_ctx, step.result)
@@ -676,8 +696,15 @@ class WorkflowExecutor:
                     step.state = WorkflowState.SKIPPED
                 elif not step.result and step.step_type == WorkflowType.COND_FALSE:
                     step.state = WorkflowState.SKIPPED
-                else:
+                elif step.state != WorkflowState.SKIPPED:
                     step.state = WorkflowState.COMPLETED
+
+                logger.info(
+                    "Step completed",
+                    step_id=step.id,
+                    step_name=step.name,
+                    step_state=step.state,
+                )
                 self.session.commit()
                 return
 
@@ -702,13 +729,23 @@ class WorkflowExecutor:
                 exec_ctx.step_id = step.id
                 exec_ctx.workflow_id = step.workflow_id
                 exec_ctx.metadata = step.meta
-                step.result = await func(exec_ctx)
+
+                for hook in step_definition.pre_run_hooks:
+                    logger.info("Running pre run hook", hook=hook)
+                    await hook(exec_ctx)
+
+                self.session.refresh(step)
+                if step.state != WorkflowState.SKIPPED:
+                    step.result = await func(exec_ctx)
+                else:
+                    step.result = None
 
                 for hook in step_definition.post_success_hooks:
                     logger.info("Running post success hook", hook=hook)
                     await hook(exec_ctx, step.result)
 
-                step.state = WorkflowState.COMPLETED
+                if step.state != WorkflowState.SKIPPED:
+                    step.state = WorkflowState.COMPLETED
                 self.session.commit()
             except Exception as e:
                 logger.error(

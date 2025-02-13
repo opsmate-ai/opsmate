@@ -162,19 +162,21 @@ async def new_react_cell(
     match output:
         case React():
             input = render_react_markdown_raw(output)
-            output = {
+            cell_output = {
                 "type": "React",
                 "output": output,
             }
+            thinking_system = CellType.REASONING_THOUGHTS
         case ReactAnswer():
             input = render_react_answer_markdown_raw(output)
-            output = {
+            cell_output = {
                 "type": "ReactAnswer",
                 "output": output,
             }
+            thinking_system = CellType.REASONING_ANSWER
         case Observation():
             input = render_observation_markdown_raw(output)
-            output = {
+            cell_output = {
                 "type": "Observation",
                 "output": Observation(
                     tool_outputs=[
@@ -184,12 +186,13 @@ async def new_react_cell(
                     observation=output.observation,
                 ),
             }
+            thinking_system = CellType.REASONING_OBSERVATION
         case _:
             logger.error("unknown output type", output=output)
             return
     react_cell = Cell(
         input=input,
-        output=pickle.dumps([output]),
+        output=pickle.dumps([cell_output]),
         lang=CellLangEnum.TEXT_INSTRUCTION,
         thinking_system=ThinkingSystemEnum.REASONING,
         sequence=prev_cell.sequence + 1,
@@ -197,7 +200,7 @@ async def new_react_cell(
         active=True,
         workflow_id=prev_cell.workflow_id,
         parent_cell_ids=[prev_cell.id],
-        cell_type=None,
+        cell_type=thinking_system,
         created_by=CreatedByType.ASSISTANT,
         hidden=True,
     )

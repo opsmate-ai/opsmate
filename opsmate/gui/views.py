@@ -258,10 +258,18 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     logger.info("chat_history", chat_history=chat_history)
 
     prev_cell = cell
+    thought_deduped = False
     async for output in await k8s_react(cell.input, chat_history=chat_history):
         logger.info("output", output=output)
-
-        prev_cell = await new_react_cell(output, prev_cell, session, send)
+        if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
+            # xxx deal with thought duplication
+            logger.info("thought deduped", output=output)
+            cell.input = render_react_markdown_raw(output)
+            cell = await render_notes_output(cell, session, send)
+            prev_cell = cell
+            thought_deduped = True
+        else:
+            prev_cell = await new_react_cell(output, prev_cell, session, send)
 
 
 async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
@@ -525,9 +533,17 @@ Here are the tasks to be performed **ONLY**:
     """
 
     prev_cell = cell
+    thought_deduped = False
     async for output in await iac_sme(instruction):
         logger.info("output", output=output)
-        prev_cell = await new_react_cell(output, prev_cell, session, send)
+        if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
+            logger.info("thought deduped", output=output)
+            cell.input = render_react_markdown_raw(output)
+            cell = await render_notes_output(cell, session, send)
+            prev_cell = cell
+            thought_deduped = True
+        else:
+            prev_cell = await new_react_cell(output, prev_cell, session, send)
 
 
 async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):

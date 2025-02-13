@@ -101,6 +101,15 @@ class BluePrint(SQLModel, table=True):
         session.commit()
 
 
+class WorkflowStateEnum(str, enum.Enum):
+    INITIAL = "initial"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    FAILED = "failed"
+
+
 class Workflow(SQLModel, table=True):
     __tablename__ = "workflow"
     __table_args__ = {
@@ -115,7 +124,7 @@ class Workflow(SQLModel, table=True):
     title: str = Field(nullable=False)
     description: str = Field(nullable=False)
     active: bool = Field(default=False)
-
+    state: WorkflowStateEnum = Field(default=WorkflowStateEnum.INITIAL)
     blueprint_id: int = Field(foreign_key="blueprint.id")
     blueprint: BluePrint = Relationship(back_populates="workflows")
 

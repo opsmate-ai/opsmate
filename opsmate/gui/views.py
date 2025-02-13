@@ -490,6 +490,8 @@ async def execute_polya_planning_instruction(
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.RUNNING)
+
     blueprint = cell.workflow.blueprint
     understanding_workflow: Workflow = blueprint.find_workflow_by_name(
         session, WorkflowEnum.UNDERSTANDING
@@ -497,8 +499,7 @@ async def execute_polya_planning_instruction(
     report_extracted_json = understanding_workflow.result
     report_extracted = ReportExtracted.model_validate_json(report_extracted_json)
     blueprint = (
-        empty_cell
-        >> manage_planning_optimial_solution_cell
+        manage_planning_optimial_solution_cell
         >> manage_planning_knowledge_retrieval_cell
         >> manage_planning_task_plan_cell
         >> store_facts_and_plans
@@ -520,6 +521,8 @@ async def execute_polya_planning_instruction(
         }
     )
     await executor.run(ctx)
+
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
 async def execute_polya_execution_instruction(

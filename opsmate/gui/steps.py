@@ -63,7 +63,7 @@ async def initial_understanding_success_hook(ctx: WorkflowContext, result):
     session.commit()
 
 
-async def understanding_prerun_hook(ctx: WorkflowContext):
+async def prerun_skippable_hook(ctx: WorkflowContext):
     logger.info("Running understanding prerun hook")
     session = ctx.input["session"]
     cell = ctx.input["question_cell"]
@@ -84,7 +84,7 @@ async def understanding_prerun_hook(ctx: WorkflowContext):
 
 
 @step(
-    pre_run_hooks=[understanding_prerun_hook],
+    pre_run_hooks=[prerun_skippable_hook],
     post_success_hooks=[initial_understanding_success_hook],
 )
 async def manage_initial_understanding_cell(
@@ -209,7 +209,7 @@ async def manage_initial_understanding_cell(
 
 
 @step(
-    pre_run_hooks=[understanding_prerun_hook],
+    pre_run_hooks=[prerun_skippable_hook],
 )
 async def cond_is_technical_query(ctx: WorkflowContext):
     _, iu = ctx.step_results
@@ -217,7 +217,7 @@ async def cond_is_technical_query(ctx: WorkflowContext):
 
 
 @step(
-    pre_run_hooks=[understanding_prerun_hook],
+    pre_run_hooks=[prerun_skippable_hook],
 )
 async def generate_report_with_breakdown(ctx: WorkflowContext):
     session = ctx.input["session"]
@@ -252,7 +252,7 @@ def make_manage_potential_solution_cell(solution_id: int):
 
     @step_factory
     @step(
-        pre_run_hooks=[understanding_prerun_hook],
+        pre_run_hooks=[prerun_skippable_hook],
         post_success_hooks=[success_hook],
     )
     async def manage_potential_solution_cell(ctx: WorkflowContext):
@@ -281,7 +281,7 @@ manage_potential_solution_cells = [
 
 
 @step(
-    pre_run_hooks=[understanding_prerun_hook],
+    pre_run_hooks=[prerun_skippable_hook],
 )
 async def store_report_extracted(ctx: WorkflowContext):
     session = ctx.input["session"]
@@ -308,7 +308,7 @@ def make_manage_info_gathering_cell(question_id: int):
 
     @step_factory
     @step(
-        pre_run_hooks=[understanding_prerun_hook],
+        pre_run_hooks=[prerun_skippable_hook],
         post_success_hooks=[success_hook],
     )
     async def manage_info_gathering_cell(
@@ -479,7 +479,10 @@ async def success_hook(ctx: WorkflowContext, result):
     session.commit()
 
 
-@step(post_success_hooks=[success_hook])
+@step(
+    pre_run_hooks=[prerun_skippable_hook],
+    post_success_hooks=[success_hook],
+)
 async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
     parent_cell = ctx.input["question_cell"]
     session = ctx.input["session"]
@@ -558,7 +561,10 @@ async def manage_planning_optimial_solution_cell(ctx: WorkflowContext):
     return cell, solution_for_planning
 
 
-@step(post_success_hooks=[success_hook])
+@step(
+    pre_run_hooks=[prerun_skippable_hook],
+    post_success_hooks=[success_hook],
+)
 async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
@@ -642,7 +648,10 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     return cell, facts
 
 
-@step(post_success_hooks=[success_hook])
+@step(
+    pre_run_hooks=[prerun_skippable_hook],
+    post_success_hooks=[success_hook],
+)
 async def manage_planning_task_plan_cell(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
@@ -707,7 +716,10 @@ async def manage_planning_task_plan_cell(ctx: WorkflowContext):
     return cell, task_plan
 
 
-@step
+@step(
+    pre_run_hooks=[prerun_skippable_hook],
+    post_success_hooks=[success_hook],
+)
 async def store_facts_and_plans(ctx: WorkflowContext):
     session = ctx.input["session"]
 

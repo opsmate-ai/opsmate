@@ -5,6 +5,7 @@ from opsmate.gui.models import (
     CellType,
     CreatedByType,
     Workflow,
+    CellStateEnum,
 )
 
 from opsmate.polya.models import (
@@ -37,6 +38,7 @@ from opsmate.workflow.workflow import (
     WorkflowContext,
     step,
     step_factory,
+    WorkflowState,
 )
 from opsmate.gui.components import CellComponent, CellOutputRenderer
 from opsmate.gui.views import conversation_context
@@ -61,7 +63,30 @@ async def initial_understanding_success_hook(ctx: WorkflowContext, result):
     session.commit()
 
 
-@step(post_success_hooks=[initial_understanding_success_hook])
+async def understanding_prerun_hook(ctx: WorkflowContext):
+    logger.info("Running understanding prerun hook")
+    session = ctx.input["session"]
+    cell = ctx.input["question_cell"]
+    cell = Cell.find_by_id(session, cell.id)
+
+    if cell.state == CellStateEnum.STOPPING:
+
+        workflow_step = ctx.step(session)
+        workflow_step.state = WorkflowState.SKIPPED
+        session.add(workflow_step)
+        session.commit()
+        logger.info(
+            "Step skipped",
+            workflow_id=ctx.workflow_id,
+            step_id=ctx.step_id,
+            step_name=workflow_step.name,
+        )
+
+
+@step(
+    pre_run_hooks=[understanding_prerun_hook],
+    post_success_hooks=[initial_understanding_success_hook],
+)
 async def manage_initial_understanding_cell(
     ctx: WorkflowContext,
 ):
@@ -183,13 +208,17 @@ async def manage_initial_understanding_cell(
     return cell, iu
 
 
-@step
+@step(
+    pre_run_hooks=[understanding_prerun_hook],
+)
 async def cond_is_technical_query(ctx: WorkflowContext):
     _, iu = ctx.step_results
     return iu is not None
 
 
-@step
+@step(
+    pre_run_hooks=[understanding_prerun_hook],
+)
 async def generate_report_with_breakdown(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
@@ -222,7 +251,10 @@ def make_manage_potential_solution_cell(solution_id: int):
         session.commit()
 
     @step_factory
-    @step(post_success_hooks=[success_hook])
+    @step(
+        pre_run_hooks=[understanding_prerun_hook],
+        post_success_hooks=[success_hook],
+    )
     async def manage_potential_solution_cell(ctx: WorkflowContext):
         cells, report_extracted = ctx.step_results
         session = ctx.input["session"]
@@ -248,7 +280,9 @@ manage_potential_solution_cells = [
 ]
 
 
-@step
+@step(
+    pre_run_hooks=[understanding_prerun_hook],
+)
 async def store_report_extracted(ctx: WorkflowContext):
     session = ctx.input["session"]
 
@@ -274,6 +308,7 @@ def make_manage_info_gathering_cell(question_id: int):
 
     @step_factory
     @step(
+        pre_run_hooks=[understanding_prerun_hook],
         post_success_hooks=[success_hook],
     )
     async def manage_info_gathering_cell(
@@ -428,19 +463,6 @@ async def __manage_potential_solution_cell(
     )
 
     return cell
-
-
-@step
-async def empty_cell(ctx: WorkflowContext):
-    session = ctx.input["session"]
-    cell = ctx.input["question_cell"]
-    send = ctx.input["send"]
-    await send(
-        Div(
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
 
 
 async def success_hook(ctx: WorkflowContext, result):

@@ -1,12 +1,14 @@
 from typing import List
 from opsmate.dino.types import ToolCall
 from opsmate.tools.command_line import ShellCommand
+import platform
 
 
 def cli_ctx() -> str:
-    return """
+    return f"""
   <assistant>
   You are a world class SRE who is good at solving problems. You are given access to the terminal for solving problems.
+  The OS you are current running on is {platform.system()}.
   </assistant>
 
   <important>

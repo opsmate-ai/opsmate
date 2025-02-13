@@ -325,10 +325,6 @@ async def put(blueprint_id: int, cell_id: int):
 
         active_workflow.activate_cell(session, selected_cell.id)
 
-        # session.refresh(active_workflow)
-        # cells = active_workflow.cells
-
-        # return render_cell_container(cells, hx_swap_oob="true")
         return Div(
             CellComponent(selected_cell),
             hx_swap_oob="true",

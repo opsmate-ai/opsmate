@@ -66,7 +66,7 @@ class Result(BaseModel):
     )
 
 
-class ACITool(ToolCall):
+class ACITool(ToolCall, PresentationMixin):
     """
     # ACITool
 

@@ -4,6 +4,7 @@ from opsmate.gui.models import (
     CellLangEnum,
     CreatedByType,
     ThinkingSystemEnum,
+    CellStateEnum,
     CellType,
     WorkflowEnum,
 )
@@ -106,6 +107,9 @@ class CellComponent:
     def can_edit_lang(self):
         return self.cell.created_by != CreatedByType.ASSISTANT
 
+    def can_stop(self):
+        return self.cell.state == CellStateEnum.RUNNING
+
     def cell_header(self):
         return (
             Div(
@@ -174,6 +178,12 @@ class CellComponent:
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_edit(),
+                    ),
+                    Button(
+                        stop_icon_svg,
+                        hx_post=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}/stop",
+                        cls="btn btn-ghost btn-sm",
+                        disabled=not self.can_stop(),
                     ),
                     Form(
                         Input(type="hidden", value=self.cell.id, name="cell_id"),

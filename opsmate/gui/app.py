@@ -10,6 +10,7 @@ from opsmate.gui.models import (
     WorkflowEnum,
     default_new_cell,
     SQLModel as GUISQLModel,
+    CellStateEnum,
 )
 from opsmate.gui.config import Config
 from opsmate.workflow.models import SQLModel as WorkflowSQLModel
@@ -301,6 +302,32 @@ async def put(blueprint_id: int, cell_id: int, input: str):
 
         active_workflow.activate_cell(session, selected_cell.id)
         return ""
+
+
+@app.route("/blueprint/{blueprint_id}/cell/{cell_id}/stop")
+async def put(blueprint_id: int, cell_id: int):
+    """
+    Stop a cell
+
+    This does not actually stop the cell but instead mark the cell as stopping.
+    """
+    with sqlmodel.Session(engine) as session:
+        blueprint = BluePrint.find_by_id(session, blueprint_id)
+        active_workflow = blueprint.active_workflow(session)
+        selected_cell = active_workflow.find_cell_by_id(session, cell_id)
+        if selected_cell is None:
+            return ""
+
+        selected_cell.state = CellStateEnum.STOPPING
+        session.add(selected_cell)
+        session.commit()
+
+        active_workflow.activate_cell(session, selected_cell.id)
+
+        session.refresh(active_workflow)
+        cells = active_workflow.cells
+
+        return render_cell_container(cells, hx_swap_oob="true")
 
 
 @app.route("/workflow/{workflow_id}/switch")

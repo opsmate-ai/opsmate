@@ -145,7 +145,7 @@ def workflow_button(workflow: Workflow):
     )
 
 
-async def prefill_conversation(cell: Cell, session: sqlmodel.Session):
+async def prefill_conversation(cell: Cell, session: Session):
     chat_history = []
     for conversation in conversation_context(cell, session):
         chat_history.append(Message.user(conversation))
@@ -221,41 +221,50 @@ async def new_react_cell(
     return react_cell
 
 
-async def execute_llm_react_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
+async def render_notes_output(cell: Cell, session: Session, send):
+    cell_output = {
+        "type": "NotesOutput",
+        "output": cell.input,
+    }
+    msg = cell.input.rstrip()
+
+    await send(
+        Div(
+            CellOutputRenderer(cell_output).render(),
+            hx_swap_oob="true",
+            id=f"cell-output-{cell.id}",
+        )
+    )
+    cell.input = msg
+    cell.output = pickle.dumps([cell_output])
+    cell.hidden = True
+    session.add(cell)
+    session.commit()
+
+    textarea = CellComponent(cell).cell_text_area()
+    textarea.hx_swap_oob = "true"
+    await send(textarea)
+
+    return cell
+
+
+async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Session):
 
     logger.info("executing llm react instruction", cell_id=cell.id)
 
     chat_history = await prefill_conversation(cell, session)
 
-    outputs = []
-    await send(
-        Div(
-            *outputs,
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-    msg = cell.input.rstrip()
-
-    cell.input = msg
-    cell.output = pickle.dumps(outputs)
-    session.add(cell)
-    session.commit()
-
+    cell = await render_notes_output(cell, session, send)
     logger.info("chat_history", chat_history=chat_history)
 
     prev_cell = cell
-    async for output in await k8s_react(msg, chat_history=chat_history):
+    async for output in await k8s_react(cell.input, chat_history=chat_history):
         logger.info("output", output=output)
 
         prev_cell = await new_react_cell(output, prev_cell, session, send)
 
 
-async def execute_llm_type2_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
+async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
     workflow = cell.workflow
     if workflow.name == WorkflowEnum.UNDERSTANDING:
         if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
@@ -277,9 +286,7 @@ async def execute_llm_type2_instruction(
         return await execute_polya_execution_instruction(cell, swap, send, session)
 
 
-async def execute_polya_understanding_instruction(
-    cell: Cell, send, session: sqlmodel.Session
-):
+async def execute_polya_understanding_instruction(cell: Cell, send, session: Session):
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
@@ -314,7 +321,7 @@ async def execute_polya_understanding_instruction(
 async def update_initial_understanding(
     cell: Cell,
     send,
-    session: sqlmodel.Session,
+    session: Session,
 ):
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
@@ -344,7 +351,7 @@ async def update_initial_understanding(
 async def update_info_gathering(
     cell: Cell,
     send,
-    session: sqlmodel.Session,
+    session: Session,
 ):
 
     opsmate_workflow_step = session.exec(
@@ -372,9 +379,7 @@ async def update_info_gathering(
     )
 
 
-async def update_planning_optimial_solution(
-    cell: Cell, send, session: sqlmodel.Session
-):
+async def update_planning_optimial_solution(cell: Cell, send, session: Session):
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
         .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
@@ -402,7 +407,7 @@ async def update_planning_optimial_solution(
 
 
 async def update_planning_knowledge_retrieval(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
+    cell: Cell, swap: str, send, session: Session
 ):
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
@@ -429,14 +434,12 @@ async def update_planning_knowledge_retrieval(
     )
 
 
-async def update_planning_task_plan(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
+async def update_planning_task_plan(cell: Cell, swap: str, send, session: Session):
     pass
 
 
 async def execute_polya_planning_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
+    cell: Cell, swap: str, send, session: Session
 ):
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
@@ -474,10 +477,13 @@ async def execute_polya_planning_instruction(
 
 
 async def execute_polya_execution_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
+    cell: Cell, swap: str, send, session: Session
 ):
-    msg = cell.input.rstrip()
-    logger.info("executing polya execution instruction", cell_id=cell.id, input=msg)
+    logger.info(
+        "executing polya execution instruction", cell_id=cell.id, input=cell.input
+    )
+
+    await render_notes_output(cell, session, send)
 
     blueprint = cell.workflow.blueprint
     planning_workflow: Workflow = blueprint.find_workflow_by_name(
@@ -518,55 +524,19 @@ Here are the tasks to be performed **ONLY**:
 </important>
     """
 
-    outputs = []
-    await send(
-        Div(
-            *outputs,
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-    cell.output = pickle.dumps(outputs)
-    session.add(cell)
-    session.commit()
-
     prev_cell = cell
     async for output in await iac_sme(instruction):
         logger.info("output", output=output)
         prev_cell = await new_react_cell(output, prev_cell, session, send)
 
 
-async def execute_notes_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
+async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):
     logger.info("executing notes instruction", cell_id=cell.id)
 
-    output = {
-        "type": "NotesOutput",
-        "output": cell.input,
-    }
-    outputs = [output]
-    await send(
-        Div(
-            CellOutputRenderer(output).render(),
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
-
-    cell.output = pickle.dumps(outputs)
-    cell.hidden = True
-    session.add(cell)
-    session.commit()
-
-    textarea = CellComponent(cell).cell_text_area()
-    textarea.hx_swap_oob = "true"
-    await send(textarea)
+    await render_notes_output(cell, session, send)
 
 
-async def execute_bash_instruction(
-    cell: Cell, swap: str, send, session: sqlmodel.Session
-):
+async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session):
     logger.info("executing bash instruction", cell_id=cell.id)
     outputs = []
     await send(

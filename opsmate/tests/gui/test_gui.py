@@ -92,7 +92,7 @@ def test_default_new_cell(session: Session):
     assert cell.input == ""
     assert cell.active is True
     assert cell.workflow_id == freestyle.workflows[0].id
-    assert cell.thinking_system == ThinkingSystemEnum.TYPE1
+    assert cell.thinking_system == ThinkingSystemEnum.REASONING
 
 
 def test_default_new_cell_polya(session: Session):

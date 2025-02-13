@@ -30,6 +30,7 @@ from opsmate.gui.views import (
     execute_notes_instruction,
     home_body,
 )
+from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
 
 config = Config()
@@ -309,7 +310,7 @@ async def put(blueprint_id: int, cell_id: int):
     """
     Stop a cell
 
-    This does not actually stop the cell but instead mark the cell as stopping.
+    This does not actually stop the cell but instead mark the cell
     """
     with sqlmodel.Session(engine) as session:
         blueprint = BluePrint.find_by_id(session, blueprint_id)
@@ -324,10 +325,15 @@ async def put(blueprint_id: int, cell_id: int):
 
         active_workflow.activate_cell(session, selected_cell.id)
 
-        session.refresh(active_workflow)
-        cells = active_workflow.cells
+        # session.refresh(active_workflow)
+        # cells = active_workflow.cells
 
-        return render_cell_container(cells, hx_swap_oob="true")
+        # return render_cell_container(cells, hx_swap_oob="true")
+        return Div(
+            CellComponent(selected_cell),
+            hx_swap_oob="true",
+            id=f"cell-component-{selected_cell.id}",
+        )
 
 
 @app.route("/workflow/{workflow_id}/switch")

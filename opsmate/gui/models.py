@@ -101,15 +101,6 @@ class BluePrint(SQLModel, table=True):
         session.commit()
 
 
-class WorkflowStateEnum(str, enum.Enum):
-    INITIAL = "initial"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    STOPPING = "stopping"
-    STOPPED = "stopped"
-    FAILED = "failed"
-
-
 class Workflow(SQLModel, table=True):
     __tablename__ = "workflow"
     __table_args__ = {
@@ -124,7 +115,6 @@ class Workflow(SQLModel, table=True):
     title: str = Field(nullable=False)
     description: str = Field(nullable=False)
     active: bool = Field(default=False)
-    state: WorkflowStateEnum = Field(default=WorkflowStateEnum.INITIAL)
     blueprint_id: int = Field(foreign_key="blueprint.id")
     blueprint: BluePrint = Relationship(back_populates="workflows")
 
@@ -191,6 +181,15 @@ class Workflow(SQLModel, table=True):
         ).all()
 
 
+class CellStateEnum(str, enum.Enum):
+    INITIAL = "initial"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    FAILED = "failed"
+
+
 class CellType(str, enum.Enum):
     UNDERSTANDING_ASK_QUESTIONS = "understanding_ask_questions"
     UNDERSTANDING_GATHER_INFO = "understanding_gather_info"
@@ -230,7 +229,7 @@ class Cell(SQLModel, table=True):
     sequence: int = Field(default=0)
     execution_sequence: int = Field(default=0)
     active: bool = Field(default=False)
-
+    state: CellStateEnum = Field(default=CellStateEnum.INITIAL)
     workflow_id: int = Field(foreign_key="workflow.id")
     workflow: Workflow = Relationship(back_populates="cells")
 

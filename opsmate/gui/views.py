@@ -12,6 +12,7 @@ from opsmate.gui.models import (
     CellLangEnum,
     ThinkingSystemEnum,
     CreatedByType,
+    CellStateEnum,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -195,6 +196,7 @@ async def new_react_cell(
         output=pickle.dumps([cell_output]),
         lang=CellLangEnum.TEXT_INSTRUCTION,
         thinking_system=ThinkingSystemEnum.REASONING,
+        state=CellStateEnum.COMPLETED,
         sequence=prev_cell.sequence + 1,
         execution_sequence=prev_cell.execution_sequence + 1,
         active=True,
@@ -221,30 +223,34 @@ async def new_react_cell(
     return react_cell
 
 
-async def render_notes_output(cell: Cell, session: Session, send):
+async def render_notes_output(
+    cell: Cell,
+    session: Session,
+    send,
+    cell_state: CellStateEnum | None = None,
+):
     cell_output = {
         "type": "NotesOutput",
         "output": cell.input,
     }
     msg = cell.input.rstrip()
-
-    await send(
-        Div(
-            CellOutputRenderer(cell_output).render(),
-            hx_swap_oob="true",
-            id=f"cell-output-{cell.id}",
-        )
-    )
     cell.input = msg
     cell.output = pickle.dumps([cell_output])
     cell.hidden = True
+
+    if cell_state:
+        cell.state = cell_state
+
     session.add(cell)
     session.commit()
 
-    textarea = CellComponent(cell).cell_text_area()
-    textarea.hx_swap_oob = "true"
-    await send(textarea)
-
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="true",
+            id=f"cell-component-{cell.id}",
+        )
+    )
     return cell
 
 
@@ -254,7 +260,9 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
 
     chat_history = await prefill_conversation(cell, session)
 
-    cell = await render_notes_output(cell, session, send)
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.RUNNING
+    )
     logger.info("chat_history", chat_history=chat_history)
 
     prev_cell = cell
@@ -265,11 +273,17 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
             # xxx deal with thought duplication
             logger.info("thought deduped", output=output)
             cell.input = render_react_markdown_raw(output)
-            cell = await render_notes_output(cell, session, send)
+            cell = await render_notes_output(
+                cell, session, send, cell_state=CellStateEnum.COMPLETED
+            )
             prev_cell = cell
             thought_deduped = True
         else:
             prev_cell = await new_react_cell(output, prev_cell, session, send)
+
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.COMPLETED
+    )
 
 
 async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
@@ -491,7 +505,7 @@ async def execute_polya_execution_instruction(
         "executing polya execution instruction", cell_id=cell.id, input=cell.input
     )
 
-    await render_notes_output(cell, session, send)
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.RUNNING)
 
     blueprint = cell.workflow.blueprint
     planning_workflow: Workflow = blueprint.find_workflow_by_name(
@@ -539,17 +553,23 @@ Here are the tasks to be performed **ONLY**:
         if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
             logger.info("thought deduped", output=output)
             cell.input = render_react_markdown_raw(output)
-            cell = await render_notes_output(cell, session, send)
+            cell = await render_notes_output(
+                cell, session, send, cell_state=CellStateEnum.COMPLETED
+            )
             prev_cell = cell
             thought_deduped = True
         else:
             prev_cell = await new_react_cell(output, prev_cell, session, send)
 
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.COMPLETED
+    )
+
 
 async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):
     logger.info("executing notes instruction", cell_id=cell.id)
 
-    await render_notes_output(cell, session, send)
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
 async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session):
@@ -595,6 +615,7 @@ async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session
     )
 
     cell.output = pickle.dumps(outputs)
+    cell.state = CellStateEnum.COMPLETED
     session.add(cell)
     session.commit()
     await send(

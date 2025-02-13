@@ -3,8 +3,13 @@ import pickle
 import pytest
 from pydantic import BaseModel
 
-from opsmate.gui.views import conversation_context, normalize_output_format
-from opsmate.gui.models import Cell, Workflow, SQLModel
+from opsmate.gui.models import (
+    Cell,
+    Workflow,
+    SQLModel,
+    conversation_context,
+    normalize_output_format,
+)
 from sqlmodel import create_engine, Session
 
 

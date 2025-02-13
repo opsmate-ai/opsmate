@@ -144,15 +144,18 @@ def workflow_button(workflow: Workflow):
     )
 
 
-def marshal_output(output: dict | BaseModel | str):
-    if isinstance(output, BaseModel):
-        return output.model_dump()
-    elif isinstance(output, str):
-        return output
-    elif isinstance(output, dict):
-        for k, v in output.items():
-            output[k] = marshal_output(v)
-        return output
+def normalize_output_format(output: list | str | int | float | dict | BaseModel):
+    match output:
+        case BaseModel():
+            return output.model_dump()
+        case str() | int() | float():
+            return output
+        case dict():
+            for k, v in output.items():
+                output[k] = normalize_output_format(v)
+            return output
+        case list():
+            return [normalize_output_format(item) for item in output]
 
 
 async def prefill_conversation(cell: Cell, session: sqlmodel.Session):
@@ -172,7 +175,7 @@ def conversation_context(cell: Cell, session: sqlmodel.Session):
             continue
         for output in pickle.loads(previous_cell.output):
             o = output["output"]
-            marshalled_output = marshal_output(o)
+            marshalled_output = normalize_output_format(o)
             try:
                 if isinstance(marshalled_output, dict) or isinstance(
                     marshalled_output, list

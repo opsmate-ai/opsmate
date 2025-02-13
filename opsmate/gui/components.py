@@ -1,5 +1,12 @@
 from fasthtml.common import *
-from opsmate.gui.models import Cell, CellLangEnum, CreatedByType, ThinkingSystemEnum
+from opsmate.gui.models import (
+    Cell,
+    CellLangEnum,
+    CreatedByType,
+    ThinkingSystemEnum,
+    CellType,
+    WorkflowEnum,
+)
 from opsmate.gui.assets import *
 import pickle
 from opsmate.dino.types import React, ReactAnswer, Observation
@@ -78,6 +85,27 @@ class CellComponent:
             ),
         )
 
+    def can_edit(self):
+        cell_type = self.cell.cell_type
+        if cell_type == CellType.REASONING_OBSERVATION:
+            return False
+        return True
+
+    def can_run(self):
+        cell_type = self.cell.cell_type
+        if cell_type == CellType.REASONING_OBSERVATION:
+            return False
+        return True
+
+    def can_delete(self):
+        return self.cell_size > 1
+
+    def can_edit_thinking_system(self):
+        return self.cell.created_by != CreatedByType.ASSISTANT
+
+    def can_edit_lang(self):
+        return self.cell.created_by != CreatedByType.ASSISTANT
+
     def cell_header(self):
         return (
             Div(
@@ -109,15 +137,15 @@ class CellComponent:
                         name="lang",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         hx_trigger="change",
-                        disabled=self.cell.created_by == CreatedByType.ASSISTANT,
+                        disabled=not self.can_edit_lang(),
                         cls="select select-sm ml-2",
                     ),
                     Select(
                         Option(
-                            "Type 1 - Fast",
-                            value=ThinkingSystemEnum.TYPE1.value,
+                            "Reasoning - Fast",
+                            value=ThinkingSystemEnum.REASONING.value,
                             selected=self.cell.thinking_system
-                            == ThinkingSystemEnum.TYPE1
+                            == ThinkingSystemEnum.REASONING
                             or self.cell.lang == CellLangEnum.BASH,
                         ),
                         Option(
@@ -125,32 +153,34 @@ class CellComponent:
                             value=ThinkingSystemEnum.TYPE2.value,
                             selected=self.cell.thinking_system
                             == ThinkingSystemEnum.TYPE2,
+                            disabled=self.cell.workflow.name == WorkflowEnum.FREESTYLE,
                         ),
                         name="thinking_system",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         hx_trigger="change",
                         cls="select select-sm ml-2 min-w-[240px]",
                         hidden=self.cell.lang != CellLangEnum.TEXT_INSTRUCTION,
-                        disabled=self.cell.created_by == CreatedByType.ASSISTANT,
+                        disabled=not self.can_edit_thinking_system(),
                     ),
                     Button(
                         trash_icon_svg,
                         hx_delete=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 hover:text-red-500",
-                        disabled=self.cell_size == 1,
+                        disabled=not self.can_delete(),
                     ),
                     Button(
                         edit_icon_svg,
                         Input(type="hidden", value="false", name="hidden"),
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm",
-                        # disabled=self.cell.created_by == CreatedByType.ASSISTANT,
+                        disabled=not self.can_edit(),
                     ),
                     Form(
                         Input(type="hidden", value=self.cell.id, name="cell_id"),
                         Button(
                             run_icon_svg,
                             cls="btn btn-ghost btn-sm",
+                            disabled=not self.can_run(),
                         ),
                         ws_send=True,
                         hx_ext="ws",
@@ -213,9 +243,8 @@ class CellComponent:
         )
 
 
-def render_react_markdown(output: React):
-    return Div(
-        f"""
+def render_react_markdown_raw(output: React):
+    return f"""
 ## Thought process
 
 ### Thoughts
@@ -225,38 +254,50 @@ def render_react_markdown(output: React):
 ### Action
 
 {output.action}
-""",
+"""
+
+
+def render_react_markdown(output: React):
+    return Div(
+        render_react_markdown_raw(output),
         cls="marked prose max-w-none",
     )
+
+
+def render_react_answer_markdown_raw(output: ReactAnswer):
+    return f"""
+## Answer
+
+{output.answer}
+"""
 
 
 def render_react_answer_markdown(output: ReactAnswer):
     return Div(
-        f"""
-## Answer
-
-{output.answer}
-""",
+        render_react_answer_markdown_raw(output),
         cls="marked prose max-w-none",
     )
 
 
-def render_observation_markdown(output: Observation):
-
+def render_observation_markdown_raw(output: Observation):
     tool_out = []
     for tool_output in output.tool_outputs:
         if hasattr(tool_output, "markdown"):
             tool_out.append(tool_output.markdown())
         else:
             tool_out.append(yaml.dump(tool_output.model_dump()))
-    return Div(
-        f"""
+    return f"""
 ## Observation
 
-{"\n".join(tool_out)}
-
 {output.observation}
-""",
+
+{"\n".join(tool_out)}
+"""
+
+
+def render_observation_markdown(output: Observation):
+    return Div(
+        render_observation_markdown_raw(output),
         cls="marked prose max-w-none",
     )
 

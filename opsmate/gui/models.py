@@ -20,6 +20,9 @@ from opsmate.dino.types import Message
 from opsmate.dino.react import react
 from sqlalchemy.orm import registry
 from opsmate.gui.config import Config
+import yaml
+import pickle
+from pydantic import BaseModel
 
 logger = structlog.get_logger(__name__)
 
@@ -35,6 +38,7 @@ class CellLangEnum(enum.Enum):
 
 
 class WorkflowEnum(str, enum.Enum):
+    FREESTYLE = "freestyle"
     UNDERSTANDING = "understanding"
     PLANNING = "planning"
     EXECUTION = "execution"
@@ -42,7 +46,7 @@ class WorkflowEnum(str, enum.Enum):
 
 
 class ThinkingSystemEnum(str, enum.Enum):
-    TYPE1 = "type-1"
+    REASONING = "reasoning"
     TYPE2 = "type-2"
 
 
@@ -189,6 +193,10 @@ class CellType(str, enum.Enum):
     PLANNING_KNOWLEDGE_RETRIEVAL = "planning_knowledge_retrieval"
     PLANNING_TASK_PLAN = "planning_task_plan"
 
+    REASONING_THOUGHTS = "reasoning_thoughts"
+    REASONING_OBSERVATION = "reasoning_observation"
+    REASONING_ANSWER = "reasoning_answer"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"
@@ -209,7 +217,7 @@ class Cell(SQLModel, table=True):
             index=False,
         )
     )
-    thinking_system: ThinkingSystemEnum = Field(default=ThinkingSystemEnum.TYPE1)
+    thinking_system: ThinkingSystemEnum = Field(default=ThinkingSystemEnum.REASONING)
     sequence: int = Field(default=0)
     execution_sequence: int = Field(default=0)
     active: bool = Field(default=False)
@@ -283,7 +291,7 @@ def default_new_cell(workflow: Workflow):
     if workflow.blueprint.name == "polya":
         thinking_system = ThinkingSystemEnum.TYPE2
     else:
-        thinking_system = ThinkingSystemEnum.TYPE1
+        thinking_system = ThinkingSystemEnum.REASONING
 
     return Cell(
         input="",
@@ -304,3 +312,56 @@ def gen_k8s_react(config: Config):
         return question
 
     return k8s_react
+
+
+def normalize_output_format(output: list | str | int | float | dict | BaseModel):
+    match output:
+        case BaseModel():
+            return output.model_dump()
+        case str() | int() | float():
+            return output
+        case dict():
+            for k, v in output.items():
+                output[k] = normalize_output_format(v)
+            return output
+        case list():
+            return [normalize_output_format(item) for item in output]
+
+
+def conversation_context(cell: Cell, session: Session):
+    workflow = cell.workflow
+    previous_cells = workflow.find_previous_cells(session, cell)
+
+    for idx, previous_cell in enumerate(previous_cells):
+        assistant_response = ""
+        if previous_cell.output is None:
+            continue
+        assistant_resp = []
+
+        for output in pickle.loads(previous_cell.output):
+            o = output["output"]
+            marshalled_output = normalize_output_format(o)
+
+            try:
+                if isinstance(marshalled_output, dict) or isinstance(
+                    marshalled_output, list
+                ):
+                    assistant_resp.append(yaml.dump(marshalled_output, indent=2))
+                else:
+                    assistant_resp.append(marshalled_output)
+            except Exception as e:
+                logger.error("Error marshalling output", error=e)
+        assistant_resp = "---\n".join(assistant_resp)
+
+        conversation = f"""
+Conversation {idx + 1}:
+
+<user instruction>
+{previous_cell.input}
+</user instruction>
+
+<assistant response>
+{assistant_resp}
+</assistant response>
+"""
+        yield conversation

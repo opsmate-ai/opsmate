@@ -66,7 +66,7 @@ Share your reflections below.
 
 freestyle_workflows = [
     {
-        "name": "freestyle",
+        "name": WorkflowEnum.FREESTYLE.value,
         "title": "Freestyle",
         "description": "Freestyle problem solving",
         "active": True,
@@ -93,7 +93,7 @@ def polya_blueprint(session: Session):
 
 def freestyle_blueprint(session: Session):
     blueprint = session.exec(
-        select(BluePrint).where(BluePrint.name == "freestyle")
+        select(BluePrint).where(BluePrint.name == WorkflowEnum.FREESTYLE.value)
     ).first()
     if blueprint:
         return blueprint

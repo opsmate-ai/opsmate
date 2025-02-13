@@ -63,6 +63,7 @@ from opsmate.gui.steps import (
     store_facts_and_plans,
 )
 import yaml
+from typing import AsyncGenerator
 
 logger = structlog.get_logger()
 
@@ -254,6 +255,46 @@ async def render_notes_output(
     return cell
 
 
+async def react_streaming(
+    cell: Cell,
+    swap: str,
+    send,
+    session: Session,
+    reactGenerator: AsyncGenerator[React, None],
+):
+    prev_cell = cell
+    thought_deduped = False
+    stopped = False
+    async for output in await reactGenerator:
+        logger.info("output", output=output)
+        session.refresh(cell)
+
+        if cell.state == CellStateEnum.STOPPING:
+            logger.info("reasoning is stopping", cell_id=cell.id)
+            cell.state = CellStateEnum.STOPPED
+            session.add(cell)
+            session.commit()
+            logger.info("reasoning stopped", cell_id=cell.id)
+            stopped = True
+            break
+
+        if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
+            logger.info("thought deduped", output=output)
+            cell.input = render_react_markdown_raw(output)
+            cell = await render_notes_output(
+                cell, session, send, cell_state=CellStateEnum.COMPLETED
+            )
+            prev_cell = cell
+            thought_deduped = True
+        else:
+            prev_cell = await new_react_cell(output, prev_cell, session, send)
+
+    if not stopped:
+        cell = await render_notes_output(
+            cell, session, send, cell_state=CellStateEnum.COMPLETED
+        )
+
+
 async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Session):
 
     logger.info("executing llm react instruction", cell_id=cell.id)
@@ -265,24 +306,8 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     )
     logger.info("chat_history", chat_history=chat_history)
 
-    prev_cell = cell
-    thought_deduped = False
-    async for output in await k8s_react(cell.input, chat_history=chat_history):
-        logger.info("output", output=output)
-        if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
-            # xxx deal with thought duplication
-            logger.info("thought deduped", output=output)
-            cell.input = render_react_markdown_raw(output)
-            cell = await render_notes_output(
-                cell, session, send, cell_state=CellStateEnum.COMPLETED
-            )
-            prev_cell = cell
-            thought_deduped = True
-        else:
-            prev_cell = await new_react_cell(output, prev_cell, session, send)
-
-    cell = await render_notes_output(
-        cell, session, send, cell_state=CellStateEnum.COMPLETED
+    await react_streaming(
+        cell, swap, send, session, k8s_react(cell.input, chat_history=chat_history)
     )
 
 
@@ -546,24 +571,7 @@ Here are the tasks to be performed **ONLY**:
 </important>
     """
 
-    prev_cell = cell
-    thought_deduped = False
-    async for output in await iac_sme(instruction):
-        logger.info("output", output=output)
-        if cell.cell_type == CellType.REASONING_THOUGHTS and not thought_deduped:
-            logger.info("thought deduped", output=output)
-            cell.input = render_react_markdown_raw(output)
-            cell = await render_notes_output(
-                cell, session, send, cell_state=CellStateEnum.COMPLETED
-            )
-            prev_cell = cell
-            thought_deduped = True
-        else:
-            prev_cell = await new_react_cell(output, prev_cell, session, send)
-
-    cell = await render_notes_output(
-        cell, session, send, cell_state=CellStateEnum.COMPLETED
-    )
+    await react_streaming(cell, swap, send, session, iac_sme(instruction))
 
 
 async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):

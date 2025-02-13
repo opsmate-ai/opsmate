@@ -181,7 +181,7 @@ class CellComponent:
                     ),
                     Button(
                         stop_icon_svg,
-                        hx_post=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}/stop",
+                        hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}/stop",
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_stop(),
                     ),

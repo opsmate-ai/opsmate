@@ -193,6 +193,10 @@ class CellType(str, enum.Enum):
     PLANNING_KNOWLEDGE_RETRIEVAL = "planning_knowledge_retrieval"
     PLANNING_TASK_PLAN = "planning_task_plan"
 
+    REASONING_THOUGHTS = "reasoning_thoughts"
+    REASONING_OBSERVATION = "reasoning_observation"
+    REASONING_ANSWER = "reasoning_answer"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"

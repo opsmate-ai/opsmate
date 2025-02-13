@@ -220,9 +220,8 @@ class CellComponent:
         )
 
 
-def render_react_markdown(output: React):
-    return Div(
-        f"""
+def render_react_markdown_raw(output: React):
+    return f"""
 ## Thought process
 
 ### Thoughts
@@ -232,38 +231,50 @@ def render_react_markdown(output: React):
 ### Action
 
 {output.action}
-""",
+"""
+
+
+def render_react_markdown(output: React):
+    return Div(
+        render_react_markdown_raw(output),
         cls="marked prose max-w-none",
     )
+
+
+def render_react_answer_markdown_raw(output: ReactAnswer):
+    return f"""
+## Answer
+
+{output.answer}
+"""
 
 
 def render_react_answer_markdown(output: ReactAnswer):
     return Div(
-        f"""
-## Answer
-
-{output.answer}
-""",
+        render_react_answer_markdown_raw(output),
         cls="marked prose max-w-none",
     )
 
 
-def render_observation_markdown(output: Observation):
-
+def render_observation_markdown_raw(output: Observation):
     tool_out = []
     for tool_output in output.tool_outputs:
         if hasattr(tool_output, "markdown"):
             tool_out.append(tool_output.markdown())
         else:
             tool_out.append(yaml.dump(tool_output.model_dump()))
-    return Div(
-        f"""
+    return f"""
 ## Observation
 
-{"\n".join(tool_out)}
-
 {output.observation}
-""",
+
+{"\n".join(tool_out)}
+"""
+
+
+def render_observation_markdown(output: Observation):
+    return Div(
+        render_observation_markdown_raw(output),
         cls="marked prose max-w-none",
     )
 

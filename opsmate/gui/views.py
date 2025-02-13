@@ -1,6 +1,5 @@
 from fasthtml.common import *
 from sqlmodel import Session
-from pydantic import BaseModel
 from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
@@ -10,9 +9,18 @@ from opsmate.gui.models import (
     CellType,
     gen_k8s_react,
     conversation_context,
+    CellLangEnum,
+    ThinkingSystemEnum,
+    CreatedByType,
 )
-from opsmate.gui.components import CellComponent, CellOutputRenderer
-from opsmate.dino.types import Message, Observation
+from opsmate.gui.components import (
+    CellComponent,
+    CellOutputRenderer,
+    render_observation_markdown_raw,
+    render_react_markdown_raw,
+    render_react_answer_markdown_raw,
+)
+from opsmate.dino.types import Message, Observation, React, ReactAnswer
 
 from opsmate.polya.models import (
     TaskPlan,
@@ -144,6 +152,72 @@ async def prefill_conversation(cell: Cell, session: sqlmodel.Session):
     return chat_history
 
 
+async def new_react_cell(
+    output: React | ReactAnswer | Observation,
+    prev_cell: Cell,
+    session: Session,
+    send,
+):
+    workflow = prev_cell.workflow
+    match output:
+        case React():
+            input = render_react_markdown_raw(output)
+            output = {
+                "type": "React",
+                "output": output,
+            }
+        case ReactAnswer():
+            input = render_react_answer_markdown_raw(output)
+            output = {
+                "type": "ReactAnswer",
+                "output": output,
+            }
+        case Observation():
+            input = render_observation_markdown_raw(output)
+            output = {
+                "type": "Observation",
+                "output": Observation(
+                    tool_outputs=[
+                        output.__class__(**output.model_dump())
+                        for output in output.tool_outputs
+                    ],
+                    observation=output.observation,
+                ),
+            }
+        case _:
+            logger.error("unknown output type", output=output)
+            return
+    react_cell = Cell(
+        input=input,
+        output=pickle.dumps([output]),
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.REASONING,
+        sequence=prev_cell.sequence + 1,
+        execution_sequence=prev_cell.execution_sequence + 1,
+        active=True,
+        workflow_id=prev_cell.workflow_id,
+        parent_cell_ids=[prev_cell.id],
+        cell_type=None,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(react_cell)
+    session.commit()
+
+    workflow.activate_cell(session, react_cell.id)
+    session.commit()
+
+    await send(
+        Div(
+            CellComponent(react_cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return react_cell
+
+
 async def execute_llm_react_instruction(
     cell: Cell, swap: str, send, session: sqlmodel.Session
 ):
@@ -162,45 +236,18 @@ async def execute_llm_react_instruction(
     )
     msg = cell.input.rstrip()
 
-    logger.info("chat_history", chat_history=chat_history)
-    async for stage in await k8s_react(msg, chat_history=chat_history):
-        output = stage
-
-        logger.info("output", output=output)
-
-        partial = CellOutputRenderer.render_model(output)
-        if partial:
-            if isinstance(output, Observation):
-                outputs.append(
-                    {
-                        "type": "Observation",
-                        "output": Observation(
-                            tool_outputs=[
-                                output.__class__(**output.model_dump())
-                                for output in output.tool_outputs
-                            ],
-                            observation=output.observation,
-                        ),
-                    }
-                )
-            else:
-                outputs.append(
-                    {
-                        "type": type(output).__name__,
-                        "output": output,
-                    }
-                )
-            await send(
-                Div(
-                    partial,
-                    hx_swap_oob=swap,
-                    id=f"cell-output-{cell.id}",
-                )
-            )
-
+    cell.input = msg
     cell.output = pickle.dumps(outputs)
     session.add(cell)
     session.commit()
+
+    logger.info("chat_history", chat_history=chat_history)
+
+    prev_cell = cell
+    async for output in await k8s_react(msg, chat_history=chat_history):
+        logger.info("output", output=output)
+
+        prev_cell = await new_react_cell(output, prev_cell, session, send)
 
 
 async def execute_llm_type2_instruction(

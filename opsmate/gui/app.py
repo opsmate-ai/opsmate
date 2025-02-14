@@ -22,8 +22,9 @@ from opsmate.gui.views import (
     nav,
     reset_button,
     add_cell_button,
-    render_cell_container,
+    render_cells_container,
     render_workflow_panel,
+    execute_llm_simple_instruction,
     execute_llm_react_instruction,
     execute_llm_type2_instruction,
     execute_bash_instruction,
@@ -143,7 +144,7 @@ async def post(blueprint_id: int):
         cells = active_workflow.cells
         return (
             # Return the new cell to be added
-            render_cell_container(cells, hx_swap_oob="true"),
+            render_cells_container(cells, hx_swap_oob="true"),
             # Return the button to preserve it
             add_cell_button(blueprint),
         )
@@ -188,7 +189,7 @@ async def post(
         active_workflow.activate_cell(session, new_cell.id)
         session.refresh(active_workflow)
         cells = active_workflow.cells
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
@@ -227,7 +228,7 @@ async def delete(blueprint_id: int, cell_id: int):
         active_workflow = blueprint.active_workflow(session)
         cells = active_workflow.cells
 
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
@@ -269,11 +270,20 @@ async def put(
 
         if thinking_system is not None:
             if thinking_system == ThinkingSystemEnum.REASONING.value:
-                logger.info("setting thinking system to type 1")
+                logger.info("setting thinking system to type 1", cell_id=cell_id)
                 selected_cell.thinking_system = ThinkingSystemEnum.REASONING
+            elif thinking_system == ThinkingSystemEnum.SIMPLE.value:
+                logger.info("setting thinking system to simple", cell_id=cell_id)
+                selected_cell.thinking_system = ThinkingSystemEnum.SIMPLE
             elif thinking_system == ThinkingSystemEnum.TYPE2.value:
-                logger.info("setting thinking system to type 2")
+                logger.info("setting thinking system to type 2", cell_id=cell_id)
                 selected_cell.thinking_system = ThinkingSystemEnum.TYPE2
+            else:
+                logger.error(
+                    "unknown thinking system",
+                    cell_id=cell_id,
+                    thinking_system=thinking_system,
+                )
 
         session.add(selected_cell)
         session.commit()
@@ -283,7 +293,7 @@ async def put(
         session.refresh(active_workflow)
         cells = active_workflow.cells
 
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/input/{cell_id}")
@@ -346,7 +356,7 @@ async def put(workflow_id: str):
 
         return (
             render_workflow_panel(blueprint.workflows, active_workflow),
-            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
+            render_cells_container(active_workflow.cells, hx_swap_oob="true"),
         )
 
 
@@ -368,7 +378,7 @@ async def post(blueprint_id: int):
         session.refresh(active_workflow)
         session.refresh(new_cell)
         return (
-            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
+            render_cells_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button(blueprint),
         )
 
@@ -419,12 +429,20 @@ async def ws(cell_id: int, input: str, send, session):
         ).all()
 
         logger.info(
-            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+            "cells to shift",
+            cells_to_shift=[cell.id for cell in cells_to_shift],
+            sequences=[cell.sequence for cell in cells_to_shift],
         )
         for idx, cell_to_shift in enumerate(cells_to_shift):
-            cell_to_shift.sequence = cell.sequence + idx
+            cell_to_shift.sequence = cell.sequence + idx + 1
             session.add(cell_to_shift)
         session.commit()
+
+        logger.info(
+            "cells shifted",
+            cells_to_shift=[cell.id for cell in cells_to_shift],
+            sequences=[cell.sequence for cell in cells_to_shift],
+        )
 
         for deleted_cell_id in deleted_cell_ids:
             await send(
@@ -435,11 +453,17 @@ async def ws(cell_id: int, input: str, send, session):
             )
 
         logger.info(
-            "executing cell", cell_id=cell_id, cell_lang=cell.lang, input=cell.input
+            "executing cell",
+            cell_id=cell_id,
+            cell_lang=cell.lang.value,
+            input=cell.input,
+            thinking_system=cell.thinking_system.value,
         )
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
-            if cell.thinking_system == ThinkingSystemEnum.REASONING:
+            if cell.thinking_system == ThinkingSystemEnum.SIMPLE:
+                await execute_llm_simple_instruction(cell, swap, send, session)
+            elif cell.thinking_system == ThinkingSystemEnum.REASONING:
                 await execute_llm_react_instruction(cell, swap, send, session)
             elif cell.thinking_system == ThinkingSystemEnum.TYPE2:
                 await execute_llm_type2_instruction(cell, swap, send, session)

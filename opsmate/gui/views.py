@@ -7,6 +7,7 @@ from opsmate.gui.models import (
     BluePrint,
     Workflow,
     CellType,
+    gen_k8s_simple,
     gen_k8s_react,
     conversation_context,
     CellLangEnum,
@@ -69,6 +70,7 @@ logger = structlog.get_logger()
 config = Config()
 
 k8s_react = gen_k8s_react(config)
+k8s_simple = gen_k8s_simple(config)
 
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")
@@ -159,6 +161,15 @@ async def new_react_cell(
     session: Session,
     send,
 ):
+    # find all cells with a sequence greater than the current cell
+    cells_to_shift = [
+        cell for cell in prev_cell.workflow.cells if cell.sequence > prev_cell.sequence
+    ]
+    for cell in cells_to_shift:
+        cell.sequence += 1
+        session.add(cell)
+    session.commit()
+
     workflow = prev_cell.workflow
     match output:
         case React():
@@ -212,15 +223,60 @@ async def new_react_cell(
     workflow.activate_cell(session, react_cell.id)
     session.commit()
 
-    await send(
-        Div(
-            CellComponent(react_cell),
-            hx_swap_oob="beforeend",
-            id="cells-container",
-        )
-    )
-
+    await send(render_cells_container(prev_cell.workflow.cells, hx_swap_oob="true"))
     return react_cell
+
+
+async def new_simple_cell(
+    output: Observation,
+    prev_cell: Cell,
+    session: Session,
+    send,
+):
+    # find all cells with a sequence greater than the current cell
+    cells_to_shift = [
+        cell for cell in prev_cell.workflow.cells if cell.sequence > prev_cell.sequence
+    ]
+    for cell in cells_to_shift:
+        cell.sequence += 1
+        session.add(cell)
+    session.commit()
+
+    input = render_observation_markdown_raw(output)
+    cell_output = {
+        "type": "Observation",
+        "output": Observation(
+            tool_outputs=[
+                output.__class__(**output.model_dump())
+                for output in output.tool_outputs
+            ],
+            observation=output.observation,
+        ),
+    }
+    cell = Cell(
+        input=input,
+        output=pickle.dumps([cell_output]),
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.SIMPLE,
+        state=CellStateEnum.COMPLETED,
+        sequence=prev_cell.sequence + 1,
+        execution_sequence=prev_cell.execution_sequence + 1,
+        active=True,
+        workflow_id=prev_cell.workflow_id,
+        parent_cell_ids=[prev_cell.id],
+        cell_type=CellType.SIMPLE_RESULT,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    workflow = prev_cell.workflow
+    workflow.activate_cell(session, cell.id)
+
+    await send(render_cells_container(prev_cell.workflow.cells, hx_swap_oob="true"))
+
+    return cell
 
 
 async def render_notes_output(
@@ -308,6 +364,20 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     await react_streaming(
         cell, swap, send, session, k8s_react(cell.input, chat_history=chat_history)
     )
+
+
+async def execute_llm_simple_instruction(cell: Cell, swap: str, send, session: Session):
+    logger.info("executing llm simple instruction", cell_id=cell.id)
+
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.RUNNING
+    )
+
+    chat_history = await prefill_conversation(cell, session)
+    result = await k8s_simple(cell.input, chat_history=chat_history)
+
+    await new_simple_cell(result, cell, session, send)
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
 async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
@@ -669,7 +739,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
                 ),
                 render_workflow_panel(workflows, active_workflow),
                 # Cells Container
-                render_cell_container(cells),
+                render_cells_container_with_ws(cells),
                 # cls="overflow-hidden",
             ),
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
@@ -713,11 +783,20 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     )
 
 
-def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
+def render_cells_container(cells: list[Cell], hx_swap_oob: str = None):
     div = Div(
         *[CellComponent(cell) for cell in cells],
         cls="space-y-4 mt-4",
         id="cells-container",
+    )
+    if hx_swap_oob:
+        div.hx_swap_oob = hx_swap_oob
+    return div
+
+
+def render_cells_container_with_ws(cells: list[Cell], hx_swap_oob: str = None):
+    div = Div(
+        render_cells_container(cells),
         ws_connect="/cell/run/ws/",
         hx_ext="ws",
     )

@@ -94,7 +94,10 @@ class CellComponent:
 
     def can_run(self):
         cell_type = self.cell.cell_type
-        if cell_type == CellType.REASONING_OBSERVATION:
+        if cell_type in [
+            CellType.SIMPLE_RESULT,
+            CellType.REASONING_OBSERVATION,
+        ]:
             return False
         return True
 
@@ -146,7 +149,13 @@ class CellComponent:
                     ),
                     Select(
                         Option(
-                            "Reasoning - Fast",
+                            "Simple",
+                            value=ThinkingSystemEnum.SIMPLE.value,
+                            selected=self.cell.thinking_system
+                            == ThinkingSystemEnum.SIMPLE,
+                        ),
+                        Option(
+                            "Reasoning",
                             value=ThinkingSystemEnum.REASONING.value,
                             selected=self.cell.thinking_system
                             == ThinkingSystemEnum.REASONING

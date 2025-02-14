@@ -16,8 +16,9 @@ from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
-from opsmate.dino.types import Message
+from opsmate.dino.types import Message, Observation
 from opsmate.dino.react import react
+from opsmate.dino import dino
 from sqlalchemy.orm import registry
 from opsmate.gui.config import Config
 import yaml
@@ -46,6 +47,7 @@ class WorkflowEnum(str, enum.Enum):
 
 
 class ThinkingSystemEnum(str, enum.Enum):
+    SIMPLE = "simple"
     REASONING = "reasoning"
     TYPE2 = "type-2"
 
@@ -205,6 +207,8 @@ class CellType(str, enum.Enum):
     REASONING_OBSERVATION = "reasoning_observation"
     REASONING_ANSWER = "reasoning_answer"
 
+    SIMPLE_RESULT = "simple_result"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"
@@ -311,15 +315,35 @@ def default_new_cell(workflow: Workflow):
 
 def gen_k8s_react(config: Config):
     @react(
-        model="gpt-4o",
+        model=config.model,
         contexts=[config.system_prompt],
-        tools=config.optmate_tools(),
+        tools=config.opsmate_tools(),
         iterable=True,
     )
     async def k8s_react(question: str, chat_history: List[Message] = []):
         return question
 
     return k8s_react
+
+
+def gen_k8s_simple(config: Config):
+    @dino(
+        model=config.model,
+        response_model=Observation,
+        tools=config.opsmate_tools(),
+    )
+    def instruction(question: str, chat_history: List[Message] = []):
+        f"""
+        {config.system_prompt}
+        """
+        return [
+            *chat_history,
+            Message.user(
+                f"Please answer the question:\n<question>{question}</question>"
+            ),
+        ]
+
+    return instruction
 
 
 def normalize_output_format(output: list | str | int | float | dict | BaseModel):

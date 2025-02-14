@@ -22,7 +22,7 @@ from opsmate.gui.views import (
     nav,
     reset_button,
     add_cell_button,
-    render_cell_container,
+    render_cells_container,
     render_workflow_panel,
     execute_llm_simple_instruction,
     execute_llm_react_instruction,
@@ -144,7 +144,7 @@ async def post(blueprint_id: int):
         cells = active_workflow.cells
         return (
             # Return the new cell to be added
-            render_cell_container(cells, hx_swap_oob="true"),
+            render_cells_container(cells, hx_swap_oob="true"),
             # Return the button to preserve it
             add_cell_button(blueprint),
         )
@@ -189,7 +189,7 @@ async def post(
         active_workflow.activate_cell(session, new_cell.id)
         session.refresh(active_workflow)
         cells = active_workflow.cells
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
@@ -228,7 +228,7 @@ async def delete(blueprint_id: int, cell_id: int):
         active_workflow = blueprint.active_workflow(session)
         cells = active_workflow.cells
 
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/{cell_id}")
@@ -293,7 +293,7 @@ async def put(
         session.refresh(active_workflow)
         cells = active_workflow.cells
 
-        return render_cell_container(cells, hx_swap_oob="true")
+        return render_cells_container(cells, hx_swap_oob="true")
 
 
 @app.route("/blueprint/{blueprint_id}/cell/input/{cell_id}")
@@ -356,7 +356,7 @@ async def put(workflow_id: str):
 
         return (
             render_workflow_panel(blueprint.workflows, active_workflow),
-            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
+            render_cells_container(active_workflow.cells, hx_swap_oob="true"),
         )
 
 
@@ -378,7 +378,7 @@ async def post(blueprint_id: int):
         session.refresh(active_workflow)
         session.refresh(new_cell)
         return (
-            render_cell_container(active_workflow.cells, hx_swap_oob="true"),
+            render_cells_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button(blueprint),
         )
 

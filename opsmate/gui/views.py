@@ -223,8 +223,7 @@ async def new_react_cell(
     workflow.activate_cell(session, react_cell.id)
     session.commit()
 
-    await send(render_cell_container(prev_cell.workflow.cells, hx_swap_oob="true"))
-
+    await send(render_cells_container(prev_cell.workflow.cells, hx_swap_oob="true"))
     return react_cell
 
 
@@ -275,7 +274,7 @@ async def new_simple_cell(
     workflow = prev_cell.workflow
     workflow.activate_cell(session, cell.id)
 
-    await send(render_cell_container(prev_cell.workflow.cells, hx_swap_oob="true"))
+    await send(render_cells_container(prev_cell.workflow.cells, hx_swap_oob="true"))
 
     return cell
 
@@ -740,7 +739,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
                 ),
                 render_workflow_panel(workflows, active_workflow),
                 # Cells Container
-                render_cell_container(cells),
+                render_cells_container_with_ws(cells),
                 # cls="overflow-hidden",
             ),
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
@@ -784,11 +783,20 @@ def render_workflow_panel(workflows: list[Workflow], active_workflow: Workflow):
     )
 
 
-def render_cell_container(cells: list[Cell], hx_swap_oob: str = None):
+def render_cells_container(cells: list[Cell], hx_swap_oob: str = None):
     div = Div(
         *[CellComponent(cell) for cell in cells],
         cls="space-y-4 mt-4",
         id="cells-container",
+    )
+    if hx_swap_oob:
+        div.hx_swap_oob = hx_swap_oob
+    return div
+
+
+def render_cells_container_with_ws(cells: list[Cell], hx_swap_oob: str = None):
+    div = Div(
+        render_cells_container(cells),
         ws_connect="/cell/run/ws/",
         hx_ext="ws",
     )

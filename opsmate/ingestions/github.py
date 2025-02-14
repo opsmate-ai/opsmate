@@ -108,7 +108,7 @@ class GithubIngestion(BaseIngestion):
         return "github"
 
     @classmethod
-    def from_config(cls, config: Dict[str, str]) -> List["GithubIngestion"]:
+    def from_configmap(cls, config: Dict[str, str]) -> List["GithubIngestion"]:
         ingestions = []
         for repo, glob_pattern in config.items():
             maybe_branch = repo.split(":")

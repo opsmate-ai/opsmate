@@ -41,7 +41,7 @@ class FsIngestion(BaseIngestion):
         return "fs"
 
     @classmethod
-    def from_config(cls, config: Dict[str, str]) -> List["FsIngestion"]:
+    def from_configmap(cls, config: Dict[str, str]) -> List["FsIngestion"]:
         ingestions = []
         for path, glob_pattern in config.items():
             ingestions.append(cls(local_path=path, glob_pattern=glob_pattern))

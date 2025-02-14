@@ -211,7 +211,7 @@ def test_from_config():
         "opsmate/opsmate2": "*.txt",
         "opsmate/opsmate3:dev": "*.txt",
     }
-    ingestions = GithubIngestion.from_config(config)
+    ingestions = GithubIngestion.from_configmap(config)
     assert len(ingestions) == 3
     assert ingestions[0].repo == "opsmate/opsmate"
     assert ingestions[0].branch == "main"

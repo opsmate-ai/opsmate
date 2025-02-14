@@ -87,7 +87,7 @@ class TestFsIngestion(BaseTestCase):
             "/tmp/foo": "*.md",
             "/tmp/bar": "*.txt",
         }
-        ingestions = FsIngestion.from_config(config)
+        ingestions = FsIngestion.from_configmap(config)
         assert len(ingestions) == 2
         assert ingestions[0].local_path == "/tmp/foo"
         assert ingestions[0].glob_pattern == "*.md"

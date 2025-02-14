@@ -35,8 +35,8 @@ async def categorize_chunk(chunk: Chunk):
 
 def ingestions_from_config(cfg: Config) -> List[BaseIngestion]:
     ingestions = []
-    github_ingestions = GithubIngestion.from_config(cfg.github_embeddings_config)
-    fs_ingestions = FsIngestion.from_config(cfg.fs_embeddings_config)
+    github_ingestions = GithubIngestion.from_configmap(cfg.github_embeddings_config)
+    fs_ingestions = FsIngestion.from_configmap(cfg.fs_embeddings_config)
     ingestions.extend(github_ingestions)
     ingestions.extend(fs_ingestions)
 

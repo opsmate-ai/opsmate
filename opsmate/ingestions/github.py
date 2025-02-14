@@ -93,15 +93,13 @@ class GithubIngestion(BaseIngestion):
                     },
                 )
 
-        # Process files concurrently
-        async for file in self.get_files():
-            tasks = []
-            task = asyncio.create_task(process_file(file))
-            tasks.append(task)
+        tasks = [
+            asyncio.create_task(process_file(file)) async for file in self.get_files()
+        ]
 
-            # Process completed tasks
-            for task in asyncio.as_completed(tasks):
-                yield await task
+        # Process completed tasks
+        for task in asyncio.as_completed(tasks):
+            yield await task
 
     def data_source(self) -> str:
         return self.repo

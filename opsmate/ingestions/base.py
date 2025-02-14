@@ -38,11 +38,17 @@ class BaseIngestion(ABC, BaseModel):
         return v
 
     async def chunking(self):
+        """
+        Chunk the documents coming from the ingestion source.
+        """
         async for document in self.load():
             async for chunk in self.chunking_document(document):
                 yield chunk
 
     async def chunking_document(self, document: Document):
+        """
+        Chunk the individual document.
+        """
         for chunk in self.splitter.split_text(document.content):
             logger.info("chunking document", document=document.metadata["path"])
             ch = chunk.model_copy()
@@ -57,12 +63,21 @@ class BaseIngestion(ABC, BaseModel):
 
     @abstractmethod
     async def load(self) -> AsyncGenerator[Document, None]:
+        """
+        Load the documents from the ingestion source.
+        """
         pass
 
     @abstractmethod
     def data_source(self) -> str:
+        """
+        The data source of the ingestion.
+        """
         pass
 
     @abstractmethod
     def data_source_provider(self) -> str:
+        """
+        The data source provider of the ingestion.
+        """
         pass

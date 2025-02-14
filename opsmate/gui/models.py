@@ -315,7 +315,7 @@ def default_new_cell(workflow: Workflow):
 
 def gen_k8s_react(config: Config):
     @react(
-        model="gpt-4o",
+        model=config.model,
         contexts=[config.system_prompt],
         tools=config.opsmate_tools(),
         iterable=True,
@@ -328,7 +328,7 @@ def gen_k8s_react(config: Config):
 
 def gen_k8s_simple(config: Config):
     @dino(
-        model="gpt-4o",
+        model=config.model,
         response_model=Observation,
         tools=config.opsmate_tools(),
     )

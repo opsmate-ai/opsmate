@@ -25,6 +25,11 @@ class Config(OpsmateConfig):
         default_factory=k8s_ctx,
     )
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+    model: str = Field(
+        default="gpt-4o",
+        alias="OPSMATE_MODEL",
+        choices=["gpt-4o", "claude-3-5-sonnet-20241022"],
+    )
 
     @model_validator(mode="after")
     def validate_loglevel(self) -> Self:

@@ -37,19 +37,23 @@ class BaseIngestion(ABC, BaseModel):
             )
         return v
 
-    async def ingest(self):
+    async def chunking(self):
         async for document in self.load():
-            logger.info("ingesting document", document=document.metadata["path"])
-            for chunk in self.splitter.split_text(document.content):
-                ch = chunk.model_copy()
-                for key, value in document.metadata.items():
-                    ch.metadata[key] = value
-                ch.metadata["data_source"] = self.data_source()
-                ch.metadata["data_source_provider"] = self.data_source_provider()
-                if self.post_chunk_hooks:
-                    for hook in self.post_chunk_hooks:
-                        ch = await hook(ch)
-                yield ch
+            async for chunk in self.chunking_document(document):
+                yield chunk
+
+    async def chunking_document(self, document: Document):
+        for chunk in self.splitter.split_text(document.content):
+            logger.info("chunking document", document=document.metadata["path"])
+            ch = chunk.model_copy()
+            for key, value in document.metadata.items():
+                ch.metadata[key] = value
+            ch.metadata["data_source"] = self.data_source()
+            ch.metadata["data_source_provider"] = self.data_source_provider()
+            if self.post_chunk_hooks:
+                for hook in self.post_chunk_hooks:
+                    ch = await hook(ch)
+            yield ch
 
     @abstractmethod
     async def load(self) -> AsyncGenerator[Document, None]:

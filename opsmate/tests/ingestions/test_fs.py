@@ -48,7 +48,7 @@ class TestFsIngestion(BaseTestCase):
             ),
         )
 
-        chunks = [chunk async for chunk in ingestion.ingest()]
+        chunks = [chunk async for chunk in ingestion.chunking()]
         assert len(chunks) == 6
         # print(chunks)
         assert "h1" in chunks[0].metadata

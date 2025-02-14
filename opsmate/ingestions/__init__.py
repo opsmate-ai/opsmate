@@ -67,7 +67,7 @@ async def ingest_from_config(cfg: Config) -> List[BaseIngestion]:
             data_providersource=ingestion.data_source(),
         )
 
-        async for chunk in ingestion.ingest():
+        async for chunk in ingestion.chunking():
             if "categories" in chunk.metadata:
                 categories = [cat.value for cat in chunk.metadata["categories"]]
             else:

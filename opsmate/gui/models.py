@@ -18,6 +18,7 @@ from sqlmodel import Relationship
 import structlog
 from opsmate.dino.types import Message
 from opsmate.dino.react import react
+from opsmate.dino import dino
 from sqlalchemy.orm import registry
 from opsmate.gui.config import Config
 import yaml
@@ -206,6 +207,8 @@ class CellType(str, enum.Enum):
     REASONING_OBSERVATION = "reasoning_observation"
     REASONING_ANSWER = "reasoning_answer"
 
+    SIMPLE_RESULT = "simple_result"
+
 
 class CreatedByType(str, enum.Enum):
     USER = "user"
@@ -314,13 +317,37 @@ def gen_k8s_react(config: Config):
     @react(
         model="gpt-4o",
         contexts=[config.system_prompt],
-        tools=config.optmate_tools(),
+        tools=config.opsmate_tools(),
         iterable=True,
     )
     async def k8s_react(question: str, chat_history: List[Message] = []):
         return question
 
     return k8s_react
+
+
+def gen_k8s_simple(config: Config):
+    @dino(
+        model="gpt-4o",
+        response_model=str,
+        tools=config.opsmate_tools(),
+    )
+    def instruction(question: str, chat_history: List[Message] = []):
+        f"""
+        {config.system_prompt}
+
+        <important>
+        You must return the answer to the question in markdown format
+        </important>
+        """
+        return [
+            *chat_history,
+            Message.user(
+                f"Please answer the question:\n<question>{question}</question>"
+            ),
+        ]
+
+    return instruction
 
 
 def normalize_output_format(output: list | str | int | float | dict | BaseModel):

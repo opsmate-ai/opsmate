@@ -7,6 +7,7 @@ from opsmate.gui.models import (
     BluePrint,
     Workflow,
     CellType,
+    gen_k8s_simple,
     gen_k8s_react,
     conversation_context,
     CellLangEnum,
@@ -69,6 +70,7 @@ logger = structlog.get_logger()
 config = Config()
 
 k8s_react = gen_k8s_react(config)
+k8s_simple = gen_k8s_simple(config)
 
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")
@@ -223,6 +225,45 @@ async def new_react_cell(
     return react_cell
 
 
+async def new_simple_cell(
+    output: str,
+    prev_cell: Cell,
+    session: Session,
+    send,
+):
+    cell_output = {
+        "type": "NotesOutput",
+        "output": output,
+    }
+    cell = Cell(
+        input=output,
+        output=pickle.dumps([cell_output]),
+        lang=CellLangEnum.TEXT_INSTRUCTION,
+        thinking_system=ThinkingSystemEnum.SIMPLE,
+        state=CellStateEnum.COMPLETED,
+        sequence=prev_cell.sequence + 1,
+        execution_sequence=prev_cell.execution_sequence + 1,
+        active=True,
+        workflow_id=prev_cell.workflow_id,
+        parent_cell_ids=[prev_cell.id],
+        cell_type=CellType.SIMPLE_RESULT,
+        created_by=CreatedByType.ASSISTANT,
+        hidden=True,
+    )
+    session.add(cell)
+    session.commit()
+
+    await send(
+        Div(
+            CellComponent(cell),
+            hx_swap_oob="beforeend",
+            id="cells-container",
+        )
+    )
+
+    return cell
+
+
 async def render_notes_output(
     cell: Cell,
     session: Session,
@@ -314,8 +355,14 @@ async def execute_llm_simple_instruction(cell: Cell, swap: str, send, session: S
     logger.info("executing llm simple instruction", cell_id=cell.id)
 
     cell = await render_notes_output(
-        cell, session, send, cell_state=CellStateEnum.COMPLETED
+        cell, session, send, cell_state=CellStateEnum.RUNNING
     )
+
+    chat_history = await prefill_conversation(cell, session)
+    result = await k8s_simple(cell.input, chat_history=chat_history)
+
+    await new_simple_cell(result, cell, session, send)
+    await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
 async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):

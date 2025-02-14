@@ -40,5 +40,5 @@ class Config(OpsmateConfig):
         PluginRegistry.discover(self.plugins_dir)
         return self
 
-    def optmate_tools(self):
+    def opsmate_tools(self):
         return PluginRegistry.get_tools_from_list(self.tools)

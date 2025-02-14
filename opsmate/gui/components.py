@@ -94,7 +94,10 @@ class CellComponent:
 
     def can_run(self):
         cell_type = self.cell.cell_type
-        if cell_type == CellType.REASONING_OBSERVATION:
+        if cell_type in [
+            CellType.SIMPLE_RESULT,
+            CellType.REASONING_OBSERVATION,
+        ]:
             return False
         return True
 

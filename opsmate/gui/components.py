@@ -146,7 +146,13 @@ class CellComponent:
                     ),
                     Select(
                         Option(
-                            "Reasoning - Fast",
+                            "Simple",
+                            value=ThinkingSystemEnum.SIMPLE.value,
+                            selected=self.cell.thinking_system
+                            == ThinkingSystemEnum.SIMPLE,
+                        ),
+                        Option(
+                            "Reasoning",
                             value=ThinkingSystemEnum.REASONING.value,
                             selected=self.cell.thinking_system
                             == ThinkingSystemEnum.REASONING

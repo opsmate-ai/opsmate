@@ -310,6 +310,14 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     )
 
 
+async def execute_llm_simple_instruction(cell: Cell, swap: str, send, session: Session):
+    logger.info("executing llm simple instruction", cell_id=cell.id)
+
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.COMPLETED
+    )
+
+
 async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
     workflow = cell.workflow
     if workflow.name == WorkflowEnum.UNDERSTANDING:

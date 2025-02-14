@@ -46,6 +46,7 @@ class WorkflowEnum(str, enum.Enum):
 
 
 class ThinkingSystemEnum(str, enum.Enum):
+    SIMPLE = "simple"
     REASONING = "reasoning"
     TYPE2 = "type-2"
 

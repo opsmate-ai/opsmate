@@ -24,6 +24,7 @@ from opsmate.gui.views import (
     add_cell_button,
     render_cell_container,
     render_workflow_panel,
+    execute_llm_simple_instruction,
     execute_llm_react_instruction,
     execute_llm_type2_instruction,
     execute_bash_instruction,
@@ -269,11 +270,20 @@ async def put(
 
         if thinking_system is not None:
             if thinking_system == ThinkingSystemEnum.REASONING.value:
-                logger.info("setting thinking system to type 1")
+                logger.info("setting thinking system to type 1", cell_id=cell_id)
                 selected_cell.thinking_system = ThinkingSystemEnum.REASONING
+            elif thinking_system == ThinkingSystemEnum.SIMPLE.value:
+                logger.info("setting thinking system to simple", cell_id=cell_id)
+                selected_cell.thinking_system = ThinkingSystemEnum.SIMPLE
             elif thinking_system == ThinkingSystemEnum.TYPE2.value:
-                logger.info("setting thinking system to type 2")
+                logger.info("setting thinking system to type 2", cell_id=cell_id)
                 selected_cell.thinking_system = ThinkingSystemEnum.TYPE2
+            else:
+                logger.error(
+                    "unknown thinking system",
+                    cell_id=cell_id,
+                    thinking_system=thinking_system,
+                )
 
         session.add(selected_cell)
         session.commit()
@@ -435,11 +445,17 @@ async def ws(cell_id: int, input: str, send, session):
             )
 
         logger.info(
-            "executing cell", cell_id=cell_id, cell_lang=cell.lang, input=cell.input
+            "executing cell",
+            cell_id=cell_id,
+            cell_lang=cell.lang.value,
+            input=cell.input,
+            thinking_system=cell.thinking_system.value,
         )
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
-            if cell.thinking_system == ThinkingSystemEnum.REASONING:
+            if cell.thinking_system == ThinkingSystemEnum.SIMPLE:
+                await execute_llm_simple_instruction(cell, swap, send, session)
+            elif cell.thinking_system == ThinkingSystemEnum.REASONING:
                 await execute_llm_react_instruction(cell, swap, send, session)
             elif cell.thinking_system == ThinkingSystemEnum.TYPE2:
                 await execute_llm_type2_instruction(cell, swap, send, session)

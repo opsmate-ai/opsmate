@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import List
 from sqlmodel import Relationship
 import structlog
-from opsmate.dino.types import Message
+from opsmate.dino.types import Message, Observation
 from opsmate.dino.react import react
 from opsmate.dino import dino
 from sqlalchemy.orm import registry
@@ -329,16 +329,12 @@ def gen_k8s_react(config: Config):
 def gen_k8s_simple(config: Config):
     @dino(
         model="gpt-4o",
-        response_model=str,
+        response_model=Observation,
         tools=config.opsmate_tools(),
     )
     def instruction(question: str, chat_history: List[Message] = []):
         f"""
         {config.system_prompt}
-
-        <important>
-        You must return the answer to the question in markdown format
-        </important>
         """
         return [
             *chat_history,

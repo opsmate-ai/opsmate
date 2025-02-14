@@ -226,17 +226,24 @@ async def new_react_cell(
 
 
 async def new_simple_cell(
-    output: str,
+    output: Observation,
     prev_cell: Cell,
     session: Session,
     send,
 ):
+    input = render_observation_markdown_raw(output)
     cell_output = {
-        "type": "NotesOutput",
-        "output": output,
+        "type": "Observation",
+        "output": Observation(
+            tool_outputs=[
+                output.__class__(**output.model_dump())
+                for output in output.tool_outputs
+            ],
+            observation=output.observation,
+        ),
     }
     cell = Cell(
-        input=output,
+        input=input,
         output=pickle.dumps([cell_output]),
         lang=CellLangEnum.TEXT_INSTRUCTION,
         thinking_system=ThinkingSystemEnum.SIMPLE,

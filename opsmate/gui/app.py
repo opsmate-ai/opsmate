@@ -429,12 +429,20 @@ async def ws(cell_id: int, input: str, send, session):
         ).all()
 
         logger.info(
-            "cells to shift", cells_to_shift=[cell.id for cell in cells_to_shift]
+            "cells to shift",
+            cells_to_shift=[cell.id for cell in cells_to_shift],
+            sequences=[cell.sequence for cell in cells_to_shift],
         )
         for idx, cell_to_shift in enumerate(cells_to_shift):
-            cell_to_shift.sequence = cell.sequence + idx
+            cell_to_shift.sequence = cell.sequence + idx + 1
             session.add(cell_to_shift)
         session.commit()
+
+        logger.info(
+            "cells shifted",
+            cells_to_shift=[cell.id for cell in cells_to_shift],
+            sequences=[cell.sequence for cell in cells_to_shift],
+        )
 
         for deleted_cell_id in deleted_cell_ids:
             await send(

@@ -161,6 +161,15 @@ async def new_react_cell(
     session: Session,
     send,
 ):
+    # find all cells with a sequence greater than the current cell
+    cells_to_shift = [
+        cell for cell in prev_cell.workflow.cells if cell.sequence > prev_cell.sequence
+    ]
+    for cell in cells_to_shift:
+        cell.sequence += 1
+        session.add(cell)
+    session.commit()
+
     workflow = prev_cell.workflow
     match output:
         case React():
@@ -214,13 +223,7 @@ async def new_react_cell(
     workflow.activate_cell(session, react_cell.id)
     session.commit()
 
-    await send(
-        Div(
-            CellComponent(react_cell),
-            hx_swap_oob="beforeend",
-            id="cells-container",
-        )
-    )
+    await send(render_cell_container(prev_cell.workflow.cells, hx_swap_oob="true"))
 
     return react_cell
 
@@ -231,6 +234,15 @@ async def new_simple_cell(
     session: Session,
     send,
 ):
+    # find all cells with a sequence greater than the current cell
+    cells_to_shift = [
+        cell for cell in prev_cell.workflow.cells if cell.sequence > prev_cell.sequence
+    ]
+    for cell in cells_to_shift:
+        cell.sequence += 1
+        session.add(cell)
+    session.commit()
+
     input = render_observation_markdown_raw(output)
     cell_output = {
         "type": "Observation",
@@ -260,13 +272,10 @@ async def new_simple_cell(
     session.add(cell)
     session.commit()
 
-    await send(
-        Div(
-            CellComponent(cell),
-            hx_swap_oob="beforeend",
-            id="cells-container",
-        )
-    )
+    workflow = prev_cell.workflow
+    workflow.activate_cell(session, cell.id)
+
+    await send(render_cell_container(prev_cell.workflow.cells, hx_swap_oob="true"))
 
     return cell
 

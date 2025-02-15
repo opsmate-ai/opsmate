@@ -199,6 +199,16 @@ class Worker:
             .where(TaskItem.status == TaskStatus.PENDING)
         ).one()
 
+    def inflight_size(self):
+        return self.session.exec(
+            select(func.count(col(TaskItem.id)))
+            .select_from(TaskItem)
+            .where(TaskItem.status == TaskStatus.RUNNING)
+        ).one()
+
+    def idle(self):
+        return self.queue_size() == 0 and self.inflight_size() == 0
+
     async def stop(self):
         async with self.lock:
             self.running = False

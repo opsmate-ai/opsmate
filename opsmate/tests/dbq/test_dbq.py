@@ -135,10 +135,21 @@ class TestDbq:
 
     @pytest.mark.asyncio
     async def test_worker_queue_size(self, session: Session):
-        async with self.with_worker(session) as worker:
-            assert worker.queue_size() == 0
-            enqueue_task(session, dummy, 1, 2)
-            assert worker.queue_size() == 1
+        worker = Worker(session, concurrency=2)
+        assert worker.queue_size() == 0
+        enqueue_task(session, dummy, 1, 2)
+        assert worker.queue_size() == 1
+
+    @pytest.mark.asyncio
+    async def test_worker_inflight_size(self, session: Session):
+        worker = Worker(session, concurrency=2)
+        assert worker.inflight_size() == 0
+        task_id = enqueue_task(session, dummy, 1, 2)
+        task = session.exec(select(TaskItem).where(TaskItem.id == task_id)).first()
+        task.status = TaskStatus.RUNNING
+        session.commit()
+
+        assert worker.inflight_size() == 1
 
     @pytest.mark.asyncio
     async def test_task_with_priority(self, session: Session):

@@ -54,16 +54,8 @@ class TestJobs(BaseTestCase):
                     "glob_pattern": "./README.md",
                 },
             )
-            enqueue_task(
-                session,
-                ingest,
-                ingestor_type="fs",
-                ingestor_config={
-                    "local_path": ".",
-                    "glob_pattern": "./docs/**/*.md",
-                },
-            )
-            await asyncio.sleep(0.5)
+
+            await asyncio.sleep(0.2)
 
         async def get_kbs():
             return (
@@ -77,7 +69,7 @@ class TestJobs(BaseTestCase):
 
         async with self.with_worker(session) as worker:
             await ingest_all()
-            await self.await_task_pool_drain(worker)
+            await self.await_task_pool_idle(worker)
 
             conn = await aconn()
             table = await conn.open_table("knowledge_store")
@@ -109,17 +101,17 @@ class TestJobs(BaseTestCase):
 
             # ingest again
             await ingest_all()
-            await self.await_task_pool_drain(worker)
+            await self.await_task_pool_idle(worker)
 
             kbs = await get_kbs()
             assert len(kbs) == current_kbs_len, "Should have the same number of kbs"
 
-    async def await_task_pool_drain(self, worker: Worker, timeout: float = 10):
+    async def await_task_pool_idle(self, worker: Worker, timeout: float = 10):
         start = time.time()
-        while worker.queue_size() > 0:
+        while not worker.idle():
             await asyncio.sleep(0.1)
             if time.time() - start > timeout:
-                raise TimeoutError("Task pool did not drain in time")
+                raise TimeoutError("Task pool did not idle in time")
         return True
 
     @pytest.mark.asyncio

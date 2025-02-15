@@ -31,8 +31,11 @@ from opsmate.gui.views import (
     execute_notes_instruction,
     home_body,
 )
+from opsmate.dbq.dbq import SQLModel as DBQSQLModel, Worker
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
+from sqlmodel import text, Session
+import asyncio
 
 config = Config()
 
@@ -42,15 +45,22 @@ logger = structlog.get_logger()
 
 # start a sqlite database
 engine = sqlmodel.create_engine(
-    config.db_url, connect_args={"check_same_thread": False}
+    config.db_url,
+    connect_args={"check_same_thread": False},
+    # echo=True
 )
+
+with engine.connect() as conn:
+    conn.execute(text("PRAGMA journal_mode=WAL"))
+    conn.close()
 
 
 async def on_startup():
     GUISQLModel.metadata.create_all(engine)
     WorkflowSQLModel.metadata.create_all(engine)
+    DBQSQLModel.metadata.create_all(engine)
 
-    await ingest_from_config(config)
+    await ingest_from_config(config, engine)
 
 
 def before(req, session):

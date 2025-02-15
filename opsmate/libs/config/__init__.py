@@ -1,8 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from pathlib import Path
-from typing import Dict
-import os
+from typing import Dict, Any
 
 default_db_path = str(Path.home() / "data" / "opsmate-embeddings")
 
@@ -33,6 +32,8 @@ opsmate/opsmate2=main=*.txt
 
 
 class Config(BaseSettings):
+    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
+
     embeddings_db_path: str = Field(
         default=default_db_path, description="The path to the lance db"
     )
@@ -50,6 +51,9 @@ class Config(BaseSettings):
     )
     categorise: bool = Field(
         default=True, description="Whether to categorise the embeddings"
+    )
+    splitter_config: Dict[str, Any] = Field(
+        default={}, description="The splitter to use for the ingestion"
     )
 
 

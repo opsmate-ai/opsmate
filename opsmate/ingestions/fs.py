@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
 from .base import BaseIngestion, Document
-from pydantic import BaseModel, Field
+from pydantic import Field
 from glob import glob
 from os import path
 from pathlib import Path
@@ -21,16 +21,14 @@ class FsIngestion(BaseIngestion):
             with open(filename, "r") as f:
                 content = f.read()
             base_name = path.basename(filename)
-            path_name = path.join(
-                path.dirname(filename.replace(self.local_path, "")),
-                base_name,
-            )
-
+            full_path = path.abspath(filename)
             yield Document(
+                data_provider=self.data_source_provider(),
+                data_source=self.data_source(),
                 content=content,
                 metadata={
                     "name": base_name,
-                    "path": path_name,
+                    "path": full_path,
                 },
             )
 
@@ -41,7 +39,7 @@ class FsIngestion(BaseIngestion):
         return "fs"
 
     @classmethod
-    def from_config(cls, config: Dict[str, str]) -> List["FsIngestion"]:
+    def from_configmap(cls, config: Dict[str, str]) -> List["FsIngestion"]:
         ingestions = []
         for path, glob_pattern in config.items():
             ingestions.append(cls(local_path=path, glob_pattern=glob_pattern))

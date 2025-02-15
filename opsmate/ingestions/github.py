@@ -81,27 +81,25 @@ class GithubIngestion(BaseIngestion):
             async with semaphore:
                 content_with_metadata = await self.get_file_with_metadata(file)
                 return Document(
+                    data_provider=self.data_source_provider(),
+                    data_source=self.data_source(),
                     content=content_with_metadata.get("content"),
                     metadata={
                         "path": file,
                         "repo": self.repo,
                         "branch": self.branch,
-                        "data_source_provider": "github",
-                        "data_source": self.repo,
                         "source": content_with_metadata.get("html_url"),
                         "sha": content_with_metadata.get("sha"),
                     },
                 )
 
-        # Process files concurrently
-        async for file in self.get_files():
-            tasks = []
-            task = asyncio.create_task(process_file(file))
-            tasks.append(task)
+        tasks = [
+            asyncio.create_task(process_file(file)) async for file in self.get_files()
+        ]
 
-            # Process completed tasks
-            for task in asyncio.as_completed(tasks):
-                yield await task
+        # Process completed tasks
+        for task in asyncio.as_completed(tasks):
+            yield await task
 
     def data_source(self) -> str:
         return self.repo
@@ -110,7 +108,7 @@ class GithubIngestion(BaseIngestion):
         return "github"
 
     @classmethod
-    def from_config(cls, config: Dict[str, str]) -> List["GithubIngestion"]:
+    def from_configmap(cls, config: Dict[str, str]) -> List["GithubIngestion"]:
         ingestions = []
         for repo, glob_pattern in config.items():
             maybe_branch = repo.split(":")

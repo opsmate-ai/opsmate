@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class Chunk(BaseModel):
+    id: int | None = None
     metadata: dict = Field(default_factory=dict)
     content: str
 
@@ -24,7 +25,8 @@ class TextSplitter(ABC):
     def __init__(
         self,
         chunk_size: int = 1000,
-        chunk_overlap: int = 200,
+        # practically, we don't want any overlap
+        chunk_overlap: int = 0,
         separators: List[str] = [],
     ):
         """

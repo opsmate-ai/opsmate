@@ -26,6 +26,13 @@ async def dummy_return_complex_value():
     return {"a": 1, "b": 2}
 
 
+async def dummy_with_context(ctx: dict):
+    session: Session = ctx["session"]
+    # execute select 1
+    result = session.exec(select(1)).first()
+    return result
+
+
 class TestDbq:
     @pytest.fixture
     def engine(self):
@@ -127,6 +134,24 @@ class TestDbq:
             assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
+    async def test_worker_queue_size(self, session: Session):
+        worker = Worker(session, concurrency=2)
+        assert worker.queue_size() == 0
+        enqueue_task(session, dummy, 1, 2)
+        assert worker.queue_size() == 1
+
+    @pytest.mark.asyncio
+    async def test_worker_inflight_size(self, session: Session):
+        worker = Worker(session, concurrency=2)
+        assert worker.inflight_size() == 0
+        task_id = enqueue_task(session, dummy, 1, 2)
+        task = session.exec(select(TaskItem).where(TaskItem.id == task_id)).first()
+        task.status = TaskStatus.RUNNING
+        session.commit()
+
+        assert worker.inflight_size() == 1
+
+    @pytest.mark.asyncio
     async def test_task_with_priority(self, session: Session):
         task_id = enqueue_task(session, dummy, 1, 2, priority=1)
         task_id2 = enqueue_task(session, dummy, 1, 2, priority=2)
@@ -137,3 +162,10 @@ class TestDbq:
             assert task2.result == 3
 
             assert task.updated_at > task2.updated_at
+
+    @pytest.mark.asyncio
+    async def test_task_with_context(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy_with_context)
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 1

@@ -31,6 +31,7 @@ async def chunk_and_store(
         kbs.append(
             {
                 "uuid": str(uuid.uuid4()),
+                "id": chunk.id,
                 # "summary": chunk.metadata["summary"],
                 "data_source_provider": chunk.metadata["data_source_provider"],
                 "data_source": chunk.metadata["data_source"],
@@ -41,7 +42,15 @@ async def chunk_and_store(
             }
         )
 
-    await table.add(kbs)
+    # await table.add(kbs)
+    await (
+        table.merge_insert(["data_source_provider", "data_source", "path", "id"])
+        .when_matched_update_all()
+        .when_not_matched_insert_all()
+        .when_not_matched_by_source_delete()
+        .execute(kbs)
+    )
+
     logger.info("chunks stored", repo=repo, glob=glob, branch=branch, num_kbs=len(kbs))
 
 

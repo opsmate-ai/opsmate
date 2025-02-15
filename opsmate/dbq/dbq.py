@@ -15,6 +15,7 @@ import importlib
 import asyncio
 import structlog
 import time
+import traceback
 
 logger = structlog.get_logger(__name__)
 
@@ -158,7 +159,9 @@ class Worker:
             task.generation_id = task.generation_id + 1
             self.session.commit()
         except Exception as e:
-            logger.error("error running task", error=e)
+            logger.error(
+                "error running task", error=str(e), stack_trace=traceback.format_exc()
+            )
             task.error = str(e)
             task.status = TaskStatus.FAILED
             task.updated_at = datetime.now(UTC)

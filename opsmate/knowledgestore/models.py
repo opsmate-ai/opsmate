@@ -28,6 +28,7 @@ class Category(Enum):
 
 class KnowledgeStore(LanceModel):
     uuid: str = Field(description="The uuid of the runbook", default_factory=uuid.uuid4)
+    id: int = Field(description="The id of the knowledge")
     # summary: str = Field(description="The summary of the knowledge")
     categories: List[str] = Field(description="The categories of the knowledge")
     data_source_provider: str = Field(description="The provider of the data source")

@@ -49,11 +49,12 @@ class BaseIngestion(ABC, BaseModel):
         """
         Chunk the individual document.
         """
-        for chunk in self.splitter.split_text(document.content):
+        for chunk_idx, chunk in enumerate(self.splitter.split_text(document.content)):
             logger.info("chunking document", document=document.metadata["path"])
             ch = chunk.model_copy()
             for key, value in document.metadata.items():
                 ch.metadata[key] = value
+            ch.id = chunk_idx
             ch.metadata["data_source"] = self.data_source()
             ch.metadata["data_source_provider"] = self.data_source_provider()
             if self.post_chunk_hooks:

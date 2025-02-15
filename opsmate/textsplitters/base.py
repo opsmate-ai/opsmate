@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class Chunk(BaseModel):
+    id: int | None = None
     metadata: dict = Field(default_factory=dict)
     content: str
 

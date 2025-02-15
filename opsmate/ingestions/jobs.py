@@ -1,28 +1,47 @@
-from opsmate.ingestions import GithubIngestion
-from opsmate.knowledgestore.models import init_table, aconn
+from opsmate.ingestions import GithubIngestion, FsIngestion
+from opsmate.knowledgestore.models import init_table, aconn, Category
 from opsmate.ingestions.base import Document
 from opsmate.libs.config import config
 import structlog
 from sqlmodel import create_engine, Session
 from opsmate.dbq.dbq import enqueue_task, Worker, SQLModel
-from typing import Dict, Any
+from typing import Dict, Any, List
 import asyncio
 import uuid
 import json
+from opsmate.dino import dino
+from datetime import datetime
 
 logger = structlog.get_logger()
 
 engine = create_engine(config.db_url, connect_args={"check_same_thread": False})
 
 
+@dino(
+    model="gpt-4o-mini",
+    response_model=List[Category],
+)
+async def categorize(text: str) -> str:
+    f"""
+    You are a world class expert in categorizing text.
+    Please categorise the text into one or more unique categories:
+    """
+    return text
+
+
+async def categorize_kb(kb: Dict[str, Any]):
+    categories = await categorize(kb["content"])
+    kb["categories"] = [cat.value for cat in categories]
+    return kb
+
+
 async def chunk_and_store(
-    repo: str = "",
-    glob: str = "",
-    branch: str = "",
+    ingestor_type: str = "",
+    ingestor_config: Dict[str, Any] = {},
     doc: Dict[str, Any] = {},
 ):
     doc = Document(**doc)
-    ingestion = GithubIngestion(repo=repo, glob=glob, branch=branch)
+    ingestion = ingestor_from_config(ingestor_type, ingestor_config)
     db_conn = await aconn()
     table = await db_conn.open_table("knowledge_store")
 
@@ -43,10 +62,13 @@ async def chunk_and_store(
                 "metadata": json.dumps(chunk.metadata),
                 "path": path,
                 "content": chunk.content,
+                "created_at": datetime.now(),
             }
         )
 
-    # await table.add(kbs)
+    tasks = [categorize_kb(kb) for kb in kbs]
+    await asyncio.gather(*tasks)
+
     logger.info(
         "deleting chunks from data source",
         data_source_provider=data_provider,
@@ -60,34 +82,45 @@ async def chunk_and_store(
     )
 
     await table.add(kbs)
-    # kbs = [kb for kb in kbs if kb["uuid"] not in existing_uuids]
-    # await (
-    #     table.merge_insert(["data_source_provider", "data_source", "path", "id"])
-    #     .when_matched_update_all()
-    #     .when_not_matched_insert_all()
-    #     .when_not_matched_by_source_delete()
-    #     .execute(kbs)
-    # )
 
-    logger.info("chunks stored", repo=repo, glob=glob, branch=branch, num_kbs=len(kbs))
+    logger.info(
+        "chunks stored",
+        data_provider=data_provider,
+        data_source=data_source,
+        path=path,
+        ingestor_type=ingestor_type,
+        ingestor_config=ingestor_config,
+        num_kbs=len(kbs),
+    )
 
 
-async def github_ingestion(repo: str, glob: str, branch: str):
+async def ingest(ingestor_type: str, ingestor_config: Dict[str, Any]):
     with Session(engine) as session:
-        ingestion = GithubIngestion(repo=repo, glob=glob, branch=branch)
+        ingestion = ingestor_from_config(ingestor_type, ingestor_config)
 
         async for doc in ingestion.load():
             logger.info(
-                "github ingestion", repo=repo, glob=glob, branch=branch, doc=doc
+                "ingesting document",
+                ingestor_type=ingestor_type,
+                ingestor_config=ingestor_config,
+                doc_path=doc.metadata["path"],
             )
             enqueue_task(
                 session,
                 chunk_and_store,
-                repo=repo,
-                glob=glob,
-                branch=branch,
+                ingestor_type=ingestor_type,
+                ingestor_config=ingestor_config,
                 doc=doc.model_dump(),
             )
+
+
+def ingestor_from_config(name: str, config: Dict[str, Any]):
+    if name == "github":
+        return GithubIngestion(**config)
+    elif name == "fs":
+        return FsIngestion(**config)
+    else:
+        raise ValueError(f"Unknown ingestor type: {name}")
 
 
 async def main():
@@ -97,7 +130,14 @@ async def main():
     worker = Worker(Session(engine), concurrency=10)
     worker_task = asyncio.create_task(worker.start())
 
-    await github_ingestion(repo="jingkaihe/opsmate", glob="**/*.md", branch="main")
+    await ingest(
+        ingestor_type="github",
+        ingestor_config={
+            "repo": "jingkaihe/opsmate",
+            "glob": "**/*.md",
+            "branch": "main",
+        },
+    )
 
     await worker_task
 

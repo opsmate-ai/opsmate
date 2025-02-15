@@ -8,6 +8,7 @@ from typing import List
 import uuid
 from lancedb.rerankers import OpenaiReranker
 from enum import Enum
+from datetime import datetime
 
 registry = get_registry()
 
@@ -39,6 +40,9 @@ class KnowledgeStore(LanceModel):
     content: str = (
         embeddings.SourceField()
     )  # source field indicates the field will be embed
+    created_at: datetime = Field(
+        description="The created at date of the knowledge", default_factory=datetime.now
+    )
 
 
 openai_reranker = OpenaiReranker(model_name="gpt-4o-mini", column="content")

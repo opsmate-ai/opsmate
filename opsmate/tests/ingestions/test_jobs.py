@@ -28,7 +28,7 @@ class TestJobs(BaseTestCase):
 
     @asynccontextmanager
     async def with_worker(self, session: Session):
-        worker = Worker(session, concurrency=2)
+        worker = Worker(session, concurrency=5)
         worker_task = asyncio.create_task(worker.start())
         try:
             yield worker

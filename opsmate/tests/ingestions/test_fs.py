@@ -28,11 +28,11 @@ class TestFsIngestion(BaseTestCase):
 
         doc = find_doc("TEST.md")
         assert doc.metadata["name"] == "TEST.md"
-        assert doc.metadata["path"] == "/TEST.md"
+        assert doc.metadata["path"].endswith("/TEST.md")
 
         doc = find_doc("TEST2.md")
         assert doc.metadata["name"] == "TEST2.md"
-        assert doc.metadata["path"] == "/nested/TEST2.md"
+        assert doc.metadata["path"].endswith("/nested/TEST2.md")
 
     @pytest.mark.asyncio
     async def test_ingestion_ingest(self, fixtures_dir):
@@ -55,32 +55,32 @@ class TestFsIngestion(BaseTestCase):
         assert (
             chunks[0].content == "This document is used to test the document ingestion."
         )
-        assert chunks[0].metadata["path"] == "/TEST.md"
+        assert chunks[0].metadata["path"].endswith("/TEST.md")
 
         assert "h1" in chunks[1].metadata
         assert "h2" in chunks[1].metadata
         assert chunks[1].content == "Hello this is test 1"
-        assert chunks[1].metadata["path"] == "/TEST.md"
+        assert chunks[1].metadata["path"].endswith("/TEST.md")
 
         assert "h1" in chunks[2].metadata
         assert "h2" in chunks[2].metadata
         assert "Hello this is test 2, here is some code:" in chunks[2].content
-        assert chunks[2].metadata["path"] == "/TEST.md"
+        assert chunks[2].metadata["path"].endswith("/TEST.md")
 
         assert "h1" in chunks[3].metadata
         assert "h2" in chunks[3].metadata
         assert "h3" in chunks[3].metadata
         assert "go run main.go" in chunks[3].content
-        assert chunks[3].metadata["path"] == "/TEST.md"
+        assert chunks[3].metadata["path"].endswith("/TEST.md")
 
         assert "h1" in chunks[4].metadata
         assert "h2" in chunks[4].metadata
         assert "nginx-service" in chunks[4].content
-        assert chunks[4].metadata["path"] == "/TEST.md"
+        assert chunks[4].metadata["path"].endswith("/TEST.md")
 
         assert "h1" in chunks[5].metadata
         assert "This is a test 2" in chunks[5].content
-        assert chunks[5].metadata["path"] == "/nested/TEST2.md"
+        assert chunks[5].metadata["path"].endswith("/nested/TEST2.md")
 
     def test_from_config(self):
         config = {

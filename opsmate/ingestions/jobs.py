@@ -129,27 +129,3 @@ def ingestor_from_config(name: str, config: Dict[str, Any]):
         return FsIngestion(**config)
     else:
         raise ValueError(f"Unknown ingestor type: {name}")
-
-
-async def main():
-    init_engine()
-    SQLModel.metadata.create_all(engine)
-    await init_table()
-
-    worker = Worker(Session(engine), concurrency=10)
-    worker_task = asyncio.create_task(worker.start())
-
-    await ingest(
-        ingestor_type="github",
-        ingestor_config={
-            "repo": "jingkaihe/opsmate",
-            "glob": "**/*.md",
-            "branch": "main",
-        },
-    )
-
-    await worker_task
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -26,6 +26,10 @@ async def chunk_and_store(
     db_conn = await aconn()
     table = await db_conn.open_table("knowledge_store")
 
+    data_provider = ingestion.data_source_provider()
+    data_source = ingestion.data_source()
+    path = doc.metadata["path"]
+
     kbs = []
     async for chunk in ingestion.chunking_document(doc):
         kbs.append(
@@ -33,23 +37,37 @@ async def chunk_and_store(
                 "uuid": str(uuid.uuid4()),
                 "id": chunk.id,
                 # "summary": chunk.metadata["summary"],
-                "data_source_provider": chunk.metadata["data_source_provider"],
-                "data_source": chunk.metadata["data_source"],
-                "path": chunk.metadata["path"],
                 "categories": [],
+                "data_source_provider": data_provider,
+                "data_source": data_source,
                 "metadata": json.dumps(chunk.metadata),
+                "path": path,
                 "content": chunk.content,
             }
         )
 
     # await table.add(kbs)
-    await (
-        table.merge_insert(["data_source_provider", "data_source", "path", "id"])
-        .when_matched_update_all()
-        .when_not_matched_insert_all()
-        .when_not_matched_by_source_delete()
-        .execute(kbs)
+    logger.info(
+        "deleting chunks from data source",
+        data_source_provider=data_provider,
+        data_source=data_source,
+        path=path,
     )
+    await table.delete(
+        f"data_source_provider = '{data_provider}'"
+        f"AND data_source = '{data_source}'"
+        f"AND path = '{path}'"
+    )
+
+    await table.add(kbs)
+    # kbs = [kb for kb in kbs if kb["uuid"] not in existing_uuids]
+    # await (
+    #     table.merge_insert(["data_source_provider", "data_source", "path", "id"])
+    #     .when_matched_update_all()
+    #     .when_not_matched_insert_all()
+    #     .when_not_matched_by_source_delete()
+    #     .execute(kbs)
+    # )
 
     logger.info("chunks stored", repo=repo, glob=glob, branch=branch, num_kbs=len(kbs))
 

@@ -5,8 +5,6 @@ from opsmate.ingestions.fs import FsIngestion
 from opsmate.ingestions.github import GithubIngestion
 from opsmate.libs.config import config
 import structlog
-from sqlmodel import create_engine, Session
-from sqlalchemy import Engine
 from opsmate.dbq.dbq import enqueue_task
 from opsmate.dino import dino
 from typing import Dict, Any, List
@@ -17,15 +15,6 @@ import uuid
 import json
 
 logger = structlog.get_logger()
-
-engine: Engine | None = None
-
-
-def init_engine(e: Engine | None = None):
-    global engine
-    engine = e or create_engine(
-        config.db_url, connect_args={"check_same_thread": False}
-    )
 
 
 @dino(
@@ -49,6 +38,7 @@ async def categorize_kb(kb: Dict[str, Any]):
 async def chunk_and_store(
     splitter_config: Dict[str, Any] = {},
     doc: Dict[str, Any] = {},
+    ctx: Dict[str, Any] = {},
 ):
     doc = Document(**doc)
     splitter = splitter_from_config(splitter_config)
@@ -105,23 +95,25 @@ async def ingest(
     ingestor_type: str,
     ingestor_config: Dict[str, Any],
     splitter_config: Dict[str, Any] = {},
+    ctx: Dict[str, Any] = {},
 ):
-    with Session(engine) as session:
-        ingestion = ingestor_from_config(ingestor_type, ingestor_config)
+    session = ctx["session"]
 
-        async for doc in ingestion.load():
-            logger.info(
-                "ingesting document",
-                ingestor_type=ingestor_type,
-                ingestor_config=ingestor_config,
-                doc_path=doc.metadata["path"],
-            )
-            enqueue_task(
-                session,
-                chunk_and_store,
-                splitter_config=splitter_config,
-                doc=doc.model_dump(),
-            )
+    ingestion = ingestor_from_config(ingestor_type, ingestor_config)
+
+    async for doc in ingestion.load():
+        logger.info(
+            "ingesting document",
+            ingestor_type=ingestor_type,
+            ingestor_config=ingestor_config,
+            doc_path=doc.metadata["path"],
+        )
+        enqueue_task(
+            session,
+            chunk_and_store,
+            splitter_config=splitter_config,
+            doc=doc.model_dump(),
+        )
 
 
 def ingestor_from_config(name: str, config: Dict[str, Any]):

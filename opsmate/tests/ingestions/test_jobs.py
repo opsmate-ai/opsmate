@@ -1,11 +1,11 @@
 import pytest
 from sqlmodel import create_engine, Session
-from opsmate.dbq.dbq import Worker, SQLModel
+from opsmate.dbq.dbq import Worker, SQLModel, enqueue_task
 import asyncio
 from contextlib import asynccontextmanager
 import structlog
 from sqlalchemy import Engine
-from opsmate.ingestions.jobs import ingest, init_engine
+from opsmate.ingestions.jobs import ingest
 import time
 from opsmate.knowledgestore.models import aconn
 from opsmate.tests.base import BaseTestCase
@@ -20,7 +20,6 @@ class TestJobs(BaseTestCase):
     @pytest.fixture
     def engine(self):
         engine = create_engine("sqlite:///:memory:")
-        init_engine(engine)
         return engine
 
     @pytest.fixture
@@ -46,14 +45,32 @@ class TestJobs(BaseTestCase):
     @pytest.mark.asyncio
     async def test_ingest(self, session: Session):
         async def ingest_all():
-            await ingest(
+            # await ingest(
+            #     ingestor_type="fs",
+            #     ingestor_config={
+            #         "local_path": ".",
+            #         "glob_pattern": "./README.md",
+            #     },
+            # )
+            # await ingest(
+            #     ingestor_type="fs",
+            #     ingestor_config={
+            #         "local_path": ".",
+            #         "glob_pattern": "./docs/**/*.md",
+            #     },
+            # )
+            enqueue_task(
+                session,
+                ingest,
                 ingestor_type="fs",
                 ingestor_config={
                     "local_path": ".",
                     "glob_pattern": "./README.md",
                 },
             )
-            await ingest(
+            enqueue_task(
+                session,
+                ingest,
                 ingestor_type="fs",
                 ingestor_config={
                     "local_path": ".",
@@ -72,8 +89,6 @@ class TestJobs(BaseTestCase):
             )
 
         async with self.with_worker(session) as worker:
-            # await init_table()
-
             await ingest_all()
             await self.await_task_pool_drain(worker)
 

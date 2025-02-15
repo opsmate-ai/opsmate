@@ -26,6 +26,13 @@ async def dummy_return_complex_value():
     return {"a": 1, "b": 2}
 
 
+async def dummy_with_context(ctx: dict):
+    session: Session = ctx["session"]
+    # execute select 1
+    result = session.exec(select(1)).first()
+    return result
+
+
 class TestDbq:
     @pytest.fixture
     def engine(self):
@@ -144,3 +151,10 @@ class TestDbq:
             assert task2.result == 3
 
             assert task.updated_at > task2.updated_at
+
+    @pytest.mark.asyncio
+    async def test_task_with_context(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy_with_context)
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 1

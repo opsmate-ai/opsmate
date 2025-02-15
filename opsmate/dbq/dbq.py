@@ -18,6 +18,7 @@ import asyncio
 import structlog
 import time
 import traceback
+import inspect
 
 logger = structlog.get_logger(__name__)
 
@@ -122,13 +123,22 @@ async def await_task_completion(
 
 
 class Worker:
-    def __init__(self, session: Session, concurrency: int = 1):
+    def __init__(
+        self, session: Session, concurrency: int = 1, context: Dict[str, Any] = {}
+    ):
         self.session = session
         self.running = True
         self.lock = asyncio.Lock()
         self.concurrency = concurrency
+        self.context = context
+
+        if self.context.get("session") is None:
+            self.context["session"] = self.session
 
     async def start(self):
+        logger.info(
+            "starting dbq (database queue) worker", concurrency=self.concurrency
+        )
         tasks = [self._start() for _ in range(self.concurrency)]
         await asyncio.gather(*tasks)
 
@@ -152,7 +162,7 @@ class Worker:
             fn_module, fn_name = task.func.rsplit(".", 1)
             fn = getattr(importlib.import_module(fn_module), fn_name)
             logger.info("imported function", func=task.func)
-            result = await fn(*task.args, **task.kwargs)
+            result = await self.maybe_context_fn(fn, task.args, task.kwargs)
 
             logger.info("task completed", task_id=task.id, result=result)
             task.result = result
@@ -170,6 +180,17 @@ class Worker:
             task.generation_id = task.generation_id + 1
             self.session.commit()
             return
+
+    async def maybe_context_fn(
+        self,
+        fn: Callable[..., Awaitable[Any]],
+        args: List[Any],
+        kwargs: Dict[str, Any],
+    ):
+        """Check if the fn has a ctx argument, if so, add the session to it"""
+        if "ctx" in inspect.signature(fn).parameters:
+            return await fn(*args, ctx=self.context, **kwargs)
+        return await fn(*args, **kwargs)
 
     def queue_size(self):
         return self.session.exec(

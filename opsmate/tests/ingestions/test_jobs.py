@@ -7,8 +7,11 @@ import structlog
 from sqlalchemy import Engine
 from opsmate.ingestions.jobs import ingest, init_engine
 import time
-from opsmate.knowledgestore.models import init_table, aconn
+from opsmate.knowledgestore.models import aconn
 from opsmate.tests.base import BaseTestCase
+from opsmate.ingestions.fs import FsIngestion
+from opsmate.ingestions.github import GithubIngestion
+from opsmate.ingestions.jobs import ingestor_from_config
 
 logger = structlog.get_logger(__name__)
 
@@ -116,3 +119,27 @@ class TestJobs(BaseTestCase):
             if time.time() - start > timeout:
                 raise TimeoutError("Task pool did not drain in time")
         return True
+
+    @pytest.mark.asyncio
+    async def test_ingest_from_config(self):
+        config = {
+            "local_path": ".",
+            "glob_pattern": "./README.md",
+        }
+
+        ingestion = ingestor_from_config("fs", config)
+        assert isinstance(ingestion, FsIngestion)
+        assert ingestion.local_path == "."
+        assert ingestion.glob_pattern == "./README.md"
+
+        config = {
+            "repo": "opsmate/opsmate",
+            "branch": "main",
+            "path": "README.md",
+        }
+
+        ingestion = ingestor_from_config("github", config)
+        assert isinstance(ingestion, GithubIngestion)
+        assert ingestion.repo == "opsmate/opsmate"
+        assert ingestion.branch == "main"
+        assert ingestion.path == "README.md"

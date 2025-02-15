@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 
 default_db_path = str(Path.home() / "data" / "opsmate-embeddings")
 
@@ -51,6 +51,9 @@ class Config(BaseSettings):
     )
     categorise: bool = Field(
         default=True, description="Whether to categorise the embeddings"
+    )
+    splitter_config: Dict[str, Any] = Field(
+        default={}, description="The splitter to use for the ingestion"
     )
 
 

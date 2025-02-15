@@ -3,7 +3,7 @@
 # License: MIT License
 
 from typing import List, Tuple, Dict, TypedDict
-from opsmate.ingestions.base import Chunk
+from opsmate.textsplitters.base import Chunk
 from .base import TextSplitter
 
 

@@ -1,17 +1,20 @@
-from opsmate.ingestions import GithubIngestion, FsIngestion
-from opsmate.knowledgestore.models import init_table, aconn, Category
+from opsmate.knowledgestore.models import aconn, Category
 from opsmate.ingestions.base import Document
+from opsmate.ingestions.chunk import chunk_document
+from opsmate.ingestions.fs import FsIngestion
+from opsmate.ingestions.github import GithubIngestion
 from opsmate.libs.config import config
 import structlog
 from sqlmodel import create_engine, Session
 from sqlalchemy import Engine
-from opsmate.dbq.dbq import enqueue_task, Worker, SQLModel
+from opsmate.dbq.dbq import enqueue_task
+from opsmate.dino import dino
 from typing import Dict, Any, List
+from datetime import datetime
+from opsmate.textsplitters import splitter_from_config
 import asyncio
 import uuid
 import json
-from opsmate.dino import dino
-from datetime import datetime
 
 logger = structlog.get_logger()
 
@@ -44,29 +47,26 @@ async def categorize_kb(kb: Dict[str, Any]):
 
 
 async def chunk_and_store(
-    ingestor_type: str = "",
-    ingestor_config: Dict[str, Any] = {},
+    splitter_config: Dict[str, Any] = {},
     doc: Dict[str, Any] = {},
 ):
     doc = Document(**doc)
-    ingestion = ingestor_from_config(ingestor_type, ingestor_config)
+    splitter = splitter_from_config(splitter_config)
     db_conn = await aconn()
     table = await db_conn.open_table("knowledge_store")
 
-    data_provider = ingestion.data_source_provider()
-    data_source = ingestion.data_source()
     path = doc.metadata["path"]
 
     kbs = []
-    async for chunk in ingestion.chunking_document(doc):
+    async for chunk in chunk_document(splitter=splitter, document=doc):
         kbs.append(
             {
                 "uuid": str(uuid.uuid4()),
                 "id": chunk.id,
                 # "summary": chunk.metadata["summary"],
                 "categories": [],
-                "data_source_provider": data_provider,
-                "data_source": data_source,
+                "data_source_provider": doc.data_provider,
+                "data_source": doc.data_source,
                 "metadata": json.dumps(chunk.metadata),
                 "path": path,
                 "content": chunk.content,
@@ -74,18 +74,19 @@ async def chunk_and_store(
             }
         )
 
-    tasks = [categorize_kb(kb) for kb in kbs]
-    await asyncio.gather(*tasks)
+    if config.categorise:
+        tasks = [categorize_kb(kb) for kb in kbs]
+        await asyncio.gather(*tasks)
 
     logger.info(
         "deleting chunks from data source",
-        data_source_provider=data_provider,
-        data_source=data_source,
+        data_source_provider=doc.data_provider,
+        data_source=doc.data_source,
         path=path,
     )
     await table.delete(
-        f"data_source_provider = '{data_provider}'"
-        f"AND data_source = '{data_source}'"
+        f"data_source_provider = '{doc.data_provider}'"
+        f"AND data_source = '{doc.data_source}'"
         f"AND path = '{path}'"
     )
 
@@ -93,16 +94,18 @@ async def chunk_and_store(
 
     logger.info(
         "chunks stored",
-        data_provider=data_provider,
-        data_source=data_source,
+        data_provider=doc.data_provider,
+        data_source=doc.data_source,
         path=path,
-        ingestor_type=ingestor_type,
-        ingestor_config=ingestor_config,
         num_kbs=len(kbs),
     )
 
 
-async def ingest(ingestor_type: str, ingestor_config: Dict[str, Any]):
+async def ingest(
+    ingestor_type: str,
+    ingestor_config: Dict[str, Any],
+    splitter_config: Dict[str, Any] = {},
+):
     with Session(engine) as session:
         ingestion = ingestor_from_config(ingestor_type, ingestor_config)
 
@@ -116,8 +119,7 @@ async def ingest(ingestor_type: str, ingestor_config: Dict[str, Any]):
             enqueue_task(
                 session,
                 chunk_and_store,
-                ingestor_type=ingestor_type,
-                ingestor_config=ingestor_config,
+                splitter_config=splitter_config,
                 doc=doc.model_dump(),
             )
 

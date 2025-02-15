@@ -81,13 +81,13 @@ class GithubIngestion(BaseIngestion):
             async with semaphore:
                 content_with_metadata = await self.get_file_with_metadata(file)
                 return Document(
+                    data_provider=self.data_source_provider(),
+                    data_source=self.data_source(),
                     content=content_with_metadata.get("content"),
                     metadata={
                         "path": file,
                         "repo": self.repo,
                         "branch": self.branch,
-                        "data_source_provider": self.data_source_provider(),
-                        "data_source": self.data_source(),
                         "source": content_with_metadata.get("html_url"),
                         "sha": content_with_metadata.get("sha"),
                     },

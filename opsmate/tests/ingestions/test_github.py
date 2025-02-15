@@ -165,21 +165,22 @@ async def test_load(github_ingestion):
         "path": "file1.txt",
         "repo": "owner/repo",
         "branch": "main",
-        "data_source_provider": "github",
-        "data_source": "owner/repo",
         "source": "https://github.com/owner/repo/blob/main/file1.txt",
         "sha": "1234567890",
     }
+    assert documents[1].data_provider == "github"
+    assert documents[1].data_source == "owner/repo"
+
     assert documents[1].content == "content2"
     assert documents[1].metadata == {
         "path": "file2.py",
         "repo": "owner/repo",
         "branch": "main",
-        "data_source_provider": "github",
-        "data_source": "owner/repo",
         "source": "https://github.com/owner/repo/blob/main/file2.py",
         "sha": "1234567890",
     }
+    assert documents[1].data_provider == "github"
+    assert documents[1].data_source == "owner/repo"
 
 
 @pytest.mark.skipif(os.getenv("GITHUB_TOKEN") is None, reason="GITHUB_TOKEN is not set")
@@ -198,6 +199,8 @@ async def test_integration():
         assert docs[0].metadata["path"] == "README.md"
         assert docs[0].metadata["repo"] == "jingkaihe/hjktech-metal"
         assert docs[0].metadata["branch"] == "main"
+        assert docs[0].data_provider == "github"
+        assert docs[0].data_source == "jingkaihe/hjktech-metal"
     except Exception as e:
         assert False, f"Should not raise error but got: {e}"
 

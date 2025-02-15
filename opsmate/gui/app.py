@@ -31,6 +31,7 @@ from opsmate.gui.views import (
     execute_notes_instruction,
     home_body,
 )
+from opsmate.dbq.dbq import SQLModel as DBQSQLModel
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
 
@@ -49,8 +50,9 @@ engine = sqlmodel.create_engine(
 async def on_startup():
     GUISQLModel.metadata.create_all(engine)
     WorkflowSQLModel.metadata.create_all(engine)
+    DBQSQLModel.metadata.create_all(engine)
 
-    await ingest_from_config(config)
+    await ingest_from_config(config, engine)
 
 
 def before(req, session):

@@ -2,6 +2,7 @@ import pytest
 from opsmate.tests.base import BaseTestCase
 from opsmate.ingestions.fs import FsIngestion
 from opsmate.textsplitters.markdown_header import MarkdownHeaderTextSplitter
+from opsmate.ingestions.chunk import chunk_document
 from os import path
 
 
@@ -39,16 +40,21 @@ class TestFsIngestion(BaseTestCase):
         ingestion = FsIngestion(
             local_path=fixtures_dir,
             glob_pattern="**/*.md",
-            splitter=MarkdownHeaderTextSplitter(
-                headers_to_split_on=[
-                    ("#", "h1"),
-                    ("##", "h2"),
-                    ("###", "h3"),
-                ]
-            ),
         )
 
-        chunks = [chunk async for chunk in ingestion.chunking()]
+        splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "h1"),
+                ("##", "h2"),
+                ("###", "h3"),
+            ]
+        )
+
+        chunks = []
+        async for doc in ingestion.load():
+            async for chunk in chunk_document(splitter=splitter, document=doc):
+                chunks.append(chunk)
+
         assert len(chunks) == 6
         # print(chunks)
         assert "h1" in chunks[0].metadata

@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
 from .base import BaseIngestion, Document
-from pydantic import BaseModel, Field
+from pydantic import Field
 from glob import glob
 from os import path
 from pathlib import Path
@@ -23,6 +23,8 @@ class FsIngestion(BaseIngestion):
             base_name = path.basename(filename)
             full_path = path.abspath(filename)
             yield Document(
+                data_provider=self.data_source_provider(),
+                data_source=self.data_source(),
                 content=content,
                 metadata={
                     "name": base_name,

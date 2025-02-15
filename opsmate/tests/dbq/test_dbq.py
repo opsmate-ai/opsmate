@@ -127,6 +127,13 @@ class TestDbq:
             assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
+    async def test_worker_queue_size(self, session: Session):
+        async with self.with_worker(session) as worker:
+            assert worker.queue_size() == 0
+            enqueue_task(session, dummy, 1, 2)
+            assert worker.queue_size() == 1
+
+    @pytest.mark.asyncio
     async def test_task_with_priority(self, session: Session):
         task_id = enqueue_task(session, dummy, 1, 2, priority=1)
         task_id2 = enqueue_task(session, dummy, 1, 2, priority=2)

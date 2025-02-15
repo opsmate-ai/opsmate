@@ -21,16 +21,12 @@ class FsIngestion(BaseIngestion):
             with open(filename, "r") as f:
                 content = f.read()
             base_name = path.basename(filename)
-            path_name = path.join(
-                path.dirname(filename.replace(self.local_path, "")),
-                base_name,
-            )
-
+            full_path = path.abspath(filename)
             yield Document(
                 content=content,
                 metadata={
                     "name": base_name,
-                    "path": path_name,
+                    "path": full_path,
                 },
             )
 

@@ -4,6 +4,7 @@ from opsmate.ingestions.base import Document
 from opsmate.libs.config import config
 import structlog
 from sqlmodel import create_engine, Session
+from sqlalchemy import Engine
 from opsmate.dbq.dbq import enqueue_task, Worker, SQLModel
 from typing import Dict, Any, List
 import asyncio
@@ -14,7 +15,14 @@ from datetime import datetime
 
 logger = structlog.get_logger()
 
-engine = create_engine(config.db_url, connect_args={"check_same_thread": False})
+engine: Engine | None = None
+
+
+def init_engine(e: Engine | None = None):
+    global engine
+    engine = e or create_engine(
+        config.db_url, connect_args={"check_same_thread": False}
+    )
 
 
 @dino(
@@ -124,6 +132,7 @@ def ingestor_from_config(name: str, config: Dict[str, Any]):
 
 
 async def main():
+    init_engine()
     SQLModel.metadata.create_all(engine)
     await init_table()
 

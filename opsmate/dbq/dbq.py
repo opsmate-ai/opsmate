@@ -9,6 +9,8 @@ from sqlmodel import (
     Field,
     update,
     select,
+    func,
+    col,
 )
 from sqlalchemy.orm import registry
 import importlib
@@ -168,6 +170,13 @@ class Worker:
             task.generation_id = task.generation_id + 1
             self.session.commit()
             return
+
+    def queue_size(self):
+        return self.session.exec(
+            select(func.count(col(TaskItem.id)))
+            .select_from(TaskItem)
+            .where(TaskItem.status == TaskStatus.PENDING)
+        ).one()
 
     async def stop(self):
         async with self.lock:

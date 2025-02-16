@@ -14,6 +14,7 @@ from opsmate.dbq.dbq import (
 import asyncio
 import structlog
 from contextlib import asynccontextmanager
+from datetime import datetime, UTC
 
 logger = structlog.get_logger(__name__)
 
@@ -110,6 +111,9 @@ class TestDbq:
             assert task.error.startswith(
                 "unsupported operand type(s) for +: 'int' and 'str'"
             )
+            assert task.retry_count == 3
+            assert task.wait_until is not None
+            assert task.max_retries == 3
 
     @pytest.mark.asyncio
     async def test_task_with_complex_signature(self, session: Session):

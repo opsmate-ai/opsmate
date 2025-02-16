@@ -1,7 +1,7 @@
 from typing import List, Any, Dict, Callable, Awaitable, Optional
 from sqlmodel import Column, JSON
 from enum import Enum
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from sqlmodel import (
     SQLModel as _SQLModel,
     Session,
@@ -52,6 +52,9 @@ class TaskItem(SQLModel, table=True):
     updated_at: datetime = Field(default=datetime.now(UTC))
 
     priority: int = Field(default=DEFAULT_PRIORITY)
+    retry_count: int = Field(default=0)
+    max_retries: int = Field(default=3)
+    wait_until: datetime = Field(default=datetime.now(UTC))
 
 
 def enqueue_task(
@@ -80,6 +83,7 @@ def dequeue_task(session: Session):
     task = session.exec(
         select(TaskItem)
         .where(TaskItem.status == TaskStatus.PENDING)
+        .where(TaskItem.wait_until <= datetime.now(UTC))
         .order_by(TaskItem.priority.desc())
     ).first()
 
@@ -120,6 +124,12 @@ async def await_task_completion(
                 f"Task {task_id} did not complete within {timeout} seconds"
             )
         await asyncio.sleep(interval)
+
+
+def calculate_backoff_time(retry_count: int) -> datetime:
+    """Calculate the backoff time based on the retry count."""
+    backoff_seconds = 2**retry_count
+    return datetime.now(UTC) + timedelta(seconds=backoff_seconds)
 
 
 class Worker:
@@ -169,13 +179,37 @@ class Worker:
             task.status = TaskStatus.COMPLETED
             task.updated_at = datetime.now(UTC)
             task.generation_id = task.generation_id + 1
+            task.wait_until = datetime.now(UTC)  # Reset wait_until on success
             self.session.commit()
         except Exception as e:
-            logger.error(
-                "error running task", error=str(e), stack_trace=traceback.format_exc()
-            )
-            task.error = str(e)
-            task.status = TaskStatus.FAILED
+            task.retry_count += 1
+            if task.retry_count >= task.max_retries:
+                logger.error(
+                    "error running task, max retries exceeded",
+                    task_id=task.id,
+                    error=str(e),
+                    stack_trace=traceback.format_exc(),
+                )
+                task.error = str(e)
+                task.status = TaskStatus.FAILED
+            else:
+                logger.warning(
+                    "error running task, will retry",
+                    task_id=task.id,
+                    error=str(e),
+                    stack_trace=traceback.format_exc(),
+                )
+                task.status = TaskStatus.PENDING
+
+                # Use the backoff function to calculate wait_until
+                # task.wait_until = calculate_backoff_time(task.retry_count)
+                task.wait_until = datetime.now(UTC)
+                logger.info(
+                    "retrying task after backoff",
+                    task_id=task.id,
+                    wait_until=task.wait_until,
+                )
+
             task.updated_at = datetime.now(UTC)
             task.generation_id = task.generation_id + 1
             self.session.commit()

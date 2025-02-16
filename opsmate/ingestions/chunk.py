@@ -10,7 +10,9 @@ async def chunk_document(splitter: TextSplitter, document: Document):
     Chunk the individual document.
     """
     for chunk_idx, chunk in enumerate(splitter.split_text(document.content)):
-        logger.info("chunking document", document=document.metadata["path"])
+        logger.info(
+            "chunking document", document=document.metadata["path"], chunk_idx=chunk_idx
+        )
         ch = chunk.model_copy()
         for key, value in document.metadata.items():
             ch.metadata[key] = value

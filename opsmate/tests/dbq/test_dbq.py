@@ -10,13 +10,21 @@ from opsmate.dbq.dbq import (
     dummy,
     Worker,
     await_task_completion,
+    dbq_task,
 )
 import asyncio
 import structlog
 from contextlib import asynccontextmanager
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 
 logger = structlog.get_logger(__name__)
+
+
+@dbq_task(
+    max_retries=1, back_off_func=lambda x: datetime.now(UTC) + timedelta(seconds=x)
+)
+async def dummy_plus(a: int, b: int):
+    return a + b
 
 
 async def dummy_with_complex_signature(a: int, b: int, c: dict, d: int = 1):
@@ -114,6 +122,20 @@ class TestDbq:
             assert task.retry_count == 3
             assert task.wait_until is not None
             assert task.max_retries == 3
+
+    @pytest.mark.asyncio
+    async def test_task_with_backoff(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy_plus, 1, "a")
+            task = await await_task_completion(session, task_id, 5)
+            assert task.result == None
+            assert task.status == TaskStatus.FAILED
+            assert task.error.startswith(
+                "unsupported operand type(s) for +: 'int' and 'str'"
+            )
+            assert task.retry_count == 1
+            assert task.wait_until is not None
+            assert task.max_retries == 1
 
     @pytest.mark.asyncio
     async def test_task_with_complex_signature(self, session: Session):

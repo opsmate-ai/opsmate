@@ -19,6 +19,7 @@ import structlog
 import time
 import traceback
 import inspect
+from functools import wraps
 
 logger = structlog.get_logger(__name__)
 
@@ -57,9 +58,49 @@ class TaskItem(SQLModel, table=True):
     wait_until: datetime = Field(default=datetime.now(UTC))
 
 
+class Task:
+    def __init__(
+        self,
+        max_retries: int = 3,
+        back_off_func: Callable[[int], datetime] = None,
+        executable: Callable[..., Awaitable[Any]] = None,
+        priority: int = DEFAULT_PRIORITY,
+    ):
+        self.max_retries = max_retries
+        self.back_off_func = back_off_func
+        if not asyncio.iscoroutinefunction(executable):
+            raise TypeError("Executable must be an async function")
+        self.executable = executable
+        self.priority = priority
+
+    async def run(self, *args: List[Any], **kwargs: Dict[str, Any]):
+        await self.executable(*args, **kwargs)
+
+
+def dbq_task(max_retries: int = 3, back_off_func: Callable[[int], datetime] = None):
+    """
+    A decorator for retrying a function call with exponential backoff.
+
+    :param max_retries: Maximum number of retries before giving up.
+    :param backoff_factor: Multiplier for the backoff time.
+    """
+
+    def decorator(func):
+        task = Task(
+            max_retries=max_retries,
+            back_off_func=back_off_func,
+            executable=func,
+        )
+        task.__name__ = func.__name__
+        task.__module__ = func.__module__
+        return task
+
+    return decorator
+
+
 def enqueue_task(
     session: Session,
-    fn: Callable[..., Awaitable[Any]],
+    fn: Callable[..., Awaitable[Any]] | Task,
     *args: List[Any],
     priority: int = DEFAULT_PRIORITY,
     **kwargs: Dict[str, Any],
@@ -73,6 +114,11 @@ def enqueue_task(
         kwargs=kwargs,
         priority=priority,
     )
+
+    if isinstance(fn, Task):
+        task.max_retries = fn.max_retries
+        task.priority = fn.priority
+
     session.add(task)
     session.commit()
 
@@ -124,12 +170,6 @@ async def await_task_completion(
                 f"Task {task_id} did not complete within {timeout} seconds"
             )
         await asyncio.sleep(interval)
-
-
-def calculate_backoff_time(retry_count: int) -> datetime:
-    """Calculate the backoff time based on the retry count."""
-    backoff_seconds = 2**retry_count
-    return datetime.now(UTC) + timedelta(seconds=backoff_seconds)
 
 
 class Worker:
@@ -203,7 +243,10 @@ class Worker:
 
                 # Use the backoff function to calculate wait_until
                 # task.wait_until = calculate_backoff_time(task.retry_count)
-                task.wait_until = datetime.now(UTC)
+                if isinstance(fn, Task):
+                    task.wait_until = fn.back_off_func(task.retry_count)
+                else:
+                    task.wait_until = datetime.now(UTC)
                 logger.info(
                     "retrying task after backoff",
                     task_id=task.id,
@@ -217,11 +260,14 @@ class Worker:
 
     async def maybe_context_fn(
         self,
-        fn: Callable[..., Awaitable[Any]],
+        fn: Callable[..., Awaitable[Any]] | Task,
         args: List[Any],
         kwargs: Dict[str, Any],
     ):
         """Check if the fn has a ctx argument, if so, add the session to it"""
+
+        if isinstance(fn, Task):
+            fn = fn.run
         if "ctx" in inspect.signature(fn).parameters:
             return await fn(*args, ctx=self.context, **kwargs)
         return await fn(*args, **kwargs)

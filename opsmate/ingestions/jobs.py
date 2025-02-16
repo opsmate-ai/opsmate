@@ -4,15 +4,16 @@ from opsmate.ingestions.chunk import chunk_document
 from opsmate.ingestions.fs import FsIngestion
 from opsmate.ingestions.github import GithubIngestion
 from opsmate.libs.config import config
-import structlog
-from opsmate.dbq.dbq import enqueue_task
+from opsmate.dbq.dbq import enqueue_task, dbq_task
 from opsmate.dino import dino
-from typing import Dict, Any, List
-from datetime import datetime
 from opsmate.textsplitters import splitter_from_config
+from typing import Dict, Any, List
+from datetime import datetime, UTC, timedelta
 import asyncio
 import uuid
 import json
+import random
+import structlog
 
 logger = structlog.get_logger()
 
@@ -35,6 +36,17 @@ async def categorize_kb(kb: Dict[str, Any]):
     return kb
 
 
+def backoff_func(retry_count: int):
+    return datetime.now(UTC) + timedelta(
+        milliseconds=2 ** (retry_count - 1) + random.uniform(0, 10)
+    )
+
+
+@dbq_task(
+    retry_on=(Exception,),
+    max_retries=10,
+    back_off_func=backoff_func,
+)
 async def chunk_and_store(
     splitter_config: Dict[str, Any] = {},
     doc: Dict[str, Any] = {},
@@ -91,6 +103,11 @@ async def chunk_and_store(
     )
 
 
+@dbq_task(
+    retry_on=(Exception,),
+    max_retries=10,
+    back_off_func=backoff_func,
+)
 async def ingest(
     ingestor_type: str,
     ingestor_config: Dict[str, Any],

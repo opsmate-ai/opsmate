@@ -76,6 +76,14 @@ class BackOffFunc(Protocol):
         ...
 
 
+class RetryException(Exception):
+    """
+    A base class for exceptions that should be retried.
+    """
+
+    pass
+
+
 class Task:
     """
     Task represents the executable to run runnable on the dbq worker.
@@ -90,18 +98,31 @@ class Task:
         max_retries: int = 3,
         back_off_func: BackOffFunc = None,
         executable: Callable[..., Awaitable[Any]] = None,
+        retry_on: List[Type[Exception]] = [],
         priority: int = DEFAULT_PRIORITY,
     ):
         self.max_retries = max_retries
         self.back_off_func = back_off_func
-        if executable:
-            if not asyncio.iscoroutinefunction(executable):
-                raise TypeError("Executable must be an async function")
-            self.executable = executable
+        if not asyncio.iscoroutinefunction(executable):
+            raise TypeError("Executable must be an async function")
+        self.executable = executable
         self.priority = priority
+        self.retry_on = retry_on
 
     async def run(self, *args: List[Any], **kwargs: Dict[str, Any]):
-        return await self.executable(*args, **kwargs)
+        try:
+            return await self.executable(*args, **kwargs)
+        except Exception as e:
+            # when no retry on is provided, we treat it as a retryable error
+            if len(self.retry_on) == 0:
+                raise RetryException(e)
+
+            # if the error is in the retry on list, we raise a RetryException
+            if isinstance(e, tuple(self.retry_on)):
+                raise RetryException(e)
+
+            # otherwise we raise the original error
+            raise
 
     async def before_run(self, task_item: TaskItem, ctx: Dict[str, Any] = {}):
         """
@@ -126,8 +147,9 @@ class Task:
 
 def dbq_task(
     max_retries: int = 3,
-    back_off_func: BackOffFunc = None,
+    back_off_func: BackOffFunc = lambda _retry_cnt: datetime.now(UTC),
     priority: int = DEFAULT_PRIORITY,
+    retry_on: List[Type[Exception]] = [],
     task_type: Type[Task] = Task,
 ):
     """
@@ -137,6 +159,7 @@ def dbq_task(
         max_retries (int): The maximum number of retries before giving up.
         back_off_func (BackOffFunc): A function that returns a datetime object for the next retry.
         priority (int): The priority of the task.
+        retry_on (List[Type[Exception]]): A list of exceptions that should be retried.
         task_type (Type[Task]): The type of task to use. Default to Task if not provided.
     """
 
@@ -146,6 +169,7 @@ def dbq_task(
             back_off_func=back_off_func,
             executable=func,
             priority=priority,
+            retry_on=retry_on,
         )
         task.__name__ = func.__name__
         task.__module__ = func.__module__
@@ -339,7 +363,7 @@ class Worker:
             task.wait_until = datetime.now(UTC)  # Reset wait_until on success
             self.session.commit()
             await self._on_success(task, fn)
-        except Exception as e:
+        except RetryException as e:
             if task.retry_count >= task.max_retries:
                 logger.error(
                     "error running task, max retries exceeded",
@@ -359,8 +383,6 @@ class Worker:
                 )
                 task.status = TaskStatus.PENDING
 
-                # Use the backoff function to calculate wait_until
-                # task.wait_until = calculate_backoff_time(task.retry_count)
                 if isinstance(fn, Task):
                     task.wait_until = fn.back_off_func(task.retry_count)
                 else:
@@ -376,6 +398,13 @@ class Worker:
             self.session.commit()
             await self._on_failure(task, fn, e)
             return
+        except Exception as e:
+            logger.error("error running task", task_id=task.id, error=str(e))
+            task.error = str(e)
+            task.status = TaskStatus.FAILED
+            task.updated_at = datetime.now(UTC)
+            task.generation_id = task.generation_id + 1
+            self.session.commit()
 
     async def maybe_context_fn(
         self,
@@ -414,7 +443,3 @@ class Worker:
     async def stop(self):
         async with self.lock:
             self.running = False
-
-
-async def dummy(a, b):
-    return a + b

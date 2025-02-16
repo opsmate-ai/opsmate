@@ -7,7 +7,6 @@ from opsmate.dbq.dbq import (
     dequeue_task,
     TaskItem,
     TaskStatus,
-    dummy,
     Worker,
     await_task_completion,
     dbq_task,
@@ -20,6 +19,18 @@ from datetime import datetime, timedelta, UTC
 import random
 
 logger = structlog.get_logger(__name__)
+
+
+async def dummy(a, b):
+    return a + b
+
+
+@dbq_task(
+    retry_on=(TypeError,),
+    max_retries=1,
+)
+async def dummy_with_retry_on(a, b):
+    raise a + b
 
 
 @dbq_task(
@@ -111,7 +122,7 @@ class TestDbq:
         assert task.args == [1, 2]
         assert task.kwargs == {}
         assert task.status == TaskStatus.PENDING
-        assert task.func == "opsmate.dbq.dbq.dummy"
+        assert task.func == "test_dbq.dummy"
         assert task.created_at is not None
         assert task.updated_at is not None
         assert task.generation_id == 1
@@ -145,7 +156,7 @@ class TestDbq:
             assert task2.result == 5
 
     @pytest.mark.asyncio
-    async def test_worker_with_exception(self, session: Session):
+    async def test_worker_with_exception_without_retry(self, session: Session):
         async with self.with_worker(session):
             task_id = enqueue_task(session, dummy, 1, "abc")
             task = await await_task_completion(session, task_id, 3)
@@ -154,9 +165,25 @@ class TestDbq:
             assert task.error.startswith(
                 "unsupported operand type(s) for +: 'int' and 'str'"
             )
-            assert task.retry_count == 3
             assert task.wait_until is not None
             assert task.max_retries == 3
+            assert (
+                task.retry_count == 0
+            ), "should not retry as the error is not in the retry on list"
+
+    @pytest.mark.asyncio
+    async def test_worker_with_exception_with_retry(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy_with_retry_on, 1, "a")
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result is None
+            assert task.status == TaskStatus.FAILED
+            assert task.retry_count == 1
+            assert task.error.startswith(
+                "unsupported operand type(s) for +: 'int' and 'str'"
+            )
+            assert task.wait_until is not None
+            assert task.max_retries == 1
 
     @pytest.mark.asyncio
     async def test_task_with_decorator_max_retries(self, session: Session):

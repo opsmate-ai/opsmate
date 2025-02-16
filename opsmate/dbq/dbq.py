@@ -109,9 +109,17 @@ class Task:
         self.priority = priority
         self.retry_on = retry_on
 
-    async def run(self, *args: List[Any], **kwargs: Dict[str, Any]):
+    async def run(
+        self,
+        *args: List[Any],
+        ctx: Dict[str, Any] = {},
+        **kwargs: Dict[str, Any],
+    ):
         try:
-            return await self.executable(*args, **kwargs)
+            if "ctx" in inspect.signature(self.executable).parameters:
+                return await self.executable(*args, ctx=ctx, **kwargs)
+            else:
+                return await self.executable(*args, **kwargs)
         except Exception as e:
             # when no retry on is provided, we treat it as a retryable error
             if len(self.retry_on) == 0:

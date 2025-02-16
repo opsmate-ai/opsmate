@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Callable, Awaitable, Optional, Protocol
+from typing import List, Any, Dict, Callable, Awaitable, Optional, Protocol, Type
 from sqlmodel import Column, JSON
 from enum import Enum
 from datetime import datetime, UTC
@@ -99,6 +99,7 @@ def dbq_task(
     max_retries: int = 3,
     back_off_func: BackOffFunc = None,
     priority: int = DEFAULT_PRIORITY,
+    task_type: Type[Task] = Task,
 ):
     """
     A decorator for retrying a function call with exponential backoff.
@@ -107,10 +108,11 @@ def dbq_task(
         max_retries (int): The maximum number of retries before giving up.
         back_off_func (BackOffFunc): A function that returns a datetime object for the next retry.
         priority (int): The priority of the task.
+        task_type (Type[Task]): The type of task to use. Default to Task if not provided.
     """
 
     def decorator(func):
-        task = Task(
+        task = task_type(
             max_retries=max_retries,
             back_off_func=back_off_func,
             executable=func,

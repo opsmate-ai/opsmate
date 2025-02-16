@@ -16,13 +16,18 @@ import asyncio
 import structlog
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, UTC
+import random
 
 logger = structlog.get_logger(__name__)
 
 
 @dbq_task(
     max_retries=1,
-    back_off_func=lambda x: datetime.now(UTC) + timedelta(milliseconds=100),
+    back_off_func=lambda retry_count: (
+        # exponential backoff
+        datetime.now(UTC)
+        + timedelta(milliseconds=1 ** (retry_count - 1) + random.uniform(0, 0.1))
+    ),
     priority=10,
 )
 async def dummy_plus(a: int, b: int):

@@ -11,6 +11,7 @@ from opsmate.dbq.dbq import (
     Worker,
     await_task_completion,
     dbq_task,
+    Task,
 )
 import asyncio
 import structlog
@@ -47,6 +48,33 @@ async def dummy_with_context(ctx: dict):
     # execute select 1
     result = session.exec(select(1)).first()
     return result
+
+
+class DummyTask(Task):
+    async def before_run(self, task_item: TaskItem, ctx: dict):
+        session: Session = ctx["session"]
+        task_item.args = [1, 2]
+        session.add(task_item)
+        session.commit()
+
+    async def on_success(self, task_item: TaskItem, ctx: dict):
+        session: Session = ctx["session"]
+        task_item.result += 1
+        session.add(task_item)
+        session.commit()
+
+
+@dbq_task(
+    max_retries=1,
+    back_off_func=lambda retry_count: (
+        # exponential backoff
+        datetime.now(UTC)
+        + timedelta(milliseconds=1 ** (retry_count - 1) + random.uniform(0, 0.1))
+    ),
+    task_type=DummyTask,
+)
+async def custom_dummy_task(a: int, b: int):
+    return a + b
 
 
 class TestDbq:
@@ -208,6 +236,15 @@ class TestDbq:
             assert task2.result == 3
 
             assert task.updated_at < task2.updated_at
+
+    @pytest.mark.asyncio
+    async def test_task_with_custom_task(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, custom_dummy_task, 4, 5)
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 4
+            assert task.args == [1, 2]
+            assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
     async def test_task_with_context(self, session: Session):

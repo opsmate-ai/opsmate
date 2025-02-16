@@ -77,6 +77,14 @@ class BackOffFunc(Protocol):
 
 
 class Task:
+    """
+    Task represents the executable to run runnable on the dbq worker.
+
+    In most cases you don't need to use this class directly but enqueue a function directly.
+    That being said some time you want granular control over the task like standardising the
+    max retries or backoff function and how error are handled.
+    """
+
     def __init__(
         self,
         max_retries: int = 3,
@@ -86,13 +94,34 @@ class Task:
     ):
         self.max_retries = max_retries
         self.back_off_func = back_off_func
-        if not asyncio.iscoroutinefunction(executable):
-            raise TypeError("Executable must be an async function")
-        self.executable = executable
+        if executable:
+            if not asyncio.iscoroutinefunction(executable):
+                raise TypeError("Executable must be an async function")
+            self.executable = executable
         self.priority = priority
 
     async def run(self, *args: List[Any], **kwargs: Dict[str, Any]):
         return await self.executable(*args, **kwargs)
+
+    async def before_run(self, task_item: TaskItem, ctx: Dict[str, Any] = {}):
+        """
+        This method is called before the task is run.
+        """
+        pass
+
+    async def on_failure(
+        self, task_item: TaskItem, error: Exception, ctx: Dict[str, Any] = {}
+    ):
+        """
+        This method is called when the task fails.
+        """
+        pass
+
+    async def on_success(self, task_item: TaskItem, ctx: Dict[str, Any] = {}):
+        """
+        This method is called when the task succeeds.
+        """
+        pass
 
 
 def dbq_task(
@@ -250,6 +279,42 @@ class Worker:
 
             await self._run()
 
+    async def _on_success(
+        self, task: TaskItem, fn: Callable[..., Awaitable[Any]] | Task
+    ):
+        if not isinstance(fn, Task):
+            return
+
+        try:
+            await fn.on_success(task, self.context)
+        except Exception as e:
+            logger.error("error on task success", task_id=task.id, error=str(e))
+
+    async def _on_failure(
+        self,
+        task: TaskItem,
+        fn: Callable[..., Awaitable[Any]] | Task,
+        error: Exception,
+    ):
+        if not isinstance(fn, Task):
+            return
+
+        try:
+            await fn.on_failure(task, error, self.context)
+        except Exception as e:
+            logger.error("error on task failure", task_id=task.id, error=str(e))
+
+    async def _before_run(
+        self, task: TaskItem, fn: Callable[..., Awaitable[Any]] | Task
+    ):
+        if not isinstance(fn, Task):
+            return
+
+        try:
+            await fn.before_run(task, self.context)
+        except Exception as e:
+            logger.error("error on task before run", task_id=task.id, error=str(e))
+
     async def _run(self):
         task = dequeue_task(self.session)
 
@@ -262,6 +327,8 @@ class Worker:
             fn_module, fn_name = task.func.rsplit(".", 1)
             fn = getattr(importlib.import_module(fn_module), fn_name)
             logger.info("imported function", func=task.func)
+
+            await self._before_run(task, fn)
             result = await self.maybe_context_fn(fn, task.args, task.kwargs)
 
             logger.info("task completed", task_id=task.id, result=result)
@@ -271,6 +338,7 @@ class Worker:
             task.generation_id = task.generation_id + 1
             task.wait_until = datetime.now(UTC)  # Reset wait_until on success
             self.session.commit()
+            await self._on_success(task, fn)
         except Exception as e:
             if task.retry_count >= task.max_retries:
                 logger.error(
@@ -306,6 +374,7 @@ class Worker:
             task.updated_at = datetime.now(UTC)
             task.generation_id = task.generation_id + 1
             self.session.commit()
+            await self._on_failure(task, fn, e)
             return
 
     async def maybe_context_fn(

@@ -1,7 +1,7 @@
-from typing import List, Any, Dict, Callable, Awaitable, Optional
+from typing import List, Any, Dict, Callable, Awaitable, Optional, Protocol
 from sqlmodel import Column, JSON
 from enum import Enum
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC
 from sqlmodel import (
     SQLModel as _SQLModel,
     Session,
@@ -19,7 +19,6 @@ import structlog
 import time
 import traceback
 import inspect
-from functools import wraps
 
 logger = structlog.get_logger(__name__)
 
@@ -32,6 +31,7 @@ class TaskStatus(Enum):
 
 
 DEFAULT_PRIORITY = 5
+DEFAULT_MAX_RETRIES = 3
 
 
 class SQLModel(_SQLModel, registry=registry()):
@@ -58,11 +58,29 @@ class TaskItem(SQLModel, table=True):
     wait_until: datetime = Field(default=datetime.now(UTC))
 
 
+class BackOffFunc(Protocol):
+    """
+    A function that returns a datetime object for the next retry.
+    """
+
+    def __call__(self, retry_count: int) -> datetime:
+        """
+        Calculate the wait time for the next retry.
+
+        Parameters:
+            retry_count (int): The number of retries so far.
+
+        Returns:
+            datetime: The datetime when the task should be retried.
+        """
+        ...
+
+
 class Task:
     def __init__(
         self,
         max_retries: int = 3,
-        back_off_func: Callable[[int], datetime] = None,
+        back_off_func: BackOffFunc = None,
         executable: Callable[..., Awaitable[Any]] = None,
         priority: int = DEFAULT_PRIORITY,
     ):
@@ -74,15 +92,21 @@ class Task:
         self.priority = priority
 
     async def run(self, *args: List[Any], **kwargs: Dict[str, Any]):
-        await self.executable(*args, **kwargs)
+        return await self.executable(*args, **kwargs)
 
 
-def dbq_task(max_retries: int = 3, back_off_func: Callable[[int], datetime] = None):
+def dbq_task(
+    max_retries: int = 3,
+    back_off_func: BackOffFunc = None,
+    priority: int = DEFAULT_PRIORITY,
+):
     """
     A decorator for retrying a function call with exponential backoff.
 
-    :param max_retries: Maximum number of retries before giving up.
-    :param backoff_factor: Multiplier for the backoff time.
+    Parameters:
+        max_retries (int): The maximum number of retries before giving up.
+        back_off_func (BackOffFunc): A function that returns a datetime object for the next retry.
+        priority (int): The priority of the task.
     """
 
     def decorator(func):
@@ -90,6 +114,7 @@ def dbq_task(max_retries: int = 3, back_off_func: Callable[[int], datetime] = No
             max_retries=max_retries,
             back_off_func=back_off_func,
             executable=func,
+            priority=priority,
         )
         task.__name__ = func.__name__
         task.__module__ = func.__module__
@@ -102,9 +127,21 @@ def enqueue_task(
     session: Session,
     fn: Callable[..., Awaitable[Any]] | Task,
     *args: List[Any],
-    priority: int = DEFAULT_PRIORITY,
+    priority: int | None = None,
+    max_retries: int | None = None,
     **kwargs: Dict[str, Any],
 ):
+    """
+    Enqueue a task to be executed by the worker.
+
+    Parameters:
+        session (Session): The database session to use.
+        fn (Callable[..., Awaitable[Any]] | Task): The function to execute - can be a function or a Task object.
+        *args (List[Any]): The arguments to pass to the function.
+        priority (int | None): The priority of the task. Default to DEFAULT_PRIORITY if not provided.
+        max_retries (int | None): The maximum number of retries for the task. Default to DEFAULT_MAX_RETRIES if not provided.
+        **kwargs (Dict[str, Any]): The keyword arguments to pass to the function.
+    """
     fn_module = fn.__module__
     fn_name = fn.__name__
 
@@ -112,12 +149,23 @@ def enqueue_task(
         func=f"{fn_module}.{fn_name}",
         args=args,
         kwargs=kwargs,
-        priority=priority,
     )
 
-    if isinstance(fn, Task):
-        task.max_retries = fn.max_retries
-        task.priority = fn.priority
+    if max_retries is None:
+        if isinstance(fn, Task):
+            task.max_retries = fn.max_retries
+        else:
+            task.max_retries = DEFAULT_MAX_RETRIES
+    else:
+        task.max_retries = max_retries
+
+    if priority is None:
+        if isinstance(fn, Task):
+            task.priority = fn.priority
+        else:
+            task.priority = DEFAULT_PRIORITY
+    else:
+        task.priority = priority
 
     session.add(task)
     session.commit()
@@ -222,7 +270,6 @@ class Worker:
             task.wait_until = datetime.now(UTC)  # Reset wait_until on success
             self.session.commit()
         except Exception as e:
-            task.retry_count += 1
             if task.retry_count >= task.max_retries:
                 logger.error(
                     "error running task, max retries exceeded",
@@ -233,6 +280,7 @@ class Worker:
                 task.error = str(e)
                 task.status = TaskStatus.FAILED
             else:
+                task.retry_count += 1
                 logger.warning(
                     "error running task, will retry",
                     task_id=task.id,
@@ -267,10 +315,13 @@ class Worker:
         """Check if the fn has a ctx argument, if so, add the session to it"""
 
         if isinstance(fn, Task):
-            fn = fn.run
-        if "ctx" in inspect.signature(fn).parameters:
-            return await fn(*args, ctx=self.context, **kwargs)
-        return await fn(*args, **kwargs)
+            run = fn.run
+        else:
+            run = fn
+
+        if "ctx" in inspect.signature(run).parameters:
+            return await run(*args, ctx=self.context, **kwargs)
+        return await run(*args, **kwargs)
 
     def queue_size(self):
         return self.session.exec(

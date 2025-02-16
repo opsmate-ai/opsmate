@@ -21,7 +21,9 @@ logger = structlog.get_logger(__name__)
 
 
 @dbq_task(
-    max_retries=1, back_off_func=lambda x: datetime.now(UTC) + timedelta(seconds=x)
+    max_retries=1,
+    back_off_func=lambda x: datetime.now(UTC) + timedelta(milliseconds=100),
+    priority=10,
 )
 async def dummy_plus(a: int, b: int):
     return a + b
@@ -124,10 +126,10 @@ class TestDbq:
             assert task.max_retries == 3
 
     @pytest.mark.asyncio
-    async def test_task_with_backoff(self, session: Session):
+    async def test_task_with_decorator_max_retries(self, session: Session):
         async with self.with_worker(session):
             task_id = enqueue_task(session, dummy_plus, 1, "a")
-            task = await await_task_completion(session, task_id, 5)
+            task = await await_task_completion(session, task_id, 3)
             assert task.result == None
             assert task.status == TaskStatus.FAILED
             assert task.error.startswith(
@@ -188,6 +190,19 @@ class TestDbq:
             assert task2.result == 3
 
             assert task.updated_at > task2.updated_at
+
+    @pytest.mark.asyncio
+    async def test_task_with_decorator_with_priority(self, session: Session):
+        async with self.with_worker(session):
+            task_id = enqueue_task(session, dummy_plus, 1, 2)
+            task = await await_task_completion(session, task_id, 3)
+            assert task.result == 3
+
+            task_id2 = enqueue_task(session, dummy_plus, 1, 2, priority=2)
+            task2 = await await_task_completion(session, task_id2, 3)
+            assert task2.result == 3
+
+            assert task.updated_at < task2.updated_at
 
     @pytest.mark.asyncio
     async def test_task_with_context(self, session: Session):

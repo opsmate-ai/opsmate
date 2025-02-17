@@ -1,6 +1,7 @@
 import pytest
 from sqlmodel import create_engine, Session
-from opsmate.dbq.dbq import Worker, SQLModel, enqueue_task
+from opsmate.dbq.dbq import Worker, SQLModel as DBQSQLModel, enqueue_task
+from opsmate.ingestions.models import SQLModel as IngestionSQLModel, IngestionRecord
 import asyncio
 from contextlib import asynccontextmanager
 import structlog
@@ -10,7 +11,6 @@ import time
 from opsmate.knowledgestore.models import aconn
 from opsmate.tests.base import BaseTestCase
 from opsmate.ingestions.fs import FsIngestion
-from opsmate.ingestions.github import GithubIngestion
 from opsmate.ingestions.jobs import ingestor_from_config
 import os
 
@@ -25,7 +25,8 @@ class TestJobs(BaseTestCase):
 
     @pytest.fixture
     def session(self, engine: Engine):
-        SQLModel.metadata.create_all(engine)
+        IngestionSQLModel.metadata.create_all(engine)
+        DBQSQLModel.metadata.create_all(engine)
         with Session(engine) as session:
             yield session
 
@@ -83,6 +84,14 @@ class TestJobs(BaseTestCase):
             data_sources = [kb["data_source"] for kb in kbs]
             data_source_providers = [kb["data_source_provider"] for kb in kbs]
             paths = [kb["path"] for kb in kbs]
+
+            # assert the ingestion record was created
+            ingestion_record = await IngestionRecord.find_or_create(
+                session, "fs", {"local_path": ".", "glob_pattern": "./README.md"}
+            )
+
+            assert ingestion_record is not None, "Should have an ingestion record"
+            assert len(ingestion_record.documents) > 0, "Should have documents"
 
             assert current_kbs_len > 0, "Should have at least one kb"
             assert all(

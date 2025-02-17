@@ -1,4 +1,4 @@
-from opsmate.ingestions.base import Document, BaseIngestion
+from opsmate.ingestions.base import Document
 from opsmate.textsplitters import TextSplitter
 import structlog
 

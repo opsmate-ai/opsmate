@@ -3,6 +3,7 @@ from opsmate.ingestions.base import Document
 from opsmate.ingestions.chunk import chunk_document
 from opsmate.ingestions.fs import FsIngestion
 from opsmate.ingestions.github import GithubIngestion
+from opsmate.ingestions.models import IngestionRecord, DocumentRecord
 from opsmate.libs.config import config
 from opsmate.dbq.dbq import enqueue_task, dbq_task
 from opsmate.dino import dino
@@ -14,6 +15,7 @@ import uuid
 import json
 import random
 import structlog
+from sqlmodel import select
 
 logger = structlog.get_logger()
 
@@ -48,16 +50,31 @@ def backoff_func(retry_count: int):
     back_off_func=backoff_func,
 )
 async def chunk_and_store(
+    ingestion_record_id: int,
     splitter_config: Dict[str, Any] = {},
     doc: Dict[str, Any] = {},
     ctx: Dict[str, Any] = {},
 ):
+    session = ctx["session"]
+
+    ingestion_record = await IngestionRecord.find_by_id(session, ingestion_record_id)
+    if ingestion_record is None:
+        logger.error(
+            "ingestion record not found",
+            ingestion_record_id=ingestion_record_id,
+        )
+        return
+
     doc = Document(**doc)
+    path = doc.metadata["path"]
+
+    doc_record = await DocumentRecord.find_or_create_by_path(
+        session, ingestion_record.id, path
+    )
+
     splitter = splitter_from_config(splitter_config)
     db_conn = await aconn()
     table = await db_conn.open_table("knowledge_store")
-
-    path = doc.metadata["path"]
 
     kbs = []
     async for chunk in chunk_document(splitter=splitter, document=doc):
@@ -94,6 +111,8 @@ async def chunk_and_store(
 
     await table.add(kbs)
 
+    doc_record.update_chunk_count(session, len(kbs))
+
     logger.info(
         "chunks stored",
         data_provider=doc.data_provider,
@@ -118,6 +137,10 @@ async def ingest(
 
     ingestion = ingestor_from_config(ingestor_type, ingestor_config)
 
+    ingestion_record = await IngestionRecord.find_or_create(
+        session, ingestor_type, ingestor_config
+    )
+
     async for doc in ingestion.load():
         logger.info(
             "ingesting document",
@@ -128,6 +151,7 @@ async def ingest(
         enqueue_task(
             session,
             chunk_and_store,
+            ingestion_record.id,
             splitter_config=splitter_config,
             doc=doc.model_dump(),
         )

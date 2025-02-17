@@ -13,7 +13,6 @@ from opsmate.gui.models import (
     CellStateEnum,
 )
 from opsmate.gui.config import Config
-from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
     tlink,
@@ -31,11 +30,10 @@ from opsmate.gui.views import (
     execute_notes_instruction,
     home_body,
 )
-from opsmate.dbq.dbq import SQLModel as DBQSQLModel, Worker
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
-from sqlmodel import text, Session
-import asyncio
+from opsmate.app.base import on_startup as base_app_on_startup
+from sqlmodel import text
 
 config = Config()
 
@@ -56,11 +54,8 @@ with engine.connect() as conn:
 
 
 async def on_startup():
+    await base_app_on_startup(engine)
     GUISQLModel.metadata.create_all(engine)
-    WorkflowSQLModel.metadata.create_all(engine)
-    DBQSQLModel.metadata.create_all(engine)
-
-    await ingest_from_config(config, engine)
 
 
 def before(req, session):
@@ -93,6 +88,8 @@ app = FastHTML(
 @app.on_event("startup")
 async def startup():
     await on_startup()
+
+    await ingest_from_config(config, engine)
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:

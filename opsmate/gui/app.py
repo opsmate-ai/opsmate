@@ -29,6 +29,7 @@ from opsmate.gui.views import (
     execute_bash_instruction,
     execute_notes_instruction,
     home_body,
+    knowledges_body,
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
@@ -115,6 +116,12 @@ async def get():
         blueprint = BluePrint.find_by_name(session, "polya")
         page = home_body(session, config.session_name, blueprint)
         return Title(f"{config.session_name}"), page
+
+
+@app.route("/knowledges")
+async def get():
+    with sqlmodel.Session(engine) as session:
+        return Title("Knowledges"), knowledges_body(session, config.session_name)
 
 
 @app.route("/blueprint/freestyle")

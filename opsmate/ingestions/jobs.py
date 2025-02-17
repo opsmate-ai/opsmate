@@ -157,6 +157,34 @@ async def ingest(
         )
 
 
+@dbq_task(
+    retry_on=(Exception,),
+    max_retries=10,
+    back_off_func=backoff_func,
+)
+async def delete_ingestion(ingestion_record_id: int, ctx: Dict[str, Any] = {}):
+    session = ctx["session"]
+
+    ingestion_record = await IngestionRecord.find_by_id(session, ingestion_record_id)
+    if ingestion_record is None:
+        logger.error(
+            "ingestion record not found",
+            ingestion_record_id=ingestion_record_id,
+        )
+        return
+
+    session.delete(ingestion_record)
+    session.commit()
+
+    # remove all documents from lancedb
+    db_conn = await aconn()
+    table = await db_conn.open_table("knowledge_store")
+    await table.delete(
+        f"data_source_provider = '{ingestion_record.data_source_provider}'"
+        f"AND data_source = '{ingestion_record.data_source}'"
+    )
+
+
 def ingestor_from_config(name: str, config: Dict[str, Any]):
     if name == "github":
         return GithubIngestion(**config)

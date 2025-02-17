@@ -4,7 +4,6 @@ from .github import GithubIngestion
 from typing import List
 from opsmate.libs.config import Config
 import structlog
-from opsmate.knowledgestore.models import init_table, aconn
 from opsmate.ingestions.jobs import ingest
 from sqlmodel import Session
 from opsmate.dbq.dbq import enqueue_task
@@ -33,9 +32,9 @@ async def ingest_from_config(
     """
     ingestions = ingestions_from_config(cfg)
 
-    await init_table()
-    db_conn = await aconn()
-    table = await db_conn.open_table("knowledge_store")
+    # await init_table()
+    # db_conn = await aconn()
+    # table = await db_conn.open_table("knowledge_store")
 
     with Session(engine) as session:
         for ingestion in ingestions:

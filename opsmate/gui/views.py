@@ -764,21 +764,27 @@ def knowledges_body(db_session: Session, session_name: str):
     )
 
 
+def add_knowledge_button():
+    return Div(
+        Button(
+            Div(
+                plus_icon_svg,
+                "Add Knowledge",
+                cls="flex items-center gap-2",
+            ),
+            cls="btn btn-primary btn-sm mb-4",
+            hx_post="/knowledges/new",
+        ),
+        id="add-knowledge-button",
+        hx_swap_oob="true",
+        cls="flex justify-end",
+    )
+
+
 def render_ingestions(ingestions: list[IngestionRecord]):
     return Div(
         # Add new knowledge button
-        Div(
-            Button(
-                Div(
-                    plus_icon_svg,
-                    "Add Knowledge",
-                    cls="flex items-center gap-2",
-                ),
-                cls="btn btn-primary btn-sm mb-4",
-                hx_post="/knowledges/",
-            ),
-            cls="flex justify-end",
-        ),
+        add_knowledge_button(),
         # Table header
         Div(
             Div("Data Source", cls="col-span-3 px-4 py-2 flex items-center"),
@@ -789,13 +795,13 @@ def render_ingestions(ingestions: list[IngestionRecord]):
             cls="grid grid-cols-12 gap-4 bg-gray-100 rounded-t-lg",
         ),
         # Table body
-        *[render_ingestion_row(ingestion) for ingestion in ingestions],
+        *[render_knowledge_row(ingestion) for ingestion in ingestions],
         cls="divide-y",
         id="ingestions",
     )
 
 
-def render_ingestion_row(ingestion: IngestionRecord):
+def render_knowledge_row(ingestion: IngestionRecord):
     return Form(
         Div(
             # Data Source
@@ -813,8 +819,8 @@ def render_ingestion_row(ingestion: IngestionRecord):
                 Input(
                     type="text",
                     name="data_source_provider",
-                    value=ingestion.data_source_provider,
-                    disabled=True,
+                    value="github",
+                    readonly=True,
                     cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
                 ),
                 cls="col-span-3 px-4 py-2 flex items-center",
@@ -853,7 +859,84 @@ def render_ingestion_row(ingestion: IngestionRecord):
             ),
             cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
         ),
-        hx_put=f"/knowledges/{ingestion.id}",
+        id=f"ingestion-record-{ingestion.id}",
+    )
+
+
+def new_knowledge_form(uuid: str):
+    return Form(
+        Div(
+            # Data Source
+            Div(
+                Input(
+                    type="text",
+                    name="data_source",
+                    value="",
+                    placeholder="kubernetes/kubernetes",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Provider
+            Div(
+                Input(
+                    type="text",
+                    name="data_source_provider",
+                    value="github",
+                    readonly=True,
+                    cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Glob
+            Div(
+                Input(
+                    type="text",
+                    name="glob",
+                    value="**/*.md",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Last Updated
+            Div(
+                Span(
+                    "",
+                    cls="text-sm text-gray-600",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                submit_new_knowledge_icon(uuid),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/knowledges/virtual/{uuid}",
+                ),
+                cls="col-span-1 px-4 py-2 flex items-center justify-end gap-1",
+            ),
+            cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
+        ),
+        id=f"new-ingestion-form-{uuid}",
+    )
+
+
+def submit_new_knowledge_icon(uuid: str):
+    return Div(
+        Input(
+            type="hidden",
+            name="uuid",
+            value=uuid,
+        ),
+        Button(
+            run_icon_svg,
+            cls="btn btn-ghost btn-sm",
+            # hx_swap_oob="true",
+            hx_post="/knowledges/",
+        ),
+        # hx_target="this",
+        # hx_swap="true",
     )
 
 

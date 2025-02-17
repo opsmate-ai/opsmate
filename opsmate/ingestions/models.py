@@ -22,7 +22,10 @@ class IngestionRecord(SQLModel, table=True):
     created_at: datetime = Field(default=datetime.now(UTC))
     updated_at: datetime = Field(default=datetime.now(UTC))
 
-    documents: List["DocumentRecord"] = Relationship(back_populates="ingestion")
+    documents: List["DocumentRecord"] = Relationship(
+        back_populates="ingestion",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     @classmethod
     async def find_or_create(
@@ -59,6 +62,23 @@ class IngestionRecord(SQLModel, table=True):
     @classmethod
     async def find_by_id(cls, session: Session, id: int):
         return session.exec(select(cls).where(cls.id == id)).first()
+
+    async def ingest_config(self):
+        match self.data_source_provider:
+            case "github":
+                return {
+                    "repo": self.data_source,
+                    "glob": self.glob,
+                }
+            case "fs":
+                return {
+                    "local_path": self.data_source,
+                    "glob_pattern": self.glob,
+                }
+            case _:
+                raise ValueError(
+                    f"Unsupported data source provider: {self.data_source_provider}"
+                )
 
 
 class DocumentRecord(SQLModel, table=True):

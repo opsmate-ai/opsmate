@@ -8,6 +8,7 @@ from opsmate.ingestions.jobs import ingest
 from sqlmodel import Session
 from opsmate.dbq.dbq import enqueue_task
 from sqlalchemy import Engine
+from opsmate.knowledgestore.models import init_table
 
 logger = structlog.get_logger(__name__)
 
@@ -32,7 +33,7 @@ async def ingest_from_config(
     """
     ingestions = ingestions_from_config(cfg)
 
-    # await init_table()
+    await init_table()
     # db_conn = await aconn()
     # table = await db_conn.open_table("knowledge_store")
 

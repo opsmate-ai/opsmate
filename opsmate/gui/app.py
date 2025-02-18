@@ -135,7 +135,7 @@ async def get():
 async def put(id: str):
     with sqlmodel.Session(engine) as session:
         ingestion_record = await IngestionRecord.find_by_id(session, id)
-        logger.info("ingesting knowledge", ingestion_record=ingestion_record)
+        logger.info("ingesting knowledge", ingestion_record_id=ingestion_record.id)
         enqueue_task(
             session,
             ingest,
@@ -186,7 +186,7 @@ async def post(
         session.add(ingestion_record)
         session.commit()
 
-        logger.info("enqueueing ingestion", ingestion_record=ingestion_record)
+        logger.info("enqueueing ingestion", ingestion_record_id=ingestion_record.id)
         enqueue_task(
             session,
             ingest,

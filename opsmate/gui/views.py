@@ -538,6 +538,7 @@ async def update_planning_knowledge_retrieval(
         WorkflowContext(
             input={
                 "session": session,
+                "question_cell": cell.parent_cells(session)[0],
                 "send": send,
                 "current_pkr_cell": cell,
             }
@@ -744,7 +745,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
 
 def knowledges_body(db_session: Session, session_name: str):
     ingestions = db_session.exec(select(IngestionRecord)).all()
-    logger.info("knowledges", ingestions=ingestions)
+    logger.info("knowledges", ingestions=[ingestion.id for ingestion in ingestions])
     return Body(
         Div(
             Card(

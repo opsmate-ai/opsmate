@@ -2,13 +2,14 @@ from typing import List, Optional, Dict, Any
 
 from pydantic import Field
 
-from opsmate.knowledgestore.models import KnowledgeStore, openai_reranker, conn, aconn
+from opsmate.knowledgestore.models import conn, aconn, config
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
 from pydantic import BaseModel
 from typing import Union
 import structlog
 from jinja2 import Template
+from openai import AsyncOpenAI
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +34,7 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
 
     _aconn = None
     _conn = None
+    _embed_client = None
     query: str = Field(description="The query to search for")
     output: Optional[Union[RretrievalResult, KnowledgeNotFound]] = Field(
         description="The summarised output of the search - DO NOT POPULATE THIS FIELD",
@@ -64,12 +66,22 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
         table = await conn.open_table("knowledge_store")
         results = (
             await table.query()
-            .nearest_to_text(self.query)
+            # .nearest_to_text(self.query)
+            .nearest_to(await self.embed(self.query))
             .select(["content", "data_source", "path", "metadata"])
+            .limit(10)
             .to_list()
         )
 
         return await self.summary(self.query, results)
+
+    #
+    async def embed(self, query: str):
+        client = await self.embed_client()
+        response = await client.embeddings.create(
+            input=query, model=config.embedding_model_name
+        )
+        return response.data[0].embedding
 
     @dino(
         model="gpt-4o-mini",
@@ -138,3 +150,8 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
         if not self._conn:
             self._conn = conn()
         return self._conn
+
+    async def embed_client(self):
+        if not self._embed_client:
+            self._embed_client = AsyncOpenAI()
+        return self._embed_client

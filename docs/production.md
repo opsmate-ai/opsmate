@@ -71,8 +71,14 @@ Opsmate Environment Build is a CRD (Custom Resource Definition) that defines the
 The following example we:
 
 - Create a new namespace `opsmate-workspace`
-- Create a new cluster role `opsmate-cluster-reader` that comes with a cluster read-only access to the Kubernetes cluster.
-- Create a new environment build `cluster-reader` that will be used to run the `Opsmate` task.
+- Create a new cluster role `opsmate-cluster-reader` which is bound to the `opsmate-cluster-reader` service account.
+- Create a new `environmentBuild` called `cluster-reader` which will be used as a template for running the `Opsmate` task.
+
+The `environmentBuild` is composed of:
+
+- A `opsmate` container that runs as a Web UI and API server.
+- A `worker` container that is responsible for running background heavy-lifting tasks such as ingesting the knowledge base and embedding into the vector database.
+- The `opsmate` and the `worker` containers shared the same volume for storing the sqlite database and the vector database.
 
 <details><summary>Click to show opsmate-cluster-reader ClusterRole</summary>
 
@@ -163,6 +169,20 @@ roleRef:
   kind: ClusterRole
   name: opsmate-cluster-reader
 ---
+# configmap for opsmate task
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opsmate-config
+  namespace: opsmate-workspace
+data:
+  OPSMATE_DB_URL: sqlite:////var/opsmate/opsmate.sqlite
+  EMBEDDINGS_DB_PATH: /var/opsmate/embedding
+  GITHUB_EMBEDDINGS_CONFIG: |
+    {
+      "jingkaihe/opsmate": "**/*.md"
+    }
+---
 # cluster reader environment build
 apiVersion: sre.opsmate.io/v1alpha1
 kind: EnvironmentBuild
@@ -175,16 +195,39 @@ spec:
       serviceAccountName: opsmate-cluster-reader
       containers:
         - name: opsmate
-          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.10.alpha
+          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.21.alpha1
           ports:
             - containerPort: 8000
           envFrom:
             - secretRef:
                 name: opsmate-secret
+            - configMapRef:
+                name: opsmate-config
+          volumeMounts:
+            - name: opsmate-vol
+              mountPath: /var/opsmate
+        - name: worker
+          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.21.alpha1
+          envFrom:
+            - secretRef:
+                name: opsmate-secret
+            - configMapRef:
+                name: opsmate-config
+          command:
+            - python
+            - -m
+            - opsmate.dbqapp.app
+          volumeMounts:
+            - name: opsmate-vol
+              mountPath: /var/opsmate
       imagePullSecrets:
         - name: opsmate-workspace-image-pull-secret
+      volumes:
+      - name: opsmate-vol
+        emptyDir:
+          sizeLimit: 500Mi
   service:
-    type: NodePort
+    type: ClusterIP
     ports:
       - port: 80
         targetPort: 8000
@@ -192,8 +235,15 @@ spec:
   ingressTargetPort: 80
 ```
 
-`opsmate-secret` is a secret that contains the `OPENAI_API_KEY` you can create it via the vanilla `secret` resource or use any advanced secret management tool.
+There are a few secrets that you will need to create:
 
+* `OPENAI_API_KEY` - If you are using OpenAI as your LLM provider. Currently it is mandatory as we are using OpenAI's embedding API for embedding the knowledge base.
+* `ANTHROPIC_API_KEY` - If you are using Anthropic as your LLM provider.
+* `GITHUB_TOKEN` - This is used for
+  - Accessing the GitHub repository for loading knowledge base.
+  - Used by Opsmate to to clone the repo, commit changes and raise PRs.
+
+Here are the examples of how to create the secrets:
 === "Secret"
     ```yaml
     apiVersion: v1
@@ -204,6 +254,8 @@ spec:
     type: Opaque
     data:
       OPENAI_API_KEY: <your-openai-api-key-base64-encoded>
+      ANTHROPIC_API_KEY: <your-anthropic-api-key-base64-encoded>
+      GITHUB_TOKEN: <your-github-token-base64-encoded>
     ```
 
 === "External Secret Manager"
@@ -217,7 +269,7 @@ spec:
     spec:
       provider:
         gcpsm:
-          projectID: hjktech-metal
+          projectID: $YOUR_GCP_PROJECT_ID
     ---
     apiVersion: external-secrets.io/v1beta1
     kind: ExternalSecret
@@ -236,6 +288,12 @@ spec:
         - secretKey: OPENAI_API_KEY
           remoteRef:
             key: opsmate-workspace-openai-key
+        - secretKey: ANTHROPIC_API_KEY
+          remoteRef:
+            key: opsmate-workspace-anthropic-key
+        - secretKey: GITHUB_TOKEN
+          remoteRef:
+            key: opsmate-workspace-github-token-ro
     ```
 
 ## Task

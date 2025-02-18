@@ -15,7 +15,6 @@ import uuid
 import json
 import random
 import structlog
-from sqlmodel import select
 
 logger = structlog.get_logger()
 
@@ -68,9 +67,28 @@ async def chunk_and_store(
     doc = Document(**doc)
     path = doc.metadata["path"]
 
-    doc_record = await DocumentRecord.find_or_create_by_path(
+    doc_record = await DocumentRecord.find_by_ingestion_id_and_path(
         session, ingestion_record.id, path
     )
+    if doc_record is not None:
+        if (
+            doc_record.sha == doc.metadata.get("sha", "")
+            and doc_record.chunk_config == splitter_config
+        ):
+            logger.info(
+                "document already exists",
+                ingestion_record_id=ingestion_record.id,
+                path=path,
+            )
+            return
+    else:
+        doc_record = await DocumentRecord.find_or_create(
+            session,
+            ingestion_record.id,
+            path,
+            doc.metadata.get("sha", ""),
+            splitter_config,
+        )
 
     splitter = splitter_from_config(splitter_config)
     db_conn = await aconn()

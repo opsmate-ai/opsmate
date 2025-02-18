@@ -1,9 +1,16 @@
-from sqlmodel import SQLModel as _SQLModel, Field, Session, select
+from sqlmodel import (
+    SQLModel as _SQLModel,
+    Field,
+    Session,
+    select,
+    Relationship,
+    JSON,
+    Column,
+)
 from sqlalchemy.orm import registry
 from datetime import datetime, UTC
 from sqlalchemy import MetaData
 from typing import List, Dict, Any
-from sqlmodel import Relationship
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -90,28 +97,46 @@ class DocumentRecord(SQLModel, table=True):
 
     path: str = Field(nullable=False)
     chunk_count: int = Field(default=0)
+    sha: str = Field(nullable=False)
+    chunk_config: Dict[str, Any] = Field(sa_column=Column(JSON))
 
     created_at: datetime = Field(default=datetime.now(UTC))
     updated_at: datetime = Field(default=datetime.now(UTC))
 
     @classmethod
-    async def find_or_create_by_path(
+    async def find_by_ingestion_id_and_path(
         cls, session: Session, ingestion_id: int, path: str
+    ):
+        return session.exec(
+            select(cls).where(cls.ingestion_id == ingestion_id, cls.path == path)
+        ).first()
+
+    @classmethod
+    async def find_or_create(
+        cls,
+        session: Session,
+        ingestion_id: int,
+        path: str,
+        sha: str,
+        chunk_config: Dict[str, Any],
     ):
         document = session.exec(
             select(cls).where(cls.ingestion_id == ingestion_id, cls.path == path)
         ).first()
         if document is None:
-            document = cls(ingestion_id=ingestion_id, path=path)
-            session.add(document)
-            session.commit()
-
-            logger.info(
-                "document created",
-                document_id=document.id,
+            document = cls(
                 ingestion_id=ingestion_id,
                 path=path,
+                sha=sha,
+                chunk_config=chunk_config,
             )
+        else:
+            document.sha = sha
+            document.chunk_config = chunk_config
+
+        session.add(document)
+        session.commit()
+        session.refresh(document)
         return document
 
     def update_chunk_count(self, session: Session, chunk_count: int):

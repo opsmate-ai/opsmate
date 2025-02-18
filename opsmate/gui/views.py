@@ -760,6 +760,8 @@ def knowledges_body(db_session: Session, session_name: str):
                 # cls="overflow-hidden",
             ),
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
+            hx_swap_oob="true",
+            id="knowledges",
         )
     )
 

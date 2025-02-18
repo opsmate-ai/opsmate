@@ -131,6 +131,20 @@ async def get():
         return Title("Knowledges"), knowledges_body(session, config.session_name)
 
 
+@app.route("/knowledges/{id}")
+async def put(id: str):
+    with sqlmodel.Session(engine) as session:
+        ingestion_record = await IngestionRecord.find_by_id(session, id)
+        logger.info("ingesting knowledge", ingestion_record=ingestion_record)
+        enqueue_task(
+            session,
+            ingest,
+            ingestor_type=ingestion_record.data_source_provider,
+            ingestor_config=await ingestion_record.ingest_config(),
+        )
+        return Title("Knowledges"), knowledges_body(session, config.session_name)
+
+
 @app.route("/knowledges/new")
 async def post():
     with sqlmodel.Session(engine) as session:
@@ -172,6 +186,7 @@ async def post(
         session.add(ingestion_record)
         session.commit()
 
+        logger.info("enqueueing ingestion", ingestion_record=ingestion_record)
         enqueue_task(
             session,
             ingest,
@@ -195,6 +210,7 @@ async def post(
 @app.route("/knowledges/{id}")
 async def delete(id: str):
     with sqlmodel.Session(engine) as session:
+        logger.info("deleting knowledge", id=id)
         enqueue_task(
             session,
             delete_ingestion,

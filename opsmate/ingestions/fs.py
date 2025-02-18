@@ -5,6 +5,7 @@ from glob import glob
 from os import path
 from pathlib import Path
 from typing import Dict, List
+from hashlib import sha256
 
 
 class FsIngestion(BaseIngestion):
@@ -22,6 +23,7 @@ class FsIngestion(BaseIngestion):
                 content = f.read()
             base_name = path.basename(filename)
             full_path = path.abspath(filename)
+            sha = sha256(content.encode("utf-8")).hexdigest()
             yield Document(
                 data_provider=self.data_source_provider(),
                 data_source=self.data_source(),
@@ -29,6 +31,7 @@ class FsIngestion(BaseIngestion):
                 metadata={
                     "name": base_name,
                     "path": full_path,
+                    "sha": sha,
                 },
             )
 

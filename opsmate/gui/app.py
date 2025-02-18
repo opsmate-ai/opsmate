@@ -13,7 +13,6 @@ from opsmate.gui.models import (
     CellStateEnum,
 )
 from opsmate.gui.config import Config
-from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
     tlink,
@@ -30,12 +29,19 @@ from opsmate.gui.views import (
     execute_bash_instruction,
     execute_notes_instruction,
     home_body,
+    knowledges_body,
+    new_knowledge_form,
+    add_knowledge_button,
+    render_knowledge_row,
 )
-from opsmate.dbq.dbq import SQLModel as DBQSQLModel, Worker
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
-from sqlmodel import text, Session
-import asyncio
+from opsmate.app.base import on_startup as base_app_on_startup
+from opsmate.ingestions.models import IngestionRecord
+from opsmate.ingestions.jobs import ingest, delete_ingestion
+from opsmate.dbq.dbq import enqueue_task
+from sqlmodel import text
+from uuid import uuid4
 
 config = Config()
 
@@ -56,11 +62,8 @@ with engine.connect() as conn:
 
 
 async def on_startup():
+    await base_app_on_startup(engine)
     GUISQLModel.metadata.create_all(engine)
-    WorkflowSQLModel.metadata.create_all(engine)
-    DBQSQLModel.metadata.create_all(engine)
-
-    await ingest_from_config(config, engine)
 
 
 def before(req, session):
@@ -94,6 +97,8 @@ app = FastHTML(
 async def startup():
     await on_startup()
 
+    await ingest_from_config(config, engine)
+
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
         seed_blueprints(session)
@@ -118,6 +123,106 @@ async def get():
         blueprint = BluePrint.find_by_name(session, "polya")
         page = home_body(session, config.session_name, blueprint)
         return Title(f"{config.session_name}"), page
+
+
+@app.route("/knowledges")
+async def get():
+    with sqlmodel.Session(engine) as session:
+        return Title("Knowledges"), knowledges_body(session, config.session_name)
+
+
+@app.route("/knowledges/{id}")
+async def put(id: str):
+    with sqlmodel.Session(engine) as session:
+        ingestion_record = await IngestionRecord.find_by_id(session, id)
+        logger.info("ingesting knowledge", ingestion_record_id=ingestion_record.id)
+        enqueue_task(
+            session,
+            ingest,
+            ingestor_type=ingestion_record.data_source_provider,
+            ingestor_config=await ingestion_record.ingest_config(),
+        )
+        return Title("Knowledges"), knowledges_body(session, config.session_name)
+
+
+@app.route("/knowledges/new")
+async def post():
+    with sqlmodel.Session(engine) as session:
+        uuid = str(uuid4())
+        return (
+            Div(
+                new_knowledge_form(uuid),
+                hx_swap_oob="beforeend",
+                id="ingestions",
+            ),
+            add_knowledge_button(),
+        )
+
+
+@app.route("/knowledges/virtual/{uuid}")
+async def delete(uuid: str):
+    with sqlmodel.Session(engine) as session:
+        return (
+            Div(
+                id=f"new-ingestion-form-{uuid}",
+                hx_swap_oob="delete",
+            ),
+        )
+
+
+@app.route("/knowledges/")
+async def post(
+    uuid: str,
+    data_source: str,
+    data_source_provider: str,
+    glob: str,
+):
+    with sqlmodel.Session(engine) as session:
+        ingestion_record = IngestionRecord(
+            data_source_provider=data_source_provider,
+            data_source=data_source,
+            glob=glob,
+        )
+        session.add(ingestion_record)
+        session.commit()
+
+        logger.info("enqueueing ingestion", ingestion_record_id=ingestion_record.id)
+        enqueue_task(
+            session,
+            ingest,
+            ingestor_type=ingestion_record.data_source_provider,
+            ingestor_config=await ingestion_record.ingest_config(),
+        )
+
+        return (
+            Div(
+                render_knowledge_row(ingestion_record),
+                hx_swap_oob="beforeend",
+                id="ingestions",
+            ),
+            Div(
+                id=f"new-ingestion-form-{uuid}",
+                hx_swap_oob="delete",
+            ),
+        )
+
+
+@app.route("/knowledges/{id}")
+async def delete(id: str):
+    with sqlmodel.Session(engine) as session:
+        logger.info("deleting knowledge", id=id)
+        enqueue_task(
+            session,
+            delete_ingestion,
+            id,
+        )
+        return (
+            Div(
+                id=f"ingestion-record-{id}",
+                hx_swap_oob="delete",
+            ),
+            add_knowledge_button(),
+        )
 
 
 @app.route("/blueprint/freestyle")

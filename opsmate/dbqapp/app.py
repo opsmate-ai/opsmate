@@ -1,8 +1,9 @@
-from opsmate.dbq.dbq import SQLModel, Worker
+from opsmate.dbq.dbq import Worker
 from opsmate.libs.config import config
 import asyncio
 from sqlmodel import create_engine, Session, text
 import structlog
+from opsmate.app.base import on_startup as base_app_on_startup
 
 logger = structlog.get_logger()
 
@@ -17,7 +18,7 @@ async def main():
         conn.execute(text("PRAGMA journal_mode=WAL"))
         conn.close()
 
-    SQLModel.metadata.create_all(engine)
+    await base_app_on_startup(engine)
 
     session = Session(engine)
     worker = Worker(session, 10)

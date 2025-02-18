@@ -1,5 +1,5 @@
 from fasthtml.common import *
-from sqlmodel import Session
+from sqlmodel import Session, select
 from opsmate.gui.assets import *
 from opsmate.gui.models import (
     Cell,
@@ -23,7 +23,7 @@ from opsmate.gui.components import (
     render_react_answer_markdown_raw,
 )
 from opsmate.dino.types import Message, Observation, React, ReactAnswer
-
+from opsmate.ingestions.models import IngestionRecord
 from opsmate.polya.models import (
     TaskPlan,
     ReportExtracted,
@@ -31,12 +31,8 @@ from opsmate.polya.models import (
 )
 from opsmate.tools.system import SysChdir
 
-from sqlmodel import select
-
-
 from opsmate.polya.execution import iac_sme
 import pickle
-import sqlmodel
 import structlog
 import subprocess
 import json
@@ -44,10 +40,8 @@ from opsmate.workflow.workflow import (
     WorkflowContext,
     WorkflowExecutor,
     build_workflow,
-    cond,
-)
-from opsmate.workflow.workflow import (
     WorkflowStep as OpsmateWorkflowStep,
+    cond,
 )
 from opsmate.gui.models import Config
 from opsmate.gui.steps import (
@@ -84,6 +78,7 @@ nav = (
         Div(
             A("Opsmate Workspace", cls="btn btn-ghost text-xl", href="/"),
             A("Freestyle", href="/blueprint/freestyle", cls="btn btn-ghost text-sm"),
+            A("Knowledges", href="/knowledges", cls="btn btn-ghost text-sm"),
             cls="flex-1",
         ),
         Div(
@@ -543,6 +538,7 @@ async def update_planning_knowledge_retrieval(
         WorkflowContext(
             input={
                 "session": session,
+                "question_cell": cell.parent_cells(session)[0],
                 "send": send,
                 "current_pkr_cell": cell,
             }
@@ -744,6 +740,206 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
             ),
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
         )
+    )
+
+
+def knowledges_body(db_session: Session, session_name: str):
+    ingestions = db_session.exec(select(IngestionRecord)).all()
+    logger.info("knowledges", ingestions=[ingestion.id for ingestion in ingestions])
+    return Body(
+        Div(
+            Card(
+                # Header
+                Div(
+                    Div(
+                        H1("Knowledges", cls="text-2xl font-bold"),
+                        cls="flex flex-col",
+                    ),
+                    cls="mb-4 flex justify-between items-start pt-16",
+                ),
+                render_ingestions(ingestions),
+                # cls="overflow-hidden",
+            ),
+            cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
+            hx_swap_oob="true",
+            id="knowledges",
+        )
+    )
+
+
+def add_knowledge_button():
+    return Div(
+        Button(
+            Div(
+                plus_icon_svg,
+                "Add Knowledge",
+                cls="flex items-center gap-2",
+            ),
+            cls="btn btn-primary btn-sm mb-4",
+            hx_post="/knowledges/new",
+        ),
+        id="add-knowledge-button",
+        hx_swap_oob="true",
+        cls="flex justify-end",
+    )
+
+
+def render_ingestions(ingestions: list[IngestionRecord]):
+    return Div(
+        # Add new knowledge button
+        add_knowledge_button(),
+        # Table header
+        Div(
+            Div("Data Source", cls="col-span-3 px-4 py-2 flex items-center"),
+            Div("Provider", cls="col-span-3 px-4 py-2 flex items-center"),
+            Div("Glob Pattern", cls="col-span-3 px-4 py-2 flex items-center"),
+            Div("Last Updated", cls="col-span-2 px-4 py-2 flex items-center"),
+            Div("Actions", cls="col-span-1 px-4 py-2 flex items-center"),
+            cls="grid grid-cols-12 gap-4 bg-gray-100 rounded-t-lg",
+        ),
+        # Table body
+        *[render_knowledge_row(ingestion) for ingestion in ingestions],
+        cls="divide-y",
+        id="ingestions",
+    )
+
+
+def render_knowledge_row(ingestion: IngestionRecord):
+    return Form(
+        Div(
+            # Data Source
+            Div(
+                Input(
+                    type="text",
+                    name="data_source",
+                    value=ingestion.data_source,
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Provider
+            Div(
+                Input(
+                    type="text",
+                    name="data_source_provider",
+                    value="github",
+                    readonly=True,
+                    cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Glob
+            Div(
+                Input(
+                    type="text",
+                    name="glob",
+                    value=ingestion.glob,
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Last Updated
+            Div(
+                Span(
+                    ingestion.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    cls="text-sm text-gray-600",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                Button(
+                    run_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_put=f"/knowledges/{ingestion.id}",
+                ),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/knowledges/{ingestion.id}",
+                ),
+                cls="col-span-1 px-4 py-2 flex items-center justify-end gap-1",
+            ),
+            cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
+        ),
+        id=f"ingestion-record-{ingestion.id}",
+    )
+
+
+def new_knowledge_form(uuid: str):
+    return Form(
+        Div(
+            # Data Source
+            Div(
+                Input(
+                    type="text",
+                    name="data_source",
+                    value="",
+                    placeholder="kubernetes/kubernetes",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Provider
+            Div(
+                Input(
+                    type="text",
+                    name="data_source_provider",
+                    value="github",
+                    readonly=True,
+                    cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Glob
+            Div(
+                Input(
+                    type="text",
+                    name="glob",
+                    value="**/*.md",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-3 px-4 py-2 flex items-center",
+            ),
+            # Last Updated
+            Div(
+                Span(
+                    "",
+                    cls="text-sm text-gray-600",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                submit_new_knowledge_icon(uuid),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/knowledges/virtual/{uuid}",
+                ),
+                cls="col-span-1 px-4 py-2 flex items-center justify-end gap-1",
+            ),
+            cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
+        ),
+        id=f"new-ingestion-form-{uuid}",
+    )
+
+
+def submit_new_knowledge_icon(uuid: str):
+    return Div(
+        Input(
+            type="hidden",
+            name="uuid",
+            value=uuid,
+        ),
+        Button(
+            run_icon_svg,
+            cls="btn btn-ghost btn-sm",
+            # hx_swap_oob="true",
+            hx_post="/knowledges/",
+        ),
+        # hx_target="this",
+        # hx_swap="true",
     )
 
 

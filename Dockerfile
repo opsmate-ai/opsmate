@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION && \
 # Final stage
 FROM python:3.12.3-slim-bullseye
 
+# Install uvicorn directly in the final stage
+RUN pip install --no-cache-dir uvicorn
+
 # Install only kubectl without keeping unnecessary files
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \

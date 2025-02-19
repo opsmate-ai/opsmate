@@ -4,7 +4,7 @@ from opsmate.dino import dino, dtool
 from typing import Literal, Iterable
 from openai import AsyncOpenAI
 import instructor
-from instructor import AsyncInstructor
+from opsmate.dino.types import ResponseWithToolOutputs
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
 
@@ -86,9 +86,8 @@ async def test_dino_with_tool_outputs(model: str):
     def get_weather(location: str) -> str:
         return f"The weather in {location} is sunny"
 
-    class WeatherInfo(BaseModel):
+    class WeatherInfo(ResponseWithToolOutputs[str]):
         weather: Literal["sunny", "cloudy"]
-        tool_outputs: list[str]
 
     @dino(model, tools=[get_weather], response_model=WeatherInfo)
     async def get_weather_info(location: str):

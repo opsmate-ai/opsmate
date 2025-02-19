@@ -90,8 +90,19 @@ class PresentationMixin(ABC):
         pass
 
 
-class Observation(BaseModel):
-    _tool_outputs: List[ToolCall] = PrivateAttr(default=[])
+class ResponseWithToolOutputs(BaseModel, Generic[OutputType]):
+    _tool_outputs: List[OutputType] = PrivateAttr(default=[])
+
+    @computed_field
+    def tool_outputs(self) -> List[OutputType]:
+        return self._tool_outputs
+
+    @tool_outputs.setter
+    def tool_outputs(self, value: List[OutputType]):
+        self._tool_outputs = value
+
+
+class Observation(ResponseWithToolOutputs[ToolCall]):
     observation: str = Field(description="The observation of the action")
 
     @computed_field

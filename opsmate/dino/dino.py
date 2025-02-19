@@ -189,6 +189,7 @@ def dino(
 
             # check if response class has a tool_outputs field
             if hasattr(response, "tool_outputs"):
+                assert response.tool_outputs == [], "must not hallucinate tool outputs"
                 response.tool_outputs = tool_outputs
 
             if not after_hook:

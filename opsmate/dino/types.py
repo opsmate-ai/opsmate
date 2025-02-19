@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, PrivateAttr
 from typing import Any, List, Optional, Literal, Dict, Union, Type
 import structlog
 from abc import ABC, abstractmethod
@@ -38,13 +38,6 @@ MessageOrDict = Union[Dict, Message]
 ListOfMessageOrDict = List[MessageOrDict]
 
 
-class Result(BaseModel):
-    result: Any = Field(description="The result of a dino run")
-    tool_output: List[str | BaseModel] = Field(
-        description="The output of the tools used in the dino run"
-    )
-
-
 class React(BaseModel):
     thoughts: str = Field(description="Your thought about the question")
     action: str = Field(description="Action to take based on your thoughts")
@@ -80,14 +73,25 @@ class PresentationMixin(ABC):
 
 
 class Observation(BaseModel):
-    tool_outputs: List[ToolCall] = Field(
-        description="The output of the tools calling - as the AI assistant DO NOT populate this field",
-        default=[],
-    )
+    _tool_outputs: List[ToolCall] = PrivateAttr(default=[])
     observation: str = Field(description="The observation of the action")
+
+    @computed_field
+    @property
+    def tool_outputs(self) -> List[ToolCall]:
+        return self._tool_outputs
+
+    @tool_outputs.setter
+    def tool_outputs(self, value: List[ToolCall]):
+        self._tool_outputs = value
 
 
 class Context(BaseModel):
+    """
+    Context represents a collection of tools and contexts.
+    It is used by the `react` decorator to build the context for the AI assistant.
+    """
+
     name: str = Field(description="The name of the context")
     content: Optional[str] = Field(
         description="The description of the context", default=None

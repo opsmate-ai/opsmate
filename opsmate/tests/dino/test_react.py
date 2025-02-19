@@ -1,5 +1,5 @@
 import pytest
-from typing import Literal
+from typing import Literal, Any
 from opsmate.dino import run_react, dtool, dino
 from opsmate.dino.react import react
 from opsmate.dino.context import context
@@ -210,3 +210,48 @@ async def test_react_decorator_with_custom_model():
 
     answer = await what_is_the_llm(model="claude-3-5-sonnet-20241022")
     assert answer.answer == "Anthropic"
+
+
+@pytest.mark.asyncio
+async def test_react_decorator_with_tool_call_context():
+    @dtool
+    async def weather(city: str, context: dict[str, Any] = {}) -> str:
+        return context[city]
+
+    @react(
+        model="gpt-4o-mini",
+        iterable=False,
+        callback=lambda x: print(x),
+        tools=[weather],
+    )
+    async def weather_agent(query: str):
+        """
+        use the `weather` tool to get the weather of the city
+        """
+        return f"answer the query: {query} answer should be either sunny or cloudy"
+
+    tool_call_context = {
+        "Singapore": "sunny",
+        "London": "cloudy",
+    }
+    answer = await weather_agent(
+        "what is the weather in singapore?",
+        tool_call_context=tool_call_context,
+    )
+
+    @dino("gpt-4o-mini", response_model=Literal["sunny", "cloudy"])
+    def category_weather(weather: str):
+        """
+        categorize the weather into sunny or cloudy
+        """
+        return weather
+
+    answer = await category_weather(answer.answer)
+    assert answer == "sunny"
+
+    answer = await weather_agent(
+        "what is the weather in London?",
+        tool_call_context=tool_call_context,
+    )
+    answer = await category_weather(answer.answer)
+    assert answer == "cloudy"

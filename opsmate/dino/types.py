@@ -54,13 +54,19 @@ OutputType = TypeVar("OutputType")
 class ToolCall(BaseModel, Generic[OutputType]):
     _output: OutputType = PrivateAttr()
 
-    async def run(self):
+    async def run(self, context: dict[str, Any] = {}):
         """Run the tool call and return the output"""
         try:
             if inspect.iscoroutinefunction(self.__call__):
-                self.output = await self()
+                if self.call_has_context():
+                    self.output = await self(context=context)
+                else:
+                    self.output = await self()
             else:
-                self.output = self()
+                if self.call_has_context():
+                    self.output = self(context=context)
+                else:
+                    self.output = self()
         except Exception as e:
             logger.error(
                 "Tool execution failed",
@@ -82,6 +88,12 @@ class ToolCall(BaseModel, Generic[OutputType]):
     @output.setter
     def output(self, value: OutputType):
         self._output = value
+
+    def call_has_context(self):
+        if not hasattr(self, "__call__"):
+            return False
+        sig = inspect.signature(self.__call__)
+        return "context" in sig.parameters
 
 
 class PresentationMixin(ABC):

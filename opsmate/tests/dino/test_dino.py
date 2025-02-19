@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel, ValidationInfo, model_validator
 from opsmate.dino import dino, dtool
-from typing import Literal, Iterable
+from typing import Literal, Iterable, Any
 from openai import AsyncOpenAI
 import instructor
 from opsmate.dino.types import ResponseWithToolOutputs
@@ -354,3 +354,30 @@ async def test_gpt_o1_support_from_func():
     )
     assert user_info.name == "John Doe"
     assert user_info.email == "john.doe@example.com"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", MODELS)
+async def test_dino_with_context(model: str):
+    @dtool
+    async def get_weather(location: str, context: dict[str, Any] = {}) -> str:
+        return f"The weather in {location} is {context[location]}"
+
+    @dino(
+        model,
+        tools=[get_weather],
+        response_model=Literal["sunny", "cloudy"],
+    )
+    async def get_weather_info(location: str, context: dict[str, Any] = {}):
+        """
+        you answer the question about the weather in the given location using tool calls
+        """
+        return f"What is the weather in {location}?"
+
+    weather_lookup = {
+        "San Francisco": "sunny",
+        "London": "cloudy",
+    }
+
+    assert await get_weather_info("San Francisco", context=weather_lookup) == "sunny"
+    assert await get_weather_info("London", context=weather_lookup) == "cloudy"

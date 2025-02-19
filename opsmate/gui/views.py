@@ -31,11 +31,10 @@ from opsmate.polya.models import (
     Facts,
 )
 from opsmate.tools.system import SysChdir
-
+from opsmate.tools.command_line import ShellCommand
 from opsmate.polya.execution import iac_sme
 import pickle
 import structlog
-import subprocess
 import json
 from opsmate.workflow.workflow import (
     WorkflowContext,
@@ -347,7 +346,17 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     logger.info("chat_history", chat_history=chat_history)
 
     await react_streaming(
-        cell, swap, send, session, k8s_react(cell.input, chat_history=chat_history)
+        cell,
+        swap,
+        send,
+        session,
+        k8s_react(
+            cell.input,
+            chat_history=chat_history,
+            tool_call_context={
+                "envvars": EnvVar.all(session),
+            },
+        ),
     )
 
 
@@ -629,7 +638,13 @@ Here are the tasks to be performed **ONLY**:
 </important>
     """
 
-    await react_streaming(cell, swap, send, session, iac_sme(instruction))
+    await react_streaming(
+        cell,
+        swap,
+        send,
+        session,
+        iac_sme(instruction, tool_call_context={"envvars": EnvVar.all(session)}),
+    )
 
 
 async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):
@@ -650,33 +665,14 @@ async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session
     )
 
     script = cell.input.rstrip()
-    # execute the script using subprocess with combined output
-    process = subprocess.Popen(
-        script,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        bufsize=1,
-    )
 
-    combined_output = ""
-    while True:
-        output = process.stdout.readline()
-        error = process.stderr.readline()
-
-        if output == "" and error == "" and process.poll() is not None:
-            break
-
-        if output:
-            combined_output += output
-        if error:
-            combined_output += error
+    shell_command = ShellCommand(command=script, description="")
+    result = await shell_command.run(context={"envvars": EnvVar.all(session)})
 
     outputs.append(
         {
             "type": "BashOutput",
-            "output": combined_output,
+            "output": result,
         }
     )
 
@@ -1153,10 +1149,13 @@ def render_cells_container_with_ws(cells: list[Cell], hx_swap_oob: str = None):
 
 
 def copy_observation(observation: Observation):
-    return Observation(
-        tool_outputs=[
-            output.__class__(**output.model_dump())
-            for output in observation.tool_outputs
-        ],
+    ob = Observation(
         observation=observation.observation,
     )
+    tool_outputs = []
+    for output in observation.tool_outputs:
+        output_copy = output.__class__(**output.model_dump())
+        output_copy.output = output.output
+        tool_outputs.append(output_copy)
+    ob.tool_outputs = tool_outputs
+    return ob

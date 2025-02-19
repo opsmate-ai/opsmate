@@ -37,7 +37,7 @@ class GithubCloneAndCD(ToolCall[Result], PresentationMixin):
 
     @property
     def clone_url(self) -> str:
-        return f"https://{self._github_token}@{self.github_domain}/{self.repo}.git"
+        return f"https://{self._github_token}@{self._github_domain}/{self.repo}.git"
 
     @property
     def repo_path(self) -> str:
@@ -47,7 +47,7 @@ class GithubCloneAndCD(ToolCall[Result], PresentationMixin):
         self._github_token = context.get("github_token", os.getenv("GITHUB_TOKEN"))
         self._github_domain = context.get("github_domain", "github.com")
 
-        logger.info("cloning repository", repo=self.repo, domain=self.github_domain)
+        logger.info("cloning repository", repo=self.repo, domain=self._github_domain)
 
         try:
             os.makedirs(self.working_dir, exist_ok=True)

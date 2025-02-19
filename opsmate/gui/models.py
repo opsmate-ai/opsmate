@@ -13,7 +13,7 @@ from sqlmodel import (
     MetaData,
 )
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 from sqlmodel import Relationship
 import structlog
 from opsmate.dino.types import Message, Observation
@@ -284,6 +284,30 @@ class Cell(SQLModel, table=True):
                 deleted_cell_ids.extend(cell_ids)
 
         return deleted_cell_ids
+
+
+class EnvVar(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
+    key: str = Field(unique=True, index=True)
+    value: str = Field(sa_column=Column(Text))
+    created_at: datetime = Field(default=datetime.now())
+    updated_at: datetime = Field(default=datetime.now())
+
+    @classmethod
+    def all(cls, session: Session) -> Dict[str, str]:
+        envvars = session.exec(select(cls)).all()
+        return {envvar.key: envvar.value for envvar in envvars}
+
+    @classmethod
+    def get(cls, session: Session, key: str) -> str:
+        envvar = session.exec(select(cls).where(cls.key == key)).first()
+        return envvar.value if envvar else ""
+
+    @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
 
 
 class KVStore(SQLModel, table=True):

@@ -14,6 +14,7 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     CreatedByType,
     CellStateEnum,
+    EnvVar,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -79,6 +80,7 @@ nav = (
             A("Opsmate Workspace", cls="btn btn-ghost text-xl", href="/"),
             A("Freestyle", href="/blueprint/freestyle", cls="btn btn-ghost text-sm"),
             A("Knowledges", href="/knowledges", cls="btn btn-ghost text-sm"),
+            A("Settings", href="/settings", cls="btn btn-ghost text-sm"),
             cls="flex-1",
         ),
         Div(
@@ -752,6 +754,167 @@ def knowledges_body(db_session: Session, session_name: str):
             hx_swap_oob="true",
             id="knowledges",
         )
+    )
+
+
+def settings_body(db_session: Session, session_name: str):
+    envvars = db_session.exec(select(EnvVar)).all()
+    return Body(
+        Div(
+            Card(
+                # Header
+                Div(
+                    Div(
+                        H1("Settings", cls="text-2xl font-bold"),
+                        cls="flex flex-col",
+                    ),
+                    cls="mb-4 flex justify-between items-start pt-16",
+                ),
+                render_settings(envvars),
+                # cls="overflow-hidden",
+            ),
+            cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
+            hx_swap_oob="true",
+            id="knowledges",
+        )
+    )
+
+
+def render_settings(envvars: list[EnvVar]):
+    return Div(
+        # add a new envvar button
+        add_envvar_button(),
+        Div(
+            # Header row
+            Div(
+                Div("Key", cls="col-span-4 px-4 py-2 flex items-center"),
+                Div("Value", cls="col-span-6 px-4 py-2 flex items-center"),
+                Div("Actions", cls="col-span-2 px-4 py-2 flex items-center"),
+                cls="grid grid-cols-12 gap-4 bg-gray-100 rounded-t-lg",
+            ),
+            # Form rows
+            *[render_envvar_row(envvar) for envvar in envvars],
+            cls="divide-y",
+        ),
+        cls="divide-y",
+        id="envvars",
+    )
+
+
+def render_envvar_row(envvar: EnvVar):
+    return Form(
+        Div(
+            # Key input
+            Div(
+                Input(
+                    type="text",
+                    name="key",
+                    value=envvar.key,
+                    placeholder="KEY",
+                    readonly=True,
+                    disabled=True,
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-4 px-4 py-2 flex items-center",
+            ),
+            # Value input
+            Div(
+                Input(
+                    type="text",
+                    name="value",
+                    value=envvar.value,
+                    placeholder="VALUE",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-6 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                Button(
+                    save_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_put=f"/settings/envvars/{envvar.id}",
+                ),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/settings/envvars/{envvar.id}",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            cls="grid grid-cols-12 gap-4",
+        ),
+        id=f"envvar-row-{envvar.id}",
+    )
+
+
+def new_envvar_form(uuid: str):
+    return Form(
+        Div(
+            # Key input
+            Div(
+                Input(
+                    type="text",
+                    name="key",
+                    value="",
+                    placeholder="KEY",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-4 px-4 py-2 flex items-center",
+            ),
+            # Value input
+            Div(
+                Input(
+                    type="text",
+                    name="value",
+                    value="",
+                    placeholder="VALUE",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-6 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                Button(
+                    save_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_post=f"/settings/envvars/",
+                ),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/settings/envvars/virtual/{uuid}",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            cls="grid grid-cols-12 gap-4",
+        ),
+        id=f"new-envvar-form-{uuid}",
+    )
+
+
+def add_envvar_button():
+    return Div(
+        Button(
+            Div(
+                plus_icon_svg,
+                "Add Envvar",
+                cls="flex items-center gap-2",
+            ),
+            cls="btn btn-primary btn-sm mb-4",
+            hx_post="/settings/envvars/new",
+        ),
+        id="add-envvar-button",
+        hx_swap_oob="true",
+        cls="flex justify-end",
+    )
+
+
+def render_envvar(envvar: EnvVar):
+    return Div(
+        envvar.key,
+        envvar.value,
+        cls="flex items-center gap-2",
     )
 
 

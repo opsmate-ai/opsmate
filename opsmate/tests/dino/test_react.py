@@ -219,7 +219,7 @@ async def test_react_decorator_with_tool_call_context():
         return context[city]
 
     @react(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         iterable=False,
         callback=lambda x: print(x),
         tools=[weather],

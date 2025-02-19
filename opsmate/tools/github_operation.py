@@ -1,5 +1,5 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 from typing import ClassVar, Optional, Any
 import os
 import asyncio

@@ -1,5 +1,5 @@
-from opsmate.dino.types import ToolCall, PresentationMixin, OutputType
-from pydantic import BaseModel, Field, model_validator, PrivateAttr
+from opsmate.dino.types import ToolCall, PresentationMixin
+from pydantic import BaseModel, Field, model_validator
 from typing import Dict, List, Optional, ClassVar, Self
 from collections import defaultdict
 from pathlib import Path

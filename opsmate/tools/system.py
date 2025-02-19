@@ -1,7 +1,7 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 import httpx
-from typing import Dict, List, Optional
-from pydantic import Field, PrivateAttr
+from typing import Dict, List
+from pydantic import Field
 import json
 import html2text
 import os

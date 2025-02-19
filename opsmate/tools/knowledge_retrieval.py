@@ -1,7 +1,5 @@
-from typing import List, Optional, Dict, Any
-
-from pydantic import Field, PrivateAttr
-
+from typing import List, Dict, Any
+from pydantic import Field
 from opsmate.knowledgestore.models import conn, aconn, config
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino

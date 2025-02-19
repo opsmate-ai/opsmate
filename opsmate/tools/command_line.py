@@ -1,6 +1,5 @@
-import subprocess
-from typing import Optional, ClassVar, Any
-from pydantic import Field, PrivateAttr
+from typing import ClassVar, Any
+from pydantic import Field
 from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
 import asyncio

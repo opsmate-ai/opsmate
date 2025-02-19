@@ -185,13 +185,7 @@ async def new_react_cell(
             input = render_observation_markdown_raw(output)
             cell_output = {
                 "type": "Observation",
-                "output": Observation(
-                    tool_outputs=[
-                        output.__class__(**output.model_dump())
-                        for output in output.tool_outputs
-                    ],
-                    observation=output.observation,
-                ),
+                "output": copy_observation(output),
             }
             thinking_system = CellType.REASONING_OBSERVATION
         case _:
@@ -240,13 +234,7 @@ async def new_simple_cell(
     input = render_observation_markdown_raw(output)
     cell_output = {
         "type": "Observation",
-        "output": Observation(
-            tool_outputs=[
-                output.__class__(**output.model_dump())
-                for output in output.tool_outputs
-            ],
-            observation=output.observation,
-        ),
+        "output": copy_observation(output),
     }
     cell = Cell(
         input=input,
@@ -999,3 +987,13 @@ def render_cells_container_with_ws(cells: list[Cell], hx_swap_oob: str = None):
     if hx_swap_oob:
         div.hx_swap_oob = hx_swap_oob
     return div
+
+
+def copy_observation(observation: Observation):
+    return Observation(
+        tool_outputs=[
+            output.__class__(**output.model_dump())
+            for output in observation.tool_outputs
+        ],
+        observation=observation.observation,
+    )

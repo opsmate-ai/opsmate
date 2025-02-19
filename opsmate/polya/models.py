@@ -71,11 +71,13 @@ class Command(BaseModel):
         description="what are the informations are provided by the command execution"
     )
 
-    _result: Optional[str] = PrivateAttr(default=None)
+    _result: str = PrivateAttr()
 
     @computed_field
     @property
-    def result(self) -> Optional[str]:
+    def result(self) -> str:
+        if not hasattr(self, "_result"):
+            self._result = self.execute()
         return self._result
 
     @field_validator("command")
@@ -91,6 +93,9 @@ class Command(BaseModel):
         """
         Execute the command and return the output
         """
+        if hasattr(self, "_result"):
+            return self._result
+
         try:
             result = subprocess.run(
                 self.command,
@@ -122,17 +127,7 @@ class QuestionResponse(BaseModel):
     @model_validator(mode="after")
     def execute_commands(self):
         for command in self.commands:
-            if command.result is None:
-                command.execute()
-        return self
-
-    def execute(self):
-        """
-        Execute the commands and return the result
-        """
-        for command in self.commands:
             command.execute()
-
         return self
 
     def __str__(self):

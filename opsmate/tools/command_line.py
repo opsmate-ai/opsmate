@@ -1,6 +1,6 @@
 import subprocess
 from typing import Optional, ClassVar
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
 import asyncio
@@ -9,7 +9,7 @@ from opsmate.tools.utils import maybe_truncate_text
 logger = structlog.get_logger(__name__)
 
 
-class ShellCommand(ToolCall, PresentationMixin):
+class ShellCommand(ToolCall[str], PresentationMixin):
     """
     ShellCommand tool allows you to run shell commands and get the output.
     """
@@ -21,10 +21,6 @@ class ShellCommand(ToolCall, PresentationMixin):
     timeout: float = Field(
         description="The estimated time for the command to execute in seconds",
         default=120.0,
-    )
-    output: Optional[str] = Field(
-        description="The output of the command - DO NOT POPULATE",
-        default=None,
     )
 
     async def __call__(self):

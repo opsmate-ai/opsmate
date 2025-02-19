@@ -2,7 +2,13 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
-from pydantic import model_validator, field_validator, ValidationInfo
+from pydantic import (
+    model_validator,
+    field_validator,
+    ValidationInfo,
+    PrivateAttr,
+    computed_field,
+)
 from opsmate.dino import dino
 import asyncio
 import concurrent.futures
@@ -64,7 +70,13 @@ class Command(BaseModel):
     description: str = Field(
         description="what are the informations are provided by the command execution"
     )
-    result: Optional[str] = Field(description="DO NOT populate the value")
+
+    _result: Optional[str] = PrivateAttr(default=None)
+
+    @computed_field
+    @property
+    def result(self) -> Optional[str]:
+        return self._result
 
     @field_validator("command")
     @classmethod
@@ -87,10 +99,10 @@ class Command(BaseModel):
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-            self.result = result.stdout
+            self._result = result.stdout
             return result.stdout
         except subprocess.SubprocessError as e:
-            self.result = str(e)
+            self._result = str(e)
             return str(e)
 
 

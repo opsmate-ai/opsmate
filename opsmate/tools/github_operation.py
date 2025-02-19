@@ -1,10 +1,10 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 from typing import ClassVar, Optional
 import os
 import asyncio
 import structlog
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 import httpx
 
 logger = structlog.get_logger(__name__)
@@ -21,14 +21,11 @@ class Result(BaseModel):
     )
 
 
-class GithubCloneAndCD(ToolCall, PresentationMixin):
+class GithubCloneAndCD(ToolCall[Result], PresentationMixin):
     """
     Clone a github repository and cd into the directory
     """
 
-    output: Result = Field(
-        ..., description="The output of the tool call, DO NOT POPULATE"
-    )
     github_domain: ClassVar[str] = "github.com"
     github_token: ClassVar[str] = os.getenv("GITHUB_TOKEN")
 
@@ -87,7 +84,7 @@ Repo path: `{self.repo_path}`
 """
 
 
-class GithubRaisePR(ToolCall, PresentationMixin):
+class GithubRaisePR(ToolCall[Result], PresentationMixin):
     """
     Raise a PR for a given github repository
     """
@@ -100,10 +97,6 @@ class GithubRaisePR(ToolCall, PresentationMixin):
     base_branch: str = Field("main", description="The base branch to raise the PR")
     title: str = Field(..., description="The title of the PR")
     body: str = Field(..., description="The body of the PR")
-
-    output: Result = Field(
-        ..., description="The output of the tool call, DO NOT POPULATE"
-    )
 
     @property
     def headers(self):

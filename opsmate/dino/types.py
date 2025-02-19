@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, computed_field, PrivateAttr
-from typing import Any, List, Optional, Literal, Dict, Union, Type
+from typing import Any, List, Optional, Literal, Dict, Union, Type, TypeVar, Generic
 import structlog
 from abc import ABC, abstractmethod
 import inspect
@@ -47,7 +47,13 @@ class ReactAnswer(BaseModel):
     answer: str = Field(description="Your final answer to the question")
 
 
-class ToolCall(BaseModel):
+# Define a type variable
+OutputType = TypeVar("OutputType")
+
+
+class ToolCall(BaseModel, Generic[OutputType]):
+    _output: OutputType = PrivateAttr()
+
     async def run(self):
         """Run the tool call and return the output"""
         try:
@@ -64,6 +70,18 @@ class ToolCall(BaseModel):
             )
             self.output = f"Error executing tool {self.__class__.__name__}: {str(e)}"
         return self.output
+
+    @computed_field
+    @property
+    def output(self) -> OutputType:
+        if hasattr(self, "_output"):
+            return self._output
+        else:
+            return None
+
+    @output.setter
+    def output(self, value: OutputType):
+        self._output = value
 
 
 class PresentationMixin(ABC):

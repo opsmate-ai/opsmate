@@ -49,7 +49,7 @@ def dtool(fn: Callable[P, T] | Callable[P, Awaitable[T]]) -> Type[ToolCall]:
     return_type = fn.__annotations__.get("return", Optional[str | ToolCall])
 
     # Use the return type of fn for the output field
-    kw["output"] = (Optional[return_type], None)
+    kw["_output"] = (Optional[return_type], None)
     m = create_model(
         fn.__name__,
         __doc__=fn.__doc__,

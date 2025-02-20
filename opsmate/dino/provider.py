@@ -8,6 +8,7 @@ from tenacity import AsyncRetrying
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
 from functools import cache
+import os
 
 T = TypeVar("T")
 
@@ -151,7 +152,23 @@ class AnthropicProvider(Provider):
         return instructor.from_anthropic(AsyncAnthropic())
 
 
+class XAIProvider(OpenAIProvider):
+    DEFAULT_BASE_URL = "https://api.x.ai/v1"
+    models = ["grok-2-1212"]
+
+    @classmethod
+    @cache
+    def default_client(cls) -> AsyncInstructor:
+        return instructor.from_openai(
+            AsyncOpenAI(
+                base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),
+                api_key=os.getenv("XAI_API_KEY"),
+            )
+        )
+
+
 Provider.providers = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
+    "xai": XAIProvider,
 }

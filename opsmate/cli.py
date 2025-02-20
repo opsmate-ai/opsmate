@@ -17,6 +17,7 @@ import structlog
 import logging
 from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
+from opsmate.dino.provider import Provider
 from opsmate.contexts import contexts
 import asyncio
 from functools import wraps
@@ -352,6 +353,22 @@ def list_tools():
 
     for tool_name, tool in PluginRegistry.get_tools().items():
         table.add_row(tool_name, tool.__doc__)
+
+    console.print(table)
+
+
+@opsmate_cli.command()
+def list_models():
+    """
+    List all the models available.
+    """
+    table = Table(title="Models", show_header=True, show_lines=True)
+    table.add_column("Provider")
+    table.add_column("Model")
+
+    for provider_name, provider in Provider.providers.items():
+        for model in provider.models:
+            table.add_row(provider_name, model)
 
     console.print(table)
 

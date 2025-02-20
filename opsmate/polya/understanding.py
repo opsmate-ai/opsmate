@@ -11,6 +11,7 @@ from jinja2 import Template
 import asyncio
 from opsmate.dino import dino
 from opsmate.dino.types import Message, ListOfMessageOrDict
+from instructor import AsyncInstructor
 
 extra_sys_prompt = """
 <assistant-context>
@@ -139,9 +140,15 @@ async def __summarise_info_gathered(question: QuestionResponse):
     return str(question)
 
 
-async def info_gathering(summary: str, question: str):
-    question_response = await __info_gathering(summary, question)
-    summarised_info = await __summarise_info_gathered(question_response)
+async def info_gathering(
+    summary: str, question: str, model: str = None, client: AsyncInstructor = None
+):
+    question_response = await __info_gathering(
+        summary, question, model=model, client=client
+    )
+    summarised_info = await __summarise_info_gathered(
+        question_response, model=model, client=client
+    )
     return InfoGathered(
         question=question_response.question,
         commands=question_response.commands,

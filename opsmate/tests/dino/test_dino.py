@@ -5,8 +5,12 @@ from typing import Literal, Iterable, Any
 from openai import AsyncOpenAI
 import instructor
 from opsmate.dino.types import ResponseWithToolOutputs
+import os
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+
+if os.getenv("XAI_API_KEY"):
+    MODELS.append("grok-2-1212")
 
 
 @pytest.mark.asyncio

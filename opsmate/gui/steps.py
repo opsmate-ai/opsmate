@@ -91,6 +91,8 @@ async def manage_initial_understanding_cell(
     ctx: WorkflowContext,
 ):
     parent_cell = ctx.input["question_cell"]
+    llm_client = ctx.input["llm_client"]
+    llm_model = ctx.input["llm_model"]
     session = ctx.input["session"]
     send = ctx.input["send"]
     workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
@@ -108,10 +110,15 @@ async def manage_initial_understanding_cell(
     is_new_cell = cell is None
     if is_new_cell:
         iu = await initial_understanding(
-            parent_cell.input.rstrip(), chat_history=context
+            parent_cell.input.rstrip(),
+            chat_history=context,
+            client=llm_client,
+            model=llm_model,
         )
     else:
-        iu = await load_inital_understanding(cell.input)
+        iu = await load_inital_understanding(
+            cell.input, client=llm_client, model=llm_model
+        )
         iu = InitialUnderstandingResponse(**iu.model_dump())
 
     if is_new_cell:
@@ -222,6 +229,8 @@ async def cond_is_technical_query(ctx: WorkflowContext):
 async def generate_report_with_breakdown(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
+    llm_client = ctx.input["llm_client"]
+    llm_model = ctx.input["llm_model"]
     cells, info_gathered = zip(*ctx.step_results)
     cells, info_gathered = (
         list([cell for cell in cells if cell is not None]),
@@ -233,8 +242,12 @@ async def generate_report_with_breakdown(ctx: WorkflowContext):
     _, iu = initial_understanding_result
     summary = iu.summary
 
-    report = await generate_report(summary, info_gathered=info_gathered)
-    report_extracted = await report_breakdown(report)
+    report = await generate_report(
+        summary, info_gathered=info_gathered, client=llm_client, model=llm_model
+    )
+    report_extracted = await report_breakdown(
+        report, client=llm_client, model=llm_model
+    )
 
     return cells, ReportExtracted(**report_extracted.model_dump())
 
@@ -316,6 +329,8 @@ def make_manage_info_gathering_cell(question_id: int):
     ):
         session = ctx.input["session"]
         send = ctx.input["send"]
+        llm_client = ctx.input["llm_client"]
+        llm_model = ctx.input["llm_model"]
         parent_cell, iu = ctx.find_result("manage_initial_understanding_cell", session)
         workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
 
@@ -337,7 +352,9 @@ def make_manage_info_gathering_cell(question_id: int):
                 return None, None
             question = iu.questions[ctx.metadata["question_id"]]
         logger.info("info gathering", question=question)
-        info_gathered = await info_gathering(iu.summary, question)
+        info_gathered = await info_gathering(
+            iu.summary, question, client=llm_client, model=llm_model
+        )
         info_gathered = InfoGathered(**info_gathered.model_dump())
 
         outputs = []
@@ -571,6 +588,8 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     parent_cell, summary = ctx.find_result(
         "manage_planning_optimial_solution_cell", session
     )
+    llm_client = ctx.input["llm_client"]
+    llm_model = ctx.input["llm_model"]
     workflow = Workflow.find_by_id(session, parent_cell.workflow_id)
 
     cell = ctx.input.get("current_pkr_cell")
@@ -579,13 +598,15 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
     is_new_cell = cell is None
 
     if is_new_cell:
-        questions = await summary_breakdown(summary)
+        questions = await summary_breakdown(summary, client=llm_client, model=llm_model)
         logger.info("questions", questions=questions)
-        facts = await knowledge_retrieval(questions)
+        facts = await knowledge_retrieval(questions, client=llm_client, model=llm_model)
 
     else:
         logger.info("loading facts from existing cell", cell_id=cell.id)
-        facts = await load_facts(cell.input.rstrip())
+        facts = await load_facts(
+            cell.input.rstrip(), client=llm_client, model=llm_model
+        )
     facts = Facts(**facts.model_dump())
     logger.info("facts", facts=facts)
 
@@ -655,6 +676,8 @@ async def manage_planning_knowledge_retrieval_cell(ctx: WorkflowContext):
 async def manage_planning_task_plan_cell(ctx: WorkflowContext):
     session = ctx.input["session"]
     send = ctx.input["send"]
+    llm_client = ctx.input["llm_client"]
+    llm_model = ctx.input["llm_model"]
     parent_cell, facts = ctx.find_result(
         "manage_planning_knowledge_retrieval_cell", session
     )
@@ -674,6 +697,8 @@ async def manage_planning_task_plan_cell(ctx: WorkflowContext):
         summary=solution_for_planning,
         facts=facts.facts,
         instruction="how to solve the problem?",
+        client=llm_client,
+        model=llm_model,
     )
     task_plan = TaskPlan(**task_plan.model_dump())
     outputs = []

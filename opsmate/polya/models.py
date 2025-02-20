@@ -2,10 +2,17 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import subprocess
 from jinja2 import Template
-from pydantic import model_validator, field_validator, ValidationInfo
+from pydantic import (
+    model_validator,
+    field_validator,
+    ValidationInfo,
+    PrivateAttr,
+    computed_field,
+)
 from opsmate.dino import dino
 import asyncio
 import concurrent.futures
+import re
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -64,7 +71,15 @@ class Command(BaseModel):
     description: str = Field(
         description="what are the informations are provided by the command execution"
     )
-    result: Optional[str] = Field(description="DO NOT populate the value")
+
+    _result: str = PrivateAttr()
+
+    @computed_field
+    @property
+    def result(self) -> str:
+        if not hasattr(self, "_result"):
+            self._result = self.execute()
+        return self._result
 
     @field_validator("command")
     @classmethod
@@ -79,6 +94,9 @@ class Command(BaseModel):
         """
         Execute the command and return the output
         """
+        if hasattr(self, "_result"):
+            return self._result
+
         try:
             result = subprocess.run(
                 self.command,
@@ -87,10 +105,10 @@ class Command(BaseModel):
                 stderr=subprocess.STDOUT,
                 text=True,
             )
-            self.result = result.stdout
+            self._result = result.stdout
             return result.stdout
         except subprocess.SubprocessError as e:
-            self.result = str(e)
+            self._result = str(e)
             return str(e)
 
 
@@ -110,17 +128,7 @@ class QuestionResponse(BaseModel):
     @model_validator(mode="after")
     def execute_commands(self):
         for command in self.commands:
-            if command.result is None:
-                command.execute()
-        return self
-
-    def execute(self):
-        """
-        Execute the commands and return the result
-        """
-        for command in self.commands:
             command.execute()
-
         return self
 
     def __str__(self):
@@ -157,25 +165,23 @@ Output:
         )
 
 
-class QuestionResponseSummary(BaseModel):
-    """
-    The summary of the question
-    """
-
-    question: str
-    summary: str
-
-
 class InfoGathered(BaseModel):
     """
-    The summary of the question
+    Information gathered from the command execution
     """
 
     question: str
     commands: List[Command]
     info_gathered: str = Field(
-        description="The information gathered from the command execution"
+        description="The information gathered from the command execution in markdown format. MUST NOT contain any markdown headers"
     )
+
+    @model_validator(mode="after")
+    def remove_markdown_headers(self):
+        self.info_gathered = re.sub(
+            r"^#+\s+.*$", "", self.info_gathered, flags=re.MULTILINE
+        )
+        return self
 
 
 class Report(BaseModel):
@@ -189,6 +195,8 @@ class Report(BaseModel):
 class Solution(BaseModel):
     """
     The solution to the problem
+
+    DO NOT use any markdown heading, just use the content as is.
     """
 
     findings: List[str] = Field(
@@ -226,6 +234,8 @@ class Solution(BaseModel):
 class ReportExtracted(BaseModel):
     """
     The extracted information from the report
+
+    DO NOT use any markdown heading, just use the content as is.
     """
 
     summary: str = Field(description="The summary of the problem")

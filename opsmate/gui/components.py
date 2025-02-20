@@ -392,7 +392,7 @@ class UnderstandingRenderer:
 
 ### Summary
 
- {{ info_gathered.info_gathered }}
+{{ info_gathered.info_gathered }}
 
 """
 

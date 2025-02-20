@@ -14,6 +14,7 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     CreatedByType,
     CellStateEnum,
+    EnvVar,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -30,11 +31,10 @@ from opsmate.polya.models import (
     Facts,
 )
 from opsmate.tools.system import SysChdir
-
+from opsmate.tools.command_line import ShellCommand
 from opsmate.polya.execution import iac_sme
 import pickle
 import structlog
-import subprocess
 import json
 from opsmate.workflow.workflow import (
     WorkflowContext,
@@ -79,6 +79,7 @@ nav = (
             A("Opsmate Workspace", cls="btn btn-ghost text-xl", href="/"),
             A("Freestyle", href="/blueprint/freestyle", cls="btn btn-ghost text-sm"),
             A("Knowledges", href="/knowledges", cls="btn btn-ghost text-sm"),
+            A("Settings", href="/settings", cls="btn btn-ghost text-sm"),
             cls="flex-1",
         ),
         Div(
@@ -185,13 +186,7 @@ async def new_react_cell(
             input = render_observation_markdown_raw(output)
             cell_output = {
                 "type": "Observation",
-                "output": Observation(
-                    tool_outputs=[
-                        output.__class__(**output.model_dump())
-                        for output in output.tool_outputs
-                    ],
-                    observation=output.observation,
-                ),
+                "output": copy_observation(output),
             }
             thinking_system = CellType.REASONING_OBSERVATION
         case _:
@@ -240,13 +235,7 @@ async def new_simple_cell(
     input = render_observation_markdown_raw(output)
     cell_output = {
         "type": "Observation",
-        "output": Observation(
-            tool_outputs=[
-                output.__class__(**output.model_dump())
-                for output in output.tool_outputs
-            ],
-            observation=output.observation,
-        ),
+        "output": copy_observation(output),
     }
     cell = Cell(
         input=input,
@@ -357,7 +346,17 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     logger.info("chat_history", chat_history=chat_history)
 
     await react_streaming(
-        cell, swap, send, session, k8s_react(cell.input, chat_history=chat_history)
+        cell,
+        swap,
+        send,
+        session,
+        k8s_react(
+            cell.input,
+            chat_history=chat_history,
+            tool_call_context={
+                "envvars": EnvVar.all(session),
+            },
+        ),
     )
 
 
@@ -639,7 +638,13 @@ Here are the tasks to be performed **ONLY**:
 </important>
     """
 
-    await react_streaming(cell, swap, send, session, iac_sme(instruction))
+    await react_streaming(
+        cell,
+        swap,
+        send,
+        session,
+        iac_sme(instruction, tool_call_context={"envvars": EnvVar.all(session)}),
+    )
 
 
 async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):
@@ -660,33 +665,14 @@ async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session
     )
 
     script = cell.input.rstrip()
-    # execute the script using subprocess with combined output
-    process = subprocess.Popen(
-        script,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        bufsize=1,
-    )
 
-    combined_output = ""
-    while True:
-        output = process.stdout.readline()
-        error = process.stderr.readline()
-
-        if output == "" and error == "" and process.poll() is not None:
-            break
-
-        if output:
-            combined_output += output
-        if error:
-            combined_output += error
+    shell_command = ShellCommand(command=script, description="")
+    result = await shell_command.run(context={"envvars": EnvVar.all(session)})
 
     outputs.append(
         {
             "type": "BashOutput",
-            "output": combined_output,
+            "output": result,
         }
     )
 
@@ -764,6 +750,167 @@ def knowledges_body(db_session: Session, session_name: str):
             hx_swap_oob="true",
             id="knowledges",
         )
+    )
+
+
+def settings_body(db_session: Session, session_name: str):
+    envvars = db_session.exec(select(EnvVar)).all()
+    return Body(
+        Div(
+            Card(
+                # Header
+                Div(
+                    Div(
+                        H1("Settings", cls="text-2xl font-bold"),
+                        cls="flex flex-col",
+                    ),
+                    cls="mb-4 flex justify-between items-start pt-16",
+                ),
+                render_settings(envvars),
+                # cls="overflow-hidden",
+            ),
+            cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
+            hx_swap_oob="true",
+            id="knowledges",
+        )
+    )
+
+
+def render_settings(envvars: list[EnvVar]):
+    return Div(
+        # add a new envvar button
+        add_envvar_button(),
+        Div(
+            # Header row
+            Div(
+                Div("Key", cls="col-span-4 px-4 py-2 flex items-center"),
+                Div("Value", cls="col-span-6 px-4 py-2 flex items-center"),
+                Div("Actions", cls="col-span-2 px-4 py-2 flex items-center"),
+                cls="grid grid-cols-12 gap-4 bg-gray-100 rounded-t-lg",
+            ),
+            # Form rows
+            *[render_envvar_row(envvar) for envvar in envvars],
+            cls="divide-y",
+        ),
+        cls="divide-y",
+        id="envvars",
+    )
+
+
+def render_envvar_row(envvar: EnvVar):
+    return Form(
+        Div(
+            # Key input
+            Div(
+                Input(
+                    type="text",
+                    name="key",
+                    value=envvar.key,
+                    placeholder="KEY",
+                    readonly=True,
+                    disabled=True,
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-4 px-4 py-2 flex items-center",
+            ),
+            # Value input
+            Div(
+                Input(
+                    type="text",
+                    name="value",
+                    value=envvar.value,
+                    placeholder="VALUE",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-6 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                Button(
+                    save_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_put=f"/settings/envvars/{envvar.id}",
+                ),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/settings/envvars/{envvar.id}",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            cls="grid grid-cols-12 gap-4",
+        ),
+        id=f"envvar-row-{envvar.id}",
+    )
+
+
+def new_envvar_form(uuid: str):
+    return Form(
+        Div(
+            # Key input
+            Div(
+                Input(
+                    type="text",
+                    name="key",
+                    value="",
+                    placeholder="KEY",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-4 px-4 py-2 flex items-center",
+            ),
+            # Value input
+            Div(
+                Input(
+                    type="text",
+                    name="value",
+                    value="",
+                    placeholder="VALUE",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-6 px-4 py-2 flex items-center",
+            ),
+            # Actions
+            Div(
+                Button(
+                    save_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_post=f"/settings/envvars/",
+                ),
+                Button(
+                    trash_icon_svg,
+                    cls="btn btn-ghost btn-sm",
+                    hx_delete=f"/settings/envvars/virtual/{uuid}",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            cls="grid grid-cols-12 gap-4",
+        ),
+        id=f"new-envvar-form-{uuid}",
+    )
+
+
+def add_envvar_button():
+    return Div(
+        Button(
+            Div(
+                plus_icon_svg,
+                "Add Envvar",
+                cls="flex items-center gap-2",
+            ),
+            cls="btn btn-primary btn-sm mb-4",
+            hx_post="/settings/envvars/new",
+        ),
+        id="add-envvar-button",
+        hx_swap_oob="true",
+        cls="flex justify-end",
+    )
+
+
+def render_envvar(envvar: EnvVar):
+    return Div(
+        envvar.key,
+        envvar.value,
+        cls="flex items-center gap-2",
     )
 
 
@@ -999,3 +1146,16 @@ def render_cells_container_with_ws(cells: list[Cell], hx_swap_oob: str = None):
     if hx_swap_oob:
         div.hx_swap_oob = hx_swap_oob
     return div
+
+
+def copy_observation(observation: Observation):
+    ob = Observation(
+        observation=observation.observation,
+    )
+    tool_outputs = []
+    for output in observation.tool_outputs:
+        output_copy = output.__class__(**output.model_dump())
+        output_copy.output = output.output
+        tool_outputs.append(output_copy)
+    ob.tool_outputs = tool_outputs
+    return ob

@@ -164,6 +164,7 @@ def dino(
             else:
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
+            tool_call_ctx = ikwargs.get("context", {})
             tool_outputs = []
             if _tools:
                 initial_response = await provider.chat_completion(
@@ -172,7 +173,7 @@ def dino(
                     client=_client,
                     **ikwargs,
                 )
-                tasks = [resp.run() for resp in initial_response]
+                tasks = [resp.run(context=tool_call_ctx) for resp in initial_response]
                 await asyncio.gather(*tasks)
 
                 for resp in initial_response:
@@ -189,6 +190,7 @@ def dino(
 
             # check if response class has a tool_outputs field
             if hasattr(response, "tool_outputs"):
+                assert response.tool_outputs == [], "must not hallucinate tool outputs"
                 response.tool_outputs = tool_outputs
 
             if not after_hook:

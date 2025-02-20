@@ -1,7 +1,5 @@
-from typing import List, Optional, Dict, Any
-
+from typing import List, Dict, Any
 from pydantic import Field
-
 from opsmate.knowledgestore.models import conn, aconn, config
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
@@ -27,7 +25,9 @@ class KnowledgeNotFound(BaseModel):
     """
 
 
-class KnowledgeRetrieval(ToolCall, PresentationMixin):
+class KnowledgeRetrieval(
+    ToolCall[Union[RretrievalResult, KnowledgeNotFound]], PresentationMixin
+):
     """
     Knowledge retrieval tool allows you to search for relevant knowledge from the knowledge base.
     """
@@ -36,10 +36,6 @@ class KnowledgeRetrieval(ToolCall, PresentationMixin):
     _conn = None
     _embed_client = None
     query: str = Field(description="The query to search for")
-    output: Optional[Union[RretrievalResult, KnowledgeNotFound]] = Field(
-        description="The summarised output of the search - DO NOT POPULATE THIS FIELD",
-        default=None,
-    )
 
     async def __call__(self):
         logger.info("running knowledge retrieval tool", query=self.query)

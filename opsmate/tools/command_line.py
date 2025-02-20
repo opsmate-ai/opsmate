@@ -1,15 +1,15 @@
-import subprocess
-from typing import Optional, ClassVar
+from typing import ClassVar, Any
 from pydantic import Field
 from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
 import asyncio
+import os
 from opsmate.tools.utils import maybe_truncate_text
 
 logger = structlog.get_logger(__name__)
 
 
-class ShellCommand(ToolCall, PresentationMixin):
+class ShellCommand(ToolCall[str], PresentationMixin):
     """
     ShellCommand tool allows you to run shell commands and get the output.
     """
@@ -22,18 +22,18 @@ class ShellCommand(ToolCall, PresentationMixin):
         description="The estimated time for the command to execute in seconds",
         default=120.0,
     )
-    output: Optional[str] = Field(
-        description="The output of the command - DO NOT POPULATE",
-        default=None,
-    )
 
-    async def __call__(self):
+    async def __call__(self, context: dict[str, Any] = {}):
+        envvars = os.environ.copy()
+        extra_envvars = context.get("envvars", {})
+        envvars.update(extra_envvars)
         logger.info("running shell command", command=self.command)
         try:
             process = await asyncio.create_subprocess_shell(
                 self.command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                env=envvars,
             )
             stdout, _ = await asyncio.wait_for(
                 process.communicate(), timeout=self.timeout

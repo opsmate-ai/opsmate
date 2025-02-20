@@ -7,6 +7,7 @@ from typing import (
     ParamSpec,
     TypeVar,
     Awaitable,
+    Dict,
 )
 from pydantic import BaseModel
 from .dino import dino
@@ -94,6 +95,7 @@ async def run_react(
         [str, List[Message], List[ToolCall]], Coroutine[Any, Any, List[Message]]
     ] = _react_prompt,
     tool_calls_per_action: int = 3,
+    tool_call_context: Dict[str, Any] = {},
     **kwargs: Any,
 ):
     ctxs = []
@@ -106,7 +108,7 @@ async def run_react(
             raise ValueError(f"Invalid context type: {type(ctx)}")
 
     @dino(model, response_model=Observation, tools=tools, **kwargs)
-    async def run_action(react: React):
+    async def run_action(react: React, context: Dict[str, Any] = {}):
         f"""
         You are a world class expert to carry out actions using the tools you are given.
         Please stictly only carry out the action within the <action>...</action> tag.
@@ -151,7 +153,7 @@ thought: {react.thoughts}
         if isinstance(react_result, React):
             message_history.append(Message.user(react_result.model_dump_json()))
             yield react_result
-            observation = await run_action(react_result)
+            observation = await run_action(react_result, context=tool_call_context)
 
             observation_out = observation.model_dump()
             for idx, tool_output in enumerate(observation.tool_outputs):
@@ -226,6 +228,7 @@ def react(
             extra_contexts: List[str | Context] = [],
             extra_tools: List[ToolCall] = [],
             tool_calls_per_action: int = _tool_calls_per_action,
+            tool_call_context: Dict[str, Any] = {},
             **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
             if inspect.iscoroutinefunction(fn):
@@ -258,6 +261,7 @@ def react(
                         tool_calls_per_action=tool_calls_per_action,
                         **react_kwargs,
                         chat_history=chat_history,
+                        tool_call_context=tool_call_context,
                     )
 
                 return gen()
@@ -270,6 +274,7 @@ def react(
                     max_iter=max_iter,
                     tool_calls_per_action=tool_calls_per_action,
                     chat_history=chat_history,
+                    tool_call_context=tool_call_context,
                 ):
                     if callback:
                         if inspect.iscoroutinefunction(callback):

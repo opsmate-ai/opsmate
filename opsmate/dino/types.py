@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Any, List, Optional, Literal, Dict, Union, Type
+from pydantic import BaseModel, Field, computed_field, PrivateAttr
+from typing import Any, List, Optional, Literal, Dict, Union, Type, TypeVar, Generic
 import structlog
 from abc import ABC, abstractmethod
 import inspect
@@ -38,13 +38,6 @@ MessageOrDict = Union[Dict, Message]
 ListOfMessageOrDict = List[MessageOrDict]
 
 
-class Result(BaseModel):
-    result: Any = Field(description="The result of a dino run")
-    tool_output: List[str | BaseModel] = Field(
-        description="The output of the tools used in the dino run"
-    )
-
-
 class React(BaseModel):
     thoughts: str = Field(description="Your thought about the question")
     action: str = Field(description="Action to take based on your thoughts")
@@ -54,14 +47,26 @@ class ReactAnswer(BaseModel):
     answer: str = Field(description="Your final answer to the question")
 
 
-class ToolCall(BaseModel):
-    async def run(self):
+# Define a type variable
+OutputType = TypeVar("OutputType")
+
+
+class ToolCall(BaseModel, Generic[OutputType]):
+    _output: OutputType = PrivateAttr()
+
+    async def run(self, context: dict[str, Any] = {}):
         """Run the tool call and return the output"""
         try:
             if inspect.iscoroutinefunction(self.__call__):
-                self.output = await self()
+                if self.call_has_context():
+                    self.output = await self(context=context)
+                else:
+                    self.output = await self()
             else:
-                self.output = self()
+                if self.call_has_context():
+                    self.output = self(context=context)
+                else:
+                    self.output = self()
         except Exception as e:
             logger.error(
                 "Tool execution failed",
@@ -72,6 +77,24 @@ class ToolCall(BaseModel):
             self.output = f"Error executing tool {self.__class__.__name__}: {str(e)}"
         return self.output
 
+    @computed_field
+    @property
+    def output(self) -> OutputType:
+        if hasattr(self, "_output"):
+            return self._output
+        else:
+            return None
+
+    @output.setter
+    def output(self, value: OutputType):
+        self._output = value
+
+    def call_has_context(self):
+        if not hasattr(self, "__call__"):
+            return False
+        sig = inspect.signature(self.__call__)
+        return "context" in sig.parameters
+
 
 class PresentationMixin(ABC):
     @abstractmethod
@@ -79,15 +102,37 @@ class PresentationMixin(ABC):
         pass
 
 
-class Observation(BaseModel):
-    tool_outputs: List[ToolCall] = Field(
-        description="The output of the tools calling - as the AI assistant DO NOT populate this field",
-        default=[],
-    )
+class ResponseWithToolOutputs(BaseModel, Generic[OutputType]):
+    _tool_outputs: List[OutputType] = PrivateAttr(default=[])
+
+    @computed_field
+    def tool_outputs(self) -> List[OutputType]:
+        return self._tool_outputs
+
+    @tool_outputs.setter
+    def tool_outputs(self, value: List[OutputType]):
+        self._tool_outputs = value
+
+
+class Observation(ResponseWithToolOutputs[ToolCall]):
     observation: str = Field(description="The observation of the action")
+
+    @computed_field
+    @property
+    def tool_outputs(self) -> List[ToolCall]:
+        return self._tool_outputs
+
+    @tool_outputs.setter
+    def tool_outputs(self, value: List[ToolCall]):
+        self._tool_outputs = value
 
 
 class Context(BaseModel):
+    """
+    Context represents a collection of tools and contexts.
+    It is used by the `react` decorator to build the context for the AI assistant.
+    """
+
     name: str = Field(description="The name of the context")
     content: Optional[str] = Field(
         description="The description of the context", default=None

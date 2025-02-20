@@ -11,6 +11,7 @@ from opsmate.gui.models import (
     default_new_cell,
     SQLModel as GUISQLModel,
     CellStateEnum,
+    EnvVar,
 )
 from opsmate.gui.config import Config
 from opsmate.gui.seed import seed_blueprints
@@ -33,6 +34,9 @@ from opsmate.gui.views import (
     new_knowledge_form,
     add_knowledge_button,
     render_knowledge_row,
+    settings_body,
+    new_envvar_form,
+    add_envvar_button,
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
@@ -129,6 +133,66 @@ async def get():
 async def get():
     with sqlmodel.Session(engine) as session:
         return Title("Knowledges"), knowledges_body(session, config.session_name)
+
+
+@app.route("/settings")
+async def get():
+    with sqlmodel.Session(engine) as session:
+        return Title("Settings"), settings_body(session, config.session_name)
+
+
+@app.route("/settings/envvars/new")
+async def post():
+    with sqlmodel.Session(engine) as session:
+        uuid = str(uuid4())
+        return (
+            Div(
+                new_envvar_form(uuid),
+                hx_swap_oob="beforeend",
+                id="envvars",
+            ),
+            add_envvar_button(),
+        )
+
+
+@app.route("/settings/envvars/virtual/{uuid}")
+async def delete(uuid: str):
+    with sqlmodel.Session(engine) as session:
+        return (
+            Div(
+                id=f"new-envvar-form-{uuid}",
+                hx_swap_oob="delete",
+            ),
+        )
+
+
+@app.route("/settings/envvars/")
+async def post(key: str, value: str):
+    with sqlmodel.Session(engine) as session:
+        envvar = EnvVar(key=key.strip(), value=value.strip())
+        session.add(envvar)
+        session.commit()
+
+        return Title("Settings"), settings_body(session, config.session_name)
+
+
+@app.route("/settings/envvars/{id}")
+async def delete(id: str):
+    with sqlmodel.Session(engine) as session:
+        envvar = EnvVar.find_by_id(session, id)
+        session.delete(envvar)
+        session.commit()
+        return Title("Settings"), settings_body(session, config.session_name)
+
+
+@app.route("/settings/envvars/{id}")
+async def put(id: str, value: str):
+    with sqlmodel.Session(engine) as session:
+        envvar = EnvVar.find_by_id(session, id)
+        envvar.value = value.strip()
+        session.add(envvar)
+        session.commit()
+        return Title("Settings"), settings_body(session, config.session_name)
 
 
 @app.route("/knowledges/{id}")

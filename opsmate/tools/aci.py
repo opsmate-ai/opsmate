@@ -66,7 +66,7 @@ class Result(BaseModel):
     )
 
 
-class ACITool(ToolCall, PresentationMixin):
+class ACITool(ToolCall[Result], PresentationMixin):
     """
     # ACITool
 
@@ -89,11 +89,6 @@ class ACITool(ToolCall, PresentationMixin):
 
     # number of lines before and after the match
     search_context_window: ClassVar[int] = 4
-
-    output: Result = Field(
-        description="The result of the file operation, DO NOT POPULATE THIS FIELD",
-        default=None,
-    )
 
     command: str = Field(
         description="The command to execute",

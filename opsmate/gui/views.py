@@ -24,6 +24,7 @@ from opsmate.gui.components import (
     render_react_answer_markdown_raw,
 )
 from opsmate.dino.types import Message, Observation, React, ReactAnswer
+from opsmate.dino.provider import Provider
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.polya.models import (
     TaskPlan,
@@ -65,6 +66,10 @@ config = Config()
 
 k8s_react = gen_k8s_react(config)
 k8s_simple = gen_k8s_simple(config)
+
+llm_provider = Provider.from_model(config.model)
+llm_model = config.model
+llm_client = llm_provider.default_client()
 
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")
@@ -420,7 +425,13 @@ async def execute_polya_understanding_instruction(cell: Cell, send, session: Ses
     )
     executor = WorkflowExecutor(opsmate_workflow, session)
     ctx = WorkflowContext(
-        input={"session": session, "question_cell": cell, "send": send}
+        input={
+            "session": session,
+            "question_cell": cell,
+            "send": send,
+            "llm_client": llm_client,
+            "llm_model": llm_model,
+        }
     )
 
     await executor.run(ctx)
@@ -453,6 +464,8 @@ async def update_initial_understanding(
                 "question_cell": cell.parent_cells(session)[0],
                 "current_iu_cell": cell,
                 "send": send,
+                "llm_client": llm_client,
+                "llm_model": llm_model,
             }
         )
     )
@@ -511,6 +524,8 @@ async def update_planning_optimial_solution(cell: Cell, send, session: Session):
                 "send": send,
                 "current_pos_cell": cell,
                 "question_cell": cell.parent_cells(session)[0],
+                "llm_client": llm_client,
+                "llm_model": llm_model,
             }
         )
     )
@@ -540,6 +555,8 @@ async def update_planning_knowledge_retrieval(
                 "question_cell": cell.parent_cells(session)[0],
                 "send": send,
                 "current_pkr_cell": cell,
+                "llm_client": llm_client,
+                "llm_model": llm_model,
             }
         )
     )
@@ -583,6 +600,8 @@ async def execute_polya_planning_instruction(
             "send": send,
             "question_cell": cell,
             "report_extracted": report_extracted,
+            "llm_client": llm_client,
+            "llm_model": llm_model,
         }
     )
     await executor.run(ctx)

@@ -12,6 +12,7 @@ from pydantic import (
 from opsmate.dino import dino
 import asyncio
 import concurrent.futures
+import re
 
 
 class InitialUnderstandingResponse(BaseModel):
@@ -164,25 +165,23 @@ Output:
         )
 
 
-class QuestionResponseSummary(BaseModel):
-    """
-    The summary of the question
-    """
-
-    question: str
-    summary: str
-
-
 class InfoGathered(BaseModel):
     """
-    The summary of the question
+    Information gathered from the command execution
     """
 
     question: str
     commands: List[Command]
     info_gathered: str = Field(
-        description="The information gathered from the command execution"
+        description="The information gathered from the command execution in markdown format. MUST NOT contain any markdown headers"
     )
+
+    @model_validator(mode="after")
+    def remove_markdown_headers(self):
+        self.info_gathered = re.sub(
+            r"^#+\s+.*$", "", self.info_gathered, flags=re.MULTILINE
+        )
+        return self
 
 
 class Report(BaseModel):
@@ -196,6 +195,8 @@ class Report(BaseModel):
 class Solution(BaseModel):
     """
     The solution to the problem
+
+    DO NOT use any markdown heading, just use the content as is.
     """
 
     findings: List[str] = Field(
@@ -233,6 +234,8 @@ class Solution(BaseModel):
 class ReportExtracted(BaseModel):
     """
     The extracted information from the report
+
+    DO NOT use any markdown heading, just use the content as is.
     """
 
     summary: str = Field(description="The summary of the problem")

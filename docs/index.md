@@ -25,11 +25,18 @@ You can start using Opsmate by running it locally on your workstation. There are
     # Coming soon
     ```
 
-Note that the Opsmate is powered by large language models. At the moment it supports OpenAI and Anthropic (more to come). To use Opsmate, you need to set the `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable.
+Note that the Opsmate is powered by large language models. At the moment it supports
+
+* [OpenAI](https://platform.openai.com/api-keys)
+* [Anthropic](https://console.anthropic.com/settings/keys)
+* [xAI](https://x.ai/api)
+
+To use Opsmate, you need to set any one of the `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `XAI_API_KEY` environment variables.
 
 ```bash
 export OPENAI_API_KEY="sk-proj..."
 export ANTHROPIC_API_KEY="sk-ant-api03-..."
+export XAI_API_KEY="xai-..."
 ```
 
 Check out:

@@ -239,6 +239,7 @@ There are a few secrets that you will need to create:
 
 * `OPENAI_API_KEY` - If you are using OpenAI as your LLM provider. Currently it is mandatory as we are using OpenAI's embedding API for embedding the knowledge base.
 * `ANTHROPIC_API_KEY` - If you are using Anthropic as your LLM provider.
+* `XAI_API_KEY` - If you are using xAI as your LLM provider.
 * `GITHUB_TOKEN` - This is used for
   - Accessing the GitHub repository for loading knowledge base.
   - Used by Opsmate to to clone the repo, commit changes and raise PRs.

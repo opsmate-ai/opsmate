@@ -196,9 +196,13 @@ async def put(id: str, value: str):
 
 
 @app.route("/knowledges/{id}")
-async def put(id: str):
+async def put(id: str, branch: str, glob: str):
     with sqlmodel.Session(engine) as session:
         ingestion_record = await IngestionRecord.find_by_id(session, id)
+        ingestion_record.branch = branch
+        ingestion_record.glob = glob
+        session.add(ingestion_record)
+        session.commit()
         logger.info("ingesting knowledge", ingestion_record_id=ingestion_record.id)
         enqueue_task(
             session,
@@ -239,6 +243,7 @@ async def post(
     uuid: str,
     data_source: str,
     data_source_provider: str,
+    branch: str,
     glob: str,
 ):
     with sqlmodel.Session(engine) as session:
@@ -246,6 +251,7 @@ async def post(
             data_source_provider=data_source_provider,
             data_source=data_source,
             glob=glob,
+            branch=branch,
         )
         session.add(ingestion_record)
         session.commit()

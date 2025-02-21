@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import Field, PrivateAttr
-from typing import ClassVar, Optional
+from typing import Optional, Any
 from httpx import AsyncClient
 from opsmate.dino import dino
 from opsmate.dino.types import Message
@@ -10,23 +10,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+DEFAULT_ENDPOINT = "http://localhost:9090"
+DEFAULT_PATH = "/api/v1/query_range"
 
-class PromQuery(ToolCall, DatetimeRange, PresentationMixin):
+
+class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
     """
     A tool to query metrics from Prometheus
     """
-
-    endpoint: ClassVar[str] = "http://localhost:9090"
-    path: ClassVar[str] = "/api/v1/query_range"
 
     query: str = Field(description="The prometheus query")
     step: str = Field(
         description="Query resolution step width in duration format or float number of seconds",
         default="15s",
-    )
-    output: Optional[dict] = Field(
-        description="The output of the prometheus query - DO NOT USE THIS FIELD",
-        default=None,
     )
     y_label: str = Field(
         description="The y-axis label of the time series based on the query",
@@ -50,9 +46,12 @@ class PromQuery(ToolCall, DatetimeRange, PresentationMixin):
             "User-Agent": "opsmate prometheus tool",
         }
 
-    async def __call__(self):
+    async def __call__(self, context: dict[str, Any] = {}):
+        endpoint = context.get("endpoint", DEFAULT_ENDPOINT)
+        path = context.get("path", DEFAULT_PATH)
+
         response = await self._client.post(
-            self.endpoint + self.path,
+            endpoint + path,
             data={
                 "query": self.query,
                 "start": self.start,

@@ -25,6 +25,11 @@ class IngestionRecord(SQLModel, table=True):
     id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
     data_source_provider: str = Field(default="github", nullable=False)
     data_source: str = Field(nullable=False)
+    branch: str = Field(
+        default="main",
+        nullable=False,
+        description="Branch to ingest from, used by GithubIngestion",
+    )
     glob: str = Field(default="**/*.md", nullable=False)
     created_at: datetime = Field(default=datetime.now(UTC))
     updated_at: datetime = Field(default=datetime.now(UTC))
@@ -40,12 +45,13 @@ class IngestionRecord(SQLModel, table=True):
     ):
         glob = ingestion_config.get("glob") or ingestion_config.get("glob_pattern")
         data_source = ingestion_config.get("repo") or ingestion_config.get("local_path")
-
+        branch = ingestion_config.get("branch") or "main"
         ingestion = session.exec(
             select(cls).where(
                 cls.data_source_provider == ingestion_type,
                 cls.data_source == data_source,
                 cls.glob == glob,
+                cls.branch == branch,
             )
         ).first()
 
@@ -54,6 +60,7 @@ class IngestionRecord(SQLModel, table=True):
                 data_source_provider=ingestion_type,
                 data_source=data_source,
                 glob=glob,
+                branch=branch,
             )
             session.add(ingestion)
             session.commit()
@@ -76,6 +83,7 @@ class IngestionRecord(SQLModel, table=True):
                 return {
                     "repo": self.data_source,
                     "glob": self.glob,
+                    "branch": self.branch,
                 }
             case "fs":
                 return {

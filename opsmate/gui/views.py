@@ -956,11 +956,12 @@ def render_ingestions(ingestions: list[IngestionRecord]):
         add_knowledge_button(),
         # Table header
         Div(
-            Div("Data Source", cls="col-span-3 px-4 py-2 flex items-center"),
-            Div("Provider", cls="col-span-3 px-4 py-2 flex items-center"),
-            Div("Glob Pattern", cls="col-span-3 px-4 py-2 flex items-center"),
+            Div("Data Source", cls="col-span-2 px-4 py-2 flex items-center"),
+            Div("Branch", cls="col-span-2 px-4 py-2 flex items-center"),
+            Div("Provider", cls="col-span-2 px-4 py-2 flex items-center"),
+            Div("Glob Pattern", cls="col-span-2 px-4 py-2 flex items-center"),
             Div("Last Updated", cls="col-span-2 px-4 py-2 flex items-center"),
-            Div("Actions", cls="col-span-1 px-4 py-2 flex items-center"),
+            Div("Actions", cls="col-span-2 px-4 py-2 flex items-center"),
             cls="grid grid-cols-12 gap-4 bg-gray-100 rounded-t-lg",
         ),
         # Table body
@@ -979,9 +980,20 @@ def render_knowledge_row(ingestion: IngestionRecord):
                     type="text",
                     name="data_source",
                     value=ingestion.data_source,
+                    readonly=True,
                     cls="input input-bordered w-full input-sm",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            Div(
+                Input(
+                    type="text",
+                    name="branch",
+                    value=ingestion.branch,
+                    readonly=True,
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Provider
             Div(
@@ -992,7 +1004,7 @@ def render_knowledge_row(ingestion: IngestionRecord):
                     readonly=True,
                     cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Glob
             Div(
@@ -1002,7 +1014,7 @@ def render_knowledge_row(ingestion: IngestionRecord):
                     value=ingestion.glob,
                     cls="input input-bordered w-full input-sm",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Last Updated
             Div(
@@ -1024,7 +1036,7 @@ def render_knowledge_row(ingestion: IngestionRecord):
                     cls="btn btn-ghost btn-sm",
                     hx_delete=f"/knowledges/{ingestion.id}",
                 ),
-                cls="col-span-1 px-4 py-2 flex items-center justify-end gap-1",
+                cls="col-span-2 px-4 py-2 flex items-center gap-1",
             ),
             cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
         ),
@@ -1044,7 +1056,17 @@ def new_knowledge_form(uuid: str):
                     placeholder="kubernetes/kubernetes",
                     cls="input input-bordered w-full input-sm",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
+            ),
+            # Branch
+            Div(
+                Input(
+                    type="text",
+                    name="branch",
+                    value="main",
+                    cls="input input-bordered w-full input-sm",
+                ),
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Provider
             Div(
@@ -1055,7 +1077,7 @@ def new_knowledge_form(uuid: str):
                     readonly=True,
                     cls="input input-bordered w-full input-sm cursor-not-allowed opacity-75",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Glob
             Div(
@@ -1065,7 +1087,7 @@ def new_knowledge_form(uuid: str):
                     value="**/*.md",
                     cls="input input-bordered w-full input-sm",
                 ),
-                cls="col-span-3 px-4 py-2 flex items-center",
+                cls="col-span-2 px-4 py-2 flex items-center",
             ),
             # Last Updated
             Div(
@@ -1083,7 +1105,7 @@ def new_knowledge_form(uuid: str):
                     cls="btn btn-ghost btn-sm",
                     hx_delete=f"/knowledges/virtual/{uuid}",
                 ),
-                cls="col-span-1 px-4 py-2 flex items-center justify-end gap-1",
+                cls="col-span-2 px-4 py-2 flex items-center gap-1",
             ),
             cls="grid grid-cols-12 gap-4 hover:bg-gray-50",
         ),

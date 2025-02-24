@@ -28,7 +28,7 @@ class Config(OpsmateConfig):
     model: str = Field(
         default="gpt-4o",
         alias="OPSMATE_MODEL",
-        choices=["gpt-4o", "claude-3-7-sonnet-20250219", "grok-2-1212"],
+        choices=["gpt-4o", "claude-3-5-sonnet-20241022", "grok-2-1212"],
     )
 
     @model_validator(mode="after")

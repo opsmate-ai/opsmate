@@ -7,7 +7,7 @@ import instructor
 from opsmate.dino.types import ResponseWithToolOutputs
 import os
 
-MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
+MODELS = ["gpt-4o-mini", "claude-3-7-sonnet-20250219"]
 
 if os.getenv("XAI_API_KEY"):
     MODELS.append("grok-2-1212")
@@ -248,7 +248,7 @@ async def test_swap_model():
         return f"who made you?"
 
     assert await get_llm_info() == "OpenAI"
-    assert await get_llm_info(model="claude-3-5-sonnet-20241022") == "Anthropic"
+    assert await get_llm_info(model="claude-3-7-sonnet-20250219") == "Anthropic"
 
 
 @pytest.mark.asyncio

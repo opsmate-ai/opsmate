@@ -7,7 +7,7 @@ from opsmate.dino.types import Message
 
 
 @dino(
-    model="claude-3-5-sonnet-20241022", response_model=Facts, tools=[KnowledgeRetrieval]
+    model="claude-3-7-sonnet-20250219", response_model=Facts, tools=[KnowledgeRetrieval]
 )
 async def knowledge_retrieval(questions: list[str]) -> str:
     """
@@ -18,7 +18,7 @@ async def knowledge_retrieval(questions: list[str]) -> str:
     return "\n".join(questions)
 
 
-@dino(model="claude-3-5-sonnet-20241022", response_model=list[str])
+@dino(model="claude-3-7-sonnet-20250219", response_model=list[str])
 async def summary_breakdown(summary: str) -> str:
     """
     Break down the summary into a 2 questions that will help to resolve the problem
@@ -45,7 +45,7 @@ async def summary_breakdown(summary: str) -> str:
     ]
 
 
-@dino(model="claude-3-5-sonnet-20241022", response_model=TaskPlan)
+@dino(model="claude-3-7-sonnet-20250219", response_model=TaskPlan)
 async def planning(summary: str, facts: list[Fact], instruction: str):
     """
     <assistant>
@@ -96,7 +96,7 @@ weight: {fact.weight}
     ]
 
 
-@dino(model="claude-3-5-sonnet-20241022", response_model=Facts)
+@dino(model="claude-3-7-sonnet-20250219", response_model=Facts)
 def load_facts(text: str) -> Facts:
     """
     You are a world class information extractor. You are good at extracting information from a text.

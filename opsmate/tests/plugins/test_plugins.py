@@ -45,7 +45,7 @@ async def test_plugin_registry_basic(plugins_dir):
     assert my_creator.metadata.source.endswith("fixtures/plugins/essentials.py")
 
     assert await my_creator.execute(model="gpt-4o-mini") == "openai"
-    assert await my_creator.execute(model="claude-3-5-sonnet-20241022") == "anthropic"
+    assert await my_creator.execute(model="claude-3-7-sonnet-20250219") == "anthropic"
 
 
 @pytest.mark.asyncio

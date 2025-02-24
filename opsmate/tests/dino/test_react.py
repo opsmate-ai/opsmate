@@ -6,7 +6,7 @@ from opsmate.dino.context import context
 from opsmate.dino.types import React, ReactAnswer, Observation, ToolCall, Message
 
 
-MODELS = ["gpt-4o", "claude-3-5-sonnet-20241022"]
+MODELS = ["gpt-4o", "claude-3-7-sonnet-20250219"]
 
 
 class CalcResult(ToolCall):
@@ -208,7 +208,7 @@ async def test_react_decorator_with_custom_model():
     answer = await what_is_the_llm()
     assert answer.answer == "OpenAI"
 
-    answer = await what_is_the_llm(model="claude-3-5-sonnet-20241022")
+    answer = await what_is_the_llm(model="claude-3-7-sonnet-20250219")
     assert answer.answer == "Anthropic"
 
 

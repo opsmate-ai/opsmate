@@ -205,11 +205,20 @@ async def test_react_decorator_with_custom_model():
         return "what is your name? \
             answer should be either OpenAI or Anthropic."
 
-    answer = await what_is_the_llm()
-    assert answer.answer == "OpenAI"
+    @dino("gpt-4o-mini", response_model=Literal["OpenAI", "Anthropic"])
+    async def category_llm(text: str):
+        """
+        return the name of the llm
+        """
+        return text
 
-    answer = await what_is_the_llm(model="claude-3-7-sonnet-20250219")
-    assert answer.answer == "Anthropic"
+    answer = await category_llm(await what_is_the_llm())
+    assert answer == "OpenAI"
+
+    answer = await category_llm(
+        await what_is_the_llm(model="claude-3-7-sonnet-20250219")
+    )
+    assert answer == "Anthropic"
 
 
 @pytest.mark.asyncio

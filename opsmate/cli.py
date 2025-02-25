@@ -367,24 +367,39 @@ def list_contexts():
 @opsmate_cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to serve on")
 @click.option("--port", default=8080, help="Port to serve on")
-@click.option("--workers", default=2, help="Number of workers to serve on")
+@click.option("--workers", default=1, help="Number of workers to serve on")
 @coro
 async def serve(host, port, workers):
     """
     Start the OpsMate server.
     """
     import uvicorn
-    from opsmate.apiserver.apiserver import app
     from opsmate.gui.app import on_startup, kb_ingest
+    from opsmate.dbqapp import app as dbqapp
 
     await on_startup()
     await kb_ingest()
-    uvicorn.run(
-        "opsmate.apiserver.apiserver:app",
-        host=host,
-        port=port,
-        workers=workers,
-    )
+
+    if workers > 1:
+        uvicorn.run(
+            "opsmate.apiserver.apiserver:app",
+            host=host,
+            port=port,
+            workers=workers,
+        )
+    else:
+        try:
+            task = asyncio.create_task(dbqapp.main())
+            config = uvicorn.Config(
+                "opsmate.apiserver.apiserver:app", host=host, port=port
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
+            task.cancel()
+            await task
+        except KeyboardInterrupt:
+            task.cancel()
+            await task
 
 
 @opsmate_cli.command()

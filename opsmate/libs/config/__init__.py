@@ -1,7 +1,10 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field, model_validator
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Self
+import structlog
+import logging
+from opsmate.plugins import PluginRegistry
 
 default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
 default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
@@ -61,6 +64,22 @@ class Config(BaseSettings):
     splitter_config: Dict[str, Any] = Field(
         default={}, description="The splitter to use for the ingestion"
     )
+
+    loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+
+    @model_validator(mode="after")
+    def validate_loglevel(self) -> Self:
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(
+                logging.getLevelNamesMapping()[self.loglevel]
+            ),
+        )
+        return self
+
+    @model_validator(mode="after")
+    def validate_tools(self) -> Self:
+        PluginRegistry.discover(self.plugins_dir)
+        return self
 
     @model_validator(mode="after")
     def mkdir(self):

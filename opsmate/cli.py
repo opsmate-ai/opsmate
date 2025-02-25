@@ -20,10 +20,9 @@ from opsmate.contexts import contexts
 from functools import wraps
 from opsmate.plugins import PluginRegistry
 import asyncio
-import structlog
-import logging
 import os
 import click
+import structlog
 
 
 def coro(f):
@@ -34,12 +33,12 @@ def coro(f):
     return wrapper
 
 
-loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(
-        logging.getLevelNamesMapping()[loglevel]
-    ),
-)
+# loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
+# structlog.configure(
+#     wrapper_class=structlog.make_filtering_bound_logger(
+#         logging.getLevelNamesMapping()[loglevel]
+#     ),
+# )
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 

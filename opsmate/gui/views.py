@@ -342,17 +342,7 @@ async def react_streaming(
         )
 
 
-async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Session):
-
-    logger.info("executing llm react instruction", cell_id=cell.id)
-
-    chat_history = await prefill_conversation(cell, session)
-
-    cell = await render_notes_output(
-        cell, session, send, cell_state=CellStateEnum.RUNNING
-    )
-    logger.info("chat_history", chat_history=chat_history)
-
+async def gen_confirmation_prompt(cell: Cell, session: Session, send):
     async def confirmation_prompt(cmd: ShellCommand):
         if EnvVar.get(session, "OPSMATE_REVIEW_COMMAND") == "":
             return True
@@ -408,6 +398,22 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
 
         cmd.command = confirmation.command
         return True
+
+    return confirmation_prompt
+
+
+async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Session):
+
+    logger.info("executing llm react instruction", cell_id=cell.id)
+
+    chat_history = await prefill_conversation(cell, session)
+
+    cell = await render_notes_output(
+        cell, session, send, cell_state=CellStateEnum.RUNNING
+    )
+    logger.info("chat_history", chat_history=chat_history)
+
+    confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
     await react_streaming(
         cell,
@@ -717,6 +723,8 @@ Here are the tasks to be performed **ONLY**:
 </important>
     """
 
+    confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
+
     await react_streaming(
         cell,
         swap,
@@ -726,6 +734,7 @@ Here are the tasks to be performed **ONLY**:
             instruction,
             tool_call_context={
                 "envvars": EnvVar.all(session),
+                "confirmation": confirmation_prompt,
                 "cwd": os.getcwd(),
             },
         ),

@@ -7,21 +7,23 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-import os
-import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from rich.prompt import Prompt
 from rich.markdown import Markdown
-import structlog
-import logging
 from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
+from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.contexts import contexts
-import asyncio
 from functools import wraps
 from opsmate.plugins import PluginRegistry
+import asyncio
+import structlog
+import logging
+import os
+import click
 
 
 def coro(f):
@@ -69,6 +71,12 @@ def opsmate_cli():
 
 def common_params(func):
     @click.option("--tools", default="")
+    @click.option(
+        "--review",
+        is_flag=True,
+        default=False,
+        help="Review and edit commands before execution",
+    )
     @wraps(func)
     def wrapper(*args, **kwargs):
         PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
@@ -85,9 +93,39 @@ def common_params(func):
 
         kwargs["tools"] = tools
 
+        review = kwargs.pop("review", False)
+        kwargs["tool_call_context"] = {}
+        if review:
+            kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
+
         return func(*args, **kwargs)
 
     return wrapper
+
+
+async def confirmation_prompt(tool_call: ShellCommand):
+    console.print(
+        Markdown(
+            f"""
+## Command Confirmation
+
+Edit the command if needed, then press Enter to execute:
+!cancel - Cancel the command
+"""
+        )
+    )
+    try:
+        prompt = Prompt.ask(
+            "Press Enter or edit the command",
+            default=tool_call.command,
+        )
+        tool_call.command = prompt
+        if prompt == "!cancel":
+            return False
+        return True
+    except (KeyboardInterrupt, EOFError):
+        console.print("\nCommand cancelled")
+        return False
 
 
 @opsmate_cli.command()
@@ -109,7 +147,7 @@ def common_params(func):
 @traceit
 @coro
 # async def run(instruction, ask, model, context):
-async def run(instruction, ask, model, context, tools):
+async def run(instruction, ask, model, context, tools, tool_call_context):
     """
     Run a task with the OpsMate.
     """
@@ -122,13 +160,13 @@ async def run(instruction, ask, model, context, tools):
     logger.info("Running on", instruction=instruction, model=model)
 
     @dino("gpt-4o", response_model=Observation, tools=tools)
-    async def run_command(instruction: str):
+    async def run_command(instruction: str, context={}):
         return [
             Message.system(ctx.ctx()),
             Message.user(instruction),
         ]
 
-    observation = await run_command(instruction)
+    observation = await run_command(instruction, context=tool_call_context)
 
     for tool_call in observation.tool_outputs:
         console.print(Markdown(tool_call.markdown()))
@@ -156,7 +194,7 @@ async def run(instruction, ask, model, context, tools):
 @common_params
 @traceit
 @coro
-async def solve(instruction, model, max_iter, context, tools):
+async def solve(instruction, model, max_iter, context, tools, tool_call_context):
     """
     Solve a problem with the OpsMate.
     """
@@ -171,6 +209,7 @@ async def solve(instruction, model, max_iter, context, tools):
         model=model,
         max_iter=max_iter,
         tools=tools,
+        tool_call_context=tool_call_context,
     ):
         if isinstance(output, React):
             console.print(
@@ -232,7 +271,7 @@ Commands:
 @common_params
 @traceit
 @coro
-async def chat(model, max_iter, context, tools):
+async def chat(model, max_iter, context, tools, tool_call_context):
     """
     Chat with the OpsMate.
     """
@@ -264,6 +303,7 @@ async def chat(model, max_iter, context, tools):
             max_iter=max_iter,
             tools=tools,
             chat_history=chat_history,
+            tool_call_context=tool_call_context,
         )
         chat_history.append(Message.user(user_input))
 

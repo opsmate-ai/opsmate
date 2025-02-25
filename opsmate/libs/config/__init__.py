@@ -62,7 +62,14 @@ class Config(BaseSettings):
         default=True, description="Whether to categorise the embeddings"
     )
     splitter_config: Dict[str, Any] = Field(
-        default={}, description="The splitter to use for the ingestion"
+        default={
+            "splitter": "markdown_header",
+            "headers_to_split_on": (
+                ("##", "h2"),
+                ("###", "h3"),
+            ),
+        },
+        description="The splitter to use for the ingestion",
     )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")

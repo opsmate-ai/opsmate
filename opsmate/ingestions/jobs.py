@@ -164,6 +164,7 @@ async def ingest(
             "ingesting document",
             ingestor_type=ingestor_type,
             ingestor_config=ingestor_config,
+            splitter_config=splitter_config,
             doc_path=doc.metadata["path"],
         )
         enqueue_task(

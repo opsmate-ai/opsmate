@@ -547,6 +547,8 @@ async def ingest(source, path, glob):
     else:
         branch = "main"
 
+    splitter_config = config.splitter_config
+
     with Session(engine) as session:
         match provider:
             case "fs":
@@ -555,6 +557,7 @@ async def ingest(source, path, glob):
                     ingest,
                     ingestor_type="fs",
                     ingestor_config={"local_path": source, "glob_pattern": glob},
+                    splitter_config=splitter_config,
                 )
             case "github":
                 enqueue_task(
@@ -567,6 +570,7 @@ async def ingest(source, path, glob):
                         "path": path,
                         "glob": glob,
                     },
+                    splitter_config=splitter_config,
                 )
     console.print("Ingesting knowledges in the background...")
 

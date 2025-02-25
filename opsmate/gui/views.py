@@ -38,6 +38,7 @@ from opsmate.polya.execution import iac_sme
 import pickle
 import structlog
 import json
+import time
 from opsmate.workflow.workflow import (
     WorkflowContext,
     WorkflowExecutor,
@@ -353,7 +354,7 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     logger.info("chat_history", chat_history=chat_history)
 
     async def confirmation_prompt(cmd: ShellCommand):
-        if not config.review_command:
+        if EnvVar.get(session, "OPSMATE_REVIEW_COMMAND") == "":
             return True
         confirmation = ExecutionConfirmation(command=cmd.command)
         session.add(confirmation)
@@ -378,19 +379,29 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
                         role="alert",
                     ),
                     cls="fixed top-16 left-0 right-0 flex gap-2 justify-start",
-                    style="width: 100%; z-index: 1000;",
+                    style="width: 100%; z-index: 9999;",
                     id=f"confirmation-form-{confirmation.id}",
                     hx_post=f"/execution_confirmation/{confirmation.id}",
                 ),
                 hx_swap_oob="beforeend",
                 id="notification",
-                cls="fixed top-16 left-0 right-0 flex gap-2 justify-start",
-                style="width: 100%;",
             )
         )
+        now = time.time()
         while not confirmation.confirmed:
             session.refresh(confirmation)
             await asyncio.sleep(0.2)
+            if time.time() - now > 20:
+                logger.error(
+                    "confirmation timed out", cell_id=cell.id, command=cmd.command
+                )
+                await send(
+                    Div(
+                        id=f"confirmation-form-{confirmation.id}",
+                        hx_swap="delete",
+                    )
+                )
+                return False
 
         cmd.command = confirmation.command
         return True
@@ -804,9 +815,9 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
 def render_empty_notification():
     return (
         Div(
-            Div(
-                id="notification",
-            ),
+            id="notification",
+            cls="fixed top-16 left-0 right-0 flex gap-2 justify-start",
+            style="width: 100%; z-index: 9999;",
         ),
     )
 

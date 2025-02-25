@@ -23,12 +23,6 @@ class Config(OpsmateConfig):
         choices=["gpt-4o", "claude-3-5-sonnet-20241022", "grok-2-1212"],
     )
 
-    review_command: bool = Field(
-        default=False,
-        alias="OPSMATE_REVIEW_COMMAND",
-        description="If true, the command will be reviewed by the user before execution",
-    )
-
     @model_validator(mode="after")
     def validate_tools(self) -> Self:
         PluginRegistry.discover(self.plugins_dir)

@@ -84,11 +84,6 @@ class Config(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def validate_tools(self) -> Self:
-        PluginRegistry.discover(self.plugins_dir)
-        return self
-
-    @model_validator(mode="after")
     def mkdir(self):
         opsmate_dir = str(Path.home() / ".opsmate")
         Path(opsmate_dir).mkdir(parents=True, exist_ok=True)

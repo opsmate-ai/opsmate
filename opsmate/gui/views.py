@@ -15,6 +15,7 @@ from opsmate.gui.models import (
     CreatedByType,
     CellStateEnum,
     EnvVar,
+    ExecutionConfirmation,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -58,6 +59,7 @@ from opsmate.gui.steps import (
     store_facts_and_plans,
 )
 import yaml
+import asyncio
 from typing import AsyncGenerator
 
 logger = structlog.get_logger()
@@ -350,6 +352,49 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     )
     logger.info("chat_history", chat_history=chat_history)
 
+    async def confirmation_prompt(cmd: ShellCommand):
+        if not config.review_command:
+            return True
+        confirmation = ExecutionConfirmation(command=cmd.command)
+        session.add(confirmation)
+        session.commit()
+        await send(
+            Div(
+                Form(
+                    Div(
+                        "Are you sure you want to run this command?",
+                        Input(
+                            name="command",
+                            value=cmd.command,
+                            cls="input input-sm w-full max-w-xs",
+                        ),
+                        Div(
+                            Button(
+                                "Confirm",
+                                cls="btn btn-sm btn-primary",
+                            ),
+                        ),
+                        cls="alert alert-warning",
+                        role="alert",
+                    ),
+                    cls="fixed top-16 left-0 right-0 flex gap-2 justify-start",
+                    style="width: 100%; z-index: 1000;",
+                    id=f"confirmation-form-{confirmation.id}",
+                    hx_post=f"/execution_confirmation/{confirmation.id}",
+                ),
+                hx_swap_oob="beforeend",
+                id="notification",
+                cls="fixed top-16 left-0 right-0 flex gap-2 justify-start",
+                style="width: 100%;",
+            )
+        )
+        while not confirmation.confirmed:
+            session.refresh(confirmation)
+            await asyncio.sleep(0.2)
+
+        cmd.command = confirmation.command
+        return True
+
     await react_streaming(
         cell,
         swap,
@@ -360,6 +405,7 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
             chat_history=chat_history,
             tool_call_context={
                 "envvars": EnvVar.all(session),
+                "confirmation": confirmation_prompt,
             },
         ),
     )
@@ -662,7 +708,13 @@ Here are the tasks to be performed **ONLY**:
         swap,
         send,
         session,
-        iac_sme(instruction, tool_call_context={"envvars": EnvVar.all(session)}),
+        iac_sme(
+            instruction,
+            tool_call_context={
+                "envvars": EnvVar.all(session),
+                "cwd": os.getcwd(),
+            },
+        ),
     )
 
 
@@ -720,6 +772,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
     )
     return Body(
         Div(
+            render_empty_notification(),
             Card(
                 # Header
                 Div(
@@ -745,6 +798,16 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
             ),
             cls="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen",
         )
+    )
+
+
+def render_empty_notification():
+    return (
+        Div(
+            Div(
+                id="notification",
+            ),
+        ),
     )
 
 

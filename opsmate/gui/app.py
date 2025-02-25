@@ -12,6 +12,7 @@ from opsmate.gui.models import (
     SQLModel as GUISQLModel,
     CellStateEnum,
     EnvVar,
+    ExecutionConfirmation,
 )
 from opsmate.gui.config import Config
 from opsmate.gui.seed import seed_blueprints
@@ -37,6 +38,7 @@ from opsmate.gui.views import (
     settings_body,
     new_envvar_form,
     add_envvar_button,
+    render_empty_notification,
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
@@ -664,6 +666,21 @@ async def ws(cell_id: int, input: str, send, session):
             await execute_notes_instruction(cell, swap, send, session)
         else:
             logger.error("unknown cell type", cell_id=cell.id, cell_lang=cell.lang)
+
+
+@app.route("/execution_confirmation/{id}")
+async def post(id: int, command: str):
+    with sqlmodel.Session(engine) as session:
+        confirmation = ExecutionConfirmation.find_by_id(session, id)
+        confirmation.confirmed = True
+        confirmation.command = command
+        session.add(confirmation)
+        session.commit()
+
+        return Div(
+            id=f"confirmation-form-{confirmation.id}",
+            hx_swap="delete",
+        )
 
 
 if __name__ == "__main__":

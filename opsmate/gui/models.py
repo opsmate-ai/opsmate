@@ -215,6 +215,20 @@ class CreatedByType(str, enum.Enum):
     ASSISTANT = "assistant"
 
 
+class ExecutionConfirmation(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
+    command: str = Field(default="")
+    confirmed: bool = Field(default=False)
+    created_at: datetime = Field(default=datetime.now())
+    updated_at: datetime = Field(default=datetime.now())
+
+    @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
+
+
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 

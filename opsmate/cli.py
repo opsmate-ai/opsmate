@@ -367,17 +367,24 @@ def list_contexts():
 @opsmate_cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to serve on")
 @click.option("--port", default=8080, help="Port to serve on")
+@click.option("--workers", default=2, help="Number of workers to serve on")
 @coro
-async def serve(host, port):
+async def serve(host, port, workers):
     """
     Start the OpsMate server.
     """
-    from opsmate.apiserver.apiserver import app
     import uvicorn
+    from opsmate.apiserver.apiserver import app
+    from opsmate.gui.app import on_startup, kb_ingest
 
-    config = uvicorn.Config(app, host=host, port=port)
-    server = uvicorn.Server(config)
-    await server.serve()
+    await on_startup()
+    await kb_ingest()
+    uvicorn.run(
+        "opsmate.apiserver.apiserver:app",
+        host=host,
+        port=port,
+        workers=workers,
+    )
 
 
 @opsmate_cli.command()

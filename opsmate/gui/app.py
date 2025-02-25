@@ -97,11 +97,17 @@ app = FastHTML(
 )
 
 
+async def kb_ingest():
+    await ingest_from_config(config, engine)
+
+
 @app.on_event("startup")
 async def startup():
     await on_startup()
 
-    await ingest_from_config(config, engine)
+    dev = os.environ.get("DEV", "false").lower() == "true"
+    if dev:
+        await kb_ingest()
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:

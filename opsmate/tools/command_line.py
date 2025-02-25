@@ -4,6 +4,7 @@ from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
 import asyncio
 import os
+import inspect
 from opsmate.tools.utils import maybe_truncate_text
 
 logger = structlog.get_logger(__name__)
@@ -28,6 +29,10 @@ class ShellCommand(ToolCall[str], PresentationMixin):
         extra_envvars = context.get("envvars", {})
         envvars.update(extra_envvars)
         logger.info("running shell command", command=self.command)
+
+        if not await self.confirmation_prompt(context):
+            return "Command execution cancelled by user, try something else."
+
         try:
             process = await asyncio.create_subprocess_shell(
                 self.command,
@@ -41,6 +46,16 @@ class ShellCommand(ToolCall[str], PresentationMixin):
             return maybe_truncate_text(stdout.decode(), self.max_text_length)
         except Exception as e:
             return str(e)
+
+    async def confirmation_prompt(self, context: dict[str, Any] = {}):
+        confirmation = context.get("confirmation", None)
+        if confirmation is None:
+            return True
+
+        if inspect.iscoroutinefunction(confirmation):
+            return await confirmation(self)
+        else:
+            return confirmation(self)
 
     def markdown(self):
         return f"""

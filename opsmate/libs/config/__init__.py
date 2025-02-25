@@ -1,10 +1,14 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Self
+import structlog
+import logging
+from opsmate.plugins import PluginRegistry
 
-default_db_path = str(Path.home() / "data" / "opsmate-embeddings")
-
+default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
+default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
+default_plugins_dir = str(Path.home() / ".opsmate" / "plugins")
 
 fs_embedding_desc = """
 The configuration for the fs embeddings.
@@ -32,10 +36,15 @@ opsmate/opsmate2=main=*.txt
 
 
 class Config(BaseSettings):
-    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
+    db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
+
+    plugins_dir: str = Field(
+        default=default_plugins_dir,
+        alias="OPSMATE_PLUGINS_DIR",
+    )
 
     embeddings_db_path: str = Field(
-        default=default_db_path, description="The path to the lance db"
+        default=default_embeddings_db_path, description="The path to the lance db"
     )
     embedding_registry_name: str = Field(
         default="openai", description="The name of the embedding registry"
@@ -53,8 +62,35 @@ class Config(BaseSettings):
         default=True, description="Whether to categorise the embeddings"
     )
     splitter_config: Dict[str, Any] = Field(
-        default={}, description="The splitter to use for the ingestion"
+        default={
+            "splitter": "markdown_header",
+            "headers_to_split_on": (
+                ("##", "h2"),
+                ("###", "h3"),
+            ),
+        },
+        description="The splitter to use for the ingestion",
     )
+
+    loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+
+    @model_validator(mode="after")
+    def validate_loglevel(self) -> Self:
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(
+                logging.getLevelNamesMapping()[self.loglevel]
+            ),
+        )
+        return self
+
+    @model_validator(mode="after")
+    def mkdir(self):
+        opsmate_dir = str(Path.home() / ".opsmate")
+        Path(opsmate_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.plugins_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
+
+        return self
 
 
 config = Config()

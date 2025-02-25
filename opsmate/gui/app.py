@@ -12,6 +12,7 @@ from opsmate.gui.models import (
     SQLModel as GUISQLModel,
     CellStateEnum,
     EnvVar,
+    ExecutionConfirmation,
 )
 from opsmate.gui.config import Config
 from opsmate.gui.seed import seed_blueprints
@@ -97,11 +98,17 @@ app = FastHTML(
 )
 
 
+async def kb_ingest():
+    await ingest_from_config(config, engine)
+
+
 @app.on_event("startup")
 async def startup():
     await on_startup()
 
-    await ingest_from_config(config, engine)
+    dev = os.environ.get("DEV", "false").lower() == "true"
+    if dev:
+        await kb_ingest()
 
     # Add init cell if none exist
     with sqlmodel.Session(engine) as session:
@@ -658,6 +665,21 @@ async def ws(cell_id: int, input: str, send, session):
             await execute_notes_instruction(cell, swap, send, session)
         else:
             logger.error("unknown cell type", cell_id=cell.id, cell_lang=cell.lang)
+
+
+@app.route("/execution_confirmation/{id}")
+async def post(id: int, command: str):
+    with sqlmodel.Session(engine) as session:
+        confirmation = ExecutionConfirmation.find_by_id(session, id)
+        confirmation.confirmed = True
+        confirmation.command = command
+        session.add(confirmation)
+        session.commit()
+
+        return Div(
+            id=f"confirmation-form-{confirmation.id}",
+            hx_swap="delete",
+        )
 
 
 if __name__ == "__main__":

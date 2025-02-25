@@ -7,21 +7,22 @@ from opentelemetry.sdk.trace.export import (
 )
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-import os
-import click
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from rich.prompt import Prompt
 from rich.markdown import Markdown
-import structlog
-import logging
 from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
+from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.contexts import contexts
-import asyncio
 from functools import wraps
 from opsmate.plugins import PluginRegistry
+import asyncio
+import os
+import click
+import structlog
 
 
 def coro(f):
@@ -32,12 +33,12 @@ def coro(f):
     return wrapper
 
 
-loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(
-        logging.getLevelNamesMapping()[loglevel]
-    ),
-)
+# loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
+# structlog.configure(
+#     wrapper_class=structlog.make_filtering_bound_logger(
+#         logging.getLevelNamesMapping()[loglevel]
+#     ),
+# )
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 
@@ -69,6 +70,12 @@ def opsmate_cli():
 
 def common_params(func):
     @click.option("--tools", default="")
+    @click.option(
+        "--review",
+        is_flag=True,
+        default=False,
+        help="Review and edit commands before execution",
+    )
     @wraps(func)
     def wrapper(*args, **kwargs):
         PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
@@ -85,9 +92,39 @@ def common_params(func):
 
         kwargs["tools"] = tools
 
+        review = kwargs.pop("review", False)
+        kwargs["tool_call_context"] = {}
+        if review:
+            kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
+
         return func(*args, **kwargs)
 
     return wrapper
+
+
+async def confirmation_prompt(tool_call: ShellCommand):
+    console.print(
+        Markdown(
+            f"""
+## Command Confirmation
+
+Edit the command if needed, then press Enter to execute:
+!cancel - Cancel the command
+"""
+        )
+    )
+    try:
+        prompt = Prompt.ask(
+            "Press Enter or edit the command",
+            default=tool_call.command,
+        )
+        tool_call.command = prompt
+        if prompt == "!cancel":
+            return False
+        return True
+    except (KeyboardInterrupt, EOFError):
+        console.print("\nCommand cancelled")
+        return False
 
 
 @opsmate_cli.command()
@@ -109,7 +146,7 @@ def common_params(func):
 @traceit
 @coro
 # async def run(instruction, ask, model, context):
-async def run(instruction, ask, model, context, tools):
+async def run(instruction, ask, model, context, tools, tool_call_context):
     """
     Run a task with the OpsMate.
     """
@@ -122,13 +159,13 @@ async def run(instruction, ask, model, context, tools):
     logger.info("Running on", instruction=instruction, model=model)
 
     @dino("gpt-4o", response_model=Observation, tools=tools)
-    async def run_command(instruction: str):
+    async def run_command(instruction: str, context={}):
         return [
             Message.system(ctx.ctx()),
             Message.user(instruction),
         ]
 
-    observation = await run_command(instruction)
+    observation = await run_command(instruction, context=tool_call_context)
 
     for tool_call in observation.tool_outputs:
         console.print(Markdown(tool_call.markdown()))
@@ -156,7 +193,7 @@ async def run(instruction, ask, model, context, tools):
 @common_params
 @traceit
 @coro
-async def solve(instruction, model, max_iter, context, tools):
+async def solve(instruction, model, max_iter, context, tools, tool_call_context):
     """
     Solve a problem with the OpsMate.
     """
@@ -171,6 +208,7 @@ async def solve(instruction, model, max_iter, context, tools):
         model=model,
         max_iter=max_iter,
         tools=tools,
+        tool_call_context=tool_call_context,
     ):
         if isinstance(output, React):
             console.print(
@@ -232,7 +270,7 @@ Commands:
 @common_params
 @traceit
 @coro
-async def chat(model, max_iter, context, tools):
+async def chat(model, max_iter, context, tools, tool_call_context):
     """
     Chat with the OpsMate.
     """
@@ -264,6 +302,7 @@ async def chat(model, max_iter, context, tools):
             max_iter=max_iter,
             tools=tools,
             chat_history=chat_history,
+            tool_call_context=tool_call_context,
         )
         chat_history.append(Message.user(user_input))
 
@@ -325,19 +364,110 @@ def list_contexts():
 
 
 @opsmate_cli.command()
+@click.option("--skip-confirm", is_flag=True, help="Skip confirmation")
+@coro
+async def reset(skip_confirm):
+    """
+    Reset the OpsMate.
+    """
+    from opsmate.libs.config import config
+    import glob
+    import shutil
+
+    def remove_db_url(db_url):
+        if db_url == ":memory:":
+            return
+
+        # Remove the main db and all related files (journal, wal, shm, etc)
+        for f in glob.glob(f"{db_url}*"):
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f, ignore_errors=True)
+                else:
+                    os.remove(f)
+
+    def remove_embeddings_db_path(embeddings_db_path):
+        shutil.rmtree(embeddings_db_path, ignore_errors=True)
+
+    db_url = config.db_url
+    db_url = db_url.replace("sqlite:///", "")
+
+    if skip_confirm:
+        console.print("Resetting OpsMate")
+        remove_db_url(db_url)
+        remove_embeddings_db_path(config.embeddings_db_path)
+        return
+
+    if (
+        Prompt.ask(
+            f"""Are you sure you want to reset OpsMate? This will delete:
+- {db_url}
+- {config.embeddings_db_path}
+""",
+            default="no",
+            choices=["yes", "no"],
+        )
+        == "no"
+    ):
+        console.print("Reset cancelled")
+        return
+
+    remove_db_url(db_url)
+    remove_embeddings_db_path(config.embeddings_db_path)
+
+
+@opsmate_cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to serve on")
 @click.option("--port", default=8080, help="Port to serve on")
+@click.option("--workers", default=1, help="Number of workers to serve on")
 @coro
-async def serve(host, port):
+async def serve(host, port, workers):
     """
     Start the OpsMate server.
     """
-    from opsmate.apiserver.apiserver import app
     import uvicorn
+    from opsmate.gui.app import on_startup, kb_ingest
+    from opsmate.dbqapp import app as dbqapp
 
-    config = uvicorn.Config(app, host=host, port=port)
-    server = uvicorn.Server(config)
-    await server.serve()
+    await on_startup()
+    await kb_ingest()
+
+    if workers > 1:
+        uvicorn.run(
+            "opsmate.apiserver.apiserver:app",
+            host=host,
+            port=port,
+            workers=workers,
+        )
+    else:
+        try:
+            task = asyncio.create_task(dbqapp.main())
+            config = uvicorn.Config(
+                "opsmate.apiserver.apiserver:app", host=host, port=port
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
+            task.cancel()
+            await task
+        except KeyboardInterrupt:
+            task.cancel()
+            await task
+
+
+@opsmate_cli.command()
+@coro
+async def worker():
+    """
+    Start the OpsMate worker.
+    """
+    from opsmate.dbqapp import app as dbqapp
+
+    try:
+        task = asyncio.create_task(dbqapp.main())
+        await task
+    except KeyboardInterrupt:
+        task.cancel()
+        await task
 
 
 @opsmate_cli.command()
@@ -371,6 +501,78 @@ def list_models():
             table.add_row(provider_name, model)
 
     console.print(table)
+
+
+@opsmate_cli.command()
+@click.option(
+    "--source",
+    help="Source of the knowledge base fs:////path/to/kb or github:///owner/repo[:branch]",
+)
+@click.option("--path", default="/", help="Path to the knowledge base")
+@click.option(
+    "--glob", default="**/*.md", help="Glob to use to find the knowledge base"
+)
+@coro
+async def ingest(source, path, glob):
+    """
+    Ingest a knowledge base.
+    Notes the ingestion worker needs to be started separately with `opsmate worker`.
+    """
+
+    from opsmate.libs.config import config
+    from sqlmodel import create_engine, text, Session
+    from opsmate.dbq.dbq import enqueue_task
+    from opsmate.ingestions.jobs import ingest
+
+    engine = create_engine(
+        config.db_url,
+        connect_args={"check_same_thread": False},
+        # echo=True,
+    )
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.close()
+
+    splitted = source.split(":///")
+    if len(splitted) != 2:
+        console.print(
+            "Invalid source. Use the format fs:///path/to/kb or github:///owner/repo[:branch]"
+        )
+        exit(1)
+
+    provider, source = splitted
+
+    if ":" in source:
+        source, branch = source.split(":")
+    else:
+        branch = "main"
+
+    splitter_config = config.splitter_config
+
+    with Session(engine) as session:
+        match provider:
+            case "fs":
+                enqueue_task(
+                    session,
+                    ingest,
+                    ingestor_type="fs",
+                    ingestor_config={"local_path": source, "glob_pattern": glob},
+                    splitter_config=splitter_config,
+                )
+            case "github":
+                enqueue_task(
+                    session,
+                    ingest,
+                    ingestor_type="github",
+                    ingestor_config={
+                        "repo": source,
+                        "branch": branch,
+                        "path": path,
+                        "glob": glob,
+                    },
+                    splitter_config=splitter_config,
+                )
+    console.print("Ingesting knowledges in the background...")
 
 
 def get_context(ctx_name: str):

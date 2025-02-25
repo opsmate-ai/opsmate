@@ -10,13 +10,9 @@ import logging
 
 
 class Config(OpsmateConfig):
-    db_url: str = Field(default="sqlite:///:memory:", alias="OPSMATE_DB_URL")
     session_name: str = Field(default="session", alias="OPSMATE_SESSION_NAME")
     token: str = Field(default="", alias="OPSMATE_TOKEN")
-    plugins_dir: str = Field(
-        default=str(Path(os.getenv("HOME"), ".opsmate", "plugins")),
-        alias="OPSMATE_PLUGINS_DIR",
-    )
+
     tools: List[str] = Field(
         default=["ShellCommand", "KnowledgeRetrieval"], alias="OPSMATE_TOOLS"
     )

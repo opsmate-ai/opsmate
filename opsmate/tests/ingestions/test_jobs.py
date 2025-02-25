@@ -32,7 +32,7 @@ class TestJobs(BaseTestCase):
 
     @asynccontextmanager
     async def with_worker(self, session: Session):
-        worker = Worker(session, concurrency=5)
+        worker = Worker(session, concurrency=5, context={"session": session})
         worker_task = asyncio.create_task(worker.start())
         try:
             yield worker
@@ -137,11 +137,11 @@ class TestJobs(BaseTestCase):
         assert ingestion.local_path == "."
         assert ingestion.glob_pattern == "./README.md"
 
-        config = {
-            "repo": "opsmate/opsmate",
-            "branch": "main",
-            "path": "README.md",
-        }
+        # config = {
+        #     "repo": "opsmate/opsmate",
+        #     "branch": "main",
+        #     "path": "README.md",
+        # }
 
         # ingestion = ingestor_from_config("github", config)
         # assert isinstance(ingestion, GithubIngestion)

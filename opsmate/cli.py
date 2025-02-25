@@ -372,12 +372,20 @@ async def reset(skip_confirm):
     Reset the OpsMate.
     """
     from opsmate.libs.config import config
+    import glob
     import shutil
 
     def remove_db_url(db_url):
         if db_url == ":memory:":
             return
-        shutil.rmtree(db_url, ignore_errors=True)
+
+        # Remove the main db and all related files (journal, wal, shm, etc)
+        for f in glob.glob(f"{db_url}*"):
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f, ignore_errors=True)
+                else:
+                    os.remove(f)
 
     def remove_embeddings_db_path(embeddings_db_path):
         shutil.rmtree(embeddings_db_path, ignore_errors=True)

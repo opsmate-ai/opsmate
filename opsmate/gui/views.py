@@ -356,7 +356,7 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
     async def confirmation_prompt(cmd: ShellCommand):
         if EnvVar.get(session, "OPSMATE_REVIEW_COMMAND") == "":
             return True
-        confirmation = ExecutionConfirmation(command=cmd.command)
+        confirmation = ExecutionConfirmation(command=cmd.command, cell_id=cell.id)
         session.add(confirmation)
         session.commit()
         await send(
@@ -402,6 +402,9 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
                     )
                 )
                 return False
+
+        session.delete(confirmation)
+        session.commit()
 
         cmd.command = confirmation.command
         return True

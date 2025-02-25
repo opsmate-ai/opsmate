@@ -215,20 +215,6 @@ class CreatedByType(str, enum.Enum):
     ASSISTANT = "assistant"
 
 
-class ExecutionConfirmation(SQLModel, table=True):
-    __table_args__ = {"extend_existing": True}
-
-    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
-    command: str = Field(default="")
-    confirmed: bool = Field(default=False)
-    created_at: datetime = Field(default=datetime.now())
-    updated_at: datetime = Field(default=datetime.now())
-
-    @classmethod
-    def find_by_id(cls, session: Session, id: int):
-        return session.exec(select(cls).where(cls.id == id)).first()
-
-
 class Cell(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
@@ -258,6 +244,11 @@ class Cell(SQLModel, table=True):
 
     cell_type: CellType | None = Field(default=None)
     created_by: CreatedByType = Field(default=CreatedByType.USER)
+
+    confirmations: List["ExecutionConfirmation"] = Relationship(
+        back_populates="cell",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
     parent_cell_ids: List[int] = Field(sa_column=Column(JSON), default=[])
 
@@ -318,6 +309,22 @@ class EnvVar(SQLModel, table=True):
     def get(cls, session: Session, key: str) -> str:
         envvar = session.exec(select(cls).where(cls.key == key)).first()
         return envvar.value if envvar else ""
+
+    @classmethod
+    def find_by_id(cls, session: Session, id: int):
+        return session.exec(select(cls).where(cls.id == id)).first()
+
+
+class ExecutionConfirmation(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
+    cell_id: int = Field(foreign_key="cell.id")
+    cell: Cell = Relationship(back_populates="confirmations")
+    command: str = Field(default="")
+    confirmed: bool = Field(default=False)
+    created_at: datetime = Field(default=datetime.now())
+    updated_at: datetime = Field(default=datetime.now())
 
     @classmethod
     def find_by_id(cls, session: Session, id: int):

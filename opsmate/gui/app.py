@@ -38,7 +38,6 @@ from opsmate.gui.views import (
     settings_body,
     new_envvar_form,
     add_envvar_button,
-    render_empty_notification,
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config

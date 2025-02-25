@@ -456,6 +456,22 @@ async def serve(host, port, workers):
 
 
 @opsmate_cli.command()
+@coro
+async def worker():
+    """
+    Start the OpsMate worker.
+    """
+    from opsmate.dbqapp import app as dbqapp
+
+    try:
+        task = asyncio.create_task(dbqapp.main())
+        await task
+    except KeyboardInterrupt:
+        task.cancel()
+        await task
+
+
+@opsmate_cli.command()
 def list_tools():
     """
     List all the tools available.

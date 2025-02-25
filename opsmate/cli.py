@@ -365,6 +365,51 @@ def list_contexts():
 
 
 @opsmate_cli.command()
+@click.option("--skip-confirm", is_flag=True, help="Skip confirmation")
+@coro
+async def reset(skip_confirm):
+    """
+    Reset the OpsMate.
+    """
+    from opsmate.libs.config import config
+    import shutil
+
+    def remove_db_url(db_url):
+        if db_url == ":memory:":
+            return
+        shutil.rmtree(db_url, ignore_errors=True)
+
+    def remove_embeddings_db_path(embeddings_db_path):
+        shutil.rmtree(embeddings_db_path, ignore_errors=True)
+
+    db_url = config.db_url
+    db_url = db_url.replace("sqlite:///", "")
+
+    if skip_confirm:
+        console.print("Resetting OpsMate")
+        remove_db_url(db_url)
+        remove_embeddings_db_path(config.embeddings_db_path)
+        return
+
+    if (
+        Prompt.ask(
+            f"""Are you sure you want to reset OpsMate? This will delete:
+- {db_url}
+- {config.embeddings_db_path}
+""",
+            default="no",
+            choices=["yes", "no"],
+        )
+        == "no"
+    ):
+        console.print("Reset cancelled")
+        return
+
+    remove_db_url(db_url)
+    remove_embeddings_db_path(config.embeddings_db_path)
+
+
+@opsmate_cli.command()
 @click.option("--host", default="0.0.0.0", help="Host to serve on")
 @click.option("--port", default=8080, help="Port to serve on")
 @click.option("--workers", default=1, help="Number of workers to serve on")

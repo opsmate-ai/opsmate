@@ -503,6 +503,74 @@ def list_models():
     console.print(table)
 
 
+@opsmate_cli.command()
+@click.option(
+    "--source",
+    help="Source of the knowledge base fs:////path/to/kb or github:///owner/repo[:branch]",
+)
+@click.option("--path", default="/", help="Path to the knowledge base")
+@click.option(
+    "--glob", default="**/*.md", help="Glob to use to find the knowledge base"
+)
+@coro
+async def ingest(source, path, glob):
+    """
+    Ingest a knowledge base.
+    Notes the ingestion worker needs to be started separately with `opsmate worker`.
+    """
+
+    from opsmate.libs.config import config
+    from sqlmodel import create_engine, text, Session
+    from opsmate.dbq.dbq import enqueue_task
+    from opsmate.ingestions.jobs import ingest
+
+    engine = create_engine(
+        config.db_url,
+        connect_args={"check_same_thread": False},
+        # echo=True,
+    )
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.close()
+
+    splitted = source.split(":///")
+    if len(splitted) != 2:
+        console.print(
+            "Invalid source. Use the format fs:///path/to/kb or github:///owner/repo[:branch]"
+        )
+        exit(1)
+
+    provider, source = splitted
+
+    if ":" in source:
+        source, branch = source.split(":")
+    else:
+        branch = "main"
+
+    with Session(engine) as session:
+        match provider:
+            case "fs":
+                enqueue_task(
+                    session,
+                    ingest,
+                    ingestor_type="fs",
+                    ingestor_config={"local_path": source, "glob_pattern": glob},
+                )
+            case "github":
+                enqueue_task(
+                    session,
+                    ingest,
+                    ingestor_type="github",
+                    ingestor_config={
+                        "repo": source,
+                        "branch": branch,
+                        "path": path,
+                        "glob": glob,
+                    },
+                )
+    console.print("Ingesting knowledges in the background...")
+
+
 def get_context(ctx_name: str):
     ctx = contexts.get(ctx_name)
     if not ctx:

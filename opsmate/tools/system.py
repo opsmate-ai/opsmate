@@ -103,8 +103,8 @@ resp code: {self.output.status_code}
 """
 
 
-class HttpToText(HttpBase):
-    """HttpToText tool allows you to convert an HTTP response to text"""
+class HtmlToText(HttpBase):
+    """HtmlToText tool allows you to convert an HTTP response to text"""
 
     async def __call__(self):
         resp = await self.aconn().get(self.url)
@@ -114,7 +114,7 @@ class HttpToText(HttpBase):
 
     def markdown(self):
         return f"""
-### HTTP GET
+### HTML to Text
 
 ```bash
 {self.url}

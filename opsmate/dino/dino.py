@@ -177,7 +177,7 @@ def dino(
                 await asyncio.gather(*tasks)
 
                 for resp in initial_response:
-                    logger.info("Tool called", tool=resp.model_dump_json())
+                    logger.debug("Tool called", tool=resp.model_dump_json())
                     messages.append(Message.user(resp.model_dump_json()))
                     tool_outputs.append(resp)
 

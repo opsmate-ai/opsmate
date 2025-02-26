@@ -300,16 +300,18 @@ class Worker:
         logger.info(
             "starting dbq (database queue) worker", concurrency=self.concurrency
         )
-        tasks = [self._start() for _ in range(self.concurrency)]
+        tasks = [self._start(coroutine_id) for coroutine_id in range(self.concurrency)]
+        logger.info("dbq coroutines started", concurrency=self.concurrency)
         await asyncio.gather(*tasks)
+        logger.info("dbq stopped")
 
-    async def _start(self):
+    async def _start(self, coroutine_id: int):
         while True:
             async with self.lock:
                 if not self.running:
                     break
-
-            await self._run()
+            await self._run(coroutine_id)
+        logger.info("dbq coroutine stopped", coroutine_id=coroutine_id)
 
     async def _on_success(
         self, task: TaskItem, fn: Callable[..., Awaitable[Any]] | Task
@@ -347,13 +349,13 @@ class Worker:
         except Exception as e:
             logger.error("error on task before run", task_id=task.id, error=str(e))
 
-    async def _run(self):
+    async def _run(self, coroutine_id: int):
         task = dequeue_task(self.session)
 
         if not task:
             await asyncio.sleep(0.1)
             return
-        logger.info("dequeue task", task_id=task.id)
+        logger.info("dequeue task", task_id=task.id, coroutine_id=coroutine_id)
         try:
             logger.info("importing function", func=task.func)
             fn_module, fn_name = task.func.rsplit(".", 1)
@@ -363,7 +365,12 @@ class Worker:
             await self._before_run(task, fn)
             result = await self.maybe_context_fn(fn, task.args, task.kwargs)
 
-            logger.info("task completed", task_id=task.id, result=result)
+            logger.info(
+                "task completed",
+                task_id=task.id,
+                result=result,
+                coroutine_id=coroutine_id,
+            )
             task.result = result
             task.status = TaskStatus.COMPLETED
             task.updated_at = datetime.now(UTC)
@@ -378,6 +385,7 @@ class Worker:
                     task_id=task.id,
                     error=str(e),
                     stack_trace=traceback.format_exc(),
+                    coroutine_id=coroutine_id,
                 )
                 task.error = str(e)
                 task.status = TaskStatus.FAILED
@@ -388,6 +396,7 @@ class Worker:
                     task_id=task.id,
                     error=str(e),
                     stack_trace=traceback.format_exc(),
+                    coroutine_id=coroutine_id,
                 )
                 task.status = TaskStatus.PENDING
 
@@ -399,6 +408,7 @@ class Worker:
                     "retrying task after backoff",
                     task_id=task.id,
                     wait_until=task.wait_until,
+                    coroutine_id=coroutine_id,
                 )
 
             task.updated_at = datetime.now(UTC)
@@ -407,7 +417,12 @@ class Worker:
             await self._on_failure(task, fn, e)
             return
         except Exception as e:
-            logger.error("error running task", task_id=task.id, error=str(e))
+            logger.error(
+                "error running task",
+                task_id=task.id,
+                error=str(e),
+                coroutine_id=coroutine_id,
+            )
             task.error = str(e)
             task.status = TaskStatus.FAILED
             task.updated_at = datetime.now(UTC)

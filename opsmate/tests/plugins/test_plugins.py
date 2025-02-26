@@ -22,7 +22,7 @@ async def test_builtin_tools_registry(plugins_dir):
         "datetime_extraction",
         "HttpGet",
         "HttpCall",
-        "HttpToText",
+        "HtmlToText",
         "FileRead",
         "FileWrite",
         "FileAppend",

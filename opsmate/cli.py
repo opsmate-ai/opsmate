@@ -18,11 +18,15 @@ from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.contexts import contexts
 from functools import wraps
+from opsmate.libs.config import config
 from opsmate.plugins import PluginRegistry
 import asyncio
 import os
 import click
 import structlog
+import sys
+
+PluginRegistry.discover(config.plugins_dir)
 
 
 def coro(f):
@@ -33,12 +37,6 @@ def coro(f):
     return wrapper
 
 
-# loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
-# structlog.configure(
-#     wrapper_class=structlog.make_filtering_bound_logger(
-#         logging.getLevelNamesMapping()[loglevel]
-#     ),
-# )
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 
@@ -59,6 +57,15 @@ if otel_enabled:
 logger = structlog.get_logger(__name__)
 
 
+class StdinArgument(click.ParamType):
+    name = "stdin"
+
+    def convert(self, value, param, ctx):
+        if value == "-":
+            return sys.stdin.read().strip()
+        return value
+
+
 @click.group()
 def opsmate_cli():
     """
@@ -69,16 +76,28 @@ def opsmate_cli():
 
 
 def common_params(func):
-    @click.option("--tools", default="")
     @click.option(
+        "--tools",
+        default="",
+        help="Comma separated list of tools to use",
+    )
+    @click.option(
+        "-r",
         "--review",
         is_flag=True,
         default=False,
+        show_default=True,
         help="Review and edit commands before execution",
+    )
+    @click.option(
+        "-s",
+        "--system-prompt",
+        default=None,
+        show_default=True,
+        help="System prompt to use",
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -128,25 +147,33 @@ Edit the command if needed, then press Enter to execute:
 
 
 @opsmate_cli.command()
-@click.argument("instruction")
+@click.argument("instruction", type=StdinArgument())
 @click.option(
-    "--ask", is_flag=True, help="Ask for confirmation before executing commands"
-)
-@click.option(
+    "-m",
     "--model",
+    show_default=True,
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-c",
     "--context",
+    show_default=True,
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
+)
+@click.option(
+    "-n",
+    "--no-tool-output",
+    is_flag=True,
+    help="Do not print tool outputs",
 )
 @common_params
 @traceit
 @coro
-# async def run(instruction, ask, model, context):
-async def run(instruction, ask, model, context, tools, tool_call_context):
+async def run(
+    instruction, model, context, tools, tool_call_context, system_prompt, no_tool_output
+):
     """
     Run a task with the OpsMate.
     """
@@ -161,39 +188,73 @@ async def run(instruction, ask, model, context, tools, tool_call_context):
     @dino("gpt-4o", response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         return [
-            Message.system(ctx.ctx()),
+            (
+                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                if system_prompt
+                else Message.system(ctx.ctx())
+            ),
             Message.user(instruction),
         ]
 
     observation = await run_command(instruction, context=tool_call_context)
 
-    for tool_call in observation.tool_outputs:
-        console.print(Markdown(tool_call.markdown()))
-
-    console.print(Markdown(observation.observation))
+    if not no_tool_output:
+        for tool_call in observation.tool_outputs:
+            console.print(Markdown(tool_call.markdown()))
+        console.print(Markdown(observation.observation))
+    else:
+        print(observation.observation)
 
 
 @opsmate_cli.command()
-@click.argument("instruction")
+@click.argument("instruction", type=StdinArgument())
 @click.option(
+    "-m",
     "--model",
     default="gpt-4o",
+    show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-i",
     "--max-iter",
     default=10,
+    show_default=True,
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
+    "-c",
     "--context",
     default="cli",
+    show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
+)
+@click.option(
+    "-n",
+    "--no-tool-output",
+    is_flag=True,
+    help="Do not print tool outputs",
+)
+@click.option(
+    "-a",
+    "--answer-only",
+    is_flag=True,
+    help="Print only the answer",
 )
 @common_params
 @traceit
 @coro
-async def solve(instruction, model, max_iter, context, tools, tool_call_context):
+async def solve(
+    instruction,
+    model,
+    max_iter,
+    context,
+    tools,
+    tool_call_context,
+    system_prompt,
+    no_tool_output,
+    answer_only,
+):
     """
     Solve a problem with the OpsMate.
     """
@@ -202,18 +263,25 @@ async def solve(instruction, model, max_iter, context, tools, tool_call_context)
     if len(tools) == 0:
         tools = ctx.tools
 
+    contexts = [
+        Message.system(system_prompt) if system_prompt else Message.system(ctx.ctx())
+    ]
+
     async for output in run_react(
         instruction,
-        contexts=[Message.system(ctx.ctx())],
+        contexts=contexts,
         model=model,
         max_iter=max_iter,
         tools=tools,
         tool_call_context=tool_call_context,
     ):
-        if isinstance(output, React):
-            console.print(
-                Markdown(
-                    f"""
+        match output:
+            case React():
+                if answer_only:
+                    continue
+                console.print(
+                    Markdown(
+                        f"""
 ## Thought process
 ### Thought
 
@@ -223,23 +291,29 @@ async def solve(instruction, model, max_iter, context, tools, tool_call_context)
 
 {output.action}
 """
+                    )
                 )
-            )
-        elif isinstance(output, ReactAnswer):
-            console.print(
-                Markdown(
-                    f"""
+            case Observation():
+                if answer_only:
+                    continue
+                console.print(Markdown("## Observation"))
+                if not no_tool_output:
+                    for tool_call in output.tool_outputs:
+                        console.print(Markdown(tool_call.markdown()))
+                console.print(Markdown(output.observation))
+            case ReactAnswer():
+                if answer_only:
+                    print(output.answer)
+                    break
+                console.print(
+                    Markdown(
+                        f"""
 ## Answer
 
 {output.answer}
 """
+                    )
                 )
-            )
-        elif isinstance(output, Observation):
-            console.print(Markdown("## Observation"))
-            for tool_call in output.tool_outputs:
-                console.print(Markdown(tool_call.markdown()))
-            console.print(Markdown(output.observation))
 
 
 help_msg = """
@@ -270,7 +344,7 @@ Commands:
 @common_params
 @traceit
 @coro
-async def chat(model, max_iter, context, tools, tool_call_context):
+async def chat(model, max_iter, context, tools, tool_call_context, system_prompt):
     """
     Chat with the OpsMate.
     """
@@ -295,9 +369,16 @@ async def chat(model, max_iter, context, tools, tool_call_context):
             console.print(help_msg)
             continue
 
+        contexts = [
+            (
+                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                if system_prompt
+                else Message.system(ctx.ctx())
+            )
+        ]
         run = run_react(
             user_input,
-            contexts=[Message.system(ctx.ctx())],
+            contexts=contexts,
             model=model,
             max_iter=max_iter,
             tools=tools,
@@ -417,9 +498,17 @@ async def reset(skip_confirm):
 
 
 @opsmate_cli.command()
-@click.option("--host", default="0.0.0.0", help="Host to serve on")
-@click.option("--port", default=8080, help="Port to serve on")
-@click.option("--workers", default=1, help="Number of workers to serve on")
+@click.option(
+    "-h", "--host", default="0.0.0.0", show_default=True, help="Host to serve on"
+)
+@click.option("-p", "--port", default=8080, show_default=True, help="Port to serve on")
+@click.option(
+    "-w",
+    "--workers",
+    default=2,
+    show_default=True,
+    help="Number of uvicorn workers to serve on",
+)
 @coro
 async def serve(host, port, workers):
     """
@@ -427,7 +516,6 @@ async def serve(host, port, workers):
     """
     import uvicorn
     from opsmate.gui.app import on_startup, kb_ingest
-    from opsmate.dbqapp import app as dbqapp
 
     await on_startup()
     await kb_ingest()
@@ -440,30 +528,30 @@ async def serve(host, port, workers):
             workers=workers,
         )
     else:
-        try:
-            task = asyncio.create_task(dbqapp.main())
-            config = uvicorn.Config(
-                "opsmate.apiserver.apiserver:app", host=host, port=port
-            )
-            server = uvicorn.Server(config)
-            await server.serve()
-            task.cancel()
-            await task
-        except KeyboardInterrupt:
-            task.cancel()
-            await task
+        config = uvicorn.Config("opsmate.apiserver.apiserver:app", host=host, port=port)
+        server = uvicorn.Server(config)
+        await server.serve()
 
 
 @opsmate_cli.command()
+@click.option(
+    "-w",
+    "--workers",
+    default=10,
+    show_default=True,
+    help="Number of concurrent background workers",
+)
 @coro
-async def worker():
+async def worker(workers):
     """
     Start the OpsMate worker.
     """
     from opsmate.dbqapp import app as dbqapp
+    from opsmate.knowledgestore.models import init_table
 
     try:
-        task = asyncio.create_task(dbqapp.main())
+        await init_table()
+        task = asyncio.create_task(dbqapp.main(workers))
         await task
     except KeyboardInterrupt:
         task.cancel()
@@ -475,7 +563,6 @@ def list_tools():
     """
     List all the tools available.
     """
-    PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
 
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
@@ -508,9 +595,17 @@ def list_models():
     "--source",
     help="Source of the knowledge base fs:////path/to/kb or github:///owner/repo[:branch]",
 )
-@click.option("--path", default="/", help="Path to the knowledge base")
 @click.option(
-    "--glob", default="**/*.md", help="Glob to use to find the knowledge base"
+    "--path",
+    default="/",
+    show_default=True,
+    help="Path to the knowledge base",
+)
+@click.option(
+    "--glob",
+    default="**/*.md",
+    show_default=True,
+    help="Glob to use to find the knowledge base",
 )
 @coro
 async def ingest(source, path, glob):
@@ -523,6 +618,10 @@ async def ingest(source, path, glob):
     from sqlmodel import create_engine, text, Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
+    from opsmate.knowledgestore.models import init_table
+    from opsmate.app.base import on_startup
+
+    await init_table()
 
     engine = create_engine(
         config.db_url,
@@ -532,6 +631,8 @@ async def ingest(source, path, glob):
     with engine.connect() as conn:
         conn.execute(text("PRAGMA journal_mode=WAL"))
         conn.close()
+
+    await on_startup(engine)
 
     splitted = source.split(":///")
     if len(splitted) != 2:

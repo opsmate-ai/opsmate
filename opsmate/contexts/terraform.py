@@ -1,6 +1,6 @@
 from typing import List
 from opsmate.dino.types import ToolCall
-from opsmate.tools.command_line import ShellCommand
+from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
 import subprocess
 
 
@@ -23,6 +23,9 @@ When you have issue with executing `terraform <subcommand>` try to use `terrafor
 def terraform_tools() -> List[ToolCall]:
     return [
         ShellCommand,
+        KnowledgeRetrieval,
+        ACITool,
+        HtmlToText,
     ]
 
 

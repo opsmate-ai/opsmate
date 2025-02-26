@@ -79,6 +79,13 @@ def common_params(func):
         show_default=True,
         help="Review and edit commands before execution",
     )
+    @click.option(
+        "-s",
+        "--system-prompt",
+        default=None,
+        show_default=True,
+        help="System prompt to use",
+    )
     @wraps(func)
     def wrapper(*args, **kwargs):
         _tool_names = kwargs.pop("tools")
@@ -148,8 +155,7 @@ Edit the command if needed, then press Enter to execute:
 @common_params
 @traceit
 @coro
-# async def run(instruction, ask, model, context):
-async def run(instruction, model, context, tools, tool_call_context):
+async def run(instruction, model, context, tools, tool_call_context, system_prompt):
     """
     Run a task with the OpsMate.
     """
@@ -164,7 +170,11 @@ async def run(instruction, model, context, tools, tool_call_context):
     @dino("gpt-4o", response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         return [
-            Message.system(ctx.ctx()),
+            (
+                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                if system_prompt
+                else Message.system(ctx.ctx())
+            ),
             Message.user(instruction),
         ]
 
@@ -202,7 +212,9 @@ async def run(instruction, model, context, tools, tool_call_context):
 @common_params
 @traceit
 @coro
-async def solve(instruction, model, max_iter, context, tools, tool_call_context):
+async def solve(
+    instruction, model, max_iter, context, tools, tool_call_context, system_prompt
+):
     """
     Solve a problem with the OpsMate.
     """
@@ -211,9 +223,14 @@ async def solve(instruction, model, max_iter, context, tools, tool_call_context)
     if len(tools) == 0:
         tools = ctx.tools
 
+    contexts = [
+        Message.system(system_prompt) if system_prompt else Message.system(ctx.ctx())
+    ]
+
+    print(contexts)
     async for output in run_react(
         instruction,
-        contexts=[Message.system(ctx.ctx())],
+        contexts=contexts,
         model=model,
         max_iter=max_iter,
         tools=tools,
@@ -279,7 +296,7 @@ Commands:
 @common_params
 @traceit
 @coro
-async def chat(model, max_iter, context, tools, tool_call_context):
+async def chat(model, max_iter, context, tools, tool_call_context, system_prompt):
     """
     Chat with the OpsMate.
     """
@@ -304,9 +321,14 @@ async def chat(model, max_iter, context, tools, tool_call_context):
             console.print(help_msg)
             continue
 
+        contexts = [
+            Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+            if system_prompt
+            else Message.system(ctx.ctx())
+        ]
         run = run_react(
             user_input,
-            contexts=[Message.system(ctx.ctx())],
+            contexts=contexts,
             model=model,
             max_iter=max_iter,
             tools=tools,

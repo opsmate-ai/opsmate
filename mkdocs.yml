@@ -55,9 +55,13 @@ nav:
     - opsmate run: CLI/run.md
     - opsmate solve: CLI/solve.md
     - opsmate chat: CLI/chat.md
+    - opsmate serve: CLI/serve.md
+    - opsmate worker: CLI/worker.md
+    - opsmate ingest: CLI/ingest.md
     - opsmate list-contexts: CLI/list-contexts.md
     - opsmate list-tools: CLI/list-tools.md
     - opsmate list-models: CLI/list-models.md
+    - opsmate reset: CLI/reset.md
   - Production: production.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md

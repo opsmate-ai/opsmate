@@ -593,9 +593,17 @@ def list_models():
     "--source",
     help="Source of the knowledge base fs:////path/to/kb or github:///owner/repo[:branch]",
 )
-@click.option("--path", default="/", help="Path to the knowledge base")
 @click.option(
-    "--glob", default="**/*.md", help="Glob to use to find the knowledge base"
+    "--path",
+    default="/",
+    show_default=True,
+    help="Path to the knowledge base",
+)
+@click.option(
+    "--glob",
+    default="**/*.md",
+    show_default=True,
+    help="Glob to use to find the knowledge base",
 )
 @coro
 async def ingest(source, path, glob):

@@ -2,7 +2,7 @@ import pytest
 from opsmate.tools.system import (
     HttpGet,
     HttpCall,
-    HttpToText,
+    HtmlToText,
     FileRead,
     FileWrite,
     FileAppend,
@@ -93,7 +93,7 @@ async def test_http_to_text():
     respx.get("https://example.com").mock(
         return_value=Response(200, text="<h1>Hello World</h1>")
     )
-    http_text = HttpToText(url="https://example.com")
+    http_text = HtmlToText(url="https://example.com")
     result = await http_text()
     assert "Hello World" in result.text
     assert result.status_code == 200
@@ -105,7 +105,7 @@ async def test_http_to_text_failure():
     respx.get("https://example.com").mock(
         return_value=Response(404, text="<h1>No</h1>")
     )
-    http_text = HttpToText(url="https://example.com")
+    http_text = HtmlToText(url="https://example.com")
     result = await http_text.run()
     assert "No" in result.text
     assert result.status_code == 404

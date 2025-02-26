@@ -50,7 +50,10 @@ plugins:
   - search
 nav:
   - Introduction: index.md
-  - CLI: cli.md
+  - CLI Reference:
+    - CLI: CLI/index.md
+    - opsmate run: CLI/run.md
+    - opsmate solve: CLI/solve.md
   - Production: production.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md

@@ -33,12 +33,6 @@ def coro(f):
     return wrapper
 
 
-# loglevel = os.getenv("LOGLEVEL", "ERROR").upper()
-# structlog.configure(
-#     wrapper_class=structlog.make_filtering_bound_logger(
-#         logging.getLevelNamesMapping()[loglevel]
-#     ),
-# )
 console = Console()
 resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
 
@@ -69,11 +63,17 @@ def opsmate_cli():
 
 
 def common_params(func):
-    @click.option("--tools", default="")
     @click.option(
+        "--tools",
+        default="",
+        help="Comma separated list of tools to use",
+    )
+    @click.option(
+        "-r",
         "--review",
         is_flag=True,
         default=False,
+        show_default=True,
         help="Review and edit commands before execution",
     )
     @wraps(func)
@@ -130,15 +130,16 @@ Edit the command if needed, then press Enter to execute:
 @opsmate_cli.command()
 @click.argument("instruction")
 @click.option(
-    "--ask", is_flag=True, help="Ask for confirmation before executing commands"
-)
-@click.option(
+    "-m",
     "--model",
+    show_default=True,
     default="gpt-4o",
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-c",
     "--context",
+    show_default=True,
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
@@ -146,7 +147,7 @@ Edit the command if needed, then press Enter to execute:
 @traceit
 @coro
 # async def run(instruction, ask, model, context):
-async def run(instruction, ask, model, context, tools, tool_call_context):
+async def run(instruction, model, context, tools, tool_call_context):
     """
     Run a task with the OpsMate.
     """

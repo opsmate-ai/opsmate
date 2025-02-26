@@ -6,7 +6,7 @@ from .datetime import current_time, datetime_extraction
 from .system import (
     HttpGet,
     HttpCall,
-    HttpToText,
+    HtmlToText,
     SysEnv,
     SysStats,
     FilesFind,
@@ -29,7 +29,7 @@ __all__ = [
     "GithubRaisePR",
     "HttpGet",
     "HttpCall",
-    "HttpToText",
+    "HtmlToText",
     "FilesFind",
     "FilesList",
     "FileRead",

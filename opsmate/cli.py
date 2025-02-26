@@ -24,6 +24,7 @@ import asyncio
 import os
 import click
 import structlog
+import sys
 
 PluginRegistry.discover(config.plugins_dir)
 
@@ -54,6 +55,15 @@ if otel_enabled:
     OpenAIAutoInstrumentor().instrument()
 
 logger = structlog.get_logger(__name__)
+
+
+class StdinArgument(click.ParamType):
+    name = "stdin"
+
+    def convert(self, value, param, ctx):
+        if value == "-":
+            return sys.stdin.read().strip()
+        return value
 
 
 @click.group()
@@ -137,7 +147,7 @@ Edit the command if needed, then press Enter to execute:
 
 
 @opsmate_cli.command()
-@click.argument("instruction")
+@click.argument("instruction", type=StdinArgument())
 @click.option(
     "-m",
     "--model",
@@ -152,10 +162,18 @@ Edit the command if needed, then press Enter to execute:
     default="cli",
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@click.option(
+    "-n",
+    "--no-tool-output",
+    is_flag=True,
+    help="Do not print tool outputs",
+)
 @common_params
 @traceit
 @coro
-async def run(instruction, model, context, tools, tool_call_context, system_prompt):
+async def run(
+    instruction, model, context, tools, tool_call_context, system_prompt, no_tool_output
+):
     """
     Run a task with the OpsMate.
     """
@@ -180,14 +198,16 @@ async def run(instruction, model, context, tools, tool_call_context, system_prom
 
     observation = await run_command(instruction, context=tool_call_context)
 
-    for tool_call in observation.tool_outputs:
-        console.print(Markdown(tool_call.markdown()))
-
-    console.print(Markdown(observation.observation))
+    if not no_tool_output:
+        for tool_call in observation.tool_outputs:
+            console.print(Markdown(tool_call.markdown()))
+        console.print(Markdown(observation.observation))
+    else:
+        print(observation.observation)
 
 
 @opsmate_cli.command()
-@click.argument("instruction")
+@click.argument("instruction", type=StdinArgument())
 @click.option(
     "-m",
     "--model",
@@ -209,11 +229,31 @@ async def run(instruction, model, context, tools, tool_call_context, system_prom
     show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@click.option(
+    "-n",
+    "--no-tool-output",
+    is_flag=True,
+    help="Do not print tool outputs",
+)
+@click.option(
+    "-a",
+    "--answer-only",
+    is_flag=True,
+    help="Print only the answer",
+)
 @common_params
 @traceit
 @coro
 async def solve(
-    instruction, model, max_iter, context, tools, tool_call_context, system_prompt
+    instruction,
+    model,
+    max_iter,
+    context,
+    tools,
+    tool_call_context,
+    system_prompt,
+    no_tool_output,
+    answer_only,
 ):
     """
     Solve a problem with the OpsMate.
@@ -235,10 +275,13 @@ async def solve(
         tools=tools,
         tool_call_context=tool_call_context,
     ):
-        if isinstance(output, React):
-            console.print(
-                Markdown(
-                    f"""
+        match output:
+            case React():
+                if answer_only:
+                    continue
+                console.print(
+                    Markdown(
+                        f"""
 ## Thought process
 ### Thought
 
@@ -248,23 +291,29 @@ async def solve(
 
 {output.action}
 """
+                    )
                 )
-            )
-        elif isinstance(output, ReactAnswer):
-            console.print(
-                Markdown(
-                    f"""
+            case Observation():
+                if answer_only:
+                    continue
+                console.print(Markdown("## Observation"))
+                if not no_tool_output:
+                    for tool_call in output.tool_outputs:
+                        console.print(Markdown(tool_call.markdown()))
+                console.print(Markdown(output.observation))
+            case ReactAnswer():
+                if answer_only:
+                    print(output.answer)
+                    break
+                console.print(
+                    Markdown(
+                        f"""
 ## Answer
 
 {output.answer}
 """
+                    )
                 )
-            )
-        elif isinstance(output, Observation):
-            console.print(Markdown("## Observation"))
-            for tool_call in output.tool_outputs:
-                console.print(Markdown(tool_call.markdown()))
-            console.print(Markdown(output.observation))
 
 
 help_msg = """

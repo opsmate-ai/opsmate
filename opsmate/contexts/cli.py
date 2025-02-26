@@ -1,6 +1,6 @@
 from typing import List
 from opsmate.dino.types import ToolCall
-from opsmate.tools.command_line import ShellCommand
+from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
 import platform
 
 
@@ -23,4 +23,7 @@ def cli_ctx() -> str:
 def cli_tools() -> List[ToolCall]:
     return [
         ShellCommand,
+        KnowledgeRetrieval,
+        ACITool,
+        HtmlToText,
     ]

@@ -1,6 +1,6 @@
 from typing import List
 from opsmate.dino.types import ToolCall
-from opsmate.tools.command_line import ShellCommand
+from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
 import subprocess
 
 
@@ -38,6 +38,9 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 def k8s_tools() -> List[ToolCall]:
     return [
         ShellCommand,
+        KnowledgeRetrieval,
+        ACITool,
+        HtmlToText,
     ]
 
 

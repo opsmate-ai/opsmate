@@ -3,15 +3,21 @@
 ## OPTIONS
 
 ```bash
+Usage: opsmate run [OPTIONS] INSTRUCTION
+
+  Run a task with the OpsMate.
+
 Options:
-  -m, --model TEXT    OpenAI model to use. To list models available please run
-                      the list-models command.  [default: gpt-4o]
-  -c, --context TEXT  Context to be added to the prompt. Run the list-contexts
-                      command to see all the contexts available.  [default:
-                      cli]
-  --tools TEXT        Comma separated list of tools to use
-  -r, --review        Review and edit commands before execution
-  --help              Show this message and exit.
+  -m, --model TEXT          OpenAI model to use. To list models available
+                            please run the list-models command.  [default:
+                            gpt-4o]
+  -c, --context TEXT        Context to be added to the prompt. Run the list-
+                            contexts command to see all the contexts
+                            available.  [default: cli]
+  --tools TEXT              Comma separated list of tools to use
+  -r, --review              Review and edit commands before execution
+  -s, --system-prompt TEXT  System prompt to use
+  --help                    Show this message and exit.
 ```
 
 ## USAGE
@@ -49,6 +55,14 @@ Context is represents a collection of tools and prompts. By default, the context
 
 ```bash
 opsmate run "how many pods are running in the cluster?" -c k8s
+```
+
+### Execute command with different system prompt
+
+You can use the `--system-prompt` or `-s` flag to use a different system prompt.
+
+```bash
+opsmate run -s "You are a kubernetes SME" "how many pods are running in the cluster?"
 ```
 
 ### Execute command with different tools

@@ -227,7 +227,6 @@ async def solve(
         Message.system(system_prompt) if system_prompt else Message.system(ctx.ctx())
     ]
 
-    print(contexts)
     async for output in run_react(
         instruction,
         contexts=contexts,
@@ -322,9 +321,11 @@ async def chat(model, max_iter, context, tools, tool_call_context, system_prompt
             continue
 
         contexts = [
-            Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-            if system_prompt
-            else Message.system(ctx.ctx())
+            (
+                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                if system_prompt
+                else Message.system(ctx.ctx())
+            )
         ]
         run = run_react(
             user_input,

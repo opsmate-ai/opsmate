@@ -18,11 +18,14 @@ from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.contexts import contexts
 from functools import wraps
+from opsmate.libs.config import config
 from opsmate.plugins import PluginRegistry
 import asyncio
 import os
 import click
 import structlog
+
+PluginRegistry.discover(config.plugins_dir)
 
 
 def coro(f):
@@ -78,7 +81,6 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -177,18 +179,24 @@ async def run(instruction, model, context, tools, tool_call_context):
 @opsmate_cli.command()
 @click.argument("instruction")
 @click.option(
+    "-m",
     "--model",
     default="gpt-4o",
+    show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-i",
     "--max-iter",
     default=10,
+    show_default=True,
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
+    "-c",
     "--context",
     default="cli",
+    show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @common_params
@@ -476,7 +484,6 @@ def list_tools():
     """
     List all the tools available.
     """
-    PluginRegistry.discover(os.getenv("OPSMATE_TOOLS_DIR", "./tools"))
 
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")

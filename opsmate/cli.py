@@ -547,8 +547,10 @@ async def worker(workers):
     Start the OpsMate worker.
     """
     from opsmate.dbqapp import app as dbqapp
+    from opsmate.knowledgestore.models import init_table
 
     try:
+        await init_table()
         task = asyncio.create_task(dbqapp.main(workers))
         await task
     except KeyboardInterrupt:
@@ -616,6 +618,10 @@ async def ingest(source, path, glob):
     from sqlmodel import create_engine, text, Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
+    from opsmate.knowledgestore.models import init_table
+    from opsmate.app.base import on_startup
+
+    await init_table()
 
     engine = create_engine(
         config.db_url,
@@ -625,6 +631,8 @@ async def ingest(source, path, glob):
     with engine.connect() as conn:
         conn.execute(text("PRAGMA journal_mode=WAL"))
         conn.close()
+
+    await on_startup(engine)
 
     splitted = source.split(":///")
     if len(splitted) != 2:

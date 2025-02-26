@@ -18,6 +18,8 @@ Options:
   -c, --context TEXT        Context to be added to the prompt. Run the list-
                             contexts command to see all the contexts
                             available.  [default: cli]
+  -n, --no-tool-output      Do not print tool outputs
+  -a, --answer-only         Print only the answer
   --tools TEXT              Comma separated list of tools to use
   -r, --review              Review and edit commands before execution
   -s, --system-prompt TEXT  System prompt to use
@@ -59,24 +61,22 @@ The OpsMate can use various tools to solve the problem. You can see the list of 
 Here is an example of gathering top 10 news from hacker news and write it to a file:
 
 ```bash
-opsmate solve \
+opsmate solve -na \
   "find me top 10 news on the hacker news with bullet points and write to hn-top-10.md" \
   --tools HtmlToText,FileWrite
 ...
 
 cat hn-top-10.md
-# Top 10 Hacker News Stories
-
-1. The FFT Strikes Back: An Efficient Alternative to Self-Attention
-2. Telescope – an open-source web-based log viewer for logs stored in ClickHouse
-3. DeepGEMM: clean and efficient FP8 GEMM kernels with fine-grained scaling
-4. I Went to SQL Injection Court
-5. Page is under construction: A love letter to the personal website
-6. Hyperspace
-7. Iterated Log Coding
-8. Material Theme has been pulled from VS Code's marketplace
-9. Part two of Grant Sanderson's video with Terry Tao on the cosmic distance ladder
-10. Terence Tao – Machine-Assisted Proofs [video]
+- [Do You Not Like Money?](https://news.ycombinator.com/item?id=43183568) by rbanffy
+- [Chile blackout affects 14 regions](https://news.ycombinator.com/item?id=43182892) by impish9208
+- [The miserable state of modems and mobile network operators](https://news.ycombinator.com/item?id=43182854) by hasheddan
+- [Automattic hit with class action over WP Engine dispute](https://news.ycombinator.com/item?id=43182576) by rpgbr
+- [A Radical Proposal for How Mind Emerges from Matter](https://news.ycombinator.com/item?id=43181520) by Hooke
+- [Iterlog Coding](https://news.ycombinator.com/item?id=43181610) by snarkconjecture
+- [VSC Material Theme](https://news.ycombinator.com/item?id=43178831) by Inityx
+- [Fixing Illinois FOIA](https://news.ycombinator.com/item?id=43175628) by mrkurt
+- [The XB 70](https://news.ycombinator.com/item?id=43175315) by rbanffy
+- [Document Ranking for Complex Problems](https://news.ycombinator.com/item?id=43174910) by noperator
 ```
 
 ### Review and edit commands

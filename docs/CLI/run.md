@@ -14,6 +14,7 @@ Options:
   -c, --context TEXT        Context to be added to the prompt. Run the list-
                             contexts command to see all the contexts
                             available.  [default: cli]
+  -n, --no-tool-output      Do not print tool outputs
   --tools TEXT              Comma separated list of tools to use
   -r, --review              Review and edit commands before execution
   -s, --system-prompt TEXT  System prompt to use
@@ -71,41 +72,44 @@ You can also use the `--tools` or `-t` flag to use a different tools. The tools 
 The example below shows how to use the `HtmlToText` tool to get top 10 news on the hacker news.
 
 ```bash
-opsmate run "find me top 10 news on the hacker news" --tools HtmlToText
+$ opsmate run -n "find me top 10 news on the hacker news, title only" --tools HtmlToText
+2025-02-26 15:14:44 [info     ] adding the plugin directory to the sys path plugin_dir=/home/jingkaihe/.opsmate/plugins
+2025-02-26 15:14:44 [info     ] Running on                     instruction=find me top 10 news on the hacker news, title only model=gpt-4o
+1. The FFT Strikes Back: An Efficient Alternative to Self-Attention
+2. Telescope – an open-source web-based log viewer for logs stored in ClickHouse
+3. I Went to SQL Injection Court
+4. DeepGEMM: clean and efficient FP8 GEMM kernels with fine-grained scaling
+5. The Miserable State of Modems and Mobile Network Operators
+6. Hyperspace
+7. Material Theme has been pulled from VS Code's marketplace
+8. State of emergency declared after blackout plunges most of Chile into darkness
+9. Part two of Grant Sanderson's video with Terry Tao on the cosmic distance ladder
+10. Launch HN: Browser Use (YC W25) – open-source web agents
+```
 
-...
-Here are the top 10 stories on Hacker News:
+In the example above we also use the `-n` flag to suppress the tool outputs.
 
-  1 The FFT Strikes Back: An Efficient Alternative to Self-Attention
-     • Points: 30, Comments: 4
-     • Posted by: iNic, 1 hour ago
-  2 Telescope – an open-source web-based log viewer for logs stored in ClickHouse
-     • Points: 48, Comments: 17
-     • Posted by: r0b3r4, 2 hours ago
-  3 DeepGEMM: clean and efficient FP8 GEMM kernels with fine-grained scaling
-     • Points: 316, Comments: 59
-     • Posted by: mfiguiere, 10 hours ago
-  4 I Went to SQL Injection Court
-     • Points: 899, Comments: 352
-     • Posted by: mrkurt, 16 hours ago
-  5 Page is under construction: A love letter to the personal website
-     • Points: 100, Comments: 36
-     • Posted by: spzb, 5 hours ago
-  6 Iterated Log Coding
-     • Points: 44, Comments: 14
-     • Posted by: snarkconjecture, 3 hours ago
-  7 Hyperspace
-     • Points: 705, Comments: 369
-     • Posted by: tobr, 19 hours ago
-  8 Part two of Grant Sanderson's video with Terry Tao on the cosmic distance ladder
-     • Points: 291, Comments: 46
-     • Posted by: ColinWright, 16 hours ago
-  9 Material Theme has been pulled from VS Code's marketplace
-     • Points: 190, Comments: 144
-     • Posted by: Inityx, 11 hours ago
- 10 Terence Tao – Machine-Assisted Proofs [video]
-     • Points: 78, Comments: 7
-     • Posted by: ipnon, 9 hours ago
+## Pipeline
+
+When the `INSTRUCTION` is `-`, the CLI will read the instruction from the standard input. With this you can chain the commands together.
+
+For example
+
+```bash
+cat instructions.txt | opsmate run -
+```
+
+Or chaining the `opsmate run` commands together.
+
+```bash
+opsmate run -n "how many cores on the machine" | opsmate run - -n -s "print the number * 2 from the text you are given"
+2025-02-26 15:23:07 [info     ] adding the plugin directory to the sys path plugin_dir=/home/jingkaihe/.opsmate/plugins
+2025-02-26 15:23:10 [info     ] Running on                     instruction=2025-02-26 15:23:07 [info     ] adding the plugin directory to the sys path plugin_dir=/home/jingkaihe/.opsmate/plugins
+2025-02-26 15:23:07 [info     ] Running on                     instruction=how many cores on the machine model=gpt-4o
+2025-02-26 15:23:08 [info     ] running shell command          command=nproc
+8 model=gpt-4o
+2025-02-26 15:23:11 [info     ] running shell command          command=echo $((8 * 2))
+16
 ```
 
 ### SEE ALSO

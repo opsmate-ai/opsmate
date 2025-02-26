@@ -498,9 +498,17 @@ async def reset(skip_confirm):
 
 
 @opsmate_cli.command()
-@click.option("--host", default="0.0.0.0", help="Host to serve on")
-@click.option("--port", default=8080, help="Port to serve on")
-@click.option("--workers", default=1, help="Number of workers to serve on")
+@click.option(
+    "-h", "--host", default="0.0.0.0", show_default=True, help="Host to serve on"
+)
+@click.option("-p", "--port", default=8080, show_default=True, help="Port to serve on")
+@click.option(
+    "-w",
+    "--workers",
+    default=2,
+    show_default=True,
+    help="Number of uvicorn workers to serve on",
+)
 @coro
 async def serve(host, port, workers):
     """
@@ -508,7 +516,6 @@ async def serve(host, port, workers):
     """
     import uvicorn
     from opsmate.gui.app import on_startup, kb_ingest
-    from opsmate.dbqapp import app as dbqapp
 
     await on_startup()
     await kb_ingest()
@@ -521,30 +528,28 @@ async def serve(host, port, workers):
             workers=workers,
         )
     else:
-        try:
-            task = asyncio.create_task(dbqapp.main())
-            config = uvicorn.Config(
-                "opsmate.apiserver.apiserver:app", host=host, port=port
-            )
-            server = uvicorn.Server(config)
-            await server.serve()
-            task.cancel()
-            await task
-        except KeyboardInterrupt:
-            task.cancel()
-            await task
+        config = uvicorn.Config("opsmate.apiserver.apiserver:app", host=host, port=port)
+        server = uvicorn.Server(config)
+        await server.serve()
 
 
 @opsmate_cli.command()
+@click.option(
+    "-w",
+    "--workers",
+    default=10,
+    show_default=True,
+    help="Number of concurrent background workers",
+)
 @coro
-async def worker():
+async def worker(workers):
     """
     Start the OpsMate worker.
     """
     from opsmate.dbqapp import app as dbqapp
 
     try:
-        task = asyncio.create_task(dbqapp.main())
+        task = asyncio.create_task(dbqapp.main(workers))
         await task
     except KeyboardInterrupt:
         task.cancel()

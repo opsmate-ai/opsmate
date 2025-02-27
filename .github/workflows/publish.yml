@@ -8,7 +8,7 @@ on:
       - 'pyproject.toml'
 
 jobs:
-  build:
+  release-build:
     runs-on: ubuntu-latest
     environment: ci
     steps:
@@ -27,8 +27,24 @@ jobs:
       - name: Build package
         run: |
           poetry build
-      - name: Publish package
-        run: |
-          poetry config repositories.gcp https://europe-west1-python.pkg.dev/hjktech-metal/opsmate/
-          poetry config http-basic.gcp _json_key_base64 ${{ secrets.GCP_PYPI_PASSWORD }}
-          poetry publish --repository gcp
+      - name: upload dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+  pypi-publish:
+    runs-on: ubuntu-latest
+    needs:
+      - release-build
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Retrieve release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish release distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from opsmate.dino.provider import Provider
 from opsmate.dino.types import Message, Observation
 from opsmate.dino.dino import dino
-from opsmate.contexts import contexts
+from opsmate.dino.context import ContextRegistry
 from opsmate.gui.app import app as fasthtml_app, startup
 import os
 
@@ -72,10 +72,10 @@ async def run(request: RunRequest):
 
     ctx = get_context(request.context)
 
-    @dino("gpt-4o", response_model=Observation, tools=ctx.tools)
+    @dino("gpt-4o", response_model=Observation, tools=ctx.resolve_tools())
     async def run_command(instruction: str):
         return [
-            Message.system(ctx.ctx()),
+            *await ctx.resolve_contexts(),
             Message.user(instruction),
         ]
 
@@ -93,7 +93,7 @@ class ContextNotFound(Exception):
 
 
 def get_context(context: str):
-    ctx = contexts.get(context)
+    ctx = ContextRegistry.contexts.get(context)
     if not ctx:
         raise ContextNotFound(f"Context {context} not found")
     return ctx

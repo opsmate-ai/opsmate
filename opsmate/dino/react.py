@@ -194,12 +194,13 @@ def react(
     P = ParamSpec("P")
     T = TypeVar("T")
 
-    def _extend_contexts(contexts: List[str | Context]):
+    async def _extend_contexts(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, str):
                 yield Message.system(ctx)
             elif isinstance(ctx, Context):
-                yield from ctx.resolve_contexts()
+                for c in await ctx.resolve_contexts():
+                    yield c
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
 
@@ -210,9 +211,6 @@ def react(
                     yield tool
 
     def wrapper(fn: Callable[P, Awaitable[T]]):
-        ctxs = []
-        for ctx in _extend_contexts(contexts):
-            ctxs.append(ctx)
 
         _tools = set(tools)
         for tool in _extend_tools(contexts):
@@ -231,13 +229,17 @@ def react(
             tool_call_context: Dict[str, Any] = {},
             **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
+            ctxs = []
+            async for ctx in _extend_contexts(contexts):
+                ctxs.append(ctx)
+
             if inspect.iscoroutinefunction(fn):
                 prompt = await fn(*args, **kwargs)
             else:
                 prompt = fn(*args, **kwargs)
             chat_history = kwargs.get("chat_history", [])
 
-            for ctx in _extend_contexts(extra_contexts):
+            async for ctx in _extend_contexts(extra_contexts):
                 ctxs.append(ctx)
 
             for tool in _extend_tools(extra_contexts):

@@ -136,12 +136,12 @@ async def test_react_decorator_with_contexts():
         name="calc",
         tools=[calc],
     )
-    def use_calculator():
+    async def use_calculator():
         return "don't do caculation yourself only use the calculator"
 
     @react(
         model="gpt-4o",
-        contexts=[use_calculator()],
+        contexts=[use_calculator],
         iterable=False,
         callback=lambda x: print(x),
     )
@@ -158,7 +158,7 @@ async def test_react_decorator_with_extra_contexts():
         name="calc",
         tools=[calc],
     )
-    def use_calculator():
+    async def use_calculator():
         return "don't do caculation yourself only use the calculator"
 
     @react(
@@ -169,20 +169,20 @@ async def test_react_decorator_with_extra_contexts():
     async def calc_agent(query: str):
         return f"answer the query: {query}"
 
-    answer = await calc_agent("what is (1 + 1) * 2?", extra_contexts=[use_calculator()])
+    answer = await calc_agent("what is (1 + 1) * 2?", extra_contexts=[use_calculator])
     assert await get_answer(answer.answer) == 4
 
 
 @pytest.mark.asyncio
 async def test_react_decorator_with_extra_tools():
     @context(name="calc")
-    def use_calculator():
+    async def use_calculator():
         return "don't do caculation yourself only use the calculator"
 
     @react(
         model="gpt-4o",
         tools=[calc],
-        contexts=[use_calculator()],
+        contexts=[use_calculator],
         iterable=False,
         callback=lambda x: print(x),
     )

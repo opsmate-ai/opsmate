@@ -18,9 +18,10 @@ import time
 from datetime import timedelta
 from typing import Callable
 from opsmate.dino.react import run_react
-from opsmate.contexts import contexts
+from opsmate.contexts import k8s_ctx
 from opsmate.dino import dino
 from opsmate.dino.types import Message
+import asyncio
 
 logger = structlog.get_logger()
 
@@ -77,10 +78,12 @@ def with_env(issue: QNA):
 
 @pytest.fixture
 def k8s_agent():
-    ctx = contexts["k8s"]
-
     def run(question: str):
-        return run_react(question, context=ctx.ctx(), tools=ctx.tools)
+        return run_react(
+            question,
+            context=asyncio.run(k8s_ctx.resolve_contexts()),
+            tools=k8s_ctx.resolve_tools(),
+        )
 
     return run
 

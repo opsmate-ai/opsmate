@@ -1,6 +1,5 @@
 from opsmate.libs.config import Config as OpsmateConfig
 from pydantic import Field, model_validator
-from opsmate.contexts import k8s_ctx
 from opsmate.plugins import PluginRegistry
 from typing import List, Self
 
@@ -14,7 +13,7 @@ class Config(OpsmateConfig):
     )
     system_prompt: str = Field(
         alias="OPSMATE_SYSTEM_PROMPT",
-        default_factory=k8s_ctx,
+        default="",
     )
 
     model: str = Field(

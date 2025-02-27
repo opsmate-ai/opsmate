@@ -17,7 +17,7 @@ from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
 from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
-from opsmate.contexts import contexts
+from opsmate.dino.context import ContextRegistry
 from functools import wraps
 from opsmate.libs.config import config
 from opsmate.plugins import PluginRegistry
@@ -26,6 +26,8 @@ import os
 import click
 import structlog
 import sys
+
+ContextRegistry.load_builtin()
 
 
 def load_plugins():
@@ -185,18 +187,19 @@ async def run(
     ctx = get_context(context)
 
     if len(tools) == 0:
-        tools = ctx.tools
+        tools = ctx.resolve_tools()
 
     logger.info("Running on", instruction=instruction, model=model)
 
     @dino("gpt-4o", response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
-        return [
-            (
+        sys_prompts = await ctx.resolve_contexts()
+        if system_prompt:
+            sys_prompts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-                if system_prompt
-                else Message.system(ctx.ctx())
-            ),
+            ]
+        return [
+            *sys_prompts,
             Message.user(instruction),
         ]
 
@@ -267,9 +270,9 @@ async def solve(
     if len(tools) == 0:
         tools = ctx.tools
 
-    contexts = [
-        Message.system(system_prompt) if system_prompt else Message.system(ctx.ctx())
-    ]
+    contexts = await ctx.resolve_contexts()
+    if system_prompt:
+        contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
     async for output in run_react(
         instruction,
@@ -373,13 +376,12 @@ async def chat(model, max_iter, context, tools, tool_call_context, system_prompt
             console.print(help_msg)
             continue
 
-        contexts = [
-            (
+        contexts = await ctx.resolve_contexts()
+        if system_prompt:
+            contexts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-                if system_prompt
-                else Message.system(ctx.ctx())
-            )
-        ]
+            ]
+
         run = run_react(
             user_input,
             contexts=contexts,
@@ -442,8 +444,8 @@ def list_contexts():
     table.add_column("Context")
     table.add_column("Description")
 
-    for ctx_name, ctx in contexts.items():
-        table.add_row(ctx_name, ctx.description)
+    for ctx in ContextRegistry.get_contexts():
+        table.add_row(ctx.name, ctx.description)
 
     console.print(table)
 
@@ -692,7 +694,7 @@ def version():
 
 
 def get_context(ctx_name: str):
-    ctx = contexts.get(ctx_name)
+    ctx = ContextRegistry.get_context(ctx_name)
     if not ctx:
         console.print(
             f"Context {ctx_name} not found. Run the list-contexts command to see all the contexts available."

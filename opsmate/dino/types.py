@@ -1,5 +1,17 @@
 from pydantic import BaseModel, Field, computed_field, PrivateAttr
-from typing import Any, List, Optional, Literal, Dict, Union, Type, TypeVar, Generic
+from typing import (
+    Any,
+    List,
+    Optional,
+    Literal,
+    Dict,
+    Union,
+    Type,
+    TypeVar,
+    Generic,
+    Callable,
+    Awaitable,
+)
 import structlog
 from abc import ABC, abstractmethod
 import inspect
@@ -136,7 +148,10 @@ class Context(BaseModel):
     """
 
     name: str = Field(description="The name of the context")
-    system_prompt: Optional[str] = Field(
+    description: str = Field(description="The description of the context", default="")
+
+    # make system prompt coroutine as crafting the system prompt might involve network calls
+    system_prompt: Optional[Callable[[], Awaitable[str]]] = Field(
         description="The system prompt of the context", default=None
     )
     contexts: List["Context"] = Field(
@@ -160,11 +175,11 @@ class Context(BaseModel):
                 tools.add(tool)
         return tools
 
-    def resolve_contexts(self):
+    async def resolve_contexts(self):
         """resolve_contexts aggregates all the contexts from the context hierarchy"""
         contexts = []
         if self.system_prompt:
-            contexts.append(Message.system(self.system_prompt))
+            contexts.append(Message.system(await self.system_prompt()))
         for ctx in self.contexts:
-            contexts.extend(ctx.resolve_contexts())
+            contexts.extend(await ctx.resolve_contexts())
         return contexts

@@ -1,3 +1,4 @@
+from opsmate import __version__
 from opsmate.libs.core.trace import traceit
 from openai_otel import OpenAIAutoInstrumentor
 from opentelemetry import trace
@@ -26,7 +27,9 @@ import click
 import structlog
 import sys
 
-PluginRegistry.discover(config.plugins_dir)
+
+def load_plugins():
+    PluginRegistry.discover(config.plugins_dir)
 
 
 def coro(f):
@@ -98,6 +101,7 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
+        load_plugins()
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -549,6 +553,8 @@ async def worker(workers):
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
 
+    load_plugins()
+
     try:
         await init_table()
         task = asyncio.create_task(dbqapp.main(workers))
@@ -621,6 +627,7 @@ async def ingest(source, path, glob):
     from opsmate.knowledgestore.models import init_table
     from opsmate.app.base import on_startup
 
+    load_plugins()
     await init_table()
 
     engine = create_engine(
@@ -674,6 +681,14 @@ async def ingest(source, path, glob):
                     splitter_config=splitter_config,
                 )
     console.print("Ingesting knowledges in the background...")
+
+
+@opsmate_cli.command()
+def version():
+    """
+    Show the version of the OpsMate.
+    """
+    console.print(__version__)
 
 
 def get_context(ctx_name: str):

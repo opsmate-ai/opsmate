@@ -7,7 +7,7 @@ endif
 
 VERSION=$(shell awk '/^\[tool\.poetry\]/{p=1;next} /^\[/{p=0} p&&/^version = /{print}' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
 IMAGE_NAME=opsmate
-CONTAINER_REGISTRY=ghcr.io/jingkaihe/opsmate-images
+CONTAINER_REGISTRY=ghcr.io/jingkaihe
 
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
@@ -26,6 +26,8 @@ docker-build:
 
 docker-push:
 	docker push $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION)
+	docker tag $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION) $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
+	docker push $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
 
 .PHONY: kind
 kind: $(LOCALBIN)

@@ -28,3 +28,12 @@ jobs:
           CI: "true"
         run: |
           poetry run pytest ./opsmate/tests -n auto
+
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build image
+        run: |
+          make docker-build

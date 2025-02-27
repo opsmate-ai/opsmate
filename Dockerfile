@@ -23,6 +23,8 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION && \
 # Final stage
 FROM python:3.12.3-slim-bullseye
 
+LABEL org.opencontainers.image.source=https://github.com/jingkaihe/opsmate
+
 # Install only kubectl without keeping unnecessary files
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \

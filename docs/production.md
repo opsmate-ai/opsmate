@@ -195,7 +195,7 @@ spec:
       serviceAccountName: opsmate-cluster-reader
       containers:
         - name: opsmate
-          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.26a1
+          image: ghcr.io/jingkaihe/opsmate:0.1.27a0
           ports:
             - containerPort: 8000
           envFrom:
@@ -209,7 +209,7 @@ spec:
           args:
             - serve
         - name: worker
-          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.26a1
+          image: ghcr.io/jingkaihe/opsmate:0.1.27a0
           envFrom:
             - secretRef:
                 name: opsmate-secret

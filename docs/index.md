@@ -10,6 +10,28 @@ Opsmate makes it easy to manage production environments. It stands out from othe
 
 You can start using Opsmate by running it locally on your workstation. There are several ways to install Opsmate on your workstation:
 
+
+
+=== "pip"
+    ```bash
+    pip install -U opsmate
+    ```
+
+=== "pipx"
+    ```bash
+    pipx install opsmate
+    # or
+    pipx upgrade opsmate
+    ```
+
+=== "Docker"
+    ```bash
+    # Note this is less useful as you cannot access the host from the container
+    # But still useful to interact with cloud API in an isolated containerised environment
+    docker pull ghcr.io/jingkaihe/opsmate:latest # or the specific version if you prefer not living on the edge
+    alias opsmate="docker run -it --rm --env OPENAI_API_KEY=$OPENAI_API_KEY -v $HOME/.opsmate:/root/.opsmate ghcr.io/jingkaihe/opsmate:latest"
+    ```
+
 === "Source"
     ```bash
     git clone git@github.com:jingkaihe/opsmate.git
@@ -17,12 +39,7 @@ You can start using Opsmate by running it locally on your workstation. There are
 
     poetry build
 
-    pipx install ./dist/opsmate-0.1.26a1-py3-none-any.whl
-    ```
-
-=== "Pip"
-    ```bash
-    # Coming soon
+    pipx install ./dist/opsmate-*.whl
     ```
 
 Note that the Opsmate is powered by large language models. At the moment it supports

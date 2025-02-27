@@ -44,7 +44,19 @@ class Plugin(BaseModel):
 
 
 class PluginRegistry(BaseModel):
-    """Function-based plugin registry with directory loading support"""
+    """PluginRegistry discovers llm functions and tools as plugins from a list of directories
+
+    The PluginRegistry loads all the .py files (without __ prefix) in the given directories.
+    For each file it looks for:
+
+    1. Any classes that inherit from ToolCall
+    2. Any functions that are decorated with @dtool - which technically is also a ToolCall
+    3. Any functions decorated with @auto_discover
+
+    It also loads all the builtin tools from opsmate.tools
+
+    Afterwards it can be used as a centralised tool box for all the tools and plugins.
+    """
 
     _plugins: ClassVar[Dict[str, Plugin]] = {}
     _tools: ClassVar[Dict[str, ToolCall]] = {}

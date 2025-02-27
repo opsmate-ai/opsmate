@@ -1,9 +1,10 @@
 [tool.poetry]
 name = "opsmate"
-version = "0.1.26a1"
+version = "0.1.26a2"
 description = "opsmate is a SRE AI assistant"
 authors = ["Jingkai <jingkai@hey.com>"]
 readme = "README.md"
+license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = "^3.12"

@@ -29,6 +29,4 @@ jobs:
           poetry build
       - name: Publish package
         run: |
-          poetry config repositories.gcp https://europe-west1-python.pkg.dev/hjktech-metal/opsmate/
-          poetry config http-basic.gcp _json_key_base64 ${{ secrets.GCP_PYPI_PASSWORD }}
-          poetry publish --repository gcp
+          poetry publish

@@ -14,16 +14,14 @@ ENV POETRY_VERSION=1.8.4 \
 WORKDIR /app
 
 # Install poetry and dependencies in one layer
-COPY poetry.lock pyproject.toml /app/
+COPY poetry.lock pyproject.toml README.md /app/
+COPY opsmate /app/opsmate
 RUN pip install --no-cache-dir poetry==$POETRY_VERSION && \
-    poetry install --only main --no-interaction --no-ansi --no-root && \
+    poetry build && \
     rm -rf $POETRY_CACHE_DIR
 
 # Final stage
 FROM python:3.12.3-slim-bullseye
-
-# Install uvicorn directly in the final stage
-RUN pip install --no-cache-dir uvicorn
 
 # Install only kubectl without keeping unnecessary files
 RUN apt-get update && \
@@ -39,9 +37,8 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Copy only necessary files
-COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
-COPY opsmate /app/opsmate
-COPY README.md /app/README.md
+COPY --from=builder /app/dist/opsmate-*.whl /tmp/dist/
 
-ENTRYPOINT ["uvicorn", "opsmate.apiserver.apiserver:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN pip install --no-cache-dir /tmp/dist/opsmate-*.whl
+
+ENTRYPOINT ["opsmate"]

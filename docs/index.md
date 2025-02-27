@@ -10,6 +10,20 @@ Opsmate makes it easy to manage production environments. It stands out from othe
 
 You can start using Opsmate by running it locally on your workstation. There are several ways to install Opsmate on your workstation:
 
+
+
+=== "pip"
+    ```bash
+    pip install -U opsmate
+    ```
+
+=== "pipx"
+    ```bash
+    pipx install opsmate
+    # or
+    pipx upgrade opsmate
+    ```
+
 === "Source"
     ```bash
     git clone git@github.com:jingkaihe/opsmate.git
@@ -17,12 +31,7 @@ You can start using Opsmate by running it locally on your workstation. There are
 
     poetry build
 
-    pipx install ./dist/opsmate-0.1.26a1-py3-none-any.whl
-    ```
-
-=== "Pip"
-    ```bash
-    # Coming soon
+    pipx install ./dist/opsmate-*.whl
     ```
 
 Note that the Opsmate is powered by large language models. At the moment it supports

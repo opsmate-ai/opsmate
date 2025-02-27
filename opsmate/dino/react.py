@@ -199,14 +199,14 @@ def react(
             if isinstance(ctx, str):
                 yield Message.system(ctx)
             elif isinstance(ctx, Context):
-                yield from ctx.all_contexts()
+                yield from ctx.resolve_contexts()
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
 
     def _extend_tools(contexts: List[str | Context]):
         for ctx in contexts:
             if isinstance(ctx, Context):
-                for tool in ctx.all_tools():
+                for tool in ctx.resolve_tools():
                     yield tool
 
     def wrapper(fn: Callable[P, Awaitable[T]]):

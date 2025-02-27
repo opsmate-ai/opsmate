@@ -136,8 +136,8 @@ class Context(BaseModel):
     """
 
     name: str = Field(description="The name of the context")
-    content: Optional[str] = Field(
-        description="The description of the context", default=None
+    system_prompt: Optional[str] = Field(
+        description="The system prompt of the context", default=None
     )
     contexts: List["Context"] = Field(
         description="The sub contexts to the context", default=[]
@@ -146,10 +146,11 @@ class Context(BaseModel):
         description="The tools available in the context", default=[]
     )
 
-    def all_tools(self):
+    def resolve_tools(self):
+        """resolve_tools aggregates all the tools from the context hierarchy"""
         tools = set(self.tools)
         for ctx in self.contexts:
-            for tool in ctx.all_tools():
+            for tool in ctx.resolve_tools():
                 if tool in tools:
                     logger.warning(
                         "Tool already defined in context",
@@ -159,10 +160,11 @@ class Context(BaseModel):
                 tools.add(tool)
         return tools
 
-    def all_contexts(self):
+    def resolve_contexts(self):
+        """resolve_contexts aggregates all the contexts from the context hierarchy"""
         contexts = []
-        if self.content:
-            contexts.append(Message.system(self.content))
+        if self.system_prompt:
+            contexts.append(Message.system(self.system_prompt))
         for ctx in self.contexts:
-            contexts.extend(ctx.all_contexts())
+            contexts.extend(ctx.resolve_contexts())
         return contexts

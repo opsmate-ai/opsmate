@@ -10,6 +10,7 @@ import importlib
 import inspect
 
 logger = structlog.get_logger(__name__)
+
 # Type variables for better type hints
 T = TypeVar("T")
 P = ParamSpec("P")

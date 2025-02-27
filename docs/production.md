@@ -195,7 +195,7 @@ spec:
       serviceAccountName: opsmate-cluster-reader
       containers:
         - name: opsmate
-          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.21.alpha1
+          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.26a1
           ports:
             - containerPort: 8000
           envFrom:
@@ -206,17 +206,17 @@ spec:
           volumeMounts:
             - name: opsmate-vol
               mountPath: /var/opsmate
+          args:
+            - serve
         - name: worker
-          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.21.alpha1
+          image: europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate:0.1.26a1
           envFrom:
             - secretRef:
                 name: opsmate-secret
             - configMapRef:
                 name: opsmate-config
-          command:
-            - python
-            - -m
-            - opsmate.dbqapp.app
+          args:
+            - worker
           volumeMounts:
             - name: opsmate-vol
               mountPath: /var/opsmate

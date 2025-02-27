@@ -15,9 +15,9 @@ You can start using Opsmate by running it locally on your workstation. There are
     git clone git@github.com:jingkaihe/opsmate.git
     cd opsmate
 
-    poetry install
+    poetry build
 
-    pipx install ./dist/opsmate-0.1.10a1-py3-none-any.whl
+    pipx install ./dist/opsmate-0.1.26a1-py3-none-any.whl
     ```
 
 === "Pip"

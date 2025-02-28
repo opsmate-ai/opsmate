@@ -1,10 +1,20 @@
-from typing import List
-from opsmate.dino.types import ToolCall
 from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
 import subprocess
+from opsmate.dino.context import context
 
 
-def k8s_ctx() -> str:
+@context(
+    name="k8s",
+    tools=[
+        ShellCommand,
+        KnowledgeRetrieval,
+        ACITool,
+        HtmlToText,
+    ],
+)
+async def k8s_ctx() -> str:
+    """Kubernetes SME"""
+
     return f"""
 <assistant>
 You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
@@ -33,15 +43,6 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 - and all the conventional command line tools such as grep, awk, wc, etc.
 </available_command_line_tools>
     """
-
-
-def k8s_tools() -> List[ToolCall]:
-    return [
-        ShellCommand,
-        KnowledgeRetrieval,
-        ACITool,
-        HtmlToText,
-    ]
 
 
 def __namespaces() -> str:

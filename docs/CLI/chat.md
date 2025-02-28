@@ -8,17 +8,22 @@ Usage: opsmate chat [OPTIONS]
   Chat with the OpsMate.
 
 Options:
-  --model TEXT              OpenAI model to use. To list models available
-                            please run the list-models command.
-  --max-iter INTEGER        Max number of iterations the AI assistant can
-                            reason about
-  --context TEXT            Context to be added to the prompt. Run the list-
-                            contexts command to see all the contexts
-                            available.
-  --tools TEXT              Comma separated list of tools to use
-  -r, --review              Review and edit commands before execution
-  -s, --system-prompt TEXT  System prompt to use
-  --help                    Show this message and exit.
+  --model TEXT                    OpenAI model to use. To list models
+                                  available please run the list-models
+                                  command.  [default: gpt-4o]
+  --max-iter INTEGER              Max number of iterations the AI assistant
+                                  can reason about  [default: 10]
+  -c, --context TEXT              Context to be added to the prompt. Run the
+                                  list-contexts command to see all the
+                                  contexts available.  [default: cli]
+  --tools TEXT                    Comma separated list of tools to use
+  -r, --review                    Review and edit commands before execution
+  -s, --system-prompt TEXT        System prompt to use
+  -l, --max-output-length INTEGER
+                                  Max length of the output, if the output is
+                                  truncated, the tmp file will be printed in
+                                  the output  [default: 10000]
+  --help                          Show this message and exit.
 ```
 
 ## USAGE

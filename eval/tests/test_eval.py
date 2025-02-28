@@ -18,9 +18,10 @@ import time
 from datetime import timedelta
 from typing import Callable
 from opsmate.dino.react import run_react
-from opsmate.contexts import contexts
+from opsmate.contexts import k8s_ctx
 from opsmate.dino import dino
 from opsmate.dino.types import Message
+import asyncio
 
 logger = structlog.get_logger()
 
@@ -30,20 +31,20 @@ def issues() -> list[TroubleshootingQuestion]:
         return [QNA(**issue) for issue in yaml.safe_load(f)]
 
 
-resource = Resource(
-    attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate-eval")}
-)
+# resource = Resource(
+#     attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate-eval")}
+# )
 
-provider = TracerProvider(resource=resource)
-exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-processor = BatchSpanProcessor(exporter)
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
+# provider = TracerProvider(resource=resource)
+# exporter = OTLPSpanExporter(
+#     endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+#     insecure=True,
+# )
+# processor = BatchSpanProcessor(exporter)
+# provider.add_span_processor(processor)
+# trace.set_tracer_provider(provider)
 
-OpenAIAutoInstrumentor().instrument()
+# OpenAIAutoInstrumentor().instrument()
 
 
 @pytest.fixture
@@ -77,10 +78,14 @@ def with_env(issue: QNA):
 
 @pytest.fixture
 def k8s_agent():
-    ctx = contexts["k8s"]
-
-    def run(question: str):
-        return run_react(question, context=ctx.ctx(), tools=ctx.tools)
+    async def run(question: str):
+        contexts = await k8s_ctx.resolve_contexts()
+        tools = k8s_ctx.resolve_tools()
+        return run_react(
+            question,
+            contexts=contexts,
+            tools=tools,
+        )
 
     return run
 
@@ -134,7 +139,7 @@ async def test_load_issues(
             f.flush()
             subprocess.run(["kubectl", "apply", "-f", f.name], check=True)
 
-    async for output in k8s_agent(issue.question):
+    async for output in await k8s_agent(issue.question):
         logger.info("output", output=output)
 
     # makes sure the output is similar to the root cause

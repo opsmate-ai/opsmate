@@ -9,7 +9,7 @@ from opsmate.plugins import PluginRegistry
 default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
 default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
 default_plugins_dir = str(Path.home() / ".opsmate" / "plugins")
-
+default_contexts_dir = str(Path.home() / ".opsmate" / "contexts")
 fs_embedding_desc = """
 The configuration for the fs embeddings.
 
@@ -41,6 +41,10 @@ class Config(BaseSettings):
     plugins_dir: str = Field(
         default=default_plugins_dir,
         alias="OPSMATE_PLUGINS_DIR",
+    )
+    contexts_dir: str = Field(
+        default=default_contexts_dir,
+        alias="OPSMATE_CONTEXTS_DIR",
     )
 
     embeddings_db_path: str = Field(
@@ -89,7 +93,7 @@ class Config(BaseSettings):
         Path(opsmate_dir).mkdir(parents=True, exist_ok=True)
         Path(self.plugins_dir).mkdir(parents=True, exist_ok=True)
         Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
-
+        Path(self.contexts_dir).mkdir(parents=True, exist_ok=True)
         return self
 
 

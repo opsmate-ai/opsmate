@@ -1,6 +1,6 @@
 import pytest
 from opsmate.dino import dino, dtool, run_react
-from opsmate.contexts.k8s import k8s_ctx, k8s_tools
+from opsmate.contexts.k8s import k8s_ctx
 from opsmate.dino.types import ReactAnswer
 from typing import Annotated
 import structlog
@@ -20,8 +20,8 @@ async def k8s_agent(
 
     async for result in run_react(
         question,
-        context=k8s_ctx(),
-        tools=k8s_tools(),
+        context=k8s_ctx.resolve_contexts(),
+        tools=k8s_ctx.resolve_tools(),
     ):
         logger.info(result)
 

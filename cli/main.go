@@ -33,7 +33,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "endpoint",
 				Usage: "endpoint to use",
-				Value: "http://127.0.0.1:8000/api",
+				Value: "http://127.0.0.1:8080/api",
 			},
 			&cli.StringFlag{
 				Name:  "inventory-dir",

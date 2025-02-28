@@ -1,10 +1,20 @@
-from typing import List
-from opsmate.dino.types import ToolCall
 from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
+from opsmate.dino.context import context
 import platform
 
 
-def cli_ctx() -> str:
+@context(
+    name="cli",
+    tools=[
+        ShellCommand,
+        KnowledgeRetrieval,
+        ACITool,
+        HtmlToText,
+    ],
+)
+async def cli_ctx() -> str:
+    """System Admin Assistant"""
+
     return f"""
   <assistant>
   You are a world class SRE who is good at solving problems. You are given access to the terminal for solving problems.
@@ -18,12 +28,3 @@ def cli_ctx() -> str:
   - Do not run any command that requires user input.
   </important>
     """
-
-
-def cli_tools() -> List[ToolCall]:
-    return [
-        ShellCommand,
-        KnowledgeRetrieval,
-        ACITool,
-        HtmlToText,
-    ]

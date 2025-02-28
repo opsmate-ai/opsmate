@@ -24,6 +24,7 @@ from opsmate.gui.config import Config
 import yaml
 import pickle
 from pydantic import BaseModel
+from opsmate.contexts import k8s_ctx
 
 logger = structlog.get_logger(__name__)
 
@@ -359,9 +360,11 @@ def default_new_cell(workflow: Workflow):
 
 
 def gen_k8s_react(config: Config):
+    contexts = [config.system_prompt] if config.system_prompt != "" else [k8s_ctx]
+
     @react(
         model=config.model,
-        contexts=[config.system_prompt],
+        contexts=contexts,
         tools=config.opsmate_tools(),
         iterable=True,
     )
@@ -372,6 +375,10 @@ def gen_k8s_react(config: Config):
 
 
 def gen_k8s_simple(config: Config):
+    system_prompt = (
+        config.system_prompt if config.system_prompt != "" else k8s_ctx.system_prompt
+    )
+
     @dino(
         model=config.model,
         response_model=Observation,
@@ -379,7 +386,7 @@ def gen_k8s_simple(config: Config):
     )
     def instruction(question: str, chat_history: List[Message] = []):
         f"""
-        {config.system_prompt}
+        {system_prompt}
         """
         return [
             *chat_history,

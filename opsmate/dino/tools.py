@@ -42,6 +42,10 @@ def dtool(fn: Callable[P, T] | Callable[P, Awaitable[T]]) -> Type[ToolCall]:
         for n, o in inspect.signature(fn).parameters.items()
     }
 
+    # remove the context parameter so that it is not included in the pydantic model
+    # this will be passed to the __call__ in the runtime
+    kw.pop("context", None)
+
     # make sure fn returns a string
     _validate_fn(fn)
     # Determine the return type of the function
@@ -55,6 +59,8 @@ def dtool(fn: Callable[P, T] | Callable[P, Awaitable[T]]) -> Type[ToolCall]:
         __base__=ToolCall,
         **kw,
     )
+
+    assert "context" not in m.model_fields
 
     # patch the __call__ method
     if inspect.iscoroutinefunction(fn):

@@ -17,7 +17,7 @@ from opsmate.dino import dino, run_react
 from opsmate.dino.types import Observation, ReactAnswer, React, Message
 from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
-from opsmate.contexts import contexts
+from opsmate.dino.context import ContextRegistry
 from functools import wraps
 from opsmate.libs.config import config
 from opsmate.plugins import PluginRegistry
@@ -28,8 +28,9 @@ import structlog
 import sys
 
 
-def load_plugins():
+def addon_discovery():
     PluginRegistry.discover(config.plugins_dir)
+    ContextRegistry.discover(config.contexts_dir)
 
 
 def coro(f):
@@ -99,9 +100,16 @@ def common_params(func):
         show_default=True,
         help="System prompt to use",
     )
+    @click.option(
+        "-l",
+        "--max-output-length",
+        default=10000,
+        show_default=True,
+        help="Max length of the output, if the output is truncated, the tmp file will be printed in the output",
+    )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        load_plugins()
+        addon_discovery()
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -116,7 +124,9 @@ def common_params(func):
         kwargs["tools"] = tools
 
         review = kwargs.pop("review", False)
-        kwargs["tool_call_context"] = {}
+        kwargs["tool_call_context"] = {
+            "max_output_length": kwargs.pop("max_output_length"),
+        }
         if review:
             kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
 
@@ -185,18 +195,19 @@ async def run(
     ctx = get_context(context)
 
     if len(tools) == 0:
-        tools = ctx.tools
+        tools = ctx.resolve_tools()
 
     logger.info("Running on", instruction=instruction, model=model)
 
     @dino("gpt-4o", response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
-        return [
-            (
+        sys_prompts = await ctx.resolve_contexts()
+        if system_prompt:
+            sys_prompts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-                if system_prompt
-                else Message.system(ctx.ctx())
-            ),
+            ]
+        return [
+            *sys_prompts,
             Message.user(instruction),
         ]
 
@@ -265,11 +276,12 @@ async def solve(
     ctx = get_context(context)
 
     if len(tools) == 0:
-        tools = ctx.tools
+        tools = ctx.resolve_tools()
 
-    contexts = [
-        Message.system(system_prompt) if system_prompt else Message.system(ctx.ctx())
-    ]
+    contexts = await ctx.resolve_contexts()
+
+    if system_prompt:
+        contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
     async for output in run_react(
         instruction,
@@ -333,16 +345,20 @@ Commands:
 @click.option(
     "--model",
     default="gpt-4o",
+    show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
     "--max-iter",
     default=10,
+    show_default=True,
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
+    "-c",
     "--context",
     default="cli",
+    show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @common_params
@@ -373,13 +389,12 @@ async def chat(model, max_iter, context, tools, tool_call_context, system_prompt
             console.print(help_msg)
             continue
 
-        contexts = [
-            (
+        contexts = await ctx.resolve_contexts()
+        if system_prompt:
+            contexts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-                if system_prompt
-                else Message.system(ctx.ctx())
-            )
-        ]
+            ]
+
         run = run_react(
             user_input,
             contexts=contexts,
@@ -438,12 +453,13 @@ def list_contexts():
     """
     List all the contexts available.
     """
+    addon_discovery()
     table = Table(title="Contexts", show_header=True)
     table.add_column("Context")
     table.add_column("Description")
 
-    for ctx_name, ctx in contexts.items():
-        table.add_row(ctx_name, ctx.description)
+    for ctx in ContextRegistry.get_contexts().values():
+        table.add_row(ctx.name, ctx.description)
 
     console.print(table)
 
@@ -553,7 +569,7 @@ async def worker(workers):
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
 
-    load_plugins()
+    addon_discovery()
 
     try:
         await init_table()
@@ -569,7 +585,7 @@ def list_tools():
     """
     List all the tools available.
     """
-
+    addon_discovery()
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
     table.add_column("Description")
@@ -627,7 +643,7 @@ async def ingest(source, path, glob):
     from opsmate.knowledgestore.models import init_table
     from opsmate.app.base import on_startup
 
-    load_plugins()
+    addon_discovery()
     await init_table()
 
     engine = create_engine(
@@ -692,7 +708,7 @@ def version():
 
 
 def get_context(ctx_name: str):
-    ctx = contexts.get(ctx_name)
+    ctx = ContextRegistry.get_context(ctx_name)
     if not ctx:
         console.print(
             f"Context {ctx_name} not found. Run the list-contexts command to see all the contexts available."

@@ -216,6 +216,7 @@ async def put(id: str, branch: str, glob: str):
             ingest,
             ingestor_type=ingestion_record.data_source_provider,
             ingestor_config=await ingestion_record.ingest_config(),
+            splitter_config=ingestion_record.splitter_config,
         )
         return Title("Knowledges"), knowledges_body(session, config.session_name)
 
@@ -269,6 +270,7 @@ async def post(
             ingest,
             ingestor_type=ingestion_record.data_source_provider,
             ingestor_config=await ingestion_record.ingest_config(),
+            splitter_config=config.splitter_config,
         )
 
         return (

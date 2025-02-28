@@ -225,6 +225,9 @@ async def test_react_decorator_with_custom_model():
 async def test_react_decorator_with_tool_call_context():
     @dtool
     async def weather(city: str, context: dict[str, Any] = {}) -> str:
+        """
+        return the weather of the city
+        """
         return context[city]
 
     @react(

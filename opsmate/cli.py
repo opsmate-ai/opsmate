@@ -100,6 +100,13 @@ def common_params(func):
         show_default=True,
         help="System prompt to use",
     )
+    @click.option(
+        "-l",
+        "--max-output-length",
+        default=10000,
+        show_default=True,
+        help="Max length of the output, if the output is truncated, the tmp file will be printed in the output",
+    )
     @wraps(func)
     def wrapper(*args, **kwargs):
         addon_discovery()
@@ -117,7 +124,9 @@ def common_params(func):
         kwargs["tools"] = tools
 
         review = kwargs.pop("review", False)
-        kwargs["tool_call_context"] = {}
+        kwargs["tool_call_context"] = {
+            "max_output_length": kwargs.pop("max_output_length"),
+        }
         if review:
             kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
 

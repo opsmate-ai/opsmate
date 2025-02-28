@@ -64,8 +64,9 @@ gcloud_projects:
 </useful_info>
 
 <important>
-- When you do `gcloud ...` do not log more than 50 lines.
-- When you look into any issues scoped to the namespaces, look into the events in the given namespaces.
+- When you believe the output of `gcloud` command is big, please feel free to use the `tail` command to limit the number of lines.
+- If the output contains `<truncated>...</truncated>` it indicates that the output is truncated. If you believe some of the important context are missing, view the tmp file specified using the ACITool to see the missing lines.
+- You should also use `format` to limit the number of lines of the output.
 </important>
 """
 
@@ -93,7 +94,6 @@ async def __run_cmd(cmd: str):
     stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
 
     return stdout.decode().strip()
-
 ```
 
 Now if you run `opsmate list-contexts` you will see the `gcloud` context:

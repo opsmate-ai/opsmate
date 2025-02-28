@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Response
-from typing import List, Literal, Dict, Any
+from typing import List, Literal
 from pydantic import BaseModel, Field
 from opsmate.dino.provider import Provider
 from opsmate.dino.types import Message, Observation

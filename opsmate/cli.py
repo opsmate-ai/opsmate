@@ -336,16 +336,20 @@ Commands:
 @click.option(
     "--model",
     default="gpt-4o",
+    show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
     "--max-iter",
     default=10,
+    show_default=True,
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
+    "-c",
     "--context",
     default="cli",
+    show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @common_params

@@ -93,7 +93,7 @@ class ContextNotFound(Exception):
 
 
 def get_context(context: str):
-    ctx = ContextRegistry.contexts.get(context)
+    ctx = ContextRegistry.get_context(context)
     if not ctx:
         raise ContextNotFound(f"Context {context} not found")
     return ctx

@@ -27,7 +27,7 @@ import click
 import structlog
 import sys
 
-ContextRegistry.load_builtin()
+ContextRegistry.discover()
 
 
 def load_plugins():
@@ -444,7 +444,7 @@ def list_contexts():
     table.add_column("Context")
     table.add_column("Description")
 
-    for ctx in ContextRegistry.get_contexts():
+    for ctx in ContextRegistry.get_contexts().values():
         table.add_row(ctx.name, ctx.description)
 
     console.print(table)

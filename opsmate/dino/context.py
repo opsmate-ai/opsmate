@@ -1,11 +1,12 @@
-from functools import wraps
-from typing import List, Callable, ParamSpec, Dict, Awaitable, ClassVar
+from typing import List, Callable, ParamSpec, Dict, Awaitable, ClassVar, Type
 from opsmate.dino.types import Context, ToolCall
 import asyncio
 import importlib
 import inspect
 import structlog
 from pydantic import BaseModel
+import os
+import sys
 
 logger = structlog.get_logger(__name__)
 P = ParamSpec("P")
@@ -17,7 +18,7 @@ class ContextRegistry(BaseModel):
 
     @classmethod
     def context(
-        cls, name: str, tools: List[ToolCall] = [], contexts: List[Context] = []
+        cls, name: str, tools: List[Type[ToolCall]] = [], contexts: List[Context] = []
     ):
         """context decorates a function into a Context object
 
@@ -58,14 +59,43 @@ class ContextRegistry(BaseModel):
         return wrapper
 
     @classmethod
+    def discover(cls, *context_dirs: str, ignore_conflicts: bool = False):
+        """discover contexts in a directory"""
+        cls.load_builtin(ignore_conflicts=ignore_conflicts)
+        for context_dir in context_dirs:
+            cls._discover(context_dir, ignore_conflicts)
+
+    @classmethod
     def load_builtin(
         cls,
         ignore_conflicts: bool = True,
         builtin_modules: List[str] = ["opsmate.contexts"],
     ):
+
         for builtin_module in builtin_modules:
             module = importlib.import_module(builtin_module)
             cls._load_contexts(module, ignore_conflicts)
+
+    @classmethod
+    def _discover(cls, context_dir: str, ignore_conflicts: bool = False):
+        """discover contexts in a directory"""
+
+        if not os.path.exists(context_dir):
+            logger.warning("Context directory does not exist", context_dir=context_dir)
+            return
+
+        logger.info(
+            "adding the context directory to the sys path",
+            context_dir=os.path.abspath(context_dir),
+        )
+        sys.path.append(os.path.abspath(context_dir))
+
+        for filename in os.listdir(context_dir):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                context_path = os.path.join(context_dir, filename)
+                cls._load_context_file(context_path, ignore_conflicts)
+
+        sys.path.remove(os.path.abspath(context_dir))
 
     @classmethod
     def _load_contexts(cls, module, ignore_conflicts: bool = False):
@@ -91,12 +121,41 @@ class ContextRegistry(BaseModel):
                 cls._context_sources[ctx_name] = module.__file__
 
     @classmethod
-    def get_context(cls, name: str) -> Context:
-        return cls._contexts[name]
+    def _load_context_file(cls, context_path: str, ignore_conflicts: bool = False):
+        """load a context file"""
+        logger.info("loading context file", context_path=context_path)
+        try:
+            module_name = os.path.basename(context_path).replace(".py", "")
+            spec = importlib.util.spec_from_file_location(module_name, context_path)
+
+            if spec is None or spec.loader is None:
+                logger.error("failed to load context file", context_path=context_path)
+                return
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            cls._load_contexts(module, ignore_conflicts)
+
+            logger.info("loaded context file", context_path=context_path)
+        except Exception as e:
+            logger.error(
+                "failed to load context file", context_path=context_path, error=e
+            )
+            if not ignore_conflicts:
+                raise e
 
     @classmethod
-    def get_contexts(cls) -> List[Context]:
-        return list(cls._contexts.values())
+    def get_context(cls, name: str) -> Context:
+        return cls._contexts.get(name, None)
+
+    @classmethod
+    def get_contexts(cls) -> Dict[str, Context]:
+        return cls._contexts
+
+    @classmethod
+    def reset(cls):
+        cls._contexts = {}
+        cls._context_sources = {}
 
 
 context = ContextRegistry.context

@@ -27,11 +27,10 @@ import click
 import structlog
 import sys
 
-ContextRegistry.discover()
 
-
-def load_plugins():
+def addon_discovery():
     PluginRegistry.discover(config.plugins_dir)
+    ContextRegistry.discover(config.contexts_dir)
 
 
 def coro(f):
@@ -103,7 +102,7 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        load_plugins()
+        addon_discovery()
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -268,9 +267,10 @@ async def solve(
     ctx = get_context(context)
 
     if len(tools) == 0:
-        tools = ctx.tools
+        tools = ctx.resolve_tools()
 
     contexts = await ctx.resolve_contexts()
+
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
@@ -440,6 +440,7 @@ def list_contexts():
     """
     List all the contexts available.
     """
+    addon_discovery()
     table = Table(title="Contexts", show_header=True)
     table.add_column("Context")
     table.add_column("Description")
@@ -555,7 +556,7 @@ async def worker(workers):
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
 
-    load_plugins()
+    addon_discovery()
 
     try:
         await init_table()
@@ -571,7 +572,7 @@ def list_tools():
     """
     List all the tools available.
     """
-
+    addon_discovery()
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
     table.add_column("Description")
@@ -629,7 +630,7 @@ async def ingest(source, path, glob):
     from opsmate.knowledgestore.models import init_table
     from opsmate.app.base import on_startup
 
-    load_plugins()
+    addon_discovery()
     await init_table()
 
     engine = create_engine(

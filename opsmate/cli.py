@@ -199,7 +199,7 @@ async def run(
 
     logger.info("Running on", instruction=instruction, model=model)
 
-    @dino("gpt-4o", response_model=Observation, tools=tools)
+    @dino(model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         sys_prompts = await ctx.resolve_contexts()
         if system_prompt:
@@ -343,12 +343,14 @@ Commands:
 
 @opsmate_cli.command()
 @click.option(
+    "-m",
     "--model",
     default="gpt-4o",
     show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-i",
     "--max-iter",
     default=10,
     show_default=True,

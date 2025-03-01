@@ -63,6 +63,8 @@ nav:
     - opsmate list-models: CLI/list-models.md
     - opsmate reset: CLI/reset.md
   - Production: production.md
+  - Integrations:
+    - Add New LLM Providers: integrations/add-new-llm-providers.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb

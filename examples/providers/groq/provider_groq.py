@@ -14,7 +14,8 @@ import os
 class GroqProvider(Provider):
     DEFAULT_BASE_URL = "https://api.groq.com"
 
-    # https://console.groq.com/docs/tool-use
+    # Here is the full list of models that support tool use https://console.groq.com/docs/tool-use
+    # Realistically only the llama models can reliably use tools
     models = [
         "llama-3.3-70b-versatile",
         # "llama-3.1-8b-instant",

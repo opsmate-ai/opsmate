@@ -1,5 +1,5 @@
 [project]
-name = "opsmate-providers-groq"
+name = "opsmate-provider-groq"
 version = "0.1.0"
 description = "Groq provider for opsmate"
 dependencies = [

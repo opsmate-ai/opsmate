@@ -2,13 +2,17 @@ from abc import ABC, abstractmethod
 from .types import Message
 import instructor
 from instructor import AsyncInstructor
-from typing import Any, Awaitable, TypeVar, List, Dict, Type
-from instructor.client import T, ChatCompletionMessageParam
+from typing import Any, Awaitable, TypeVar, List, Type
+from instructor.client import T
 from tenacity import AsyncRetrying
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
 from functools import cache
 import os
+import pkg_resources
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 T = TypeVar("T")
 
@@ -63,6 +67,14 @@ def register_provider(name: str):
         return cls
 
     return wrapper
+
+
+def discover_providers(group_name="opsmate.dino.providers"):
+    for entry_point in pkg_resources.iter_entry_points(group_name):
+        try:
+            entry_point.load()
+        except Exception as e:
+            logger.info("Error loading provider", name=entry_point.name, error=e)
 
 
 @register_provider("openai")

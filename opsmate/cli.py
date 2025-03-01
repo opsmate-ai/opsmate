@@ -199,7 +199,7 @@ async def run(
 
     logger.info("Running on", instruction=instruction, model=model)
 
-    @dino("gpt-4o", response_model=Observation, tools=tools)
+    @dino(model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         sys_prompts = await ctx.resolve_contexts()
         if system_prompt:

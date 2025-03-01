@@ -2,6 +2,12 @@
 name = "opsmate-providers-groq"
 version = "0.1.0"
 description = "Groq provider for opsmate"
+dependencies = [
+    "opsmate",
+    "groq",
+    "instructor",
+    "tenacity",
+]
 
 [project.entry-points."opsmate.dino.providers"]
 groq = "provider_groq:GroqProvider"

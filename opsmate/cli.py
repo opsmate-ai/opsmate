@@ -343,12 +343,14 @@ Commands:
 
 @opsmate_cli.command()
 @click.option(
+    "-m",
     "--model",
     default="gpt-4o",
     show_default=True,
     help="OpenAI model to use. To list models available please run the list-models command.",
 )
 @click.option(
+    "-i",
     "--max-iter",
     default=10,
     show_default=True,

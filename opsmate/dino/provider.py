@@ -72,9 +72,15 @@ def register_provider(name: str):
 def discover_providers(group_name="opsmate.dino.providers"):
     for entry_point in pkg_resources.iter_entry_points(group_name):
         try:
-            entry_point.load()
+            cls = entry_point.load()
+            if not issubclass(cls, Provider):
+                logger.error(
+                    "Provider must inherit from the Provider class",
+                    name=entry_point.name,
+                )
+                continue
         except Exception as e:
-            logger.info("Error loading provider", name=entry_point.name, error=e)
+            logger.error("Error loading provider", name=entry_point.name, error=e)
 
 
 @register_provider("openai")

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from .types import Message
 import instructor
 from instructor import AsyncInstructor
-from typing import Any, Awaitable, TypeVar, List, Dict
+from typing import Any, Awaitable, TypeVar, List, Dict, Type
 from instructor.client import T, ChatCompletionMessageParam
 from tenacity import AsyncRetrying
 from openai import AsyncOpenAI
@@ -43,7 +43,7 @@ class Provider(ABC):
     @abstractmethod
     def default_client(cls) -> AsyncInstructor: ...
 
-    providers = {}
+    providers: dict[str, Type["Provider"]] = {}
 
     @classmethod
     def from_model(cls, model: str) -> "Provider":
@@ -57,6 +57,15 @@ class Provider(ABC):
         return {k: v for k, v in kwargs.items() if k in cls.allowed_kwargs}
 
 
+def register_provider(name: str):
+    def wrapper(cls: Type[Provider]):
+        Provider.providers[name] = cls
+        return cls
+
+    return wrapper
+
+
+@register_provider("openai")
 class OpenAIProvider(Provider):
     models = [
         "gpt-4o",
@@ -104,6 +113,7 @@ class OpenAIProvider(Provider):
         return instructor.from_openai(AsyncOpenAI())
 
 
+@register_provider("anthropic")
 class AnthropicProvider(Provider):
     models = [
         "claude-3-5-sonnet-20241022",
@@ -155,6 +165,7 @@ class AnthropicProvider(Provider):
         return instructor.from_anthropic(AsyncAnthropic())
 
 
+@register_provider("xai")
 class XAIProvider(OpenAIProvider):
     DEFAULT_BASE_URL = "https://api.x.ai/v1"
     models = ["grok-2-1212"]
@@ -168,10 +179,3 @@ class XAIProvider(OpenAIProvider):
                 api_key=os.getenv("XAI_API_KEY"),
             )
         )
-
-
-Provider.providers = {
-    "openai": OpenAIProvider,
-    "anthropic": AnthropicProvider,
-    "xai": XAIProvider,
-}

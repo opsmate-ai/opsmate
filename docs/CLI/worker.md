@@ -5,7 +5,16 @@ This is required for any knowledge ingestion, as the process can be long running
 ## OPTIONS
 
 ```bash
-opsmate worker --help
+Usage: opsmate worker [OPTIONS]
+
+  Start the OpsMate worker.
+
+Options:
+  -w, --workers INTEGER   Number of concurrent background workers  [default:
+                          10]
+  --auto-migrate BOOLEAN  Automatically migrate the database to the latest
+                          version  [default: True]
+  --help                  Show this message and exit.
 ```
 
 ## EXAMPLES

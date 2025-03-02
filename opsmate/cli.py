@@ -135,6 +135,23 @@ def common_params(func):
     return wrapper
 
 
+def auto_migrate(func):
+    @click.option(
+        "--auto-migrate",
+        default=True,
+        show_default=True,
+        help="Automatically migrate the database to the latest version",
+    )
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs.pop("auto_migrate", True):
+            ctx = click.Context(db_migrate)
+            ctx.invoke(db_migrate)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 async def confirmation_prompt(tool_call: ShellCommand):
     console.print(
         Markdown(
@@ -531,6 +548,7 @@ async def reset(skip_confirm):
     show_default=True,
     help="Number of uvicorn workers to serve on",
 )
+@auto_migrate
 @coro
 async def serve(host, port, workers):
     """
@@ -576,6 +594,7 @@ async def serve(host, port, workers):
     show_default=True,
     help="Number of concurrent background workers",
 )
+@auto_migrate
 @coro
 async def worker(workers):
     """
@@ -644,6 +663,7 @@ def list_models():
     show_default=True,
     help="Glob to use to find the knowledge base",
 )
+@auto_migrate
 @coro
 async def ingest(source, path, glob):
     """
@@ -712,7 +732,13 @@ async def ingest(source, path, glob):
 
 
 @opsmate_cli.command()
-@click.option("--revision", default="head", help="Revision to upgrade to")
+@click.option(
+    "-r",
+    "--revision",
+    default="head",
+    show_default=True,
+    help="Revision to upgrade to",
+)
 def db_migrate(revision):
     """Apply migrations."""
     from alembic import command
@@ -724,7 +750,13 @@ def db_migrate(revision):
 
 
 @opsmate_cli.command()
-@click.option("--revision", default="-1", help="Revision to downgrade to")
+@click.option(
+    "-r",
+    "--revision",
+    default="-1",
+    show_default=True,
+    help="Revision to downgrade to",
+)
 def db_rollback(revision):
     """Rollback migrations."""
     from alembic import command
@@ -733,6 +765,18 @@ def db_rollback(revision):
     alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
     command.downgrade(alembic_cfg, revision)
     click.echo(f"Database downgraded to: {revision}")
+
+
+@opsmate_cli.command()
+def db_revisions():
+    """
+    List all the revisions available.
+    """
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.history(alembic_cfg)
 
 
 @opsmate_cli.command()

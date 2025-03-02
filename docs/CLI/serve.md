@@ -13,10 +13,12 @@ Usage: opsmate serve [OPTIONS]
   Start the OpsMate server.
 
 Options:
-  -h, --host TEXT        Host to serve on  [default: 0.0.0.0]
-  -p, --port INTEGER     Port to serve on  [default: 8080]
-  -w, --workers INTEGER  Number of uvicorn workers to serve on  [default: 2]
-  --help                 Show this message and exit.
+  -h, --host TEXT         Host to serve on  [default: 0.0.0.0]
+  -p, --port INTEGER      Port to serve on  [default: 8080]
+  -w, --workers INTEGER   Number of uvicorn workers to serve on  [default: 2]
+  --auto-migrate BOOLEAN  Automatically migrate the database to the latest
+                          version  [default: True]
+  --help                  Show this message and exit.
 ```
 
 
@@ -37,6 +39,14 @@ opsmate serve -w 4
 ```
 
 In the example above, the server will start 4 uvicorn workers.
+
+### Disable automatic database migration
+
+By default the `serve` command automatically migrates the sqlite database to the latest version. You can disable this behavior by passing `--auto-migrate=[0|False]`.
+
+```bash
+opsmate serve --auto-migrate=0
+```
 
 ## Environment variables
 

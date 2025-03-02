@@ -15,11 +15,15 @@ class GroqProvider(Provider):
     DEFAULT_BASE_URL = "https://api.groq.com"
 
     # Here is the full list of models that support tool use https://console.groq.com/docs/tool-use
-    # Realistically only the llama models can reliably use tools
     models = [
-        "llama-3.3-70b-versatile",
+        "qwen-2.5-32b",
+        "deepseek-r1-distill-qwen-32b",
         "deepseek-r1-distill-llama-70b",
-        "llama-3.2-90b-vision-preview",
+        "llama-3.3-70b-versatile",
+        # commented out as it cannot reliably use tools
+        # "llama-3.1-8b-instant",
+        # "mixtral-8x7b-32768",
+        # "gemma2-9b-it",
     ]
 
     @classmethod
@@ -57,5 +61,6 @@ class GroqProvider(Provider):
             AsyncGroq(
                 base_url=os.getenv("GROQ_BASE_URL", cls.DEFAULT_BASE_URL),
                 api_key=os.getenv("GROQ_API_KEY"),
-            )
+            ),
+            mode=instructor.Mode.JSON,
         )

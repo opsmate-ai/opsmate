@@ -12,6 +12,7 @@ After installation you can list all the models via
 
 ```bash
 $ opsmate list-models
+                   Models
 ┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Provider  ┃ Model                         ┃
 ┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -27,11 +28,13 @@ $ opsmate list-models
 ├───────────┼───────────────────────────────┤
 │ xai       │ grok-2-1212                   │
 ├───────────┼───────────────────────────────┤
-│ groq      │ llama-3.3-70b-versatile       │
+│ groq      │ qwen-2.5-32b                  │
+├───────────┼───────────────────────────────┤
+│ groq      │ deepseek-r1-distill-qwen-32b  │
 ├───────────┼───────────────────────────────┤
 │ groq      │ deepseek-r1-distill-llama-70b │
 ├───────────┼───────────────────────────────┤
-│ groq      │ llama-3.2-90b-vision-preview  │
+│ groq      │ llama-3.3-70b-versatile       │
 └───────────┴───────────────────────────────┘
 ```
 

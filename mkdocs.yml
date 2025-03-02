@@ -58,6 +58,9 @@ nav:
     - opsmate serve: CLI/serve.md
     - opsmate worker: CLI/worker.md
     - opsmate ingest: CLI/ingest.md
+    - opsmate db-migrate: CLI/db-migrate.md
+    - opsmate db-rollback: CLI/db-rollback.md
+    - opsmate db-revisions: CLI/db-revisions.md
     - opsmate list-contexts: CLI/list-contexts.md
     - opsmate list-tools: CLI/list-tools.md
     - opsmate list-models: CLI/list-models.md

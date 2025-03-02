@@ -135,6 +135,23 @@ def common_params(func):
     return wrapper
 
 
+def auto_migrate(func):
+    @click.option(
+        "--auto-migrate",
+        default=True,
+        show_default=True,
+        help="Automatically migrate the database to the latest version",
+    )
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs.pop("auto_migrate", True):
+            ctx = click.Context(db_migrate)
+            ctx.invoke(db_migrate)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 async def confirmation_prompt(tool_call: ShellCommand):
     console.print(
         Markdown(
@@ -531,16 +548,30 @@ async def reset(skip_confirm):
     show_default=True,
     help="Number of uvicorn workers to serve on",
 )
+@auto_migrate
 @coro
 async def serve(host, port, workers):
     """
     Start the OpsMate server.
     """
     import uvicorn
-    from opsmate.gui.app import on_startup, kb_ingest
+    from sqlmodel import create_engine, text, Session
+    from opsmate.gui.app import kb_ingest
+    from opsmate.gui.seed import seed_blueprints
+    from opsmate.libs.config import config
 
-    await on_startup()
     await kb_ingest()
+    engine = create_engine(
+        config.db_url,
+        connect_args={"check_same_thread": False},
+        # echo=True,
+    )
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.close()
+
+    with Session(engine) as session:
+        seed_blueprints(session)
 
     if workers > 1:
         uvicorn.run(
@@ -563,6 +594,7 @@ async def serve(host, port, workers):
     show_default=True,
     help="Number of concurrent background workers",
 )
+@auto_migrate
 @coro
 async def worker(workers):
     """
@@ -631,6 +663,7 @@ def list_models():
     show_default=True,
     help="Glob to use to find the knowledge base",
 )
+@auto_migrate
 @coro
 async def ingest(source, path, glob):
     """
@@ -643,7 +676,6 @@ async def ingest(source, path, glob):
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
     from opsmate.knowledgestore.models import init_table
-    from opsmate.app.base import on_startup
 
     addon_discovery()
     await init_table()
@@ -656,8 +688,6 @@ async def ingest(source, path, glob):
     with engine.connect() as conn:
         conn.execute(text("PRAGMA journal_mode=WAL"))
         conn.close()
-
-    await on_startup(engine)
 
     splitted = source.split(":///")
     if len(splitted) != 2:
@@ -699,6 +729,54 @@ async def ingest(source, path, glob):
                     splitter_config=splitter_config,
                 )
     console.print("Ingesting knowledges in the background...")
+
+
+@opsmate_cli.command()
+@click.option(
+    "-r",
+    "--revision",
+    default="head",
+    show_default=True,
+    help="Revision to upgrade to",
+)
+def db_migrate(revision):
+    """Apply migrations."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.upgrade(alembic_cfg, revision)
+    click.echo(f"Database upgraded to: {revision}")
+
+
+@opsmate_cli.command()
+@click.option(
+    "-r",
+    "--revision",
+    default="-1",
+    show_default=True,
+    help="Revision to downgrade to",
+)
+def db_rollback(revision):
+    """Rollback migrations."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.downgrade(alembic_cfg, revision)
+    click.echo(f"Database downgraded to: {revision}")
+
+
+@opsmate_cli.command()
+def db_revisions():
+    """
+    List all the revisions available.
+    """
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.history(alembic_cfg)
 
 
 @opsmate_cli.command()

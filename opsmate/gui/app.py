@@ -7,15 +7,13 @@ from opsmate.gui.models import (
     ThinkingSystemEnum,
     BluePrint,
     Workflow,
-    WorkflowEnum,
     default_new_cell,
-    SQLModel as GUISQLModel,
     CellStateEnum,
     EnvVar,
     ExecutionConfirmation,
+    default_new_cell,
 )
 from opsmate.gui.config import Config
-from opsmate.gui.seed import seed_blueprints
 from opsmate.gui.views import (
     tlink,
     dlink,
@@ -41,7 +39,6 @@ from opsmate.gui.views import (
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
-from opsmate.app.base import on_startup as base_app_on_startup
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.ingestions.jobs import ingest, delete_ingestion
 from opsmate.dbq.dbq import enqueue_task
@@ -64,11 +61,6 @@ engine = sqlmodel.create_engine(
 with engine.connect() as conn:
     conn.execute(text("PRAGMA journal_mode=WAL"))
     conn.close()
-
-
-async def on_startup():
-    await base_app_on_startup(engine)
-    GUISQLModel.metadata.create_all(engine)
 
 
 def before(req, session):
@@ -104,28 +96,9 @@ async def kb_ingest():
 
 @app.on_event("startup")
 async def startup():
-    await on_startup()
-
     dev = os.environ.get("DEV", "false").lower() == "true"
     if dev:
         await kb_ingest()
-
-    # Add init cell if none exist
-    with sqlmodel.Session(engine) as session:
-        seed_blueprints(session)
-        session.commit()
-
-        blueprints = session.exec(sqlmodel.select(BluePrint)).all()
-        for blueprint in blueprints:
-            for workflow in blueprint.workflows:
-                if len(workflow.cells) == 0:
-                    new_cell = default_new_cell(workflow)
-                    if workflow.name == WorkflowEnum.PLANNING:
-                        new_cell.input = (
-                            "can you solve the problem based on the context?"
-                        )
-                    session.add(new_cell)
-                    session.commit()
 
 
 @app.route("/")

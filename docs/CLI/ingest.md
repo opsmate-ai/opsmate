@@ -11,11 +11,14 @@ Usage: opsmate ingest [OPTIONS]
   separately with `opsmate worker`.
 
 Options:
-  --source TEXT  Source of the knowledge base fs:////path/to/kb or
-                 github:///owner/repo[:branch]
-  --path TEXT    Path to the knowledge base  [default: /]
-  --glob TEXT    Glob to use to find the knowledge base  [default: **/*.md]
-  --help         Show this message and exit.
+  --source TEXT           Source of the knowledge base fs:////path/to/kb or
+                          github:///owner/repo[:branch]
+  --path TEXT             Path to the knowledge base  [default: /]
+  --glob TEXT             Glob to use to find the knowledge base  [default:
+                          **/*.md]
+  --auto-migrate BOOLEAN  Automatically migrate the database to the latest
+                          version  [default: True]
+  --help                  Show this message and exit.
 ```
 
 ## EXAMPLES

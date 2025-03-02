@@ -537,10 +537,23 @@ async def serve(host, port, workers):
     Start the OpsMate server.
     """
     import uvicorn
-    from opsmate.gui.app import on_startup, kb_ingest
+    from sqlmodel import create_engine, text, Session
+    from opsmate.gui.app import kb_ingest
+    from opsmate.gui.seed import seed_blueprints
+    from opsmate.libs.config import config
 
-    await on_startup()
     await kb_ingest()
+    engine = create_engine(
+        config.db_url,
+        connect_args={"check_same_thread": False},
+        # echo=True,
+    )
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.close()
+
+    with Session(engine) as session:
+        seed_blueprints(session)
 
     if workers > 1:
         uvicorn.run(
@@ -643,7 +656,6 @@ async def ingest(source, path, glob):
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
     from opsmate.knowledgestore.models import init_table
-    from opsmate.app.base import on_startup
 
     addon_discovery()
     await init_table()
@@ -656,8 +668,6 @@ async def ingest(source, path, glob):
     with engine.connect() as conn:
         conn.execute(text("PRAGMA journal_mode=WAL"))
         conn.close()
-
-    await on_startup(engine)
 
     splitted = source.split(":///")
     if len(splitted) != 2:

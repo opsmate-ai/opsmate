@@ -1,5 +1,6 @@
-from sqlmodel import Session, select
-from opsmate.gui.models import BluePrint, Workflow, WorkflowEnum
+from sqlmodel import Session, select, create_engine
+from opsmate.gui.models import BluePrint, Workflow, WorkflowEnum, default_new_cell
+from opsmate.libs.config import config
 
 polya_workflows = [
     {
@@ -147,3 +148,13 @@ def add_polya_workflows(session: Session, polya: BluePrint):
 def seed_blueprints(session: Session):
     polya_blueprint(session)
     freestyle_blueprint(session)
+
+    blueprints = session.exec(select(BluePrint)).all()
+    for blueprint in blueprints:
+        for workflow in blueprint.workflows:
+            if len(workflow.cells) == 0:
+                new_cell = default_new_cell(workflow)
+                if workflow.name == WorkflowEnum.PLANNING:
+                    new_cell.input = "can you solve the problem based on the context?"
+                session.add(new_cell)
+                session.commit()

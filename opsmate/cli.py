@@ -702,6 +702,30 @@ async def ingest(source, path, glob):
 
 
 @opsmate_cli.command()
+@click.option("--revision", default="head", help="Revision to upgrade to")
+def db_migrate(revision):
+    """Apply migrations."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.upgrade(alembic_cfg, revision)
+    click.echo(f"Database upgraded to: {revision}")
+
+
+@opsmate_cli.command()
+@click.option("--revision", default="-1", help="Revision to downgrade to")
+def db_rollback(revision):
+    """Rollback migrations."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    command.downgrade(alembic_cfg, revision)
+    click.echo(f"Database downgraded to: {revision}")
+
+
+@opsmate_cli.command()
 def version():
     """
     Show the version of the OpsMate.

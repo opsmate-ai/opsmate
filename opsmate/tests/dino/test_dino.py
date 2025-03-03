@@ -389,14 +389,21 @@ async def test_dino_with_context(model: str):
     assert await get_weather_info("London", context=weather_lookup) == "cloudy"
 
 
-ANT_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/a/a7/Camponotus_flavomarginatus_ant.jpg"
+CAT_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/b/b5/1dayoldkitten.JPG"
 
 
 @pytest.mark.asyncio
-async def test_vision_support():
-    @dino(
+@pytest.mark.parametrize(
+    "model",
+    [
         "gpt-4o-mini",
-        response_model=Literal["cat", "dog", "ant"],
+        "claude-3-5-sonnet-20241022",
+    ],
+)
+async def test_vision_support(model: str):
+    @dino(
+        model,
+        response_model=Literal["noimage", "dog", "cat", "ant"],
     )
     async def classify_image(image_url: str):
         """
@@ -404,11 +411,15 @@ async def test_vision_support():
         """
         return [Message.user(Message.image_url_content(image_url))]
 
-    # @dino("gpt-4o-mini", response_model=Literal["cat", "dog"])
+    assert await classify_image(CAT_IMAGE_URL) == "cat"
+
+    # comment out as big token assumption to upload base64 image
+    # @dino(model, response_model=Literal["cat", "dog"])
     # async def classify_image_content(image_base64: str):
     #     """
     #     you are a helpful assistant that can classify images
     #     """
     #     return Message.user(Message.image_base64_content(image_base64))
 
-    assert await classify_image(ANT_IMAGE_URL) == "ant"
+    # image_base64 = base64.urlsafe_b64encode(httpx.get(CAT_IMAGE_URL).content).decode()
+    # assert await classify_image_content(image_base64) == "cat"

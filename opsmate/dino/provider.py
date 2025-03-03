@@ -161,7 +161,7 @@ class OpenAIProvider(Provider):
                                         "type": "image_url",
                                         "image_url": {
                                             "url": f"data:image/{item.image_type};base64,{item.image_base64}",
-                                            "detail": item.detail,
+                                            # "detail": item.detail,
                                         },
                                     }
                                 )
@@ -191,7 +191,10 @@ class AnthropicProvider(Provider):
     ) -> Awaitable[T]:
         client = client or cls.default_client()
         kwargs.pop("client", None)
-        messages = [{"role": m.role, "content": m.content} for m in messages]
+        messages = [
+            {"role": m.role, "content": cls.normalise_content(m.content)}
+            for m in messages
+        ]
 
         # filter out all the system messages
         sys_messages = [m for m in messages if m["role"] == "system"]
@@ -220,6 +223,43 @@ class AnthropicProvider(Provider):
     @cache
     def default_client(cls) -> AsyncInstructor:
         return instructor.from_anthropic(AsyncAnthropic())
+
+    @staticmethod
+    def normalise_content(content: Content):
+        match content:
+            case str():
+                return content
+            case list():
+                result = []
+                for item in content:
+                    match item:
+                        case TextContent():
+                            result.append({"type": "text", "text": item.text})
+                        case ImageURLContent():
+                            if item.image_url:
+                                result.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "url",
+                                            "url": item.image_url,
+                                        },
+                                    }
+                                )
+                            elif item.image_base64:
+                                result.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": f"image/{item.image_type}",
+                                            "data": item.image_base64,
+                                        },
+                                    }
+                                )
+                            else:
+                                raise ValueError("Invalid image content")
+                return result
 
 
 @register_provider("xai")

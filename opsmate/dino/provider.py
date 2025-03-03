@@ -265,7 +265,10 @@ class AnthropicProvider(Provider):
 @register_provider("xai")
 class XAIProvider(OpenAIProvider):
     DEFAULT_BASE_URL = "https://api.x.ai/v1"
-    models = ["grok-2-1212"]
+    models = [
+        "grok-2-1212",
+        "grok-2-vision-1212",
+    ]
 
     @classmethod
     @cache

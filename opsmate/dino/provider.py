@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .types import Message
+from .types import Message, TextContent, ImageURLContent, Content
 import instructor
 from instructor import AsyncInstructor
 from typing import Any, Awaitable, TypeVar, List, Type
@@ -106,7 +106,10 @@ class OpenAIProvider(Provider):
         client = client or cls.default_client()
         kwargs.pop("client", None)
 
-        messages = [{"role": m.role, "content": m.content} for m in messages]
+        messages = [
+            {"role": m.role, "content": cls.normalise_content(m.content)}
+            for m in messages
+        ]
 
         model = kwargs.get("model")
         if model == "o1-preview":
@@ -130,6 +133,42 @@ class OpenAIProvider(Provider):
     def default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(AsyncOpenAI())
 
+    @staticmethod
+    def normalise_content(content: Content):
+        match content:
+            case str():
+                return content
+            case list():
+                result = []
+                for item in content:
+                    match item:
+                        case TextContent():
+                            result.append({"type": "text", "text": item.text})
+                        case ImageURLContent():
+                            if item.image_url:
+                                result.append(
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": item.image_url,
+                                            "detail": item.detail,
+                                        },
+                                    }
+                                )
+                            elif item.image_base64:
+                                result.append(
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:image/{item.image_type};base64,{item.image_base64}",
+                                            # "detail": item.detail,
+                                        },
+                                    }
+                                )
+                            else:
+                                raise ValueError("Invalid image content")
+                return result
+
 
 @register_provider("anthropic")
 class AnthropicProvider(Provider):
@@ -152,7 +191,10 @@ class AnthropicProvider(Provider):
     ) -> Awaitable[T]:
         client = client or cls.default_client()
         kwargs.pop("client", None)
-        messages = [{"role": m.role, "content": m.content} for m in messages]
+        messages = [
+            {"role": m.role, "content": cls.normalise_content(m.content)}
+            for m in messages
+        ]
 
         # filter out all the system messages
         sys_messages = [m for m in messages if m["role"] == "system"]
@@ -182,11 +224,51 @@ class AnthropicProvider(Provider):
     def default_client(cls) -> AsyncInstructor:
         return instructor.from_anthropic(AsyncAnthropic())
 
+    @staticmethod
+    def normalise_content(content: Content):
+        match content:
+            case str():
+                return content
+            case list():
+                result = []
+                for item in content:
+                    match item:
+                        case TextContent():
+                            result.append({"type": "text", "text": item.text})
+                        case ImageURLContent():
+                            if item.image_url:
+                                result.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "url",
+                                            "url": item.image_url,
+                                        },
+                                    }
+                                )
+                            elif item.image_base64:
+                                result.append(
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": f"image/{item.image_type}",
+                                            "data": item.image_base64,
+                                        },
+                                    }
+                                )
+                            else:
+                                raise ValueError("Invalid image content")
+                return result
+
 
 @register_provider("xai")
 class XAIProvider(OpenAIProvider):
     DEFAULT_BASE_URL = "https://api.x.ai/v1"
-    models = ["grok-2-1212"]
+    models = [
+        "grok-2-1212",
+        "grok-2-vision-1212",
+    ]
 
     @classmethod
     @cache

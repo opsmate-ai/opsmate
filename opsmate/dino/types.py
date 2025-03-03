@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, computed_field, PrivateAttr
+from pydantic import BaseModel, Field, computed_field, PrivateAttr, model_validator
 from typing import (
     Any,
     List,
@@ -11,6 +11,7 @@ from typing import (
     Generic,
     Callable,
     Awaitable,
+    TypeAlias,
 )
 import structlog
 from abc import ABC, abstractmethod
@@ -22,22 +23,55 @@ warnings.filterwarnings("ignore", message="fields may not start with an undersco
 logger = structlog.get_logger(__name__)
 
 
+class TextContent(BaseModel):
+    type: Literal["text"] = Field(description="The type of the content")
+    text: str = Field(description="The text of the content")
+
+
+class ImageURLContent(BaseModel):
+    type: Literal["image_url"] = Field(
+        description="The type of the content", default="image_url"
+    )
+    image_url: str | None = Field(
+        description="The image url of the content", default=None
+    )
+    image_base64: str | None = Field(
+        description="The base64 encoded image of the content", default=None
+    )
+    image_type: Literal["jpeg", "png", "webp", "gif"] = Field(
+        description="The type of the image", default="jpeg"
+    )
+    detail: Literal["auto", "low", "high"] = Field(
+        description="The detail of the image", default="auto"
+    )
+
+    @model_validator(mode="after")
+    def validate_image_url_or_base64(self):
+        if self.image_url is None and self.image_base64 is None:
+            raise ValueError("Either image_url or image_base64 must be provided")
+
+        return self
+
+
+Content: TypeAlias = str | List[Union[TextContent, ImageURLContent]]
+
+
 class Message(BaseModel):
     role: Literal["user", "assistant", "system"] = Field(
         description="The role of the message"
     )
-    content: str = Field(description="The content of the message")
+    content: Content = Field(description="The content of the message")
 
     @classmethod
-    def system(cls, content: str):
+    def system(cls, content: Content):
         return cls(role="system", content=content)
 
     @classmethod
-    def user(cls, content: str):
+    def user(cls, content: Content):
         return cls(role="user", content=content)
 
     @classmethod
-    def assistant(cls, content: str):
+    def assistant(cls, content: Content):
         return cls(role="assistant", content=content)
 
     @classmethod
@@ -45,6 +79,20 @@ class Message(BaseModel):
         return [
             cls(**message) if isinstance(message, dict) else message
             for message in messages
+        ]
+
+    @classmethod
+    def image_url_content(cls, image_url: str, detail: str = "auto"):
+        return [ImageURLContent(image_url=image_url, detail=detail)]
+
+    @classmethod
+    def image_base64_content(
+        cls, image_base64: str, image_type: str = "jpeg", detail: str = "auto"
+    ):
+        return [
+            ImageURLContent(
+                image_base64=image_base64, image_type=image_type, detail=detail
+            )
         ]
 
 

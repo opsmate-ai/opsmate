@@ -4,8 +4,10 @@ from opsmate.dino import dino, dtool
 from typing import Literal, Iterable, Any
 from openai import AsyncOpenAI
 import instructor
-from opsmate.dino.types import ResponseWithToolOutputs
+from opsmate.dino.types import ResponseWithToolOutputs, Message, ImageURLContent
 import os
+import base64
+import httpx
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
 
@@ -385,3 +387,39 @@ async def test_dino_with_context(model: str):
 
     assert await get_weather_info("San Francisco", context=weather_lookup) == "sunny"
     assert await get_weather_info("London", context=weather_lookup) == "cloudy"
+
+
+CAT_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/b/b5/1dayoldkitten.JPG"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-4o-mini",
+        "claude-3-5-sonnet-20241022",
+    ],
+)
+async def test_vision_support(model: str):
+    @dino(
+        model,
+        response_model=Literal["noimage", "dog", "cat", "ant"],
+    )
+    async def classify_image(image_url: str):
+        """
+        you are a helpful assistant that can classify images
+        """
+        return [Message.user(Message.image_url_content(image_url))]
+
+    assert await classify_image(CAT_IMAGE_URL) == "cat"
+
+    # comment out as big token assumption to upload base64 image
+    # @dino(model, response_model=Literal["cat", "dog"])
+    # async def classify_image_content(image_base64: str):
+    #     """
+    #     you are a helpful assistant that can classify images
+    #     """
+    #     return Message.user(Message.image_base64_content(image_base64))
+
+    # image_base64 = base64.urlsafe_b64encode(httpx.get(CAT_IMAGE_URL).content).decode()
+    # assert await classify_image_content(image_base64) == "cat"

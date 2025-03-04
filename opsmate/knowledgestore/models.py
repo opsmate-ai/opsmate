@@ -25,6 +25,8 @@ class Category(Enum):
     APPLICATION = "application"
     INFRASTRUCTURE = "infrastructure"
     PRODUCTION = "production"
+    OBSERVABILITY = "observability"
+    PROMETHEUS = "prometheus"
 
 
 class KnowledgeStore(LanceModel):

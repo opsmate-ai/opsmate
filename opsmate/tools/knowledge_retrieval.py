@@ -8,8 +8,25 @@ from typing import Union
 import structlog
 from jinja2 import Template
 from openai import AsyncOpenAI
+import time
+from functools import wraps
 
 logger = structlog.get_logger(__name__)
+
+
+def timer():
+    def wrapper(f):
+        @wraps(f)
+        async def wrapped(*args, **kwargs):
+            start = time.time()
+            result = await f(*args, **kwargs)
+            end = time.time()
+            logger.info("call completed", function=f.__name__, time=end - start)
+            return result
+
+        return wrapped
+
+    return wrapper
 
 
 class RretrievalResult(BaseModel):
@@ -37,39 +54,41 @@ class KnowledgeRetrieval(
     _embed_client = None
     query: str = Field(description="The query to search for")
 
-    async def __call__(self):
-        logger.info("running knowledge retrieval tool", query=self.query)
+    @timer()
+    async def __call__(self, context: dict[str, Any] = {}):
+        categories = context.get("categories", [])
+        top_k = context.get("top_k", 10)
+        llm_summary = context.get("llm_summary", True)
 
-        # XXX: sync based lancedb is more feature complete when it comes to query and reranks
-        # however it comes with big penalty when it comes to latency
-        # some of the features will land in 0.17.1+
-        # conn = self.conn()
-
-        # table = conn.open_table("knowledge_store")
-        # results: List[KnowledgeStore] = (
-        #     table.search(self.query, query_type="hybrid")
-        #     .limit(10)
-        #     .rerank(openai_reranker)
-        #     .to_pydantic(KnowledgeStore)
-        # )
-
-        # if len(results) >= 5:
-        #     results = results[:5]
-
-        # results = [result.content for result in results]
-
+        logger.info(
+            "running knowledge retrieval tool",
+            query=self.query,
+            categories=categories,
+            top_k=top_k,
+            llm_summary=llm_summary,
+        )
         conn = await self.aconn()
         table = await conn.open_table("knowledge_store")
+        query = table.query()
+        for category in categories:
+            query = query.where(f"{category} in categories")
         results = (
-            await table.query()
+            await query
             # .nearest_to_text(self.query)
             .nearest_to(await self.embed(self.query))
             .select(["content", "data_source", "path", "metadata"])
-            .limit(10)
+            .limit(top_k)
             .to_list()
         )
 
-        return await self.summary(self.query, results)
+        if llm_summary:
+            return await self.summary(self.query, results)
+        else:
+            result = RretrievalResult(
+                summary="\n".join([result["content"] for result in results]),
+                citations=[result["data_source"] for result in results],
+            )
+            return result
 
     #
     async def embed(self, query: str):

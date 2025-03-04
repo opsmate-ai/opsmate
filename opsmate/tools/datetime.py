@@ -1,20 +1,19 @@
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, model_validator
 import pytz
-from typing import ClassVar
+from typing import ClassVar, Annotated
 from opsmate.dino import dtool, dino
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class DatetimeRange(BaseModel):
     start: str = Field(
         description="The start time of the query in %Y-%m-%dT%H:%M:%SZ format",
-        default_factory=lambda: (
-            datetime.now(pytz.UTC) - timedelta(minutes=30)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
     end: str = Field(
         description="The end time of the query in %Y-%m-%dT%H:%M:%SZ format",
-        default_factory=lambda: datetime.now(pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
     _FMT: ClassVar[str] = "%Y-%m-%dT%H:%M:%SZ"
@@ -48,8 +47,13 @@ async def current_time() -> str:
     response_model=DatetimeRange,
     tools=[current_time],
 )
-async def datetime_extraction(text: str) -> DatetimeRange:
+async def datetime_extraction(
+    text: Annotated[str, "The text to extract the datetime range from"]
+) -> DatetimeRange:
     """
     You are tasked to extract the datetime range from the text
+
+    The `current_time` tool must be called to understand the current time
     """
+    logger.info("datetime_extraction", text=text)
     return text

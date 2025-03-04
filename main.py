@@ -1,16 +1,41 @@
-from opsmate.tools.prom import prometheus_query, prometheus_metrics, PromQL
-import asyncio
+from opsmate.tools.knowledge_retrieval import KnowledgeRetrieval
+from opsmate.knowledgestore.models import aconn, Category, init_table
+from opsmate.tools.prom import PromQL, prometheus_query
+
 import os
+import asyncio
+
+
+async def prom_graph(query: str):
+    query = await prometheus_query(
+        query,
+        context={
+            "llm_summary": False,
+            "top_k": 10,
+        },
+    )
+
+    print(query)
+    await query.run(
+        context={
+            "prometheus_endpoint": "https://prometheus-prod-01-eu-west-0.grafana.net/api/prom",
+            "prometheus_user_id": os.getenv("GRAFANA_USER_ID"),
+            "prometheus_api_key": os.getenv("GRAFANA_API_KEY"),
+        }
+    )
+
+    query.time_series()
 
 
 async def main():
-    prom = PromQL(
-        endpoint="https://prometheus-prod-01-eu-west-0.grafana.net/api/prom",
-        user_id=os.getenv("GRAFANA_USER_ID"),
-        api_key=os.getenv("GRAFANA_API_KEY"),
-    )
-    metrics = await prom.metrics()
-    print(metrics)
+    await init_table()
+
+    dbconn = await aconn()
+
+    table = await dbconn.open_table("knowledge_store")
+
+    await prom_graph("deployment status of the coredns over the past 30 minutes")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

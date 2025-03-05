@@ -15,14 +15,60 @@ import base64
 from functools import lru_cache
 from asyncio import Semaphore, create_task, gather
 import structlog
+from opsmate.knowledgestore.models import Category, aconn
+from uuid import uuid4
+from opsmate.dbq.dbq import dbq_task, enqueue_task
+import json
+from datetime import UTC, timedelta
+import random
+from typing import List, Dict
+from sqlmodel import Session
 
 logger = structlog.get_logger(__name__)
 DEFAULT_ENDPOINT = "http://localhost:9090"
 DEFAULT_PATH = "/api/v1/query_range"
 
 
+def backoff_func(retry_count: int):
+    return datetime.now(UTC) + timedelta(
+        milliseconds=2 ** (retry_count - 1) + random.uniform(0, 10)
+    )
+
+
+@dbq_task(
+    retry_on=(Exception,),
+    max_retries=10,
+    back_off_func=backoff_func,
+)
+async def ingest_metrics(metrics: List[Dict[str, Any]], prom_endpoint: str):
+    kbs = []
+    for metric in metrics:
+        kbs.append(
+            {
+                "uuid": str(uuid4()),
+                "id": 1,  # doesn't matter
+                # "summary": chunk.metadata["summary"],
+                "categories": [
+                    Category.OBSERVABILITY.value,
+                    Category.PROMETHEUS.value,
+                ],
+                "data_source_provider": "prometheus",
+                "data_source": prom_endpoint,
+                "metadata": json.dumps({"metric": metric["metric_name"]}),
+                "path": metric["metric_name"],
+                "content": json.dumps(metric),
+                "created_at": datetime.now(),
+            }
+        )
+    conn = await aconn()
+    table = await conn.open_table("knowledge_store")
+    await table.merge_insert(
+        on=["path", "data_source", "data_source_provider"]
+    ).when_matched_update_all().when_not_matched_insert_all().execute(kbs)
+
+
 class PromQL:
-    DEFAULT_LABEL_BLACKLIST = (
+    DEFAULT_LABEL_BLACKLIST: tuple[str, ...] = (
         "pod",
         "container",
         "container_id",
@@ -49,19 +95,19 @@ class PromQL:
         self.api_key = api_key
         self.client = client
 
-    def metrics(
+    async def load_metrics(
         self,
         force_reload=False,
         with_labels=True,
         label_blacklist=DEFAULT_LABEL_BLACKLIST,
     ):
         if force_reload or not hasattr(self, "df"):
-            self.df = self.fetch_metrics(
+            self.metrics = await self.fetch_metrics(
                 with_labels=with_labels, label_blacklist=label_blacklist
             )
-            return self.df
+            return self.metrics
 
-        return self.df
+        return self.metrics
 
     async def fetch_metrics(
         self, with_labels=True, label_blacklist=DEFAULT_LABEL_BLACKLIST
@@ -99,6 +145,18 @@ class PromQL:
         await gather(*tasks)
 
         return metrics
+
+    async def ingest_metrics(self, session: Session):
+        await self.load_metrics()
+
+        for i in range(0, len(self.metrics), 20):
+            # await ingest_metrics(self.metrics[i : i + 20], self.endpoint)
+            enqueue_task(
+                session,
+                ingest_metrics,
+                self.metrics[i : i + 20],
+                self.endpoint,
+            )
 
     @lru_cache
     async def get_metric_labels(

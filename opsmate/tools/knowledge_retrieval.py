@@ -1,4 +1,5 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
+from abc import ABC, abstractmethod
 from pydantic import Field
 from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
 from opsmate.knowledgestore.models import conn, aconn, config
@@ -68,7 +69,6 @@ class KnowledgeRetrieval(
 
     _aconn = None
     _conn = None
-    _embed_client = None
     query: str = Field(description="The query to search for")
 
     @timer()
@@ -113,10 +113,7 @@ class KnowledgeRetrieval(
     #
     async def embed(self, query: str):
         client = await self.embed_client()
-        response = await client.embeddings.create(
-            input=query, model=config.embedding_model_name
-        )
-        return response.data[0].embedding
+        return await client.embed(query)
 
     @dino(
         model="gpt-4o-mini",
@@ -187,6 +184,46 @@ class KnowledgeRetrieval(
         return self._conn
 
     async def embed_client(self):
-        if not self._embed_client:
-            self._embed_client = AsyncOpenAI()
-        return self._embed_client
+        if config.embedding_registry_name == "openai":
+            return OpenAIEmbeddingClient()
+        elif config.embedding_registry_name == "sentence-transformers":
+            return SentenceTransformersEmbeddingClient()
+        else:
+            raise ValueError(
+                f"Unsupported embedding client: {config.embedding_registry_name}"
+            )
+
+
+class EmbeddingClient(ABC):
+    @abstractmethod
+    async def embed(self, query: str) -> List[float]:
+        pass
+
+
+class OpenAIEmbeddingClient(EmbeddingClient):
+    def __init__(self, model_name: str = config.embedding_model_name):
+        self.model_name = model_name
+
+    async def embed(self, query: str) -> List[float]:
+        response = await self.embed_client().embeddings.create(
+            input=query, model=self.model_name
+        )
+        return response.data[0].embedding
+
+    @cache
+    def embed_client(self):
+        return AsyncOpenAI()
+
+
+class SentenceTransformersEmbeddingClient(EmbeddingClient):
+    def __init__(self, model_name: str = config.embedding_model_name):
+        self.model_name = model_name
+
+    async def embed(self, query: str) -> List[float]:
+        return self.model().encode(query)
+
+    @cache
+    def model(self):
+        import sentence_transformers
+
+        return sentence_transformers.SentenceTransformer(self.model_name)

@@ -36,6 +36,9 @@ dependencies = [
 rerankers = [
     "rerankers[transformers]",
 ]
+sentence-transformers = [
+    "sentence-transformers (>=3.4.1,<4.0.0)",
+]
 
 [project.scripts]
 opsmate = "opsmate.cli:opsmate_cli"

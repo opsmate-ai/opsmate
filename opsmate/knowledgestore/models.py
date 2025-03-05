@@ -6,7 +6,6 @@ from pydantic import Field
 from opsmate.libs.config import config
 from typing import List
 import uuid
-from lancedb.rerankers import OpenaiReranker
 from enum import Enum
 from datetime import datetime
 
@@ -45,9 +44,6 @@ class KnowledgeStore(LanceModel):
     created_at: datetime = Field(
         description="The created at date of the knowledge", default_factory=datetime.now
     )
-
-
-openai_reranker = OpenaiReranker(model_name="gpt-4o-mini", column="content")
 
 
 async def aconn():

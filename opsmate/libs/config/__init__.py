@@ -1,10 +1,12 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, field_validator
 from pathlib import Path
 from typing import Dict, Any, Self
 import structlog
 import logging
 from opsmate.plugins import PluginRegistry
+
+logger = structlog.get_logger(__name__)
 
 default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
 default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
@@ -34,6 +36,9 @@ opsmate/opsmate=main=*.md
 opsmate/opsmate2=main=*.txt
 """
 
+DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"
+DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+
 
 class Config(BaseSettings):
     db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
@@ -51,10 +56,13 @@ class Config(BaseSettings):
         default=default_embeddings_db_path, description="The path to the lance db"
     )
     embedding_registry_name: str = Field(
-        default="openai", description="The name of the embedding registry"
+        default="",
+        choices=["openai", "sentence-transformers"],
+        description="The name of the embedding registry",
     )
     embedding_model_name: str = Field(
-        default="text-embedding-ada-002", description="The name of the embedding model"
+        default="",
+        description="The name of the embedding model",
     )
     fs_embeddings_config: Dict[str, str] = Field(
         default={}, description=fs_embedding_desc
@@ -77,6 +85,30 @@ class Config(BaseSettings):
     )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+
+    @field_validator("embedding_registry_name")
+    def validate_embedding_registry_name(cls, v):
+        if v == "":
+            try:
+                import transformers  # noqa: F401
+
+                return "sentence-transformers"
+            except ImportError:
+                logger.warning("sentence-transformers is not installed, using openai")
+                return "openai"
+        return v
+
+    @field_validator("embedding_model_name")
+    def validate_embedding_model_name(cls, v):
+        if v == "":
+            try:
+                import transformers  # noqa: F401
+
+                return DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL
+            except ImportError:
+                logger.warning("sentence-transformers is not installed, using openai")
+                return DEFAULT_OPENAI_EMBEDDING_MODEL
+        return v
 
     @model_validator(mode="after")
     def validate_loglevel(self) -> Self:

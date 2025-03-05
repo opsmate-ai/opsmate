@@ -328,6 +328,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     - In the query, DO NOT use labels that are not present in the metrics from knowledge retrieval.
     - DO NOT use metrics that do not exist from knowledge retrieval.
     - USE `_bucket` suffix metrics if the query is about histograms.
+    - The rate interval must be greater or equal to 2m.
     </important>
     """
 

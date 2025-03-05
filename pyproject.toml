@@ -37,7 +37,7 @@ rerankers = [
     "rerankers[transformers]",
 ]
 
-[tool.poetry.scripts]
+[project.scripts]
 opsmate = "opsmate.cli:opsmate_cli"
 
 [tool.poetry.group.dev.dependencies]

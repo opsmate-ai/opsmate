@@ -77,6 +77,7 @@ class KnowledgeRetrieval(
         top_k = context.get("top_k", 50)
         top_n = context.get("top_n", 10)
         llm_summary = context.get("llm_summary", True)
+        with_reranking = context.get("with_reranking", True)
 
         logger.info(
             "running knowledge retrieval tool",
@@ -89,20 +90,13 @@ class KnowledgeRetrieval(
         conn = await self.aconn()
         table = await conn.open_table("knowledge_store")
         query = table.query()
-        for category in categories:
-            query = query.where(f"{category} in categories")
-        results = (
-            await query
-            # .nearest_to_text(self.query)
-            .nearest_to(await self.embed(self.query))
-            .select(["content", "data_source", "path", "metadata"])
-            .rerank(
-                reranker=reranker(),
-                query_string=self.query,
-            )
-            .limit(top_n)
-            .to_list()
+
+        query = query.nearest_to(await self.embed(self.query)).select(
+            ["content", "data_source", "path", "metadata"]
         )
+        if with_reranking:
+            query = query.rerank(reranker=reranker(), query_string=self.query)
+        results = await query.limit(top_n).to_list()
 
         logger.info("reranked results", length=len(results))
 

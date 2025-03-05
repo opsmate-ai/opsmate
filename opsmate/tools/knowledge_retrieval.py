@@ -1,5 +1,4 @@
 from typing import List, Dict, Any, Union
-from abc import ABC, abstractmethod
 from pydantic import Field
 from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
 from opsmate.knowledgestore.models import conn, aconn, config
@@ -9,9 +8,9 @@ from pydantic import BaseModel
 from typing import Union
 import structlog
 from jinja2 import Template
-from openai import AsyncOpenAI
 import time
 from functools import wraps, cache
+from opsmate.knowledgestore.models import embedding_client
 
 logger = structlog.get_logger(__name__)
 
@@ -48,16 +47,14 @@ class KnowledgeNotFound(BaseModel):
     """
 
 
-@cache
-def reranker():
-    try:
-        import transformers
+try:
+    import transformers  # noqa: F401
 
-        logger.info("using transformers reranker")
-        return AnswerdotaiRerankers(column="content")
-    except ImportError:
-        logger.info("using openai reranker")
-        return OpenaiReranker(column="content", model_name="gpt-4o-mini")
+    logger.info("using transformers reranker")
+    reranker = AnswerdotaiRerankers(column="content")
+except ImportError:
+    logger.info("using openai reranker")
+    reranker = OpenaiReranker(column="content", model_name="gpt-4o-mini")
 
 
 class KnowledgeRetrieval(
@@ -74,7 +71,6 @@ class KnowledgeRetrieval(
     @timer()
     async def __call__(self, context: dict[str, Any] = {}):
         categories = context.get("categories", [])
-        top_k = context.get("top_k", 50)
         top_n = context.get("top_n", 10)
         llm_summary = context.get("llm_summary", True)
         with_reranking = context.get("with_reranking", True)
@@ -83,7 +79,6 @@ class KnowledgeRetrieval(
             "running knowledge retrieval tool",
             query=self.query,
             categories=categories,
-            top_k=top_k,
             top_n=top_n,
             llm_summary=llm_summary,
         )
@@ -95,7 +90,7 @@ class KnowledgeRetrieval(
             ["content", "data_source", "path", "metadata"]
         )
         if with_reranking:
-            query = query.rerank(reranker=reranker(), query_string=self.query)
+            query = query.rerank(reranker=reranker, query_string=self.query)
         results = await query.limit(top_n).to_list()
 
         logger.info("reranked results", length=len(results))
@@ -110,10 +105,8 @@ class KnowledgeRetrieval(
             )
             return result
 
-    #
     async def embed(self, query: str):
-        client = await self.embed_client()
-        return await client.embed(query)
+        return await embedding_client.embed(query)
 
     @dino(
         model="gpt-4o-mini",
@@ -182,48 +175,3 @@ class KnowledgeRetrieval(
         if not self._conn:
             self._conn = conn()
         return self._conn
-
-    async def embed_client(self):
-        if config.embedding_registry_name == "openai":
-            return OpenAIEmbeddingClient()
-        elif config.embedding_registry_name == "sentence-transformers":
-            return SentenceTransformersEmbeddingClient()
-        else:
-            raise ValueError(
-                f"Unsupported embedding client: {config.embedding_registry_name}"
-            )
-
-
-class EmbeddingClient(ABC):
-    @abstractmethod
-    async def embed(self, query: str) -> List[float]:
-        pass
-
-
-class OpenAIEmbeddingClient(EmbeddingClient):
-    def __init__(self, model_name: str = config.embedding_model_name):
-        self.model_name = model_name
-
-    async def embed(self, query: str) -> List[float]:
-        response = await self.embed_client().embeddings.create(
-            input=query, model=self.model_name
-        )
-        return response.data[0].embedding
-
-    @cache
-    def embed_client(self):
-        return AsyncOpenAI()
-
-
-class SentenceTransformersEmbeddingClient(EmbeddingClient):
-    def __init__(self, model_name: str = config.embedding_model_name):
-        self.model_name = model_name
-
-    async def embed(self, query: str) -> List[float]:
-        return self.model().encode(query)
-
-    @cache
-    def model(self):
-        import sentence_transformers
-
-        return sentence_transformers.SentenceTransformer(self.model_name)

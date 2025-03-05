@@ -1,3 +1,6 @@
+[project]
+name = "opsmate"
+
 [tool.poetry]
 name = "opsmate"
 version = "0.1.31a0"
@@ -28,6 +31,11 @@ html2text = "^2024.2.26"
 pytz = "^2025.1"
 lancedb = "^0.19.0"
 alembic = "^1.14.1"
+
+[project.optional-dependencies]
+rerankers = [
+    "rerankers[transformers]",
+]
 
 [tool.poetry.scripts]
 opsmate = "opsmate.cli:opsmate_cli"

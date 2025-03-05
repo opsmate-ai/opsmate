@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 from pydantic import Field
+from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
 from opsmate.knowledgestore.models import conn, aconn, config
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
@@ -9,7 +10,7 @@ import structlog
 from jinja2 import Template
 from openai import AsyncOpenAI
 import time
-from functools import wraps
+from functools import wraps, cache
 
 logger = structlog.get_logger(__name__)
 
@@ -21,7 +22,11 @@ def timer():
             start = time.time()
             result = await f(*args, **kwargs)
             end = time.time()
-            logger.info("call completed", function=f.__name__, time=end - start)
+            logger.info(
+                "call completed",
+                function=f"{f.__module__}.{f.__name__}",
+                time=end - start,
+            )
             return result
 
         return wrapped
@@ -42,6 +47,18 @@ class KnowledgeNotFound(BaseModel):
     """
 
 
+@cache
+def reranker():
+    try:
+        import transformers
+
+        logger.info("using transformers reranker")
+        return AnswerdotaiRerankers(column="content")
+    except ImportError:
+        logger.info("using openai reranker")
+        return OpenaiReranker(column="content", model_name="gpt-4o-mini")
+
+
 class KnowledgeRetrieval(
     ToolCall[Union[RretrievalResult, KnowledgeNotFound]], PresentationMixin
 ):
@@ -57,7 +74,8 @@ class KnowledgeRetrieval(
     @timer()
     async def __call__(self, context: dict[str, Any] = {}):
         categories = context.get("categories", [])
-        top_k = context.get("top_k", 10)
+        top_k = context.get("top_k", 50)
+        top_n = context.get("top_n", 10)
         llm_summary = context.get("llm_summary", True)
 
         logger.info(
@@ -65,6 +83,7 @@ class KnowledgeRetrieval(
             query=self.query,
             categories=categories,
             top_k=top_k,
+            top_n=top_n,
             llm_summary=llm_summary,
         )
         conn = await self.aconn()
@@ -77,16 +96,23 @@ class KnowledgeRetrieval(
             # .nearest_to_text(self.query)
             .nearest_to(await self.embed(self.query))
             .select(["content", "data_source", "path", "metadata"])
-            .limit(top_k)
+            .rerank(
+                reranker=reranker(),
+                query_string=self.query,
+            )
+            .limit(top_n)
             .to_list()
         )
 
+        logger.info("reranked results", length=len(results))
+
+        results = results[:top_n]
         if llm_summary:
             return await self.summary(self.query, results)
         else:
             result = RretrievalResult(
                 summary="\n".join([result["content"] for result in results]),
-                citations=[result["data_source"] for result in results],
+                citations=[],
             )
             return result
 

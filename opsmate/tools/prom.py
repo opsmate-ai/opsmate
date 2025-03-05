@@ -1,5 +1,5 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field, PrivateAttr, BaseModel
+from pydantic import Field, PrivateAttr, BaseModel, computed_field
 from typing import Any, List, Dict
 from httpx import AsyncClient
 from opsmate.dino import dino
@@ -161,13 +161,11 @@ class PromQL:
 class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
     """
     A tool to query metrics from Prometheus
+
     """
 
     query: str = Field(description="The prometheus query")
-    step: str = Field(
-        description="Query resolution step width in duration format or float number of seconds",
-        default="15s",
-    )
+
     y_label: str = Field(
         description="The y-axis label of the time series based on the query",
         default="Value",
@@ -180,8 +178,20 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         description="The title of the time series based on the query",
         default="Time Series Data",
     )
+    explanation: str = Field(
+        description="A brief explanation of the query",
+    )
 
     _client: AsyncClient = PrivateAttr(default_factory=AsyncClient)
+
+    @computed_field
+    def step(self) -> str:
+        # no more than 10,000 points
+        secs = (self.end_dt - self.start_dt).total_seconds() / 10000
+        if secs < 1:
+            return "15s"
+        else:
+            return f"{int(secs)}s"
 
     def headers(self, context: dict[str, Any] = {}):
         h = {
@@ -215,12 +225,9 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
 
     def time_series(self):
 
+        logger.info("plotting time series", query=self.query, output=self.output)
         plt.figure(figsize=(12, 6))
-        # values = self.output["data"]["result"][0]["values"]
-        # timestamps = [datetime.fromtimestamp(ts) for ts, _ in values]
-        # measurements = [float(val) for _, val in values]
-        # df = pd.DataFrame({"timestamp": timestamps, "measurement": measurements})
-        # plt.plot(df["timestamp"], df["measurement"], marker="o")
+
         for result in self.output["data"]["result"]:
             values = result["values"]
             metric = result["metric"]
@@ -239,52 +246,52 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         plt.show()
 
 
-class PrometheusMetric(BaseModel):
-    name: str = Field(
-        description="The metric to use to answer the query, name of the metric only"
-    )
-    labels: Dict[str, str] = Field(
-        description="the relevant label key value pairs to use to answer the query"
-    )
-    description: str = Field(
-        description="A brief description of the metric",
-        max_length=100,
-    )
+# class PrometheusMetric(BaseModel):
+#     name: str = Field(
+#         description="The metric to use to answer the query, name of the metric only"
+#     )
+#     labels: Dict[str, str] = Field(
+#         description="the relevant label key value pairs to use to answer the query"
+#     )
+#     description: str = Field(
+#         description="A brief description of the metric",
+#         max_length=100,
+#     )
 
-    def markdown(self):
-        return f"""
-<metric>
-name: {self.name}
-description: {self.description}
-labels: {self.labels}
-</metric>
-"""
+#     def markdown(self):
+#         return f"""
+# <metric>
+# name: {self.name}
+# description: {self.description}
+# labels: {self.labels}
+# </metric>
+# """
 
 
-@dino(
-    model="claude-3-7-sonnet-20250219",
-    tools=[KnowledgeRetrieval],
-    response_model=List[PrometheusMetric],
-)
-async def prometheus_metrics(query: str, context: dict[str, Any] = {}):
-    """
-    You are a world class SRE who excels at querying metrics from Prometheus
-    You are given a query in natural language and you need decide what is the best metrics to use to answer the query
+# @dino(
+#     model="claude-3-7-sonnet-20250219",
+#     tools=[KnowledgeRetrieval],
+#     response_model=List[PrometheusMetric],
+# )
+# async def prometheus_metrics(query: str, context: dict[str, Any] = {}):
+#     """
+#     You are a world class SRE who excels at querying metrics from Prometheus
+#     You are given a query in natural language and you need decide what is the best metrics to use to answer the query
 
-    <important>
-    * **DO NOT** make up labels that do not belong to the metric.
-    * You can only use the KnowledgeRetrieval tool call no more than 2 times.
-    * Narrow down the metrics with labels such as cluster, job, namespace, etc if possible.
-    </important>
+#     <important>
+#     * **DO NOT** make up labels that do not belong to the metric.
+#     * You can only use the KnowledgeRetrieval tool call no more than 2 times.
+#     * Narrow down the metrics with labels such as cluster, job, namespace, etc if possible.
+#     </important>
 
-    Example:
-    Query: "cpu usage of the cert manager deployment over the last 5 hours"
-    Metrics: ["container_cpu_usage_seconds_total"]
-    Labels: {"cluster": "the-cluster-name", "job": "cert-manager"}
-    """
-    return [
-        Message.user(content=query),
-    ]
+#     Example:
+#     Query: "cpu usage of the cert manager deployment over the last 5 hours"
+#     Metrics: ["container_cpu_usage_seconds_total"]
+#     Labels: {"cluster": "the-cluster-name", "job": "cert-manager"}
+#     """
+#     return [
+#         Message.user(content=query),
+#     ]
 
 
 @dino(
@@ -296,6 +303,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     """
     You are a world class SRE who excels at querying metrics from Prometheus
     You are given a query in natural language and you need to convert it into a valid Prometheus query
+    Please think carefully and generate 3 different PromQL queries, and then choose the best one among them as the answer.
 
     <tasks>
     - Parse the natural language query
@@ -308,6 +316,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     - use `KnowledgeRetrieval` tool to get the metrics and labels that are relevant to the query
     - In the query, DO NOT use labels that are not present in the metrics from knowledge retrieval.
     - DO NOT use metrics that do not exist from knowledge retrieval.
+    - USE `_bucket` suffix metrics if the query is about histograms.
     </important>
     """
 

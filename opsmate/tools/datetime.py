@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, computed_field
 import pytz
 from typing import ClassVar, Annotated
 from opsmate.dino import dtool, dino
@@ -32,6 +32,14 @@ class DatetimeRange(BaseModel):
 
         return v
 
+    @computed_field
+    def start_dt(self) -> datetime:
+        return datetime.strptime(self.start, self._FMT)
+
+    @computed_field
+    def end_dt(self) -> datetime:
+        return datetime.strptime(self.end, self._FMT)
+
 
 @dtool
 async def current_time() -> str:
@@ -48,7 +56,9 @@ async def current_time() -> str:
     tools=[current_time],
 )
 async def datetime_extraction(
-    text: Annotated[str, "The text to extract the datetime range from"]
+    text: Annotated[
+        str, "The text to extract the datetime range from"
+    ] = "last 30 minutes"
 ) -> DatetimeRange:
     """
     You are tasked to extract the datetime range from the text

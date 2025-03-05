@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field, PrivateAttr, BaseModel, computed_field
-from typing import Any, List, Dict
+from pydantic import Field, PrivateAttr, computed_field
+from typing import Any
 from httpx import AsyncClient
 from opsmate.dino import dino
 from opsmate.dino.types import Message
@@ -8,6 +8,8 @@ from opsmate.tools.datetime import DatetimeRange, datetime_extraction
 from opsmate.tools.knowledge_retrieval import KnowledgeRetrieval
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import plotext
 from datetime import datetime
 import base64
 from functools import lru_cache
@@ -223,9 +225,9 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
 
     def markdown(self): ...
 
-    def time_series(self):
+    def time_series(self, in_terminal: bool = False):
 
-        logger.info("plotting time series", query=self.query, output=self.output)
+        logger.info("plotting time series", query=self.query)
         plt.figure(figsize=(12, 6))
 
         for result in self.output["data"]["result"]:
@@ -235,6 +237,8 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             timestamps = [datetime.fromtimestamp(ts) for ts, _ in values]
             measurements = [float(val) for _, val in values]
             df = pd.DataFrame({"timestamp": timestamps, "measurement": measurements})
+            if in_terminal:
+                df["timestamp"] = mdates.date2num(df["timestamp"])
             plt.plot(df["timestamp"], df["measurement"], label=metric_name)
         plt.grid(True)
         plt.title(f"{self.title} - {self.query}")
@@ -243,7 +247,14 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         plt.xticks(rotation=45)
         plt.legend(bbox_to_anchor=(0.5, -0.15), loc="upper center", ncol=2)
         plt.tight_layout()
-        plt.show()
+
+        if in_terminal:
+            plt.show(block=False)
+            fig = plt.gcf()
+            plotext.from_matplotlib(fig)
+            plotext.show()
+        else:
+            plt.show()
 
 
 # class PrometheusMetric(BaseModel):
@@ -320,11 +331,6 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     </important>
     """
 
-    # metrics = await prometheus_metrics(query, context)
-    # print(metrics)
     return [
-        # Message.user(
-        #     content=f"Here are the metrics that are relevant to the query:\n{[metric.markdown() for metric in metrics]}"
-        # ),
         Message.user(query),
     ]

@@ -6,16 +6,17 @@ import os
 import asyncio
 
 
-async def prom_graph(query: str):
+async def prom_graph(query: str, in_terminal: bool = False):
     query = await prometheus_query(
         query,
         context={
             "llm_summary": False,
-            "top_k": 10,
+            "top_n": 10,
         },
     )
 
     print(query)
+
     await query.run(
         context={
             "prometheus_endpoint": "https://prometheus-prod-01-eu-west-0.grafana.net/api/prom",
@@ -24,7 +25,7 @@ async def prom_graph(query: str):
         }
     )
 
-    query.time_series()
+    query.time_series(in_terminal)
 
 
 async def main():
@@ -34,7 +35,10 @@ async def main():
 
     table = await dbconn.open_table("knowledge_store")
 
-    await prom_graph("deployment status of the coredns over the past 30 minutes")
+    await prom_graph(
+        "cpu usage broken down by node for the metal cluster over the past hour",
+        in_terminal=True,
+    )
 
 
 if __name__ == "__main__":

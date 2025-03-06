@@ -399,12 +399,14 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
     async def __call__(self, context: dict[str, Any] = {}):
         context = context.copy()
         context["llm_summary"] = False
-        context["top_n"] = 20
+        if "top_n" not in context:
+            context["top_n"] = 20
+        model = context.get("dino_model", "claude-3-7-sonnet-20250219")
 
         prom_query = await prometheus_query(
             self.natural_language_query,
             context=context,
-            model=context["dino_model"],
+            model=model,
         )
 
         await prom_query.run(context)

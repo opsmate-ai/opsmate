@@ -594,9 +594,16 @@ async def serve(host, port, workers):
     show_default=True,
     help="Number of concurrent background workers",
 )
+@click.option(
+    "-q",
+    "--queue",
+    default="default",
+    show_default=True,
+    help="Queue to use for the worker",
+)
 @auto_migrate
 @coro
-async def worker(workers):
+async def worker(workers, queue):
     """
     Start the OpsMate worker.
     """
@@ -607,7 +614,7 @@ async def worker(workers):
 
     try:
         await init_table()
-        task = asyncio.create_task(dbqapp.main(workers))
+        task = asyncio.create_task(dbqapp.main(workers, queue))
         await task
     except KeyboardInterrupt:
         task.cancel()

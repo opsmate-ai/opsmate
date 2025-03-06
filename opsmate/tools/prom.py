@@ -156,6 +156,7 @@ class PromQL:
                 ingest_metrics,
                 self.metrics[i : i + 20],
                 self.endpoint,
+                queue_name="lancedb-batch-ingest",
             )
 
     @lru_cache

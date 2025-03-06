@@ -563,7 +563,7 @@ async def serve(host, port, workers):
     await kb_ingest()
     engine = create_engine(
         config.db_url,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 20},
         # echo=True,
     )
     with engine.connect() as conn:
@@ -689,7 +689,7 @@ async def ingest(source, path, glob):
 
     engine = create_engine(
         config.db_url,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 20},
         # echo=True,
     )
     with engine.connect() as conn:

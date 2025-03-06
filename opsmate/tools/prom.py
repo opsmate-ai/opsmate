@@ -24,6 +24,7 @@ import random
 from typing import List, Dict
 from sqlmodel import Session
 from opsmate.knowledgestore.models import Category, aconn
+import time
 
 logger = structlog.get_logger(__name__)
 
@@ -152,6 +153,8 @@ class PromQL:
         await self.load_metrics()
 
         for i in range(0, len(self.metrics), 20):
+            start = time.time()
+            logger.info("ingesting metrics", batch_id=i, len=len(self.metrics))
             # await ingest_metrics(self.metrics[i : i + 20], self.endpoint)
             enqueue_task(
                 session,
@@ -159,6 +162,13 @@ class PromQL:
                 self.metrics[i : i + 20],
                 self.endpoint,
                 queue_name="lancedb-batch-ingest",
+            )
+            end = time.time()
+            logger.info(
+                "ingested metrics",
+                batch_id=i,
+                len=len(self.metrics),
+                time=f"{end - start:.2f}s",
             )
 
     @lru_cache

@@ -49,7 +49,7 @@ async def main():
 
     engine = create_engine(
         config.db_url,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 20},
         # echo=True,
     )
     with engine.connect() as conn:

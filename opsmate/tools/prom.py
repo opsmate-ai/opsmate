@@ -298,6 +298,28 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         )
         return response.json()
 
+    def sampled_output(self):
+        output = self.output.copy()
+        results = []
+        for result in output["data"]["result"]:
+            values = result["values"]
+            metric = result["metric"]
+
+            # Aim to sample around 10 points
+            if len(values) > 10:
+                step = max(1, len(values) // 10)
+                values = values[::step]
+
+            results.append(
+                {
+                    "metric": metric,
+                    "values": values,
+                }
+            )
+        output["data"]["result"] = results
+
+        return output
+
     def markdown(self): ...
 
     def time_series(self, in_terminal: bool = False):
@@ -367,7 +389,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
 
 class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
     """
-    A tool to query metrics from Prometheus
+    PrometheusTool is a tool to query metrics from prometheus tsdb via natural language
     """
 
     natural_language_query: str = Field(
@@ -395,3 +417,12 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
 
     def time_series(self, in_terminal: bool = False):
         return self.output.time_series(in_terminal)
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        m = super().model_dump(**kwargs)
+        m["output"]["output"] = self.output.sampled_output()
+        # m.pop("output")
+        return m
+
+    def model_dump_json(self, **kwargs: Any) -> str:
+        return json.dumps(self.model_dump(**kwargs), default=str)

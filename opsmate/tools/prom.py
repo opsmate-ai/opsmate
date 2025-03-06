@@ -375,13 +375,14 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
     )
 
     async def __call__(self, context: dict[str, Any] = {}):
-        in_terminal = context.get("in_terminal", False)
         context = context.copy()
         context["llm_summary"] = False
         context["top_n"] = 20
 
         prom_query = await prometheus_query(
-            self.natural_language_query, context=context
+            self.natural_language_query,
+            context=context,
+            model=context["dino_model"],
         )
 
         await prom_query.run(context)

@@ -81,7 +81,7 @@ def get_reranker():
     try:
         import transformers  # noqa: F401
 
-        return AnswerdotaiRerankers(column="content")
+        return AnswerdotaiRerankers(column="content", verbose=0)
     except ImportError:
         logger.info("using openai reranker")
         return OpenaiReranker(column="content", model_name="gpt-4o-mini")

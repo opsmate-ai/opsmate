@@ -165,6 +165,8 @@ def dino(
                 raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
 
             tool_call_ctx = ikwargs.get("context", {})
+            tool_call_ctx["dino_model"] = _model
+
             tool_outputs = []
             if _tools:
                 initial_response = await provider.chat_completion(

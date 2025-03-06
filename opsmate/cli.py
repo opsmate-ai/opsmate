@@ -273,6 +273,12 @@ async def run(
     is_flag=True,
     help="Print only the answer",
 )
+@click.option(
+    "--tool-calls-per-action",
+    default=1,
+    show_default=True,
+    help="Number of tool calls per action",
+)
 @common_params
 @traceit
 @coro
@@ -286,6 +292,7 @@ async def solve(
     system_prompt,
     no_tool_output,
     answer_only,
+    tool_calls_per_action,
 ):
     """
     Solve a problem with the OpsMate.
@@ -307,6 +314,7 @@ async def solve(
         max_iter=max_iter,
         tools=tools,
         tool_call_context=tool_call_context,
+        tool_calls_per_action=tool_calls_per_action,
     ):
         match output:
             case React():
@@ -380,10 +388,24 @@ Commands:
     show_default=True,
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
+@click.option(
+    "--tool-calls-per-action",
+    default=1,
+    show_default=True,
+    help="Number of tool calls per action",
+)
 @common_params
 @traceit
 @coro
-async def chat(model, max_iter, context, tools, tool_call_context, system_prompt):
+async def chat(
+    model,
+    max_iter,
+    context,
+    tools,
+    tool_call_context,
+    system_prompt,
+    tool_calls_per_action,
+):
     """
     Chat with the OpsMate.
     """
@@ -422,6 +444,7 @@ async def chat(model, max_iter, context, tools, tool_call_context, system_prompt
             tools=tools,
             chat_history=chat_history,
             tool_call_context=tool_call_context,
+            tool_calls_per_action=tool_calls_per_action,
         )
         chat_history.append(Message.user(user_input))
 

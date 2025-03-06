@@ -25,6 +25,7 @@ from typing import List, Dict
 from sqlmodel import Session
 from opsmate.knowledgestore.models import Category, aconn
 import time
+import os
 
 logger = structlog.get_logger(__name__)
 
@@ -234,7 +235,6 @@ class PromQL:
 class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
     """
     A tool to query metrics from Prometheus
-
     """
 
     query: str = Field(description="The prometheus query")
@@ -279,6 +279,10 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         return h
 
     async def __call__(self, context: dict[str, Any] = {}):
+        # TBD wheather we want to make the envvar injection the default behaviour
+        context = context.copy()
+        envvars = os.environ.copy()
+        context.update(envvars)
         endpoint = context.get("prometheus_endpoint", DEFAULT_ENDPOINT)
         path = context.get("prometheus_path", DEFAULT_PATH)
 
@@ -352,9 +356,41 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     - DO NOT use metrics that do not exist from knowledge retrieval.
     - USE `_bucket` suffix metrics if the query is about histograms.
     - The rate interval must be greater or equal to 2m.
+    - When you use regex to match labels, use `=~"(.*)THE_PATTERN(.*)"` to match the pattern.
     </important>
     """
 
     return [
         Message.user(query),
     ]
+
+
+class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
+    """
+    A tool to query metrics from Prometheus
+    """
+
+    natural_language_query: str = Field(
+        description="The natural language query to be translated into a prometheus query"
+    )
+
+    async def __call__(self, context: dict[str, Any] = {}):
+        in_terminal = context.get("in_terminal", False)
+        context = context.copy()
+        context["llm_summary"] = False
+        context["top_n"] = 20
+
+        prom_query = await prometheus_query(
+            self.natural_language_query, context=context
+        )
+
+        await prom_query.run(context)
+        return prom_query
+
+    def markdown(self, in_terminal: bool = True):
+        # XXX: default in_terminal to False
+        self.time_series(in_terminal)
+        return "graph drawn"
+
+    def time_series(self, in_terminal: bool = False):
+        return self.output.time_series(in_terminal)

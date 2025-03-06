@@ -5,6 +5,9 @@ from typing import Dict, Any, Self
 import structlog
 import logging
 from opsmate.plugins import PluginRegistry
+import importlib.util
+import time
+from functools import wraps
 
 logger = structlog.get_logger(__name__)
 
@@ -38,6 +41,25 @@ opsmate/opsmate2=main=*.txt
 
 DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"
 DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+def timer():
+    def wrapper(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            start = time.time()
+            result = f(*args, **kwargs)
+            end = time.time()
+            logger.info(
+                "call completed",
+                function=f"{f.__module__}.{f.__name__}",
+                time=f"{end - start:.2f}s",
+            )
+            return result
+
+        return wrapped
+
+    return wrapper
 
 
 class Config(BaseSettings):
@@ -89,26 +111,44 @@ class Config(BaseSettings):
     @field_validator("embedding_registry_name")
     def validate_embedding_registry_name(cls, v):
         if v == "":
-            try:
-                import transformers  # noqa: F401
-
+            if cls.transformers_available():
                 return "sentence-transformers"
-            except ImportError:
-                logger.warning("sentence-transformers is not installed, using openai")
+            else:
                 return "openai"
         return v
 
     @field_validator("embedding_model_name")
     def validate_embedding_model_name(cls, v):
         if v == "":
-            try:
-                import transformers  # noqa: F401
-
+            if cls.transformers_available():
                 return DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL
-            except ImportError:
-                logger.warning("sentence-transformers is not installed, using openai")
+            else:
                 return DEFAULT_OPENAI_EMBEDDING_MODEL
         return v
+
+    @classmethod
+    def transformers_available(cls):
+        return importlib.util.find_spec("transformers") is not None
+
+    # @computed_field
+    # @property
+    # def embedding_registry(self) -> str:
+    #     if self.embedding_registry_name == "":
+    #         if self.transformers_available():
+    #             return "sentence-transformers"
+    #         else:
+    #             return "openai"
+    #     return self.embedding_registry_name
+
+    # @computed_field
+    # @property
+    # def embedding_model(self) -> str:
+    #     if self.embedding_model_name == "":
+    #         if self.transformers_available():
+    #             return DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL
+    #         else:
+    #             return DEFAULT_OPENAI_EMBEDDING_MODEL
+    #     return self.embedding_model_name
 
     @model_validator(mode="after")
     def validate_loglevel(self) -> Self:

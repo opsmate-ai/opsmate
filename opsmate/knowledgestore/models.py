@@ -11,13 +11,11 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 from functools import cache
 from openai import AsyncOpenAI
+from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
+from functools import cache
+import structlog
 
-registry = get_registry()
-
-# embeddings is the embedding function used to embed the knowledge store
-embeddings = registry.get(config.embedding_registry_name).create(
-    name=config.embedding_model_name
-)
+logger = structlog.get_logger(__name__)
 
 
 class Category(Enum):
@@ -29,24 +27,6 @@ class Category(Enum):
     PRODUCTION = "production"
     OBSERVABILITY = "observability"
     PROMETHEUS = "prometheus"
-
-
-class KnowledgeStore(LanceModel):
-    uuid: str = Field(description="The uuid of the runbook", default_factory=uuid.uuid4)
-    id: int = Field(description="The id of the knowledge")
-    # summary: str = Field(description="The summary of the knowledge")
-    categories: List[str] = Field(description="The categories of the knowledge")
-    data_source_provider: str = Field(description="The provider of the data source")
-    data_source: str = Field(description="The source of the knowledge")
-    metadata: str = Field(description="The metadata of the knowledge json encoded")
-    path: str = Field(description="The path of the knowledge", default="")
-    vector: Vector(embeddings.ndims()) = embeddings.VectorField()
-    content: str = (
-        embeddings.SourceField()
-    )  # source field indicates the field will be embed
-    created_at: datetime = Field(
-        description="The created at date of the knowledge", default_factory=datetime.now
-    )
 
 
 class EmbeddingClient(ABC):
@@ -84,7 +64,8 @@ class SentenceTransformersEmbeddingClient(EmbeddingClient):
         return sentence_transformers.SentenceTransformer(self.model_name)
 
 
-def init_embedding_client():
+@cache
+def get_embedding_client():
     if config.embedding_registry_name == "openai":
         return OpenAIEmbeddingClient()
     elif config.embedding_registry_name == "sentence-transformers":
@@ -95,7 +76,15 @@ def init_embedding_client():
         )
 
 
-embedding_client = init_embedding_client()
+@cache
+def get_reranker():
+    try:
+        import transformers  # noqa: F401
+
+        return AnswerdotaiRerankers(column="content")
+    except ImportError:
+        logger.info("using openai reranker")
+        return OpenaiReranker(column="content", model_name="gpt-4o-mini")
 
 
 async def aconn():
@@ -116,6 +105,34 @@ async def init_table():
     """
     init the knowledge store table based on the config.embeddings_db_path
     """
+
+    registry = get_registry()
+
+    # embeddings is the embedding function used to embed the knowledge store
+    embeddings = registry.get(config.embedding_registry_name).create(
+        name=config.embedding_model_name
+    )
+
+    class KnowledgeStore(LanceModel):
+        uuid: str = Field(
+            description="The uuid of the runbook", default_factory=uuid.uuid4
+        )
+        id: int = Field(description="The id of the knowledge")
+        # summary: str = Field(description="The summary of the knowledge")
+        categories: List[str] = Field(description="The categories of the knowledge")
+        data_source_provider: str = Field(description="The provider of the data source")
+        data_source: str = Field(description="The source of the knowledge")
+        metadata: str = Field(description="The metadata of the knowledge json encoded")
+        path: str = Field(description="The path of the knowledge", default="")
+        vector: Vector(embeddings.ndims()) = embeddings.VectorField()
+        content: str = (
+            embeddings.SourceField()
+        )  # source field indicates the field will be embed
+        created_at: datetime = Field(
+            description="The created at date of the knowledge",
+            default_factory=datetime.now,
+        )
+
     db = await aconn()
     table = await db.create_table(
         "knowledge_store", schema=KnowledgeStore, exist_ok=True

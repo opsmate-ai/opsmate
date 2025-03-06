@@ -15,7 +15,7 @@ import base64
 from functools import lru_cache
 from asyncio import Semaphore, create_task, gather
 import structlog
-from opsmate.knowledgestore.models import Category, aconn
+
 from uuid import uuid4
 from opsmate.dbq.dbq import dbq_task, enqueue_task
 import json
@@ -23,8 +23,10 @@ from datetime import UTC, timedelta
 import random
 from typing import List, Dict
 from sqlmodel import Session
+from opsmate.knowledgestore.models import Category, aconn
 
 logger = structlog.get_logger(__name__)
+
 DEFAULT_ENDPOINT = "http://localhost:9090"
 DEFAULT_PATH = "/api/v1/query_range"
 
@@ -314,54 +316,6 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             plotext.show()
         else:
             plt.show()
-
-
-# class PrometheusMetric(BaseModel):
-#     name: str = Field(
-#         description="The metric to use to answer the query, name of the metric only"
-#     )
-#     labels: Dict[str, str] = Field(
-#         description="the relevant label key value pairs to use to answer the query"
-#     )
-#     description: str = Field(
-#         description="A brief description of the metric",
-#         max_length=100,
-#     )
-
-#     def markdown(self):
-#         return f"""
-# <metric>
-# name: {self.name}
-# description: {self.description}
-# labels: {self.labels}
-# </metric>
-# """
-
-
-# @dino(
-#     model="claude-3-7-sonnet-20250219",
-#     tools=[KnowledgeRetrieval],
-#     response_model=List[PrometheusMetric],
-# )
-# async def prometheus_metrics(query: str, context: dict[str, Any] = {}):
-#     """
-#     You are a world class SRE who excels at querying metrics from Prometheus
-#     You are given a query in natural language and you need decide what is the best metrics to use to answer the query
-
-#     <important>
-#     * **DO NOT** make up labels that do not belong to the metric.
-#     * You can only use the KnowledgeRetrieval tool call no more than 2 times.
-#     * Narrow down the metrics with labels such as cluster, job, namespace, etc if possible.
-#     </important>
-
-#     Example:
-#     Query: "cpu usage of the cert manager deployment over the last 5 hours"
-#     Metrics: ["container_cpu_usage_seconds_total"]
-#     Labels: {"cluster": "the-cluster-name", "job": "cert-manager"}
-#     """
-#     return [
-#         Message.user(content=query),
-#     ]
 
 
 @dino(

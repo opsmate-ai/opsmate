@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Union
 from pydantic import Field
-from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
+
 from opsmate.knowledgestore.models import conn, aconn, config
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
@@ -10,7 +10,7 @@ import structlog
 from jinja2 import Template
 import time
 from functools import wraps, cache
-from opsmate.knowledgestore.models import embedding_client
+from opsmate.knowledgestore.models import get_embedding_client, get_reranker
 
 logger = structlog.get_logger(__name__)
 
@@ -47,16 +47,6 @@ class KnowledgeNotFound(BaseModel):
     """
 
 
-try:
-    import transformers  # noqa: F401
-
-    logger.info("using transformers reranker")
-    reranker = AnswerdotaiRerankers(column="content")
-except ImportError:
-    logger.info("using openai reranker")
-    reranker = OpenaiReranker(column="content", model_name="gpt-4o-mini")
-
-
 class KnowledgeRetrieval(
     ToolCall[Union[RretrievalResult, KnowledgeNotFound]], PresentationMixin
 ):
@@ -90,7 +80,7 @@ class KnowledgeRetrieval(
             ["content", "data_source", "path", "metadata"]
         )
         if with_reranking:
-            query = query.rerank(reranker=reranker, query_string=self.query)
+            query = query.rerank(reranker=get_reranker(), query_string=self.query)
         results = await query.limit(top_n).to_list()
 
         logger.info("reranked results", length=len(results))
@@ -106,7 +96,7 @@ class KnowledgeRetrieval(
             return result
 
     async def embed(self, query: str):
-        return await embedding_client.embed(query)
+        return await get_embedding_client().embed(query)
 
     @dino(
         model="gpt-4o-mini",

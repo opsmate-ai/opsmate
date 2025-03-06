@@ -320,7 +320,7 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
 
         return output
 
-    def markdown(self): ...
+    def markdown(self, context: dict[str, Any] = {}): ...
 
     def time_series(self, in_terminal: bool = False):
 
@@ -412,9 +412,12 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
         await prom_query.run(context)
         return prom_query
 
-    def markdown(self, in_terminal: bool = True):
+    def markdown(self, context: dict[str, Any] = {}):
         # XXX: default in_terminal to False
-        self.time_series(in_terminal)
+        in_terminal = context.get("in_terminal", False)
+        if in_terminal:
+            self.time_series(in_terminal)
+
         return "graph drawn"
 
     def time_series(self, in_terminal: bool = False):

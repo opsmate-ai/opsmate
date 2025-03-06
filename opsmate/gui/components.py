@@ -305,6 +305,8 @@ def render_observation_markdown_raw(output: Observation):
             tool_out.append(tool_output.markdown())
         else:
             tool_out.append(yaml.dump(tool_output.model_dump()))
+        if hasattr(tool_output, "time_series"):
+            tool_out.append(tool_output.time_series())
     return f"""
 ## Observation
 

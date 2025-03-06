@@ -161,7 +161,7 @@ class ToolCall(BaseModel, Generic[OutputType]):
 
 class PresentationMixin(ABC):
     @abstractmethod
-    def markdown(self):
+    def markdown(self, context: dict[str, Any] = {}):
         pass
 
 

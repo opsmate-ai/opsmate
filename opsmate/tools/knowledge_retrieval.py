@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Union
 from pydantic import Field
 
-from opsmate.knowledgestore.models import conn, aconn, config
+from opsmate.knowledgestore.models import conn, aconn
 from opsmate.dino.types import ToolCall, Message, PresentationMixin
 from opsmate.dino.dino import dino
 from pydantic import BaseModel
@@ -9,7 +9,7 @@ from typing import Union
 import structlog
 from jinja2 import Template
 import time
-from functools import wraps, cache
+from functools import wraps
 from opsmate.knowledgestore.models import get_embedding_client, get_reranker
 
 logger = structlog.get_logger(__name__)
@@ -132,7 +132,7 @@ class KnowledgeRetrieval(
             Message.user(question),
         ]
 
-    def markdown(self):
+    def markdown(self, context: dict[str, Any] = {}):
         match self.output:
             case RretrievalResult():
                 template = Template(

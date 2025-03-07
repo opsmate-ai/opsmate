@@ -24,8 +24,10 @@ import random
 from typing import List, Dict
 from sqlmodel import Session
 from opsmate.knowledgestore.models import Category, aconn
+from functools import cache
 import time
 import os
+import io
 
 logger = structlog.get_logger(__name__)
 
@@ -255,8 +257,6 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         description="A brief explanation of the query",
     )
 
-    _client: AsyncClient = PrivateAttr(default_factory=AsyncClient)
-
     @computed_field
     def step(self) -> str:
         # no more than 10,000 points
@@ -286,7 +286,7 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         endpoint = context.get("prometheus_endpoint", DEFAULT_ENDPOINT)
         path = context.get("prometheus_path", DEFAULT_PATH)
 
-        response = await self._client.post(
+        response = await AsyncClient().post(
             endpoint + path,
             data={
                 "query": self.query,
@@ -322,7 +322,7 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
 
     def markdown(self, context: dict[str, Any] = {}): ...
 
-    def time_series(self, in_terminal: bool = False):
+    def time_series(self, in_terminal: bool = False, show_base64_image: bool = False):
 
         logger.info("plotting time series", query=self.query)
         plt.figure(figsize=(12, 6))
@@ -350,6 +350,16 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             fig = plt.gcf()
             plotext.from_matplotlib(fig)
             plotext.show()
+        if show_base64_image:
+            # get the base64 image
+            image_data = io.BytesIO()
+            plt.savefig(image_data, format="png")
+            image_data.seek(0)
+            return {
+                "title": self.title,
+                "mime_type": "image/png",
+                "data": base64.b64encode(image_data.read()).decode(),
+            }
         else:
             plt.show()
 
@@ -420,8 +430,10 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
 
         return "graph drawn"
 
-    def time_series(self, in_terminal: bool = False):
-        return self.output.time_series(in_terminal)
+    def time_series(self, in_terminal: bool = False, show_base64_image: bool = False):
+        return self.output.time_series(
+            in_terminal=in_terminal, show_base64_image=show_base64_image
+        )
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         m = super().model_dump(**kwargs)

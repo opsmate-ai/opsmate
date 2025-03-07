@@ -126,6 +126,7 @@ def common_params(func):
         review = kwargs.pop("review", False)
         kwargs["tool_call_context"] = {
             "max_output_length": kwargs.pop("max_output_length"),
+            "in_terminal": True,
         }
         if review:
             kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
@@ -232,7 +233,7 @@ async def run(
 
     if not no_tool_output:
         for tool_call in observation.tool_outputs:
-            console.print(Markdown(tool_call.markdown()))
+            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
         console.print(Markdown(observation.observation))
     else:
         print(observation.observation)
@@ -340,7 +341,9 @@ async def solve(
                 console.print(Markdown("## Observation"))
                 if not no_tool_output:
                     for tool_call in output.tool_outputs:
-                        console.print(Markdown(tool_call.markdown()))
+                        console.print(
+                            Markdown(tool_call.markdown(context={"in_terminal": True}))
+                        )
                 console.print(Markdown(output.observation))
             case ReactAnswer():
                 if answer_only:
@@ -477,7 +480,7 @@ async def chat(
 """
                     for tool_call in output.tool_outputs:
                         tp += f"""
-    {tool_call.markdown()}
+    {tool_call.markdown(context={"in_terminal": True})}
     """
                     tp += f"""
 ### Observation

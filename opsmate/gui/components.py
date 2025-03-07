@@ -306,7 +306,11 @@ def render_observation_markdown_raw(output: Observation):
         else:
             tool_out.append(yaml.dump(tool_output.model_dump()))
         if hasattr(tool_output, "time_series"):
-            tool_out.append(tool_output.time_series())
+            image_data = tool_output.time_series(show_base64_image=True)
+            if image_data:
+                tool_out.append(
+                    f"![{image_data['title']}](data:{image_data['mime_type']};base64,{image_data['data']})"
+                )
     return f"""
 ## Observation
 

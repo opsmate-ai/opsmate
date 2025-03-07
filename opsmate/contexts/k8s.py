@@ -1,4 +1,10 @@
-from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
+from opsmate.tools import (
+    ShellCommand,
+    KnowledgeRetrieval,
+    ACITool,
+    HtmlToText,
+    PrometheusTool,
+)
 import subprocess
 from opsmate.dino.context import context
 
@@ -10,6 +16,7 @@ from opsmate.dino.context import context
         KnowledgeRetrieval,
         ACITool,
         HtmlToText,
+        PrometheusTool,
     ],
 )
 async def k8s_ctx() -> str:

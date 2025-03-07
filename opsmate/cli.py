@@ -574,9 +574,14 @@ async def reset(skip_confirm):
     show_default=True,
     help="Number of uvicorn workers to serve on",
 )
+@click.option(
+    "--dev",
+    is_flag=True,
+    help="Run in development mode",
+)
 @auto_migrate
 @coro
-async def serve(host, port, workers):
+async def serve(host, port, workers, dev):
     """
     Start the OpsMate server.
     """
@@ -599,6 +604,15 @@ async def serve(host, port, workers):
     with Session(engine) as session:
         seed_blueprints(session)
 
+    if dev:
+        await uvicorn.run(
+            "opsmate.apiserver.apiserver:app",
+            host=host,
+            port=port,
+            reload=True,
+            reload_dirs=["opsmate"],
+        )
+        return
     if workers > 1:
         uvicorn.run(
             "opsmate.apiserver.apiserver:app",
@@ -607,7 +621,11 @@ async def serve(host, port, workers):
             workers=workers,
         )
     else:
-        config = uvicorn.Config("opsmate.apiserver.apiserver:app", host=host, port=port)
+        config = uvicorn.Config(
+            "opsmate.apiserver.apiserver:app",
+            host=host,
+            port=port,
+        )
         server = uvicorn.Server(config)
         await server.serve()
 

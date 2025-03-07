@@ -34,7 +34,7 @@ def timer():
     return wrapper
 
 
-class RretrievalResult(BaseModel):
+class RetrievalResult(BaseModel):
     summary: str = Field(description="The summary of the knowledge")
     citations: List[str] = Field(
         description="The citations to the knowledge summary if any. Must be in the format of URL or file path"
@@ -48,7 +48,7 @@ class KnowledgeNotFound(BaseModel):
 
 
 class KnowledgeRetrieval(
-    ToolCall[Union[RretrievalResult, KnowledgeNotFound]], PresentationMixin
+    ToolCall[Union[RetrievalResult, KnowledgeNotFound]], PresentationMixin
 ):
     """
     Knowledge retrieval tool allows you to search for relevant knowledge from the knowledge base.
@@ -89,7 +89,7 @@ class KnowledgeRetrieval(
         if llm_summary:
             return await self.summary(self.query, results)
         else:
-            result = RretrievalResult(
+            result = RetrievalResult(
                 summary="\n".join([result["content"] for result in results]),
                 citations=[],
             )
@@ -100,7 +100,7 @@ class KnowledgeRetrieval(
 
     @dino(
         model="gpt-4o-mini",
-        response_model=Union[RretrievalResult, KnowledgeNotFound],
+        response_model=Union[RetrievalResult, KnowledgeNotFound],
     )
     async def summary(self, question: str, results: List[Dict[str, Any]]):
         """
@@ -134,7 +134,7 @@ class KnowledgeRetrieval(
 
     def markdown(self, context: dict[str, Any] = {}):
         match self.output:
-            case RretrievalResult():
+            case RetrievalResult():
                 template = Template(
                     """
 ## Knowledge

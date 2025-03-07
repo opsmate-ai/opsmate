@@ -19,7 +19,14 @@ from opsmate.polya.models import (
     Facts,
 )
 from jinja2 import Template
+import plotly.express as px
+import pandas as pd
+from opsmate.tools.prom import PrometheusTool
+from datetime import datetime
 import yaml
+import structlog
+
+logger = structlog.get_logger()
 
 
 class CellComponent:
@@ -298,6 +305,64 @@ def render_react_answer_markdown(output: ReactAnswer):
     )
 
 
+def generate_chart(tool_output: PrometheusTool):
+    query = tool_output.output
+    datapoints = query.output["data"]["result"]
+
+    data = {}
+    if len(datapoints) == 0:
+        logger.warning("No datapoints found for query", query=query)
+        return None
+    # for result in datapoints:
+    #     values = result["values"]
+    #     metric = result["metric"]
+    #     metric_name = "-".join(metric.values())
+    #     timestamps = [datetime.fromtimestamp(ts) for ts, _ in values]
+    #     measurements = [float(val) for _, val in values]
+    #     data[metric_name] = measurements
+    #     data["timestamp"] = timestamps
+
+    # get all the timestamps from all the datapoints
+    timestamps = []
+    for result in datapoints:
+        values = result["values"]
+        timestamps.extend([ts for ts, _ in values])
+    timestamps = sorted(list(set(timestamps)))
+    data["timestamp"] = timestamps
+
+    for result in datapoints:
+        values = result["values"]
+        metric = result["metric"]
+        metric_name = "-".join(metric.values())
+        data[metric_name] = []
+        # turn values from tuple to dict
+        kv = {ts: float(v) for ts, v in values}
+        for ts in data["timestamp"]:
+            if ts in kv:
+                data[metric_name].append(kv[ts])
+            else:
+                data[metric_name].append(0.0)
+
+    df = pd.DataFrame(data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+    y_columns = [col for col in df.columns if col != "timestamp"]
+    fig = px.line(
+        df, x="timestamp", y=y_columns, template="plotly_white", title=query.title
+    )
+    fig.update_traces(mode="lines+markers")
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=20, b=20),
+        hovermode="x unified",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig.to_html(
+        include_plotlyjs=True, full_html=False, config={"displayModeBar": False}
+    )
+
+
 def render_observation_markdown_raw(output: Observation):
     tool_out = []
     for tool_output in output.tool_outputs:
@@ -305,12 +370,12 @@ def render_observation_markdown_raw(output: Observation):
             tool_out.append(tool_output.markdown())
         else:
             tool_out.append(yaml.dump(tool_output.model_dump()))
-        if hasattr(tool_output, "time_series"):
-            image_data = tool_output.time_series(show_base64_image=True)
-            if image_data:
-                tool_out.append(
-                    f"![{image_data['title']}](data:{image_data['mime_type']};base64,{image_data['data']})"
-                )
+        # if hasattr(tool_output, "time_series"):
+        #     image_data = tool_output.time_series(show_base64_image=True)
+        #     if image_data:
+        #         tool_out.append(
+        #             f"![{image_data['title']}](data:{image_data['mime_type']};base64,{image_data['data']})"
+        #         )
     return f"""
 ## Observation
 
@@ -321,9 +386,18 @@ def render_observation_markdown_raw(output: Observation):
 
 
 def render_observation_markdown(output: Observation):
-    return Div(
-        render_observation_markdown_raw(output),
-        cls="marked prose max-w-none",
+    return (
+        Div(
+            render_observation_markdown_raw(output),
+            cls="marked prose max-w-none",
+        ),
+        *[
+            Div(
+                Safe(generate_chart(tool_output)),
+            )
+            for tool_output in output.tool_outputs
+            if isinstance(tool_output, PrometheusTool)
+        ],
     )
 
 

@@ -158,6 +158,17 @@ class ToolCall(BaseModel, Generic[OutputType]):
         sig = inspect.signature(self.__call__)
         return "context" in sig.parameters
 
+    def prompt_display(self):
+        """
+        prompt_display is the method that is called to display the tool call in the prompt.
+
+        By default it returns the model_dump_json of the tool call.
+        The reason we need this is because we want the output to be customisable.
+        Especially when the tool call emits large amount of data, we don't want to
+        over flow the context window.
+        """
+        return self.model_dump_json()
+
 
 class PresentationMixin(ABC):
     @abstractmethod

@@ -30,6 +30,7 @@ dependencies = [
     "pytz (>=2025.1,<2026.0)",
     "lancedb (>=0.19.0,<1.0.0)",
     "alembic (>=1.14.1,<2.0.0)",
+    "plotly (>=6.0.0,<7.0.0)",
 ]
 
 [project.optional-dependencies]

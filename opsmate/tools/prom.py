@@ -257,10 +257,17 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         description="A brief explanation of the query",
     )
 
+    sample_points: int = Field(
+        description="The number of points to sample from the time series",
+        default=50,
+        le=100,
+        ge=20,
+    )
+
     @computed_field
     def step(self) -> str:
-        # no more than 10,000 points
-        secs = (self.end_dt - self.start_dt).total_seconds() / 10000
+        # no more than 50 points
+        secs = (self.end_dt - self.start_dt).total_seconds() / self.sample_points
         if secs < 1:
             return "15s"
         else:
@@ -299,26 +306,7 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         return response.json()
 
     def sampled_output(self):
-        output = self.output.copy()
-        results = []
-        for result in output["data"]["result"]:
-            values = result["values"]
-            metric = result["metric"]
-
-            # Aim to sample around 10 points
-            if len(values) > 10:
-                step = max(1, len(values) // 10)
-                values = values[::step]
-
-            results.append(
-                {
-                    "metric": metric,
-                    "values": values,
-                }
-            )
-        output["data"]["result"] = results
-
-        return output
+        return self.output
 
     def markdown(self, context: dict[str, Any] = {}): ...
 
@@ -435,11 +423,7 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
             in_terminal=in_terminal, show_base64_image=show_base64_image
         )
 
-    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-        m = super().model_dump(**kwargs)
+    def prompt_display(self):
+        m = self.model_dump()
         m["output"]["output"] = self.output.sampled_output()
-        # m.pop("output")
-        return m
-
-    def model_dump_json(self, **kwargs: Any) -> str:
-        return json.dumps(self.model_dump(**kwargs), default=str)
+        return json.dumps(m, default=str)

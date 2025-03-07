@@ -167,7 +167,7 @@ def dino(
             tool_call_ctx = ikwargs.get("context", {})
             tool_call_ctx["dino_model"] = _model
 
-            tool_outputs = []
+            tool_outputs: List[ToolCall] = []
             if _tools:
                 initial_response = await provider.chat_completion(
                     messages=messages,
@@ -180,7 +180,7 @@ def dino(
 
                 for resp in initial_response:
                     logger.debug("Tool called", tool=resp.model_dump_json())
-                    messages.append(Message.user(resp.model_dump_json()))
+                    messages.append(Message.user(resp.prompt_display()))
                     tool_outputs.append(resp)
 
             response = await provider.chat_completion(

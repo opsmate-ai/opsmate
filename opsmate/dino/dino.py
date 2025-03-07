@@ -9,6 +9,7 @@ from typing import (
     TypeVar,
     Awaitable,
     Type,
+    Optional,
 )
 from pydantic import BaseModel
 import inspect
@@ -30,7 +31,7 @@ T = TypeVar("T")
 def dino(
     model: str,
     response_model: Type[T],
-    after_hook: Callable | Coroutine = None,
+    after_hook: Optional[Callable | Coroutine] = None,
     tools: List[ToolCall] = [],
     client: AsyncInstructor = None,
     **kwargs: Any,
@@ -179,8 +180,10 @@ def dino(
                 await asyncio.gather(*tasks)
 
                 for resp in initial_response:
+                    # logger.info("individual tool output before", tool=resp.output)
                     logger.debug("Tool called", tool=resp.model_dump_json())
                     messages.append(Message.user(resp.prompt_display()))
+                    # logger.info("individual tool output after", tool=resp.output)
                     tool_outputs.append(resp)
 
             response = await provider.chat_completion(

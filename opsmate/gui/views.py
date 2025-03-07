@@ -315,7 +315,7 @@ async def react_streaming(
     thought_deduped = False
     stopped = False
     async for output in await reactGenerator:
-        logger.info("output", output=output)
+        logger.debug("output", output=output)
         session.refresh(cell)
 
         if cell.state == CellStateEnum.STOPPING:

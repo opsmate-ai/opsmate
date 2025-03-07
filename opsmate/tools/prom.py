@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field, PrivateAttr, computed_field
-from typing import Any
+from pydantic import Field, computed_field
+from typing import Any, List, Dict, ClassVar
 from httpx import AsyncClient
 from opsmate.dino import dino
 from opsmate.dino.types import Message
@@ -15,16 +15,14 @@ import base64
 from functools import lru_cache
 from asyncio import Semaphore, create_task, gather
 import structlog
-
 from uuid import uuid4
 from opsmate.dbq.dbq import dbq_task, enqueue_task
 import json
 from datetime import UTC, timedelta
 import random
-from typing import List, Dict
 from sqlmodel import Session
 from opsmate.knowledgestore.models import Category, aconn
-from functools import cache
+from copy import deepcopy
 import time
 import os
 import io
@@ -257,17 +255,20 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         description="A brief explanation of the query",
     )
 
-    sample_points: int = Field(
-        description="The number of points to sample from the time series",
-        default=50,
-        le=100,
-        ge=20,
+    data_points_per_series: int = Field(
+        description="The number of points per time series",
+        default=100,
+        le=200,
+        ge=100,
     )
+    sample_points: ClassVar[int] = 20
 
     @computed_field
     def step(self) -> str:
-        # no more than 50 points
-        secs = (self.end_dt - self.start_dt).total_seconds() / self.sample_points
+        # no more than 10,000 points
+        secs = (
+            self.end_dt - self.start_dt
+        ).total_seconds() / self.data_points_per_series
         if secs < 1:
             return "15s"
         else:
@@ -306,7 +307,25 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         return response.json()
 
     def sampled_output(self):
-        return self.output
+        output = deepcopy(self.output)
+        results = []
+        for result in output["data"]["result"]:
+            values = result["values"]
+            metric = result["metric"]
+
+            # Aim to sample around 10 points
+            if len(values) > self.sample_points:
+                step = max(1, len(values) // self.sample_points)
+                values = values[::step]
+
+            results.append(
+                {
+                    "metric": metric,
+                    "values": values,
+                }
+            )
+        output["data"]["result"] = results
+        return output
 
     def markdown(self, context: dict[str, Any] = {}): ...
 
@@ -376,6 +395,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     - DO NOT use metrics that do not exist from knowledge retrieval.
     - USE `_bucket` suffix metrics if the query is about histograms.
     - The rate interval must be greater or equal to 2m.
+    - Avoid using `avg` unless you are told to, as it's statistically meaningless.
     - When you use regex to match labels, use `=~"(.*)THE_PATTERN(.*)"` to match the pattern.
     </important>
     """
@@ -416,7 +436,21 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
         if in_terminal:
             self.time_series(in_terminal)
 
-        return "graph drawn"
+        return f"""
+### Natural Language Query
+
+{self.natural_language_query}
+
+### Prometheus Query
+
+```
+{self.output.query}
+```
+
+### Explanation
+
+{self.output.explanation}
+"""
 
     def time_series(self, in_terminal: bool = False, show_base64_image: bool = False):
         return self.output.time_series(

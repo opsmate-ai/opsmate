@@ -81,10 +81,18 @@ class Config(BaseSettings):
         default="",
         choices=["openai", "sentence-transformers"],
         description="The name of the embedding registry",
+        alias="OPSMATE_EMBEDDING_REGISTRY_NAME",
     )
     embedding_model_name: str = Field(
         default="",
         description="The name of the embedding model",
+        alias="OPSMATE_EMBEDDING_MODEL_NAME",
+    )
+    reranker_model_name: str = Field(
+        default="answerdotai",
+        description="The name of the reranker model",
+        choices=["answerdotai", "openai", "cohere"],
+        alias="OPSMATE_RERANKER_MODEL_NAME",
     )
     fs_embeddings_config: Dict[str, str] = Field(
         default={}, description=fs_embedding_desc

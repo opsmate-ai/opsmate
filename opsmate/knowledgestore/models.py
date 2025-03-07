@@ -11,7 +11,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 from functools import cache
 from openai import AsyncOpenAI
-from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers
+from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers, CohereReranker
 from functools import cache
 import structlog
 
@@ -78,13 +78,22 @@ def get_embedding_client():
 
 @cache
 def get_reranker():
-    try:
-        import transformers  # noqa: F401
+    match config.reranker_model_name:
+        case "answerdotai":
+            try:
+                import transformers  # noqa: F401
 
-        return AnswerdotaiRerankers(column="content", verbose=0)
-    except ImportError:
-        logger.info("using openai reranker")
-        return OpenaiReranker(column="content", model_name="gpt-4o-mini")
+                return AnswerdotaiRerankers(column="content", verbose=0)
+            except ImportError:
+                logger.info("using openai reranker")
+                return OpenaiReranker(column="content", model_name="gpt-4o-mini")
+        case "openai":
+            return OpenaiReranker(column="content", model_name="gpt-4o-mini")
+        case "cohere":
+            return CohereReranker(
+                column="content",
+                model_name="rerank-english-v3.0",
+            )
 
 
 async def aconn():

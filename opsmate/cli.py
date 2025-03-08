@@ -666,6 +666,62 @@ async def worker(workers, queue):
 
 
 @opsmate_cli.command()
+@click.option(
+    "--prometheus-endpoint",
+    default=lambda: os.getenv("prometheus_endpoint", "http://localhost:9090"),
+    show_default=True,
+    help="Prometheus endpoint",
+)
+@click.option(
+    "--prometheus-user-id",
+    # prompt=True,
+    default=lambda: os.getenv("prometheus_user_id", ""),
+    show_default=True,
+    help="Prometheus user id",
+)
+@click.option(
+    "--prometheus-api-key",
+    # prompt=True,
+    default=lambda: os.getenv("prometheus_api_key", ""),
+    show_default=True,
+    hide_input=True,
+    help="Prometheus api key",
+)
+@coro
+async def ingest_metrics(prometheus_endpoint, prometheus_user_id, prometheus_api_key):
+    """
+    Ingest metrics metadata into the knowledge base.
+    Note this only enqueues the taks to ingest metrics. To execute the actual ingestion in the background, run `opsmate worker`.
+    Please run: `opsmate worker -w 1 -q lancedb-batch-ingest`
+    """
+    from opsmate.tools.prom import PromQL
+    from opsmate.knowledgestore.models import init_table, aconn
+    from sqlmodel import create_engine, text, Session
+    from opsmate.libs.config import config
+
+    await init_table()
+    dbconn = await aconn()
+    table = await dbconn.open_table("knowledge_store")
+
+    prom = PromQL(
+        endpoint=prometheus_endpoint,
+        user_id=prometheus_user_id,
+        api_key=prometheus_api_key,
+    )
+
+    engine = create_engine(
+        config.db_url,
+        connect_args={"check_same_thread": False, "timeout": 20},
+        # echo=True,
+    )
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.close()
+    with Session(engine) as session:
+        await prom.ingest_metrics(session)
+
+
+@opsmate_cli.command()
 def list_tools():
     """
     List all the tools available.

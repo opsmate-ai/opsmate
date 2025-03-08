@@ -26,6 +26,7 @@ from copy import deepcopy
 import time
 import os
 import io
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 logger = structlog.get_logger(__name__)
 
@@ -468,6 +469,7 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
         description="The natural language query to be translated into a prometheus query"
     )
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
     async def __call__(self, context: dict[str, Any] = {}):
         context = context.copy()
         context["llm_summary"] = False
@@ -475,13 +477,15 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
             context["top_n"] = 20
         model = context.get("dino_model", "claude-3-7-sonnet-20250219")
 
-        prom_query = await prometheus_query(
+        prom_query: PromQuery = await prometheus_query(
             self.natural_language_query,
             context=context,
             model=model,
         )
 
         await prom_query.run(context)
+        if "error" in prom_query:
+            raise Exception(prom_query["error"])
         return prom_query
 
     def markdown(self, context: dict[str, Any] = {}):
@@ -513,8 +517,5 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
 
     def prompt_display(self):
         m = self.model_dump()
-        if isinstance(self.output, PromQuery):
-            m["output"]["output"] = self.output.sampled_output()
-        else:
-            m["output"]["output"] = self.output
+        m["output"]["output"] = self.output.sampled_output()
         return json.dumps(m, default=str)

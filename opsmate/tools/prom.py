@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import Field, computed_field
-from typing import Any, List, Dict, ClassVar
+from pydantic import Field, computed_field, PrivateAttr
+from typing import Any, List, Dict, ClassVar, Optional
 from httpx import AsyncClient
 from opsmate.dino import dino
 from opsmate.dino.types import Message
@@ -315,6 +315,42 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             }
 
         return response.json()
+
+    _dataframe: pd.DataFrame | None = PrivateAttr(default=None)
+
+    @property
+    def dataframe(self):
+        if self._dataframe is not None:
+            return self._dataframe
+
+        datapoints = self.output["data"]["result"]
+
+        if len(datapoints) == 0:
+            logger.warning("No datapoints found for query", query=self.query)
+            return None
+
+        # Create DataFrame from all results
+        df_list: list[pd.DataFrame] = []
+        for result in datapoints:
+            metric_name = "-".join(result["metric"].values())
+            # Convert values to float during DataFrame creation
+            df = pd.DataFrame(result["values"], columns=["timestamp", metric_name])
+            df[metric_name] = df[metric_name].astype(float)  # Ensure values are float
+            df_list.append(df)
+
+        # Merge all dataframes on timestamp
+        if len(df_list) == 1:
+            df = df_list[0]
+        else:
+            # Progressively merge all dataframes
+            df = df_list[0]
+            for additional_df in df_list[1:]:
+                df = df.merge(additional_df, on="timestamp", how="outer")
+
+        df = df.fillna(0.0)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+        self._dataframe = df
+        return df
 
     def sampled_output(self):
         if "error" in self.output:

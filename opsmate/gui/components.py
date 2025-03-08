@@ -321,36 +321,8 @@ def generate_chart(tool_output: PrometheusTool):
             include_plotlyjs=True, full_html=False, config={"displayModeBar": False}
         )
 
-    datapoints = query.output["data"]["result"]
+    df = query.dataframe
 
-    data = {}
-    if len(datapoints) == 0:
-        logger.warning("No datapoints found for query", query=query)
-        return None
-
-    # get all the timestamps from all the datapoints
-    timestamps = []
-    for result in datapoints:
-        values = result["values"]
-        timestamps.extend([ts for ts, _ in values])
-    timestamps = sorted(list(set(timestamps)))
-    data["timestamp"] = timestamps
-
-    for result in datapoints:
-        values = result["values"]
-        metric = result["metric"]
-        metric_name = "-".join(metric.values())
-        data[metric_name] = []
-        # turn values from tuple to dict
-        kv = {ts: float(v) for ts, v in values}
-        for ts in data["timestamp"]:
-            if ts in kv:
-                data[metric_name].append(kv[ts])
-            else:
-                data[metric_name].append(0.0)
-
-    df = pd.DataFrame(data)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
     y_columns = [col for col in df.columns if col != "timestamp"]
     fig = px.line(
         df, x="timestamp", y=y_columns, template="plotly_white", title=query.title

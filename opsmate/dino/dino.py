@@ -195,6 +195,10 @@ def dino(
                 messages=messages,
                 response_model=response_model,
                 client=_client,
+                max_retries=AsyncRetrying(
+                    stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
+                    wait=wait_fixed(1),
+                ),
                 **ikwargs,
             )
 

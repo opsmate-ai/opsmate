@@ -308,14 +308,18 @@ def render_react_answer_markdown(output: ReactAnswer):
 def generate_chart(tool_output: PrometheusTool):
     query = tool_output.output
 
-    if "error" in query.output:
-        logger.error("Error in query", error=query.output["error"])
+    if "error" in query.output or query.dataframe is None:
+        if "error" in query.output:
+            error = query.output["error"]
+        else:
+            error = "No data to display"
+        logger.error("Error in query", error=error)
         # generate a diagram of the error
         fig = px.bar(
             x=["Error"],
             y=[1],
             template="plotly_white",
-            title=query.output["error"],
+            title=error,
         )
         return fig.to_html(
             include_plotlyjs=True, full_html=False, config={"displayModeBar": False}

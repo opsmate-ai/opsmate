@@ -444,11 +444,12 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     <important>
     - use `datetime_extraction` tool to get the time range of the query
     - use `KnowledgeRetrieval` tool to get the metrics and labels that are relevant to the query
-    - In the query, DO NOT use labels that are not present in the metrics from knowledge retrieval.
+    - DO NOT use labels that are not present in the metrics based on the knowledge retrieval. e.g. by(label_not_in_metrics) or metric{label_not_in_metrics="xxx"} should be avoided.
     - DO NOT use metrics that do not exist from knowledge retrieval.
     - USE `_bucket` suffix metrics if the query is about histograms.
     - The rate interval must be greater or equal to 2m.
     - Avoid using `avg` unless you are told to, as it's statistically meaningless.
+    - use `sum(rate(...))` for rate related queries and avoid use rate(...) directly.
     - When you use regex to match labels, use `=~"(.*)THE_PATTERN(.*)"` to match the pattern.
     </important>
     """
@@ -512,5 +513,8 @@ class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
 
     def prompt_display(self):
         m = self.model_dump()
-        m["output"]["output"] = self.output.sampled_output()
+        if isinstance(self.output, PromQuery):
+            m["output"]["output"] = self.output.sampled_output()
+        else:
+            m["output"]["output"] = self.output
         return json.dumps(m, default=str)

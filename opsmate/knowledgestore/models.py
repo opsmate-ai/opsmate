@@ -161,4 +161,5 @@ async def init_table():
         "knowledge_store", schema=KnowledgeStore, exist_ok=True
     )
     await table.create_index("content", config=FTS())
+    logger.info("knowledge store indexed", table=table)
     return table

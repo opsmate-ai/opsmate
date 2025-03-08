@@ -137,7 +137,11 @@ class ToolCall(BaseModel, Generic[OutputType]):
                 tool=self.__class__.__name__,
                 stack=traceback.format_exc(),
             )
-            self.output = f"Error executing tool {self.__class__.__name__}: {str(e)}"
+            self.output = {
+                "error": str(e),
+                "message": "error executing tool",
+                "stack": traceback.format_exc(),
+            }
         return self.output
 
     @computed_field

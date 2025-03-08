@@ -19,6 +19,7 @@ from .types import Message, ToolCall
 from .utils import args_dump
 import structlog
 from instructor import AsyncInstructor
+from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 import asyncio
 
 logger = structlog.get_logger(__name__)
@@ -61,7 +62,7 @@ def dino(
             - presence_penalty
             - system: used by Anthropic as a system prompt
             - context: a dictionary for Pydantic model validation
-
+            - max_retries: the number of retries for the tool call, defaults to 3
     Example:
 
     class UserInfo(BaseModel):
@@ -174,6 +175,10 @@ def dino(
                     messages=messages,
                     response_model=Iterable[Union[tuple(_tools)]],
                     client=_client,
+                    max_retries=AsyncRetrying(
+                        stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
+                        wait=wait_fixed(1),
+                    ),
                     **ikwargs,
                 )
                 tasks = [resp.run(context=tool_call_ctx) for resp in initial_response]

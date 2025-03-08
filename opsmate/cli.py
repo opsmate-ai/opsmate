@@ -760,7 +760,7 @@ def list_models():
 )
 @click.option(
     "--path",
-    default="/",
+    default="",
     show_default=True,
     help="Path to the knowledge base",
 )

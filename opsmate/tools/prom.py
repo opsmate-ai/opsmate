@@ -70,6 +70,8 @@ async def ingest_metrics(metrics: List[Dict[str, Any]], prom_endpoint: str):
         on=["path", "data_source", "data_source_provider"]
     ).when_matched_update_all().when_not_matched_insert_all().execute(kbs)
 
+    await table.optimize()
+
 
 class PromQL:
     DEFAULT_LABEL_BLACKLIST: tuple[str, ...] = (

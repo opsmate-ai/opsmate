@@ -36,9 +36,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-rerankers = [
-    "rerankers[transformers]",
+reranker-cohere = [
     "cohere (>=5.14.0,<6.0.0)",
+]
+reranker-answerdotai = [
+    "rerankers[transformers]",
 ]
 sentence-transformers = [
     "sentence-transformers (>=3.4.1,<4.0.0)",

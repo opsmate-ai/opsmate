@@ -323,7 +323,7 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         if self._dataframe is not None:
             return self._dataframe
 
-        datapoints = self.output["data"]["result"]
+        datapoints = deepcopy(self.output["data"]["result"])
 
         if len(datapoints) == 0:
             logger.warning("No datapoints found for query", query=self.query)

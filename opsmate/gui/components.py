@@ -307,20 +307,26 @@ def render_react_answer_markdown(output: ReactAnswer):
 
 def generate_chart(tool_output: PrometheusTool):
     query = tool_output.output
+
+    if "error" in query.output:
+        logger.error("Error in query", error=query.output["error"])
+        # generate a diagram of the error
+        fig = px.bar(
+            x=["Error"],
+            y=[1],
+            template="plotly_white",
+            title=query.output["error"],
+        )
+        return fig.to_html(
+            include_plotlyjs=True, full_html=False, config={"displayModeBar": False}
+        )
+
     datapoints = query.output["data"]["result"]
 
     data = {}
     if len(datapoints) == 0:
         logger.warning("No datapoints found for query", query=query)
         return None
-    # for result in datapoints:
-    #     values = result["values"]
-    #     metric = result["metric"]
-    #     metric_name = "-".join(metric.values())
-    #     timestamps = [datetime.fromtimestamp(ts) for ts, _ in values]
-    #     measurements = [float(val) for _, val in values]
-    #     data[metric_name] = measurements
-    #     data["timestamp"] = timestamps
 
     # get all the timestamps from all the datapoints
     timestamps = []

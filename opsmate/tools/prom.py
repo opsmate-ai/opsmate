@@ -304,9 +304,22 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             },
             headers=self.headers(context),
         )
+
+        if response.status_code != 200:
+            logger.error(
+                "Failed to fetch metrics from prometheus", response_json=response.json()
+            )
+            return {
+                "error": "Failed to fetch metrics from prometheus",
+                "data": response.text,
+            }
+
         return response.json()
 
     def sampled_output(self):
+        if "error" in self.output:
+            return self.output
+
         output = deepcopy(self.output)
         results = []
         for result in output["data"]["result"]:
@@ -330,6 +343,8 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
     def markdown(self, context: dict[str, Any] = {}): ...
 
     def time_series(self, in_terminal: bool = False, show_base64_image: bool = False):
+        if "error" in self.output:
+            return
 
         logger.info("plotting time series", query=self.query)
         plt.figure(figsize=(12, 6))

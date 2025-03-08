@@ -11,7 +11,12 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 from functools import cache
 from openai import AsyncOpenAI
-from lancedb.rerankers import OpenaiReranker, AnswerdotaiRerankers, CohereReranker
+from lancedb.rerankers import (
+    OpenaiReranker,
+    AnswerdotaiRerankers,
+    CohereReranker,
+    RRFReranker,
+)
 from functools import cache
 import structlog
 
@@ -83,17 +88,26 @@ def get_reranker():
             try:
                 import transformers  # noqa: F401
 
+                logger.info("using answerdotai reranker")
                 return AnswerdotaiRerankers(column="content", verbose=0)
             except ImportError:
-                logger.info("using openai reranker")
+                logger.info(
+                    "answerdotai reranker not installed, using openai reranker",
+                    model_name="gpt-4o-mini",
+                )
                 return OpenaiReranker(column="content", model_name="gpt-4o-mini")
         case "openai":
+            logger.info("using openai reranker", model_name="gpt-4o-mini")
             return OpenaiReranker(column="content", model_name="gpt-4o-mini")
         case "cohere":
+            logger.info("using cohere reranker", model_name="rerank-english-v3.0")
             return CohereReranker(
                 column="content",
                 model_name="rerank-english-v3.0",
             )
+        case _:
+            logger.info("using rrf reranker")
+            return RRFReranker()
 
 
 async def aconn():

@@ -76,11 +76,13 @@ class KnowledgeRetrieval(
         table = await conn.open_table("knowledge_store")
         query = table.query()
 
-        query = query.nearest_to(await self.embed(self.query)).select(
-            ["content", "data_source", "path", "metadata"]
+        query = (
+            query.nearest_to(await self.embed(self.query))
+            .nearest_to_text(self.query)
+            .select(["content", "data_source", "path", "metadata"])
         )
         if with_reranking:
-            query = query.rerank(reranker=get_reranker(), query_string=self.query)
+            query = query.rerank(reranker=get_reranker())
         results = await query.limit(top_n).to_list()
 
         logger.info("reranked results", length=len(results))

@@ -105,9 +105,12 @@ def get_reranker():
                 column="content",
                 model_name="rerank-english-v3.0",
             )
-        case _:
+        case "rrf":
             logger.info("using rrf reranker")
             return RRFReranker()
+        case _:
+            logger.info("no reranker selected")
+            return None
 
 
 async def aconn():

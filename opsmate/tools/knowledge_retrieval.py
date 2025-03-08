@@ -81,8 +81,9 @@ class KnowledgeRetrieval(
             .nearest_to_text(self.query)
             .select(["content", "data_source", "path", "metadata"])
         )
-        if with_reranking:
-            query = query.rerank(reranker=get_reranker())
+        reranker = get_reranker()
+        if reranker and with_reranking:
+            query = query.rerank(reranker=reranker)
         results = await query.limit(top_n).to_list()
 
         logger.info("reranked results", length=len(results))

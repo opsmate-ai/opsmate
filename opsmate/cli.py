@@ -81,6 +81,13 @@ def opsmate_cli():
 
 def common_params(func):
     @click.option(
+        "-m",
+        "--model",
+        show_default=True,
+        default="gpt-4o",
+        help="Large language model to use. To list models available please run the list-models command.",
+    )
+    @click.option(
         "--tools",
         default="",
         help="Comma separated list of tools to use",
@@ -181,13 +188,6 @@ Edit the command if needed, then press Enter to execute:
 @opsmate_cli.command()
 @click.argument("instruction", type=StdinArgument())
 @click.option(
-    "-m",
-    "--model",
-    show_default=True,
-    default="gpt-4o",
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
-@click.option(
     "-c",
     "--context",
     show_default=True,
@@ -241,13 +241,6 @@ async def run(
 
 @opsmate_cli.command()
 @click.argument("instruction", type=StdinArgument())
-@click.option(
-    "-m",
-    "--model",
-    default="gpt-4o",
-    show_default=True,
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
 @click.option(
     "-i",
     "--max-iter",
@@ -370,13 +363,6 @@ Commands:
 
 
 @opsmate_cli.command()
-@click.option(
-    "-m",
-    "--model",
-    default="gpt-4o",
-    show_default=True,
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
 @click.option(
     "-i",
     "--max-iter",

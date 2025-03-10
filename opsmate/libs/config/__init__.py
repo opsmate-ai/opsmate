@@ -4,11 +4,8 @@ from pathlib import Path
 from typing import Dict, Any, Self
 import structlog
 import logging
-from opsmate.plugins import PluginRegistry
 from sqlmodel import create_engine, text
 import importlib.util
-import time
-from functools import wraps
 
 logger = structlog.get_logger(__name__)
 
@@ -42,25 +39,6 @@ opsmate/opsmate2=main=*.txt
 
 DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"
 DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-
-
-def timer():
-    def wrapper(f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
-            start = time.time()
-            result = f(*args, **kwargs)
-            end = time.time()
-            logger.info(
-                "call completed",
-                function=f"{f.__module__}.{f.__name__}",
-                time=f"{end - start:.2f}s",
-            )
-            return result
-
-        return wrapped
-
-    return wrapper
 
 
 class Config(BaseSettings):

@@ -502,7 +502,6 @@ async def reset(skip_confirm):
     """
     Reset the OpsMate.
     """
-    from opsmate.libs.config import config
     import glob
     import shutil
 
@@ -575,17 +574,9 @@ async def serve(host, port, workers, dev):
     from sqlmodel import create_engine, text, Session
     from opsmate.gui.app import kb_ingest
     from opsmate.gui.seed import seed_blueprints
-    from opsmate.libs.config import config
 
     await kb_ingest()
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
 
     with Session(engine) as session:
         seed_blueprints(session)
@@ -607,12 +598,12 @@ async def serve(host, port, workers, dev):
             workers=workers,
         )
     else:
-        config = uvicorn.Config(
+        uvicorn_config = uvicorn.Config(
             "opsmate.apiserver.apiserver:app",
             host=host,
             port=port,
         )
-        server = uvicorn.Server(config)
+        server = uvicorn.Server(uvicorn_config)
         await server.serve()
 
 
@@ -688,7 +679,6 @@ async def ingest_prometheus_metrics_metadata(
     from opsmate.tools.prom import PromQL
     from opsmate.knowledgestore.models import init_table, aconn
     from sqlmodel import create_engine, text, Session
-    from opsmate.libs.config import config
 
     await init_table()
 
@@ -698,14 +688,7 @@ async def ingest_prometheus_metrics_metadata(
         api_key=prometheus_api_key,
     )
 
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
     with Session(engine) as session:
         await prom.ingest_metrics(session)
 
@@ -767,7 +750,6 @@ async def ingest(source, path, glob):
     Notes the ingestion worker needs to be started separately with `opsmate worker`.
     """
 
-    from opsmate.libs.config import config
     from sqlmodel import create_engine, text, Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
@@ -776,14 +758,7 @@ async def ingest(source, path, glob):
     addon_discovery()
     await init_table()
 
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
 
     splitted = source.split(":///")
     if len(splitted) != 2:

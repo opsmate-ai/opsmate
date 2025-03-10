@@ -5,6 +5,7 @@ from typing import Dict, Any, Self
 import structlog
 import logging
 from opsmate.plugins import PluginRegistry
+from sqlmodel import create_engine, text
 import importlib.util
 import time
 from functools import wraps
@@ -175,6 +176,17 @@ class Config(BaseSettings):
         Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
         Path(self.contexts_dir).mkdir(parents=True, exist_ok=True)
         return self
+
+    def db_engine(self):
+        engine = create_engine(
+            self.db_url,
+            connect_args={"check_same_thread": False, "timeout": 20},
+            # echo=True,
+        )
+        with engine.connect() as conn:
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            conn.close()
+        return engine
 
 
 config = Config()

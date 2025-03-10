@@ -9,14 +9,7 @@ logger = structlog.get_logger()
 
 
 async def main(worker_count: int = 10, worker_queue: str = "default"):
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
 
     session = Session(engine)
     worker = Worker(session, worker_count, queue_name=worker_queue)

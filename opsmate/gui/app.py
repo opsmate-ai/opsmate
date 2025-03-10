@@ -52,15 +52,7 @@ logger = structlog.get_logger()
 
 
 # start a sqlite database
-engine = sqlmodel.create_engine(
-    config.db_url,
-    connect_args={"check_same_thread": False, "timeout": 20},
-    # echo=True
-)
-
-with engine.connect() as conn:
-    conn.execute(text("PRAGMA journal_mode=WAL"))
-    conn.close()
+engine = config.db_engine()
 
 
 def before(req, session):
@@ -189,7 +181,7 @@ async def put(id: str, branch: str, glob: str):
             ingest,
             ingestor_type=ingestion_record.data_source_provider,
             ingestor_config=await ingestion_record.ingest_config(),
-            splitter_config=ingestion_record.splitter_config,
+            splitter_config=config.splitter_config,
         )
         return Title("Knowledges"), knowledges_body(session, config.session_name)
 

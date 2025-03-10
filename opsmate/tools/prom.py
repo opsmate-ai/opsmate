@@ -1,6 +1,6 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import Field, computed_field, PrivateAttr
-from typing import Any, List, Dict, ClassVar, Optional
+from typing import Any, List, Dict, ClassVar
 from httpx import AsyncClient
 from opsmate.dino import dino
 from opsmate.dino.types import Message
@@ -282,9 +282,9 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
             "Content-Type": "application/x-www-form-urlencoded",
             "User-Agent": "opsmate prometheus tool",
         }
-        if context.get("prometheus_api_key"):
-            user_id = context.get("prometheus_user_id")
-            token = context.get("prometheus_api_key")
+        if context.get("PROMETHEUS_API_KEY"):
+            user_id = context.get("PROMETHEUS_USER_ID")
+            token = context.get("PROMETHEUS_API_KEY")
             b64_token = base64.b64encode(f"{user_id}:{token}".encode()).decode()
             h["Authorization"] = f"Basic {b64_token}"
         return h
@@ -294,8 +294,8 @@ class PromQuery(ToolCall[dict[str, Any]], DatetimeRange, PresentationMixin):
         context = context.copy()
         envvars = os.environ.copy()
         context.update(envvars)
-        endpoint = context.get("prometheus_endpoint", DEFAULT_ENDPOINT)
-        path = context.get("prometheus_path", DEFAULT_PATH)
+        endpoint = context.get("PROMETHEUS_ENDPOINT", DEFAULT_ENDPOINT)
+        path = context.get("PROMETHEUS_PATH", DEFAULT_PATH)
 
         response = await AsyncClient().post(
             endpoint + path,

@@ -81,6 +81,13 @@ def opsmate_cli():
 
 def common_params(func):
     @click.option(
+        "-m",
+        "--model",
+        show_default=True,
+        default="gpt-4o",
+        help="Large language model to use. To list models available please run the list-models command.",
+    )
+    @click.option(
         "--tools",
         default="",
         help="Comma separated list of tools to use",
@@ -181,13 +188,6 @@ Edit the command if needed, then press Enter to execute:
 @opsmate_cli.command()
 @click.argument("instruction", type=StdinArgument())
 @click.option(
-    "-m",
-    "--model",
-    show_default=True,
-    default="gpt-4o",
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
-@click.option(
     "-c",
     "--context",
     show_default=True,
@@ -241,13 +241,6 @@ async def run(
 
 @opsmate_cli.command()
 @click.argument("instruction", type=StdinArgument())
-@click.option(
-    "-m",
-    "--model",
-    default="gpt-4o",
-    show_default=True,
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
 @click.option(
     "-i",
     "--max-iter",
@@ -370,13 +363,6 @@ Commands:
 
 
 @opsmate_cli.command()
-@click.option(
-    "-m",
-    "--model",
-    default="gpt-4o",
-    show_default=True,
-    help="OpenAI model to use. To list models available please run the list-models command.",
-)
 @click.option(
     "-i",
     "--max-iter",
@@ -516,7 +502,6 @@ async def reset(skip_confirm):
     """
     Reset the OpsMate.
     """
-    from opsmate.libs.config import config
     import glob
     import shutil
 
@@ -589,17 +574,9 @@ async def serve(host, port, workers, dev):
     from sqlmodel import create_engine, text, Session
     from opsmate.gui.app import kb_ingest
     from opsmate.gui.seed import seed_blueprints
-    from opsmate.libs.config import config
 
     await kb_ingest()
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
 
     with Session(engine) as session:
         seed_blueprints(session)
@@ -621,12 +598,12 @@ async def serve(host, port, workers, dev):
             workers=workers,
         )
     else:
-        config = uvicorn.Config(
+        uvicorn_config = uvicorn.Config(
             "opsmate.apiserver.apiserver:app",
             host=host,
             port=port,
         )
-        server = uvicorn.Server(config)
+        server = uvicorn.Server(uvicorn_config)
         await server.serve()
 
 
@@ -668,40 +645,42 @@ async def worker(workers, queue):
 @opsmate_cli.command()
 @click.option(
     "--prometheus-endpoint",
-    default=lambda: os.getenv("prometheus_endpoint", "http://localhost:9090"),
+    default=lambda: os.getenv("PROMETHEUS_ENDPOINT", "") or "http://localhost:9090",
     show_default=True,
-    help="Prometheus endpoint",
+    help="Prometheus endpoint. If not provided it uses $PROMETHEUS_ENDPOINT environment variable, or defaults to http://localhost:9090",
 )
 @click.option(
     "--prometheus-user-id",
     # prompt=True,
-    default=lambda: os.getenv("prometheus_user_id", ""),
+    default=lambda: os.getenv("PROMETHEUS_USER_ID", ""),
     show_default=True,
-    help="Prometheus user id",
+    help="Prometheus user id. If not provided it uses $PROMETHEUS_USER_ID environment variable, or defaults to empty string",
 )
 @click.option(
     "--prometheus-api-key",
     # prompt=True,
-    default=lambda: os.getenv("prometheus_api_key", ""),
+    default=lambda: os.getenv("PROMETHEUS_API_KEY", ""),
     show_default=True,
     hide_input=True,
-    help="Prometheus api key",
+    help="Prometheus api key. If not provided it uses $PROMETHEUS_API_KEY environment variable, or defaults to empty string",
 )
+@auto_migrate
 @coro
-async def ingest_metrics(prometheus_endpoint, prometheus_user_id, prometheus_api_key):
+async def ingest_prometheus_metrics_metadata(
+    prometheus_endpoint, prometheus_user_id, prometheus_api_key
+):
     """
-    Ingest metrics metadata into the knowledge base.
-    Note this only enqueues the taks to ingest metrics. To execute the actual ingestion in the background, run `opsmate worker`.
+    Ingest prometheus metrics metadata into the knowledge base.
+    The ingestion is done via fetching the metrics metadata from the prometheus server, and then storing it into the knowledge base.
+    The ingested metrics metadata will be used for providing context to the LLM when querying prometheus based metrics
+    Note this only enqueues the tasks to ingest metrics. To execute the actual ingestion in the background, run `opsmate worker`.
     Please run: `opsmate worker -w 1 -q lancedb-batch-ingest`
     """
     from opsmate.tools.prom import PromQL
     from opsmate.knowledgestore.models import init_table, aconn
     from sqlmodel import create_engine, text, Session
-    from opsmate.libs.config import config
 
     await init_table()
-    dbconn = await aconn()
-    table = await dbconn.open_table("knowledge_store")
 
     prom = PromQL(
         endpoint=prometheus_endpoint,
@@ -709,14 +688,7 @@ async def ingest_metrics(prometheus_endpoint, prometheus_user_id, prometheus_api
         api_key=prometheus_api_key,
     )
 
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
     with Session(engine) as session:
         await prom.ingest_metrics(session)
 
@@ -778,7 +750,6 @@ async def ingest(source, path, glob):
     Notes the ingestion worker needs to be started separately with `opsmate worker`.
     """
 
-    from opsmate.libs.config import config
     from sqlmodel import create_engine, text, Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
@@ -787,14 +758,7 @@ async def ingest(source, path, glob):
     addon_discovery()
     await init_table()
 
-    engine = create_engine(
-        config.db_url,
-        connect_args={"check_same_thread": False, "timeout": 20},
-        # echo=True,
-    )
-    with engine.connect() as conn:
-        conn.execute(text("PRAGMA journal_mode=WAL"))
-        conn.close()
+    engine = config.db_engine()
 
     splitted = source.split(":///")
     if len(splitted) != 2:

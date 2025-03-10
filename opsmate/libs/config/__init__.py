@@ -5,6 +5,7 @@ from typing import Dict, Any, Self
 import structlog
 import logging
 from opsmate.plugins import PluginRegistry
+from sqlmodel import create_engine, text
 import importlib.util
 import time
 from functools import wraps
@@ -88,11 +89,11 @@ class Config(BaseSettings):
         description="The name of the embedding model",
         alias="OPSMATE_EMBEDDING_MODEL_NAME",
     )
-    reranker_model_name: str = Field(
+    reranker_name: str = Field(
         default="",
         description="The name of the reranker model",
         choices=["answerdotai", "openai", "cohere", "rrf", ""],
-        alias="OPSMATE_RERANKER_MODEL_NAME",
+        alias="OPSMATE_RERANKER_NAME",
     )
     fs_embeddings_config: Dict[str, str] = Field(
         default={}, description=fs_embedding_desc
@@ -175,6 +176,17 @@ class Config(BaseSettings):
         Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
         Path(self.contexts_dir).mkdir(parents=True, exist_ok=True)
         return self
+
+    def db_engine(self):
+        engine = create_engine(
+            self.db_url,
+            connect_args={"check_same_thread": False, "timeout": 20},
+            # echo=True,
+        )
+        with engine.connect() as conn:
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            conn.close()
+        return engine
 
 
 config = Config()

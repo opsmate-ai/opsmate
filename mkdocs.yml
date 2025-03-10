@@ -58,6 +58,7 @@ nav:
     - opsmate serve: CLI/serve.md
     - opsmate worker: CLI/worker.md
     - opsmate ingest: CLI/ingest.md
+    - opsmate ingest-prometheus-metrics-metadata: CLI/ingest-prometheus-metrics-metadata.md
     - opsmate db-migrate: CLI/db-migrate.md
     - opsmate db-rollback: CLI/db-rollback.md
     - opsmate db-revisions: CLI/db-revisions.md
@@ -68,6 +69,7 @@ nav:
   - Production: production.md
   - Integrations:
     - Add New LLM Providers: integrations/add-new-llm-providers.md
+    - Advanced Knowledge Retrieval: integrations/advanced-knowledge-retrieval.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb

@@ -19,8 +19,9 @@ from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
-from opsmate.libs.config import config
+from opsmate.libs.config import config, Config
 from opsmate.plugins import PluginRegistry
+from typing import Dict
 import asyncio
 import os
 import click
@@ -79,7 +80,52 @@ def opsmate_cli():
     pass
 
 
+def config_params(func, cli_class=Config, cli_config=config):
+    """Decorator to inject pydantic settings config as the click options."""
+    config_fields = cli_class.__annotations__
+
+    # For each field, create a Click option
+    for field_name, field_type in config_fields.items():
+        # get the metadata
+        field_info = cli_class.model_fields.get(field_name)
+        if not field_info:
+            continue
+
+        if field_type in (Dict, list, tuple) or "Dict[" in str(field_type):
+            continue
+
+        default_value = getattr(cli_config, field_name)
+        description = field_info.description or f"Set {field_name}"
+        env_var = field_info.alias
+
+        option_name = f"--{field_name.replace('_', '-')}"
+        func = click.option(
+            option_name,
+            default=default_value,
+            help=f"{description} (env: {env_var})",
+            show_default=True,
+        )(func)
+
+    def config_from_kwargs(kwargs):
+        for field_name in config_fields:
+            if field_name in kwargs:
+                setattr(cli_config, field_name, kwargs.pop(field_name))
+
+        return cli_config
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        kwargs["config"] = config_from_kwargs(kwargs)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def common_params(func):
+    # Apply config_params first
+    func = config_params(func)
+
+    # Then apply existing common params
     @click.option(
         "-m",
         "--model",
@@ -204,7 +250,14 @@ Edit the command if needed, then press Enter to execute:
 @traceit
 @coro
 async def run(
-    instruction, model, context, tools, tool_call_context, system_prompt, no_tool_output
+    instruction,
+    model,
+    context,
+    tools,
+    tool_call_context,
+    system_prompt,
+    no_tool_output,
+    config,
 ):
     """
     Run a task with the OpsMate.
@@ -287,6 +340,7 @@ async def solve(
     no_tool_output,
     answer_only,
     tool_calls_per_action,
+    config,
 ):
     """
     Solve a problem with the OpsMate.
@@ -394,6 +448,7 @@ async def chat(
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
+    config,
 ):
     """
     Chat with the OpsMate.

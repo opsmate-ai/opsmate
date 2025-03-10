@@ -117,26 +117,6 @@ class Config(BaseSettings):
     def transformers_available(cls):
         return importlib.util.find_spec("transformers") is not None
 
-    # @computed_field
-    # @property
-    # def embedding_registry(self) -> str:
-    #     if self.embedding_registry_name == "":
-    #         if self.transformers_available():
-    #             return "sentence-transformers"
-    #         else:
-    #             return "openai"
-    #     return self.embedding_registry_name
-
-    # @computed_field
-    # @property
-    # def embedding_model(self) -> str:
-    #     if self.embedding_model_name == "":
-    #         if self.transformers_available():
-    #             return DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL
-    #         else:
-    #             return DEFAULT_OPENAI_EMBEDDING_MODEL
-    #     return self.embedding_model_name
-
     @model_validator(mode="after")
     def validate_loglevel(self) -> Self:
         structlog.configure(

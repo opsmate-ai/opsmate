@@ -13,7 +13,7 @@ Usage: opsmate ingest [OPTIONS]
 Options:
   --source TEXT           Source of the knowledge base fs:////path/to/kb or
                           github:///owner/repo[:branch]
-  --path TEXT             Path to the knowledge base  [default: /]
+  --path TEXT             Path to the knowledge base
   --glob TEXT             Glob to use to find the knowledge base  [default:
                           **/*.md]
   --auto-migrate BOOLEAN  Automatically migrate the database to the latest

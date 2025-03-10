@@ -654,30 +654,35 @@ async def worker(workers, queue):
 @opsmate_cli.command()
 @click.option(
     "--prometheus-endpoint",
-    default=lambda: os.getenv("prometheus_endpoint", "http://localhost:9090"),
+    default=lambda: os.getenv("PROMETHEUS_ENDPOINT", "") or "http://localhost:9090",
     show_default=True,
-    help="Prometheus endpoint",
+    help="Prometheus endpoint. If not provided it uses $PROMETHEUS_ENDPOINT environment variable, or defaults to http://localhost:9090",
 )
 @click.option(
     "--prometheus-user-id",
     # prompt=True,
-    default=lambda: os.getenv("prometheus_user_id", ""),
+    default=lambda: os.getenv("PROMETHEUS_USER_ID", ""),
     show_default=True,
-    help="Prometheus user id",
+    help="Prometheus user id. If not provided it uses $PROMETHEUS_USER_ID environment variable, or defaults to empty string",
 )
 @click.option(
     "--prometheus-api-key",
     # prompt=True,
-    default=lambda: os.getenv("prometheus_api_key", ""),
+    default=lambda: os.getenv("PROMETHEUS_API_KEY", ""),
     show_default=True,
     hide_input=True,
-    help="Prometheus api key",
+    help="Prometheus api key. If not provided it uses $PROMETHEUS_API_KEY environment variable, or defaults to empty string",
 )
+@auto_migrate
 @coro
-async def ingest_metrics(prometheus_endpoint, prometheus_user_id, prometheus_api_key):
+async def ingest_prometheus_metrics_metadata(
+    prometheus_endpoint, prometheus_user_id, prometheus_api_key
+):
     """
-    Ingest metrics metadata into the knowledge base.
-    Note this only enqueues the taks to ingest metrics. To execute the actual ingestion in the background, run `opsmate worker`.
+    Ingest prometheus metrics metadata into the knowledge base.
+    The ingestion is done via fetching the metrics metadata from the prometheus server, and then storing it into the knowledge base.
+    The ingested metrics metadata will be used for providing context to the LLM when querying prometheus based metrics
+    Note this only enqueues the tasks to ingest metrics. To execute the actual ingestion in the background, run `opsmate worker`.
     Please run: `opsmate worker -w 1 -q lancedb-batch-ingest`
     """
     from opsmate.tools.prom import PromQL
@@ -686,8 +691,6 @@ async def ingest_metrics(prometheus_endpoint, prometheus_user_id, prometheus_api
     from opsmate.libs.config import config
 
     await init_table()
-    dbconn = await aconn()
-    table = await dbconn.open_table("knowledge_store")
 
     prom = PromQL(
         endpoint=prometheus_endpoint,

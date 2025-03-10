@@ -19,7 +19,8 @@ from opsmate.tools.command_line import ShellCommand
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
-from opsmate.libs.config import config, Config
+from opsmate.libs.config import config
+from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from typing import Dict
 import asyncio
@@ -71,6 +72,39 @@ class StdinArgument(click.ParamType):
         return value
 
 
+class CommaSeparatedList(click.Option):
+    """Custom Click option for handling comma-separated lists.
+
+    This class allows you to pass comma-separated values to a Click option
+    and have them automatically converted to a Python list.
+
+    Example usage:
+        @click.option('--items', cls=CommaSeparatedList)
+        def command(items):
+            # items will be a list
+    """
+
+    def type_cast_value(self, ctx, value):
+        if value is None or value == "":
+            return []
+
+        # Handle the case where the value is already a list
+        if isinstance(value, list) or isinstance(value, tuple):
+            return value
+
+        # Split by comma and strip whitespace
+        result = [item.strip() for item in value.split(",") if item.strip()]
+        return result
+
+    def get_help_record(self, ctx):
+        help_text = self.help or ""
+        if help_text and not help_text.endswith("."):
+            help_text += "."
+        help_text += " Values should be comma-separated."
+
+        return super(CommaSeparatedList, self).get_help_record(ctx)
+
+
 @click.group()
 def opsmate_cli():
     """
@@ -80,51 +114,64 @@ def opsmate_cli():
     pass
 
 
-def config_params(func, cli_class=Config, cli_config=config):
+def config_params(cli_config=config):
     """Decorator to inject pydantic settings config as the click options."""
-    config_fields = cli_class.__annotations__
 
-    # For each field, create a Click option
-    for field_name, field_type in config_fields.items():
-        # get the metadata
-        field_info = cli_class.model_fields.get(field_name)
-        if not field_info:
-            continue
+    def decorator(func):
+        # do not use __annotations__ as it does not include the field metadata from the parent class
+        config_fields = cli_config.model_fields
 
-        if field_type in (Dict, list, tuple) or "Dict[" in str(field_type):
-            continue
+        # For each field, create a Click option
+        for field_name, field_info in config_fields.items():
+            # get the metadata
+            field_info = cli_config.model_fields.get(field_name)
+            if not field_info:
+                continue
 
-        default_value = getattr(cli_config, field_name)
-        description = field_info.description or f"Set {field_name}"
-        env_var = field_info.alias
+            field_type = field_info.annotation
+            if field_type in (Dict, list, tuple) or "Dict[" in str(field_type):
+                continue
 
-        option_name = f"--{field_name.replace('_', '-')}"
-        func = click.option(
-            option_name,
-            default=default_value,
-            help=f"{description} (env: {env_var})",
-            show_default=True,
-        )(func)
+            default_value = getattr(cli_config, field_name)
+            is_type_iterable = isinstance(default_value, list) or isinstance(
+                default_value, tuple
+            )
+            if is_type_iterable:
+                default_value = ",".join(default_value)
+            description = field_info.description or f"Set {field_name}"
+            env_var = field_info.alias
 
-    def config_from_kwargs(kwargs):
-        for field_name in config_fields:
-            if field_name in kwargs:
-                setattr(cli_config, field_name, kwargs.pop(field_name))
+            option_name = f"--{field_name.replace('_', '-')}"
+            func = click.option(
+                option_name,
+                default=default_value,
+                help=f"{description} (env: {env_var})",
+                show_default=True,
+                cls=CommaSeparatedList if is_type_iterable else None,
+            )(func)
 
-        return cli_config
+        def config_from_kwargs(kwargs):
+            for field_name in config_fields:
+                if field_name in kwargs:
+                    setattr(cli_config, field_name, kwargs.pop(field_name))
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        kwargs["config"] = config_from_kwargs(kwargs)
-        addon_discovery()
-        return func(*args, **kwargs)
+            return cli_config
 
-    return wrapper
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            kwargs["config"] = config_from_kwargs(kwargs)
+            addon_discovery()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def common_params(func):
     # Apply config_params first
-    func = config_params(func)
+    cp = config_params()
+    func = cp(func)
 
     # Then apply existing common params
     @click.option(
@@ -535,7 +582,7 @@ async def chat(
 
 
 @opsmate_cli.command()
-@config_params
+@config_params()
 def list_contexts(config):
     """
     List all the contexts available.
@@ -551,7 +598,7 @@ def list_contexts(config):
 
 
 @opsmate_cli.command()
-@config_params
+@config_params()
 @click.option("--skip-confirm", is_flag=True, help="Skip confirmation")
 @coro
 async def reset(skip_confirm, config):
@@ -620,16 +667,20 @@ async def reset(skip_confirm, config):
     is_flag=True,
     help="Run in development mode",
 )
+@config_params(gui_config)
 @auto_migrate
 @coro
-async def serve(host, port, workers, dev):
+async def serve(host, port, workers, dev, config):
     """
     Start the OpsMate server.
     """
     import uvicorn
-    from sqlmodel import create_engine, text, Session
+    from sqlmodel import Session
     from opsmate.gui.app import kb_ingest
     from opsmate.gui.seed import seed_blueprints
+
+    # serialize config to environment variables
+    config.serialize_to_env()
 
     await kb_ingest()
     engine = config.db_engine()
@@ -678,7 +729,7 @@ async def serve(host, port, workers, dev):
     show_default=True,
     help="Queue to use for the worker",
 )
-@config_params
+@config_params()
 @auto_migrate
 @coro
 async def worker(workers, queue, config):
@@ -719,7 +770,7 @@ async def worker(workers, queue, config):
     hide_input=True,
     help="Prometheus api key. If not provided it uses $PROMETHEUS_API_KEY environment variable, or defaults to empty string",
 )
-@config_params
+@config_params()
 @auto_migrate
 @coro
 async def ingest_prometheus_metrics_metadata(
@@ -750,7 +801,7 @@ async def ingest_prometheus_metrics_metadata(
 
 
 @opsmate_cli.command()
-@config_params
+@config_params()
 def list_tools(config):
     """
     List all the tools available.
@@ -798,7 +849,7 @@ def list_models():
     show_default=True,
     help="Glob to use to find the knowledge base",
 )
-@config_params
+@config_params()
 @auto_migrate
 @coro
 async def ingest(source, path, glob, config):

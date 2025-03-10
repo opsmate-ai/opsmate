@@ -47,7 +47,7 @@ from opsmate.workflow.workflow import (
     WorkflowStep as OpsmateWorkflowStep,
     cond,
 )
-from opsmate.gui.models import Config
+from opsmate.gui.config import config
 from opsmate.gui.steps import (
     manage_initial_understanding_cell,
     cond_is_technical_query,
@@ -67,10 +67,8 @@ from opsmate.tools.prom import PromQuery
 
 logger = structlog.get_logger()
 
-config = Config()
-
-k8s_react = gen_k8s_react(config)
-k8s_simple = gen_k8s_simple(config)
+k8s_react = gen_k8s_react()
+k8s_simple = gen_k8s_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model

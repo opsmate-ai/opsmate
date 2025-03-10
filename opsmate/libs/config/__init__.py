@@ -6,6 +6,8 @@ import structlog
 import logging
 from sqlmodel import create_engine, text
 import importlib.util
+import json
+import os
 
 logger = structlog.get_logger(__name__)
 
@@ -54,7 +56,9 @@ class Config(BaseSettings):
     )
 
     embeddings_db_path: str = Field(
-        default=default_embeddings_db_path, description="The path to the lance db"
+        default=default_embeddings_db_path,
+        description="The path to the lance db",
+        alias="OPSMATE_EMBEDDINGS_DB_PATH",
     )
     embedding_registry_name: str = Field(
         default="",
@@ -74,13 +78,17 @@ class Config(BaseSettings):
         alias="OPSMATE_RERANKER_NAME",
     )
     fs_embeddings_config: Dict[str, str] = Field(
-        default={}, description=fs_embedding_desc
+        default={}, description=fs_embedding_desc, alias="OPSMATE_FS_EMBEDDINGS_CONFIG"
     )
     github_embeddings_config: Dict[str, str] = Field(
-        default={}, description=github_embedding_desc
+        default={},
+        description=github_embedding_desc,
+        alias="OPSMATE_GITHUB_EMBEDDINGS_CONFIG",
     )
     categorise: bool = Field(
-        default=True, description="Whether to categorise the embeddings"
+        default=True,
+        description="Whether to categorise the embeddings",
+        alias="OPSMATE_CATEGORISE",
     )
     splitter_config: Dict[str, Any] = Field(
         default={
@@ -91,6 +99,7 @@ class Config(BaseSettings):
             ),
         },
         description="The splitter to use for the ingestion",
+        alias="OPSMATE_SPLITTER_CONFIG",
     )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
@@ -146,6 +155,28 @@ class Config(BaseSettings):
             conn.execute(text("PRAGMA journal_mode=WAL"))
             conn.close()
         return engine
+
+    def serialize_to_env(self):
+        """Serialize the config to a dictionary of environment variables"""
+
+        env_vars = {}
+
+        for field_name, field_value in self.model_dump().items():
+            if field_value is None:
+                continue
+
+            field_info = self.model_fields.get(field_name)
+            alias = field_info.alias
+
+            if isinstance(field_value, dict):
+                env_vars[alias] = json.dumps(field_value)
+            elif isinstance(field_value, list) or isinstance(field_value, tuple):
+                env_vars[alias] = json.dumps(field_value)
+            else:
+                env_vars[alias] = str(field_value)
+
+        for key, value in env_vars.items():
+            os.environ[key] = value
 
 
 config = Config()

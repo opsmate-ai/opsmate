@@ -16,6 +16,7 @@ Options:
   -h, --host TEXT         Host to serve on  [default: 0.0.0.0]
   -p, --port INTEGER      Port to serve on  [default: 8080]
   -w, --workers INTEGER   Number of uvicorn workers to serve on  [default: 2]
+  --dev                   Run in development mode
   --auto-migrate BOOLEAN  Automatically migrate the database to the latest
                           version  [default: True]
   --help                  Show this message and exit.
@@ -39,6 +40,14 @@ opsmate serve -w 4
 ```
 
 In the example above, the server will start 4 uvicorn workers.
+
+### Run in development mode
+
+You can start the server in development mode, which is useful for development purposes.
+
+```bash
+opsmate serve --dev
+```
 
 ### Disable automatic database migration
 

@@ -83,7 +83,7 @@ def get_embedding_client():
 
 @cache
 def get_reranker():
-    match config.reranker_model_name:
+    match config.reranker_name:
         case "answerdotai":
             try:
                 import transformers  # noqa: F401

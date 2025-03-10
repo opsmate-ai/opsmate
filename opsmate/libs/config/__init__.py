@@ -89,11 +89,11 @@ class Config(BaseSettings):
         description="The name of the embedding model",
         alias="OPSMATE_EMBEDDING_MODEL_NAME",
     )
-    reranker_model_name: str = Field(
+    reranker_name: str = Field(
         default="",
         description="The name of the reranker model",
         choices=["answerdotai", "openai", "cohere", "rrf", ""],
-        alias="OPSMATE_RERANKER_MODEL_NAME",
+        alias="OPSMATE_RERANKER_NAME",
     )
     fs_embeddings_config: Dict[str, str] = Field(
         default={}, description=fs_embedding_desc

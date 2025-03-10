@@ -136,6 +136,7 @@ class Config(BaseSettings):
         return self
 
     def db_engine(self):
+        logger.info("Creating db engine", db_url=self.db_url)
         engine = create_engine(
             self.db_url,
             connect_args={"check_same_thread": False, "timeout": 20},

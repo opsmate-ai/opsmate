@@ -677,9 +677,10 @@ async def serve(host, port, workers, dev):
     show_default=True,
     help="Queue to use for the worker",
 )
+@config_params
 @auto_migrate
 @coro
-async def worker(workers, queue):
+async def worker(workers, queue, config):
     """
     Start the OpsMate worker.
     """
@@ -719,10 +720,11 @@ async def worker(workers, queue):
     hide_input=True,
     help="Prometheus api key. If not provided it uses $PROMETHEUS_API_KEY environment variable, or defaults to empty string",
 )
+@config_params
 @auto_migrate
 @coro
 async def ingest_prometheus_metrics_metadata(
-    prometheus_endpoint, prometheus_user_id, prometheus_api_key
+    prometheus_endpoint, prometheus_user_id, prometheus_api_key, config
 ):
     """
     Ingest prometheus metrics metadata into the knowledge base.
@@ -732,8 +734,8 @@ async def ingest_prometheus_metrics_metadata(
     Please run: `opsmate worker -w 1 -q lancedb-batch-ingest`
     """
     from opsmate.tools.prom import PromQL
-    from opsmate.knowledgestore.models import init_table, aconn
-    from sqlmodel import create_engine, text, Session
+    from opsmate.knowledgestore.models import init_table
+    from sqlmodel import Session
 
     await init_table()
 
@@ -797,9 +799,10 @@ def list_models():
     show_default=True,
     help="Glob to use to find the knowledge base",
 )
+@config_params
 @auto_migrate
 @coro
-async def ingest(source, path, glob):
+async def ingest(source, path, glob, config):
     """
     Ingest a knowledge base.
     Notes the ingestion worker needs to be started separately with `opsmate worker`.

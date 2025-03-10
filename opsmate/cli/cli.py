@@ -116,6 +116,7 @@ def config_params(func, cli_class=Config, cli_config=config):
     @wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["config"] = config_from_kwargs(kwargs)
+        addon_discovery()
         return func(*args, **kwargs)
 
     return wrapper
@@ -162,7 +163,6 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        addon_discovery()
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -535,11 +535,11 @@ async def chat(
 
 
 @opsmate_cli.command()
-def list_contexts():
+@config_params
+def list_contexts(config):
     """
     List all the contexts available.
     """
-    addon_discovery()
     table = Table(title="Contexts", show_header=True)
     table.add_column("Context")
     table.add_column("Description")
@@ -551,9 +551,10 @@ def list_contexts():
 
 
 @opsmate_cli.command()
+@config_params
 @click.option("--skip-confirm", is_flag=True, help="Skip confirmation")
 @coro
-async def reset(skip_confirm):
+async def reset(skip_confirm, config):
     """
     Reset the OpsMate.
     """
@@ -687,8 +688,6 @@ async def worker(workers, queue, config):
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
 
-    addon_discovery()
-
     try:
         await init_table()
         task = asyncio.create_task(dbqapp.main(workers, queue))
@@ -751,11 +750,11 @@ async def ingest_prometheus_metrics_metadata(
 
 
 @opsmate_cli.command()
-def list_tools():
+@config_params
+def list_tools(config):
     """
     List all the tools available.
     """
-    addon_discovery()
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
     table.add_column("Description")
@@ -808,12 +807,11 @@ async def ingest(source, path, glob, config):
     Notes the ingestion worker needs to be started separately with `opsmate worker`.
     """
 
-    from sqlmodel import create_engine, text, Session
+    from sqlmodel import Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
     from opsmate.knowledgestore.models import init_table
 
-    addon_discovery()
     await init_table()
 
     engine = config.db_engine()

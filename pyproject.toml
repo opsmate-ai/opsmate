@@ -72,3 +72,7 @@ docs = [
 
 [tool.setuptools]
 py-modules = ["opsmate"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

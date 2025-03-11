@@ -1,7 +1,8 @@
-from opsmate.dino.types import React, ReactAnswer, Observation
+from opsmate.dino.types import React, ReactAnswer, Observation, Message
 from opsmate.tools import ShellCommand, ACITool, GithubCloneAndCD, GithubRaisePR
 from opsmate.tools.system import SysChdir
 from opsmate.dino.react import react
+from typing import List
 import asyncio
 import structlog
 import yaml
@@ -46,7 +47,7 @@ Tool usage:
     max_iter=20,
     iterable=True,
 )
-async def iac_sme(instruction: str):
+async def iac_sme(instruction: str, chat_history: List[Message] = []):
     """
     You are an SRE who is tasked to modify the infra as code.
     """

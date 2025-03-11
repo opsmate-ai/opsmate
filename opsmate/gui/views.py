@@ -699,7 +699,16 @@ async def execute_polya_execution_instruction(
     )
     await chdir_call()
 
-    instruction = f"""
+    chat_history = await prefill_conversation(cell, session)
+
+    if len(chat_history) > 0:
+        instruction = f"""
+<instructions>
+{cell.input}
+</instructions>
+"""
+    else:
+        instruction = f"""
 Given the facts:
 
 <facts>
@@ -721,7 +730,11 @@ Here are the tasks to be performed **ONLY**:
 * PR **must be raised** if you are asked to do so
 * Verify the tasks are correct if you are working on a pre-existing branch
 </important>
-    """
+
+<instructions>
+{cell.input}
+</instructions>
+        """
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
@@ -732,6 +745,7 @@ Here are the tasks to be performed **ONLY**:
         session,
         iac_sme(
             instruction,
+            chat_history=chat_history,
             tool_call_context={
                 "envvars": EnvVar.all(session),
                 "confirmation": confirmation_prompt,

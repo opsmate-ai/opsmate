@@ -13,7 +13,7 @@ from opsmate.gui.models import (
     ExecutionConfirmation,
     default_new_cell,
 )
-from opsmate.gui.config import Config
+from opsmate.gui.config import config
 from opsmate.gui.views import (
     tlink,
     dlink,
@@ -42,10 +42,7 @@ from opsmate.ingestions import ingest_from_config
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.ingestions.jobs import ingest, delete_ingestion
 from opsmate.dbq.dbq import enqueue_task
-from sqlmodel import text
 from uuid import uuid4
-
-config = Config()
 
 
 logger = structlog.get_logger()

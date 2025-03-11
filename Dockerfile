@@ -1,24 +1,13 @@
 # Build stage
 FROM python:3.12.3-slim-bullseye AS builder
 
-ENV POETRY_VERSION=2.1.1 \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_CACHE_DIR='/var/cache/pypoetry' \
-    PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    PYTHONFAULTHANDLER=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONHASHSEED=random
+COPY --from=ghcr.io/astral-sh/uv:0.6.5 /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install poetry and dependencies in one layer
-COPY poetry.lock pyproject.toml README.md /app/
+COPY pyproject.toml uv.lock README.md LICENSE /app/
 COPY opsmate /app/opsmate
-RUN pip install --no-cache-dir poetry==$POETRY_VERSION && \
-    poetry build && \
-    rm -rf $POETRY_CACHE_DIR
+RUN uv build
 
 # Final stage
 FROM python:3.12.3-slim-bullseye

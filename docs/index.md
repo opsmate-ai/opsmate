@@ -37,7 +37,7 @@ You can start using Opsmate by running it locally on your workstation. There are
     git clone git@github.com:jingkaihe/opsmate.git
     cd opsmate
 
-    poetry build
+    uv build
 
     pipx install ./dist/opsmate-*.whl
     ```

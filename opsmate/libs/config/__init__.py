@@ -1,19 +1,24 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import (
+    BaseSettings,
+    YamlConfigSettingsSource,
+    SettingsConfigDict,
+    PydanticBaseSettingsSource,
+)
 from pydantic import Field, model_validator, field_validator
 from pathlib import Path
-from typing import Dict, Any, Self
+from typing import Dict, Any, Self, Tuple, Type
 import structlog
 import logging
-from opsmate.plugins import PluginRegistry
 from sqlmodel import create_engine, text
 import importlib.util
-import time
-from functools import wraps
+import json
+import os
 
 logger = structlog.get_logger(__name__)
 
 default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
 default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
+default_config_file = str(Path.home() / ".opsmate" / "config.yaml")
 default_plugins_dir = str(Path.home() / ".opsmate" / "plugins")
 default_contexts_dir = str(Path.home() / ".opsmate" / "contexts")
 fs_embedding_desc = """
@@ -44,26 +49,23 @@ DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-ada-002"
 DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 
-def timer():
-    def wrapper(f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
-            start = time.time()
-            result = f(*args, **kwargs)
-            end = time.time()
-            logger.info(
-                "call completed",
-                function=f"{f.__module__}.{f.__name__}",
-                time=f"{end - start:.2f}s",
-            )
-            return result
-
-        return wrapped
-
-    return wrapper
-
-
 class Config(BaseSettings):
+    model_config = SettingsConfigDict(yaml_file=default_config_file, env_file=".env")
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            env_settings,
+            YamlConfigSettingsSource(settings_cls),
+        )
+
     db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
 
     plugins_dir: str = Field(
@@ -76,7 +78,9 @@ class Config(BaseSettings):
     )
 
     embeddings_db_path: str = Field(
-        default=default_embeddings_db_path, description="The path to the lance db"
+        default=default_embeddings_db_path,
+        description="The path to the lance db",
+        alias="OPSMATE_EMBEDDINGS_DB_PATH",
     )
     embedding_registry_name: str = Field(
         default="",
@@ -96,13 +100,17 @@ class Config(BaseSettings):
         alias="OPSMATE_RERANKER_NAME",
     )
     fs_embeddings_config: Dict[str, str] = Field(
-        default={}, description=fs_embedding_desc
+        default={}, description=fs_embedding_desc, alias="OPSMATE_FS_EMBEDDINGS_CONFIG"
     )
     github_embeddings_config: Dict[str, str] = Field(
-        default={}, description=github_embedding_desc
+        default={},
+        description=github_embedding_desc,
+        alias="OPSMATE_GITHUB_EMBEDDINGS_CONFIG",
     )
     categorise: bool = Field(
-        default=True, description="Whether to categorise the embeddings"
+        default=True,
+        description="Whether to categorise the embeddings",
+        alias="OPSMATE_CATEGORISE",
     )
     splitter_config: Dict[str, Any] = Field(
         default={
@@ -113,6 +121,7 @@ class Config(BaseSettings):
             ),
         },
         description="The splitter to use for the ingestion",
+        alias="OPSMATE_SPLITTER_CONFIG",
     )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
@@ -139,26 +148,6 @@ class Config(BaseSettings):
     def transformers_available(cls):
         return importlib.util.find_spec("transformers") is not None
 
-    # @computed_field
-    # @property
-    # def embedding_registry(self) -> str:
-    #     if self.embedding_registry_name == "":
-    #         if self.transformers_available():
-    #             return "sentence-transformers"
-    #         else:
-    #             return "openai"
-    #     return self.embedding_registry_name
-
-    # @computed_field
-    # @property
-    # def embedding_model(self) -> str:
-    #     if self.embedding_model_name == "":
-    #         if self.transformers_available():
-    #             return DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL
-    #         else:
-    #             return DEFAULT_OPENAI_EMBEDDING_MODEL
-    #     return self.embedding_model_name
-
     @model_validator(mode="after")
     def validate_loglevel(self) -> Self:
         structlog.configure(
@@ -178,6 +167,7 @@ class Config(BaseSettings):
         return self
 
     def db_engine(self):
+        logger.info("Creating db engine", db_url=self.db_url)
         engine = create_engine(
             self.db_url,
             connect_args={"check_same_thread": False, "timeout": 20},
@@ -187,6 +177,28 @@ class Config(BaseSettings):
             conn.execute(text("PRAGMA journal_mode=WAL"))
             conn.close()
         return engine
+
+    def serialize_to_env(self):
+        """Serialize the config to a dictionary of environment variables"""
+
+        env_vars = {}
+
+        for field_name, field_value in self.model_dump().items():
+            if field_value is None:
+                continue
+
+            field_info = self.model_fields.get(field_name)
+            alias = field_info.alias
+
+            if isinstance(field_value, dict):
+                env_vars[alias] = json.dumps(field_value)
+            elif isinstance(field_value, list) or isinstance(field_value, tuple):
+                env_vars[alias] = json.dumps(field_value)
+            else:
+                env_vars[alias] = str(field_value)
+
+        for key, value in env_vars.items():
+            os.environ[key] = value
 
 
 config = Config()

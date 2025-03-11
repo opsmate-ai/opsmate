@@ -20,7 +20,9 @@ from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
 from opsmate.libs.config import config
+from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
+from typing import Dict
 import asyncio
 import os
 import click
@@ -70,6 +72,39 @@ class StdinArgument(click.ParamType):
         return value
 
 
+class CommaSeparatedList(click.Option):
+    """Custom Click option for handling comma-separated lists.
+
+    This class allows you to pass comma-separated values to a Click option
+    and have them automatically converted to a Python list.
+
+    Example usage:
+        @click.option('--items', cls=CommaSeparatedList)
+        def command(items):
+            # items will be a list
+    """
+
+    def type_cast_value(self, ctx, value):
+        if value is None or value == "":
+            return []
+
+        # Handle the case where the value is already a list
+        if isinstance(value, list) or isinstance(value, tuple):
+            return value
+
+        # Split by comma and strip whitespace
+        result = [item.strip() for item in value.split(",") if item.strip()]
+        return result
+
+    def get_help_record(self, ctx):
+        help_text = self.help or ""
+        if help_text and not help_text.endswith("."):
+            help_text += "."
+        help_text += " Values should be comma-separated."
+
+        return super(CommaSeparatedList, self).get_help_record(ctx)
+
+
 @click.group()
 def opsmate_cli():
     """
@@ -79,7 +114,66 @@ def opsmate_cli():
     pass
 
 
+def config_params(cli_config=config):
+    """Decorator to inject pydantic settings config as the click options."""
+
+    def decorator(func):
+        # do not use __annotations__ as it does not include the field metadata from the parent class
+        config_fields = cli_config.model_fields
+
+        # For each field, create a Click option
+        for field_name, field_info in config_fields.items():
+            # get the metadata
+            field_info = cli_config.model_fields.get(field_name)
+            if not field_info:
+                continue
+
+            field_type = field_info.annotation
+            if field_type in (Dict, list, tuple) or "Dict[" in str(field_type):
+                continue
+
+            default_value = getattr(cli_config, field_name)
+            is_type_iterable = isinstance(default_value, list) or isinstance(
+                default_value, tuple
+            )
+            if is_type_iterable:
+                default_value = ",".join(default_value)
+            description = field_info.description or f"Set {field_name}"
+            env_var = field_info.alias
+
+            option_name = f"--{field_name.replace('_', '-')}"
+            func = click.option(
+                option_name,
+                default=default_value,
+                help=f"{description} (env: {env_var})",
+                show_default=True,
+                cls=CommaSeparatedList if is_type_iterable else None,
+            )(func)
+
+        def config_from_kwargs(kwargs):
+            for field_name in config_fields:
+                if field_name in kwargs:
+                    setattr(cli_config, field_name, kwargs.pop(field_name))
+
+            return cli_config
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            kwargs["config"] = config_from_kwargs(kwargs)
+            addon_discovery()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def common_params(func):
+    # Apply config_params first
+    cp = config_params()
+    func = cp(func)
+
+    # Then apply existing common params
     @click.option(
         "-m",
         "--model",
@@ -116,7 +210,6 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        addon_discovery()
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
@@ -204,7 +297,14 @@ Edit the command if needed, then press Enter to execute:
 @traceit
 @coro
 async def run(
-    instruction, model, context, tools, tool_call_context, system_prompt, no_tool_output
+    instruction,
+    model,
+    context,
+    tools,
+    tool_call_context,
+    system_prompt,
+    no_tool_output,
+    config,
 ):
     """
     Run a task with the OpsMate.
@@ -287,6 +387,7 @@ async def solve(
     no_tool_output,
     answer_only,
     tool_calls_per_action,
+    config,
 ):
     """
     Solve a problem with the OpsMate.
@@ -394,6 +495,7 @@ async def chat(
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
+    config,
 ):
     """
     Chat with the OpsMate.
@@ -480,11 +582,11 @@ async def chat(
 
 
 @opsmate_cli.command()
-def list_contexts():
+@config_params()
+def list_contexts(config):
     """
     List all the contexts available.
     """
-    addon_discovery()
     table = Table(title="Contexts", show_header=True)
     table.add_column("Context")
     table.add_column("Description")
@@ -496,9 +598,10 @@ def list_contexts():
 
 
 @opsmate_cli.command()
+@config_params()
 @click.option("--skip-confirm", is_flag=True, help="Skip confirmation")
 @coro
-async def reset(skip_confirm):
+async def reset(skip_confirm, config):
     """
     Reset the OpsMate.
     """
@@ -564,16 +667,20 @@ async def reset(skip_confirm):
     is_flag=True,
     help="Run in development mode",
 )
+@config_params(gui_config)
 @auto_migrate
 @coro
-async def serve(host, port, workers, dev):
+async def serve(host, port, workers, dev, config):
     """
     Start the OpsMate server.
     """
     import uvicorn
-    from sqlmodel import create_engine, text, Session
+    from sqlmodel import Session
     from opsmate.gui.app import kb_ingest
     from opsmate.gui.seed import seed_blueprints
+
+    # serialize config to environment variables
+    config.serialize_to_env()
 
     await kb_ingest()
     engine = config.db_engine()
@@ -622,16 +729,15 @@ async def serve(host, port, workers, dev):
     show_default=True,
     help="Queue to use for the worker",
 )
+@config_params()
 @auto_migrate
 @coro
-async def worker(workers, queue):
+async def worker(workers, queue, config):
     """
     Start the OpsMate worker.
     """
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
-
-    addon_discovery()
 
     try:
         await init_table()
@@ -664,10 +770,11 @@ async def worker(workers, queue):
     hide_input=True,
     help="Prometheus api key. If not provided it uses $PROMETHEUS_API_KEY environment variable, or defaults to empty string",
 )
+@config_params()
 @auto_migrate
 @coro
 async def ingest_prometheus_metrics_metadata(
-    prometheus_endpoint, prometheus_user_id, prometheus_api_key
+    prometheus_endpoint, prometheus_user_id, prometheus_api_key, config
 ):
     """
     Ingest prometheus metrics metadata into the knowledge base.
@@ -677,8 +784,8 @@ async def ingest_prometheus_metrics_metadata(
     Please run: `opsmate worker -w 1 -q lancedb-batch-ingest`
     """
     from opsmate.tools.prom import PromQL
-    from opsmate.knowledgestore.models import init_table, aconn
-    from sqlmodel import create_engine, text, Session
+    from opsmate.knowledgestore.models import init_table
+    from sqlmodel import Session
 
     await init_table()
 
@@ -694,11 +801,11 @@ async def ingest_prometheus_metrics_metadata(
 
 
 @opsmate_cli.command()
-def list_tools():
+@config_params()
+def list_tools(config):
     """
     List all the tools available.
     """
-    addon_discovery()
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
     table.add_column("Description")
@@ -742,20 +849,20 @@ def list_models():
     show_default=True,
     help="Glob to use to find the knowledge base",
 )
+@config_params()
 @auto_migrate
 @coro
-async def ingest(source, path, glob):
+async def ingest(source, path, glob, config):
     """
     Ingest a knowledge base.
     Notes the ingestion worker needs to be started separately with `opsmate worker`.
     """
 
-    from sqlmodel import create_engine, text, Session
+    from sqlmodel import Session
     from opsmate.dbq.dbq import enqueue_task
     from opsmate.ingestions.jobs import ingest
     from opsmate.knowledgestore.models import init_table
 
-    addon_discovery()
     await init_table()
 
     engine = config.db_engine()
@@ -802,6 +909,11 @@ async def ingest(source, path, glob):
     console.print("Ingesting knowledges in the background...")
 
 
+alembic_cfg_path = os.path.join(
+    os.path.dirname(__file__), "..", "migrations", "alembic.ini"
+)
+
+
 @opsmate_cli.command()
 @click.option(
     "-r",
@@ -815,7 +927,7 @@ def db_migrate(revision):
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.upgrade(alembic_cfg, revision)
     click.echo(f"Database upgraded to: {revision}")
 
@@ -833,7 +945,7 @@ def db_rollback(revision):
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.downgrade(alembic_cfg, revision)
     click.echo(f"Database downgraded to: {revision}")
 
@@ -846,7 +958,7 @@ def db_revisions():
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.history(alembic_cfg)
 
 

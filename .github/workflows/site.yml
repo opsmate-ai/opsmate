@@ -26,10 +26,10 @@ jobs:
             mkdocs-material-
       - name: Install dependencies
         run: |
-          pipx install poetry --python $(which python3.12)
+          pipx install uv --python $(which python3.12)
       - name: Install docs dependencies
         run: |
-          poetry install --with docs
+          uv sync --group docs --python $(which python3.12)
       - name: Deploy docs
         run: |
-          poetry run mkdocs gh-deploy --force
+          uv run mkdocs gh-deploy --force

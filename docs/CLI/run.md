@@ -8,19 +8,10 @@ Usage: opsmate run [OPTIONS] INSTRUCTION
   Run a task with the OpsMate.
 
 Options:
-Usage: opsmate chat [OPTIONS]
-
-  Chat with the OpsMate.
-
-Options:
-  -i, --max-iter INTEGER          Max number of iterations the AI assistant
-                                  can reason about  [default: 10]
   -c, --context TEXT              Context to be added to the prompt. Run the
                                   list-contexts command to see all the
                                   contexts available.  [default: cli]
-  --tool-calls-per-action INTEGER
-                                  Number of tool calls per action  [default:
-                                  1]
+  -n, --no-tool-output            Do not print tool outputs
   -m, --model TEXT                Large language model to use. To list models
                                   available please run the list-models
                                   command.  [default: gpt-4o]
@@ -31,6 +22,27 @@ Options:
                                   Max length of the output, if the output is
                                   truncated, the tmp file will be printed in
                                   the output  [default: 10000]
+  --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
+                                  [default: INFO]
+  --categorise BOOLEAN            Whether to categorise the embeddings (env:
+                                  OPSMATE_CATEGORISE)  [default: True]
+  --reranker-name TEXT            The name of the reranker model (env:
+                                  OPSMATE_RERANKER_NAME)  [default: ""]
+  --embedding-model-name TEXT     The name of the embedding model (env:
+                                  OPSMATE_EMBEDDING_MODEL_NAME)  [default:
+                                  text-embedding-ada-002]
+  --embedding-registry-name TEXT  The name of the embedding registry (env:
+                                  OPSMATE_EMBEDDING_REGISTRY_NAME)  [default:
+                                  openai]
+  --embeddings-db-path TEXT       The path to the lance db (env:
+                                  OPSMATE_EMBEDDINGS_DB_PATH)  [default:
+                                  /root/.opsmate/embeddings]
+  --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
+                                  [default: /root/.opsmate/contexts]
+  --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
+                                  [default: /root/.opsmate/plugins]
+  --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
+                                  sqlite:////root/.opsmate/opsmate.db]
   --help                          Show this message and exit.
 ```
 

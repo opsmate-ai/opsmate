@@ -22,12 +22,10 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          pipx install poetry --python $(which python3.12)
-      - name: Install project
-        run: poetry install
+          pipx install uv --python $(which python3.12)
       - name: Build package
         run: |
-          poetry build
+          uv build
       - name: upload dists
         uses: actions/upload-artifact@v4
         with:

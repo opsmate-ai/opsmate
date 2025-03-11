@@ -14,19 +14,42 @@ Usage: opsmate ingest-prometheus-metrics-metadata [OPTIONS]
   worker -w 1 -q lancedb-batch-ingest`
 
 Options:
-  --prometheus-endpoint TEXT  Prometheus endpoint. If not provided it uses
-                              $PROMETHEUS_ENDPOINT environment variable, or
-                              defaults to http://localhost:9090  [default:
-                              (dynamic)]
-  --prometheus-user-id TEXT   Prometheus user id. If not provided it uses
-                              $PROMETHEUS_USER_ID environment variable, or
-                              defaults to empty string  [default: (dynamic)]
-  --prometheus-api-key TEXT   Prometheus api key. If not provided it uses
-                              $PROMETHEUS_API_KEY environment variable, or
-                              defaults to empty string  [default: (dynamic)]
-  --auto-migrate BOOLEAN      Automatically migrate the database to the latest
-                              version  [default: True]
-  --help                      Show this message and exit.
+  --prometheus-endpoint TEXT      Prometheus endpoint. If not provided it uses
+                                  $PROMETHEUS_ENDPOINT environment variable,
+                                  or defaults to http://localhost:9090
+                                  [default: (dynamic)]
+  --prometheus-user-id TEXT       Prometheus user id. If not provided it uses
+                                  $PROMETHEUS_USER_ID environment variable, or
+                                  defaults to empty string  [default:
+                                  (dynamic)]
+  --prometheus-api-key TEXT       Prometheus api key. If not provided it uses
+                                  $PROMETHEUS_API_KEY environment variable, or
+                                  defaults to empty string  [default:
+                                  (dynamic)]
+  --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
+                                  [default: INFO]
+  --categorise BOOLEAN            Whether to categorise the embeddings (env:
+                                  OPSMATE_CATEGORISE)  [default: True]
+  --reranker-name TEXT            The name of the reranker model (env:
+                                  OPSMATE_RERANKER_NAME)  [default: ""]
+  --embedding-model-name TEXT     The name of the embedding model (env:
+                                  OPSMATE_EMBEDDING_MODEL_NAME)  [default:
+                                  text-embedding-ada-002]
+  --embedding-registry-name TEXT  The name of the embedding registry (env:
+                                  OPSMATE_EMBEDDING_REGISTRY_NAME)  [default:
+                                  openai]
+  --embeddings-db-path TEXT       The path to the lance db (env:
+                                  OPSMATE_EMBEDDINGS_DB_PATH)  [default:
+                                  /root/.opsmate/embeddings]
+  --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
+                                  [default: /root/.opsmate/contexts]
+  --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
+                                  [default: /root/.opsmate/plugins]
+  --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
+                                  sqlite:////root/.opsmate/opsmate.db]
+  --auto-migrate BOOLEAN          Automatically migrate the database to the
+                                  latest version  [default: True]
+  --help                          Show this message and exit.
 ```
 
 ## DESCRIPTION

@@ -20,7 +20,7 @@ from opsmate.dino.types import Message, Observation, ToolCall
 from opsmate.dino.react import react
 from opsmate.dino import dino
 from sqlalchemy.orm import registry
-from opsmate.gui.config import Config
+from opsmate.gui.config import config
 import yaml
 import pickle
 from pydantic import BaseModel
@@ -359,7 +359,11 @@ def default_new_cell(workflow: Workflow):
     )
 
 
-def gen_k8s_react(config: Config):
+# let's discover the plugins in the model for now
+config.plugins_discover()
+
+
+def gen_k8s_react():
     contexts = [config.system_prompt] if config.system_prompt != "" else [k8s_ctx]
 
     @react(
@@ -374,7 +378,7 @@ def gen_k8s_react(config: Config):
     return k8s_react
 
 
-def gen_k8s_simple(config: Config):
+def gen_k8s_simple():
     system_prompt = (
         config.system_prompt if config.system_prompt != "" else k8s_ctx.system_prompt
     )

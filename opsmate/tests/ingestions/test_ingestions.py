@@ -10,20 +10,17 @@ class TestIngestions(BaseTestCase):
     def test_ingestions_from_env(self):
         old_token = os.getenv("GITHUB_TOKEN")
         os.environ["GITHUB_TOKEN"] = "env-token"
-
-        cfg = Config(
-            github_embeddings_config={
-                "opsmate/opsmate:dev": "*.md",
-                "opsmate/opsmate2": "*.txt",
-            },
-            fs_embeddings_config={
-                "your_repo_path": "*.md",
-                "your_repo_path2": "*.txt",
-            },
-        )
+        cfg = Config()
+        cfg.github_embeddings_config = {
+            "opsmate/opsmate:dev": "*.md",
+            "opsmate/opsmate2": "*.txt",
+        }
+        cfg.fs_embeddings_config = {
+            "your_repo_path": "*.md",
+            "your_repo_path2": "*.txt",
+        }
         ingestions = ingestions_from_config(cfg)
         assert len(ingestions) == 4
-
         assert isinstance(ingestions[0], GithubIngestion)
         assert ingestions[0].data_source_provider() == "github"
         assert ingestions[0].data_source() == "opsmate/opsmate"

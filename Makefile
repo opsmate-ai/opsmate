@@ -44,7 +44,7 @@ kind-destroy: kind
 .PHONY: api-gen
 api-gen: # generate the api spec
 	echo "Generating the api spec..."
-	poetry run python scripts/api-gen.py
+	uv run python scripts/api-gen.py
 
 .PHONY: python-sdk-codegen
 python-sdk-codegen: api-gen # generate the python sdk

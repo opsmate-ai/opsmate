@@ -47,7 +47,7 @@ from opsmate.workflow.workflow import (
     WorkflowStep as OpsmateWorkflowStep,
     cond,
 )
-from opsmate.gui.models import Config
+from opsmate.gui.config import config
 from opsmate.gui.steps import (
     manage_initial_understanding_cell,
     cond_is_technical_query,
@@ -67,10 +67,8 @@ from opsmate.tools.prom import PromQuery
 
 logger = structlog.get_logger()
 
-config = Config()
-
-k8s_react = gen_k8s_react(config)
-k8s_simple = gen_k8s_simple(config)
+k8s_react = gen_k8s_react()
+k8s_simple = gen_k8s_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model
@@ -701,7 +699,16 @@ async def execute_polya_execution_instruction(
     )
     await chdir_call()
 
-    instruction = f"""
+    chat_history = await prefill_conversation(cell, session)
+
+    if len(chat_history) > 0:
+        instruction = f"""
+<instructions>
+{cell.input}
+</instructions>
+"""
+    else:
+        instruction = f"""
 Given the facts:
 
 <facts>
@@ -723,7 +730,11 @@ Here are the tasks to be performed **ONLY**:
 * PR **must be raised** if you are asked to do so
 * Verify the tasks are correct if you are working on a pre-existing branch
 </important>
-    """
+
+<instructions>
+{cell.input}
+</instructions>
+        """
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
@@ -734,6 +745,7 @@ Here are the tasks to be performed **ONLY**:
         session,
         iac_sme(
             instruction,
+            chat_history=chat_history,
             tool_call_context={
                 "envvars": EnvVar.all(session),
                 "confirmation": confirmation_prompt,

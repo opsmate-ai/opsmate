@@ -29,10 +29,15 @@ class Config(OpsmateConfig):
         choices=["gpt-4o", "claude-3-5-sonnet-20241022", "grok-2-1212"],
     )
 
-    @model_validator(mode="after")
-    def validate_tools(self) -> Self:
+    # @model_validator(mode="after")
+    # def validate_tools(self) -> Self:
+    #     PluginRegistry.discover(self.plugins_dir)
+    #     return self
+    def plugins_discover(self):
         PluginRegistry.discover(self.plugins_dir)
-        return self
 
     def opsmate_tools(self):
         return PluginRegistry.get_tools_from_list(self.tools)
+
+
+config = Config()

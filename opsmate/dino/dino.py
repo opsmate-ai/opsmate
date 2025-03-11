@@ -140,7 +140,7 @@ def dino(
             if tool_calls_only:
                 if not hasattr(response_model, "tool_outputs"):
                     raise ValueError(
-                        "response_model must have a tool_outputs field when tool_calls_only is True"
+                        f"response_model {response_model} must have a tool_outputs field when tool_calls_only is True"
                     )
             _model = _get_model(model, decorator_model)
             _tools = _get_tools(tools, decorator_tools)
@@ -198,7 +198,8 @@ def dino(
                     tool_outputs.append(resp)
 
             if tool_calls_only:
-                response = response_model(tool_outputs=tool_outputs)
+                response = response_model()
+                response.tool_outputs = tool_outputs
             else:
                 response = await provider.chat_completion(
                     messages=messages,
@@ -211,10 +212,11 @@ def dino(
                     **ikwargs,
                 )
 
-            # check if response class has a tool_outputs field
-            if hasattr(response, "tool_outputs"):
-                assert response.tool_outputs == [], "must not hallucinate tool outputs"
-                response.tool_outputs = tool_outputs
+                if hasattr(response, "tool_outputs"):
+                    assert (
+                        response.tool_outputs == []
+                    ), "must not hallucinate tool outputs"
+                    response.tool_outputs = tool_outputs
 
             if not after_hook:
                 return response

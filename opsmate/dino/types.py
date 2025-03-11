@@ -193,7 +193,7 @@ class ResponseWithToolOutputs(BaseModel, Generic[OutputType]):
 
 
 class Observation(ResponseWithToolOutputs[ToolCall]):
-    observation: str = Field(description="The observation of the action")
+    observation: str = Field(description="The observation of the action", default="")
 
     @computed_field
     @property

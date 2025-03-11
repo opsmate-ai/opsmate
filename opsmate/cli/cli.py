@@ -293,6 +293,12 @@ Edit the command if needed, then press Enter to execute:
     is_flag=True,
     help="Do not print tool outputs",
 )
+@click.option(
+    "--tool-calls-only",
+    is_flag=True,
+    default=True,
+    help="Only print tool calls",
+)
 @common_params
 @traceit
 @coro
@@ -304,6 +310,7 @@ async def run(
     tool_call_context,
     system_prompt,
     no_tool_output,
+    tool_calls_only,
     config,
 ):
     """
@@ -329,12 +336,20 @@ async def run(
             Message.user(instruction),
         ]
 
-    observation = await run_command(instruction, context=tool_call_context)
+    observation = await run_command(
+        instruction,
+        context=tool_call_context,
+        tool_calls_only=tool_calls_only,
+    )
+    if tool_calls_only:
+        for tool_call in observation.tool_outputs:
+            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
+        return
 
     if not no_tool_output:
         for tool_call in observation.tool_outputs:
             console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
-        console.print(Markdown(observation.observation))
+            console.print(Markdown(observation.observation))
     else:
         print(observation.observation)
 

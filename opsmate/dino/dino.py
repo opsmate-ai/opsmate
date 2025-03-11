@@ -134,8 +134,14 @@ def dino(
             tools: List[ToolCall] = [],
             model: str = None,
             client: AsyncInstructor = None,
+            tool_calls_only: bool = False,
             **fn_kwargs: P.kwargs,
         ):
+            if tool_calls_only:
+                if not hasattr(response_model, "tool_outputs"):
+                    raise ValueError(
+                        "response_model must have a tool_outputs field when tool_calls_only is True"
+                    )
             _model = _get_model(model, decorator_model)
             _tools = _get_tools(tools, decorator_tools)
             _client = _get_client(client, decorator_client)
@@ -191,16 +197,19 @@ def dino(
                     # logger.info("individual tool output after", tool=resp.output)
                     tool_outputs.append(resp)
 
-            response = await provider.chat_completion(
-                messages=messages,
-                response_model=response_model,
-                client=_client,
-                max_retries=AsyncRetrying(
-                    stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
-                    wait=wait_fixed(1),
-                ),
-                **ikwargs,
-            )
+            if tool_calls_only:
+                response = response_model(tool_outputs=tool_outputs)
+            else:
+                response = await provider.chat_completion(
+                    messages=messages,
+                    response_model=response_model,
+                    client=_client,
+                    max_retries=AsyncRetrying(
+                        stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
+                        wait=wait_fixed(1),
+                    ),
+                    **ikwargs,
+                )
 
             # check if response class has a tool_outputs field
             if hasattr(response, "tool_outputs"):

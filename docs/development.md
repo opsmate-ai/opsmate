@@ -3,11 +3,11 @@
 ## Install dependencies
 
 ```bash
-poetry install
+uv sync
 ```
 
 ## Running tests
 
 ```bash
-poetry run pytest -n auto
+uv run pytest ./opsmate/tests -n auto
 ```

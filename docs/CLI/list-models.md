@@ -2,6 +2,17 @@
 
 Currently on OpsMate we cherry-pick the models that are suitable for performing SRE/DevOps oriented tasks that being said in the future we will look into supporting extra models through the plugin system.
 
+## OPTIONS
+
+```bash
+Usage: opsmate list-models [OPTIONS]
+
+  List all the models available.
+
+Options:
+  --help  Show this message and exit.
+```
+
 ## USAGE
 
 ```bash

@@ -909,6 +909,11 @@ async def ingest(source, path, glob, config):
     console.print("Ingesting knowledges in the background...")
 
 
+alembic_cfg_path = os.path.join(
+    os.path.dirname(__file__), "..", "migrations", "alembic.ini"
+)
+
+
 @opsmate_cli.command()
 @click.option(
     "-r",
@@ -922,7 +927,7 @@ def db_migrate(revision):
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.upgrade(alembic_cfg, revision)
     click.echo(f"Database upgraded to: {revision}")
 
@@ -940,7 +945,7 @@ def db_rollback(revision):
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.downgrade(alembic_cfg, revision)
     click.echo(f"Database downgraded to: {revision}")
 
@@ -953,7 +958,7 @@ def db_revisions():
     from alembic import command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("opsmate/migrations/alembic.ini")
+    alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.history(alembic_cfg)
 
 

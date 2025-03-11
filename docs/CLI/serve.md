@@ -13,13 +13,46 @@ Usage: opsmate serve [OPTIONS]
   Start the OpsMate server.
 
 Options:
-  -h, --host TEXT         Host to serve on  [default: 0.0.0.0]
-  -p, --port INTEGER      Port to serve on  [default: 8080]
-  -w, --workers INTEGER   Number of uvicorn workers to serve on  [default: 2]
-  --dev                   Run in development mode
-  --auto-migrate BOOLEAN  Automatically migrate the database to the latest
-                          version  [default: True]
-  --help                  Show this message and exit.
+  -h, --host TEXT                 Host to serve on  [default: 0.0.0.0]
+  -p, --port INTEGER              Port to serve on  [default: 8080]
+  -w, --workers INTEGER           Number of uvicorn workers to serve on
+                                  [default: 2]
+  --dev                           Run in development mode
+  --model TEXT                    Set model (env: OPSMATE_MODEL)  [default:
+                                  gpt-4o]
+  --system-prompt TEXT            Set system_prompt (env:
+                                  OPSMATE_SYSTEM_PROMPT)  [default: ""]
+  --tools TEXT                    Set tools (env: OPSMATE_TOOLS)  [default: Sh
+                                  ellCommand,KnowledgeRetrieval,ACITool,HtmlTo
+                                  Text,PrometheusTool]
+  --token TEXT                    Set token (env: OPSMATE_TOKEN)  [default:
+                                  ""]
+  --session-name TEXT             Set session_name (env: OPSMATE_SESSION_NAME)
+                                  [default: session]
+  --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
+                                  [default: INFO]
+  --categorise BOOLEAN            Whether to categorise the embeddings (env:
+                                  OPSMATE_CATEGORISE)  [default: True]
+  --reranker-name TEXT            The name of the reranker model (env:
+                                  OPSMATE_RERANKER_NAME)  [default: ""]
+  --embedding-model-name TEXT     The name of the embedding model (env:
+                                  OPSMATE_EMBEDDING_MODEL_NAME)  [default:
+                                  text-embedding-ada-002]
+  --embedding-registry-name TEXT  The name of the embedding registry (env:
+                                  OPSMATE_EMBEDDING_REGISTRY_NAME)  [default:
+                                  openai]
+  --embeddings-db-path TEXT       The path to the lance db (env:
+                                  OPSMATE_EMBEDDINGS_DB_PATH)  [default:
+                                  /root/.opsmate/embeddings]
+  --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
+                                  [default: /root/.opsmate/contexts]
+  --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
+                                  [default: /root/.opsmate/plugins]
+  --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
+                                  sqlite:////root/.opsmate/opsmate.db]
+  --auto-migrate BOOLEAN          Automatically migrate the database to the
+                                  latest version  [default: True]
+  --help                          Show this message and exit.
 ```
 
 

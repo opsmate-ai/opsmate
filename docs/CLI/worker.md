@@ -10,11 +10,34 @@ Usage: opsmate worker [OPTIONS]
   Start the OpsMate worker.
 
 Options:
-  -w, --workers INTEGER   Number of concurrent background workers  [default:
-                          10]
-  --auto-migrate BOOLEAN  Automatically migrate the database to the latest
-                          version  [default: True]
-  --help                  Show this message and exit.
+  -w, --workers INTEGER           Number of concurrent background workers
+                                  [default: 10]
+  -q, --queue TEXT                Queue to use for the worker  [default:
+                                  default]
+  --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
+                                  [default: INFO]
+  --categorise BOOLEAN            Whether to categorise the embeddings (env:
+                                  OPSMATE_CATEGORISE)  [default: True]
+  --reranker-name TEXT            The name of the reranker model (env:
+                                  OPSMATE_RERANKER_NAME)  [default: ""]
+  --embedding-model-name TEXT     The name of the embedding model (env:
+                                  OPSMATE_EMBEDDING_MODEL_NAME)  [default:
+                                  text-embedding-ada-002]
+  --embedding-registry-name TEXT  The name of the embedding registry (env:
+                                  OPSMATE_EMBEDDING_REGISTRY_NAME)  [default:
+                                  openai]
+  --embeddings-db-path TEXT       The path to the lance db (env:
+                                  OPSMATE_EMBEDDINGS_DB_PATH)  [default:
+                                  /root/.opsmate/embeddings]
+  --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
+                                  [default: /root/.opsmate/contexts]
+  --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
+                                  [default: /root/.opsmate/plugins]
+  --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
+                                  sqlite:////root/.opsmate/opsmate.db]
+  --auto-migrate BOOLEAN          Automatically migrate the database to the
+                                  latest version  [default: True]
+  --help                          Show this message and exit.
 ```
 
 ## EXAMPLES

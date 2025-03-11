@@ -1,7 +1,12 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import (
+    BaseSettings,
+    YamlConfigSettingsSource,
+    SettingsConfigDict,
+    PydanticBaseSettingsSource,
+)
 from pydantic import Field, model_validator, field_validator
 from pathlib import Path
-from typing import Dict, Any, Self
+from typing import Dict, Any, Self, Tuple, Type
 import structlog
 import logging
 from sqlmodel import create_engine, text
@@ -13,6 +18,7 @@ logger = structlog.get_logger(__name__)
 
 default_embeddings_db_path = str(Path.home() / ".opsmate" / "embeddings")
 default_db_url = f"sqlite:///{str(Path.home() / '.opsmate' / 'opsmate.db')}"
+default_config_file = str(Path.home() / ".opsmate" / "config.yaml")
 default_plugins_dir = str(Path.home() / ".opsmate" / "plugins")
 default_contexts_dir = str(Path.home() / ".opsmate" / "contexts")
 fs_embedding_desc = """
@@ -44,6 +50,22 @@ DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 
 class Config(BaseSettings):
+    model_config = SettingsConfigDict(yaml_file=default_config_file, env_file=".env")
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            env_settings,
+            YamlConfigSettingsSource(settings_cls),
+        )
+
     db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
 
     plugins_dir: str = Field(

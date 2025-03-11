@@ -1,13 +1,11 @@
 import pytest
 from pydantic import BaseModel, ValidationInfo, model_validator
 from opsmate.dino import dino, dtool
-from typing import Literal, Iterable, Any
+from typing import Literal, Iterable, Any, List
 from openai import AsyncOpenAI
 import instructor
-from opsmate.dino.types import ResponseWithToolOutputs, Message, ImageURLContent
+from opsmate.dino.types import ResponseWithToolOutputs, Message, ToolCall
 import os
-import base64
-import httpx
 
 MODELS = ["gpt-4o-mini", "claude-3-5-sonnet-20241022"]
 
@@ -423,3 +421,50 @@ async def test_vision_support(model: str):
 
     # image_base64 = base64.urlsafe_b64encode(httpx.get(CAT_IMAGE_URL).content).decode()
     # assert await classify_image_content(image_base64) == "cat"
+
+
+@pytest.mark.asyncio
+async def test_tool_calls_only():
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"The weather in {location} is sunny"
+
+    class Output(ResponseWithToolOutputs[ToolCall]):
+        pass
+
+    print(hasattr(Output, "tool_outputs"))
+
+    @dino(
+        "gpt-4o-mini",
+        tools=[get_weather],
+        response_model=Output,
+    )
+    async def get_weather_info(location: str):
+        return f"What is the weather in {location}?"
+
+    output = await get_weather_info("San Francisco", tool_calls_only=True)
+    assert len(output.tool_outputs) == 1
+    assert output.tool_outputs[0].output == "The weather in San Francisco is sunny"
+    assert output.tool_outputs[0].location == "San Francisco"
+
+
+@pytest.mark.asyncio
+async def test_tool_calls_only_with_invalid_response_model():
+    @dtool
+    async def get_weather(location: str) -> str:
+        return f"The weather in {location} is sunny"
+
+    class Output(BaseModel):
+        pass
+
+    with pytest.raises(ValueError):
+
+        @dino(
+            "gpt-4o-mini",
+            tools=[get_weather],
+            response_model=Output,
+        )
+        async def get_weather_info(location: str):
+            return f"What is the weather in {location}?"
+
+        await get_weather_info("San Francisco", tool_calls_only=True)

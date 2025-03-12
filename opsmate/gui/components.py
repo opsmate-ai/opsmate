@@ -26,6 +26,7 @@ from datetime import datetime
 import yaml
 import structlog
 from .editor import CodeEditor
+import json
 
 logger = structlog.get_logger()
 
@@ -192,10 +193,12 @@ class CellComponent:
                     Button(
                         edit_icon_svg,
                         hx_vals=f"""js:{{hidden: false}}""",
-                        hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
-                        hx_on=":",
+                        # hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_edit(),
+                        **{
+                            "hx-on:click": f"document.getElementById('cell-input-container-{self.cell.id}').hidden = false; initEditor('cell-input-{self.cell.id}', {json.dumps(self.cell.input)});",
+                        },
                     ),
                     Button(
                         stop_icon_svg,

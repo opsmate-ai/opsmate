@@ -69,11 +69,7 @@ def CodeEditor(cell: Cell):
                 ),
                 Script(
                     f"""
-                    // Initialize immediately instead of waiting for DOMContentLoaded
-                    initEditor('cell-input-{cell.id}', {json.dumps(cell.input)});
-
-                    // Also listen for htmx:afterSwap event to reinitialize after HTMX updates
-                    document.body.addEventListener('htmx:afterSwap', function(evt) {{
+                    document.body.addEventListener('DOMContentLoaded', function(evt) {{
                         if (document.getElementById('cell-input-{cell.id}')) {{
                             initEditor('cell-input-{cell.id}', {json.dumps(cell.input)});
                         }}
@@ -84,5 +80,6 @@ def CodeEditor(cell: Cell):
             ),
             cls="flex flex-col h-auto w-full",
             hidden=cell.hidden,
+            id=f"cell-input-container-{cell.id}",
         ),
     )

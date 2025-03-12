@@ -36,6 +36,10 @@ from opsmate.gui.views import (
     settings_body,
     new_envvar_form,
     add_envvar_button,
+    ace_editor,
+    tippy_css,
+    tippy_js,
+    popper_js,
 )
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
@@ -70,6 +74,10 @@ app = FastHTML(
         tlink,
         dlink,
         picolink,
+        ace_editor,
+        tippy_css,
+        popper_js,
+        tippy_js,
         MarkdownJS(),
         HighlightJS(langs=("python", "bash")),
         nav,

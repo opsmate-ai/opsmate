@@ -25,6 +25,7 @@ from opsmate.tools.prom import PrometheusTool
 from datetime import datetime
 import yaml
 import structlog
+from .editor import CodeEditor
 
 logger = structlog.get_logger()
 
@@ -190,8 +191,9 @@ class CellComponent:
                     ),
                     Button(
                         edit_icon_svg,
-                        Input(type="hidden", value="false", name="hidden"),
+                        hx_vals=f"""js:{{hidden: false}}""",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
+                        hx_on=":",
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_edit(),
                     ),
@@ -227,6 +229,7 @@ class CellComponent:
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/input/{self.cell.id}",
                         hx_trigger=f"keyup[!(shiftKey&&keyCode===13)] changed delay:500ms from:#cell-input-{self.cell.id}",
                         hx_swap=f"#cell-input-form-{self.cell.id}",
+                        hx_vals=f"""js:{{input: ace.edit('cell-input-{self.cell.id}').getValue()}}""",
                     ),
                     # xxx: shift+enter is being registered as a newline
                     Div(
@@ -235,6 +238,7 @@ class CellComponent:
                         hx_ext="ws",
                         hx_trigger=f"keydown[shiftKey&&keyCode===13] from:#cell-input-{self.cell.id}",
                         hx_swap=f"#cell-input-form-{self.cell.id}",
+                        hx_vals=f"""js:{{input: ace.edit('cell-input-{self.cell.id}').getValue()}}""",
                     ),
                     id=f"cell-input-form-{self.cell.id}",
                 ),
@@ -244,14 +248,15 @@ class CellComponent:
         )
 
     def cell_text_area(self):
-        return Textarea(
-            self.cell.input,
-            name="input",
-            cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-            placeholder="Enter your instruction here...",
-            id=f"cell-input-{self.cell.id}",
-            hidden=self.cell.hidden,
-        )
+        return CodeEditor(self.cell)
+        # return Textarea(
+        #     self.cell.input,
+        #     name="input",
+        #     cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
+        #     placeholder="Enter your instruction here...",
+        #     id=f"cell-input-{self.cell.id}",
+        #     hidden=self.cell.hidden,
+        # )
 
     def cell_output(self):
         if self.cell.output:

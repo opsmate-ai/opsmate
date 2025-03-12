@@ -2000,7 +2000,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.33a0"
+version = "0.1.33a1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

@@ -81,6 +81,14 @@ dlink = Link(
     href="https://cdn.jsdelivr.net/npm/daisyui@4.11.1/dist/full.min.css",
 )
 
+# Ace Editor
+ace_editor = Script(src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js")
+
+# Tippy JS
+tippy_css = Link(rel="stylesheet", href="https://unpkg.com/tippy.js@6/dist/tippy.css")
+popper_js = Script(src="https://unpkg.com/@popperjs/core@2")
+tippy_js = Script(src="https://unpkg.com/tippy.js@6")
+
 nav = (
     Nav(
         Div(

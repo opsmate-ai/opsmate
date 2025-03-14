@@ -41,6 +41,7 @@ from opsmate.gui.views import (
     tippy_js,
     popper_js,
 )
+from opsmate.gui.editor import editor_script
 from opsmate.gui.components import CellComponent
 from opsmate.ingestions import ingest_from_config
 from opsmate.ingestions.models import IngestionRecord
@@ -78,6 +79,7 @@ app = FastHTML(
         tippy_css,
         popper_js,
         tippy_js,
+        editor_script,
         MarkdownJS(),
         HighlightJS(langs=("python", "bash")),
         nav,

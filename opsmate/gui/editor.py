@@ -4,8 +4,17 @@ import json
 
 editor_script = Script(
     """
+// Global map to keep track of editor instances
+window.editorInstances = window.editorInstances || {};
 
 function initEditor(id, default_value) {
+    // Clean up any existing editor instance for this element
+    if (window.editorInstances[id]) {
+        // window.editorInstances[id].destroy();
+        // window.editorInstances[id].container.remove();
+        window.editorInstances[id] = null;
+    }
+
     let editor;
     let completionTippy;
     let currentCompletion = '';
@@ -23,6 +32,9 @@ function initEditor(id, default_value) {
     });
 
     editor.setValue(default_value);
+
+    // Store the editor instance for later cleanup
+    window.editorInstances[id] = editor;
 
     window.addEventListener('resize', function() {
         editor.resize();
@@ -57,7 +69,6 @@ function initEditor(id, default_value) {
 
 def CodeEditor(cell: Cell):
     return (
-        editor_script,
         Div(
             # Toolbar(),
             Div(
@@ -69,6 +80,7 @@ def CodeEditor(cell: Cell):
                 ),
                 Script(
                     f"""
+                    // Initial load
                     document.body.addEventListener('DOMContentLoaded', function(evt) {{
                         if (document.getElementById('cell-input-{cell.id}')) {{
                             initEditor('cell-input-{cell.id}', {json.dumps(cell.input)});

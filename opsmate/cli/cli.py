@@ -22,6 +22,7 @@ from functools import wraps
 from opsmate.libs.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
+from functools import cache
 from typing import Dict
 import asyncio
 import os
@@ -30,6 +31,7 @@ import structlog
 import sys
 
 
+@cache
 def addon_discovery():
     PluginRegistry.discover(config.plugins_dir)
     ContextRegistry.discover(config.contexts_dir)
@@ -213,11 +215,14 @@ def common_params(func):
         _tool_names = kwargs.pop("tools")
         _tool_names = _tool_names.split(",")
         _tool_names = [t for t in _tool_names if t != ""]
+
+        addon_discovery()
+
         try:
             tools = PluginRegistry.get_tools_from_list(_tool_names)
         except ValueError as e:
             console.print(
-                f"Tool {e} not found. Run the list-tools command to see all the tools available."
+                f"Error: {e}. Run the list-tools command to see all the tools available."
             )
             exit(1)
 

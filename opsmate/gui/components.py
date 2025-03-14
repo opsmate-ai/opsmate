@@ -199,7 +199,7 @@ class CellComponent:
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_edit(),
                         **{
-                            "hx-on:click": f"document.getElementById('cell-input-container-{self.cell.id}').hidden = false; initEditor('cell-input-{self.cell.id}', {json.dumps(self.cell.input)});",
+                            "hx-on:click": f"document.getElementById('cell-input-container-{self.cell.id}').hidden = false; initEditor('cell-input-{self.cell.id}', {json.dumps(self.cell.input)}, {self.cell.id});",
                         },
                     ),
                     Button(

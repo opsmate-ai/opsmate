@@ -36,6 +36,7 @@ from opsmate.gui.views import (
     settings_body,
     new_envvar_form,
     add_envvar_button,
+    prefill_conversation,
     ace_editor,
     tippy_css,
     tippy_js,
@@ -546,6 +547,71 @@ async def post(blueprint_id: int):
         return (
             render_cells_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button(blueprint),
+        )
+
+
+from opsmate.dino.dino import dino
+from opsmate.dino.types import Message
+from pydantic import BaseModel, Field, model_validator
+
+
+class Completion(BaseModel):
+    """
+    The completion for the user input
+    The completion must start with the input
+    """
+
+    input: str = Field(description="User input")
+    completion: str = Field(description="Completion for the user input")
+
+    @model_validator(mode="after")
+    def validate_completion(self):
+        if not self.completion.startswith(self.input):
+            raise ValueError("Completion must start with the input")
+        return self
+
+
+@dino(
+    model="gpt-4o-mini",
+    temperature=0.0,
+    max_tokens=1000,
+    response_model=str,
+)
+async def auto_complete(input: str, chat_history: list[Message]):
+    """
+    You are given a input amd chat history
+    You need to return a completion for the input
+
+    <important>
+    * The completion must be following the input
+    * The previous conversation must be taken into account to be used as context
+    </important>
+
+    Example 1:
+    input: "What is the name of the k8s "
+    completion: "cluster name?"
+
+    Example 2:
+    input: "How many pods are "
+    completion: "running in the cluster?"
+    """
+    return [
+        *chat_history,
+        Message(role="user", content=input),
+    ]
+
+
+@app.route("/cell/{cell_id}/complete")
+async def post(cell_id: int):
+    with sqlmodel.Session(engine) as session:
+        cell = Cell.find_by_id(session, cell_id)
+        chat_history = await prefill_conversation(cell, session)
+
+        completion = await auto_complete(cell.input, chat_history)
+        return JSONResponse(
+            {
+                "completion": completion,
+            }
         )
 
 

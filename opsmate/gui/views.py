@@ -82,7 +82,7 @@ dlink = Link(
 )
 
 # Ace Editor
-ace_editor = Script(src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js")
+ace_editor = Script(src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.37.2/ace.js")
 
 # Tippy JS
 tippy_css = Link(rel="stylesheet", href="https://unpkg.com/tippy.js@6/dist/tippy.css")

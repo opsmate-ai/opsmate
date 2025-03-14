@@ -583,7 +583,8 @@ async def auto_complete(input: str, chat_history: list[Message]):
     You need to return a completion for the input
 
     <important>
-    * The completion must be following the input
+    * The completion must follow the input
+    * The completion must not have the input as the prefix
     * The previous conversation must be taken into account to be used as context
     </important>
 

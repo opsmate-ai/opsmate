@@ -104,6 +104,7 @@ async function showCompletionSuggestion(editor, completionTippy, cellId) {
 
         const data = await response.json();
         window.currentCompletion[cellId] = data.completion;
+        editor.setGhostText(window.currentCompletion[cellId], cursorPosition);
         completionTippy.setContent(`${window.currentCompletion[cellId]} (Press Tab to insert)`);
     } catch (error) {
         console.error('Error:', error);

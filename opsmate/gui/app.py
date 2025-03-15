@@ -12,6 +12,7 @@ from opsmate.gui.models import (
     EnvVar,
     ExecutionConfirmation,
     default_new_cell,
+    auto_complete,
 )
 from opsmate.gui.config import config
 from opsmate.gui.views import (
@@ -548,58 +549,6 @@ async def post(blueprint_id: int):
             render_cells_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button(blueprint),
         )
-
-
-from opsmate.dino.dino import dino
-from opsmate.dino.types import Message
-from pydantic import BaseModel, Field, model_validator
-
-
-class Completion(BaseModel):
-    """
-    The completion for the user input
-    The completion must start with the input
-    """
-
-    input: str = Field(description="User input")
-    completion: str = Field(description="Completion for the user input")
-
-    @model_validator(mode="after")
-    def validate_completion(self):
-        if not self.completion.startswith(self.input):
-            raise ValueError("Completion must start with the input")
-        return self
-
-
-@dino(
-    model="gpt-4o-mini",
-    temperature=0.0,
-    max_tokens=1000,
-    response_model=str,
-)
-async def auto_complete(input: str, chat_history: list[Message]):
-    """
-    You are given a input amd chat history
-    You need to return a completion for the input
-
-    <important>
-    * The completion must follow the input
-    * The completion must not have the input as the prefix
-    * The previous conversation must be taken into account to be used as context
-    </important>
-
-    Example 1:
-    input: "What is the name of the k8s "
-    completion: "cluster name?"
-
-    Example 2:
-    input: "How many pods are "
-    completion: "running in the cluster?"
-    """
-    return [
-        *chat_history,
-        Message(role="user", content=input),
-    ]
 
 
 @app.route("/cell/{cell_id}/complete")

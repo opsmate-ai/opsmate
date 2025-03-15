@@ -48,9 +48,8 @@ function initEditor(editor_id, default_value, cellId) {
     });
 
     editor.session.on('change', function(delta) {
-        if (delta.action === 'insert' && (delta.lines[0] === '.' || delta.lines[0] === ' ')) {
-            showCompletionSuggestion(editor, completionTippy, cellId);
-        }
+        // cleanup the ghost text
+        editor.removeGhostText();
     });
 
     // Override the default tab behavior
@@ -65,6 +64,13 @@ function initEditor(editor_id, default_value, cellId) {
             } else {
                 editor.indent();
             }
+        }
+    });
+    editor.commands.addCommand({
+        name: 'autocomplete',
+        bindKey: {win: 'Ctrl-.', mac: 'Command-.'},
+        exec: function(editor) {
+            showCompletionSuggestion(editor, completionTippy, cellId);
         }
     });
 }

@@ -824,7 +824,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
                     Div(
                         H1(session_name, cls="text-2xl font-bold"),
                         Span(
-                            "Press Shift+Enter to run cell",
+                            "Keyboard shortcuts: Shift+Enter to run cell, Ctrl+. (Windows) or Command+. (Mac) to autocomplete.",
                             cls="text-sm text-gray-500",
                         ),
                         cls="flex flex-col",

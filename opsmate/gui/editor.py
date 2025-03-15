@@ -136,18 +136,16 @@ def CodeEditor(cell: Cell):
             Div(
                 Div(
                     id=f"cell-input-{cell.id}",
-                    cls="w-full h-64",
+                    cls="w-full h-64 ace_editor ace_hidpi ace-tm",
                     name="input",
+                    style="font-size: 14px;",
                     value=cell.input,
                 ),
                 Script(
                     f"""
-                    // Initial load
-                    document.body.addEventListener('DOMContentLoaded', function(evt) {{
-                        if (document.getElementById('cell-input-{cell.id}')) {{
-                            initEditor('cell-input-{cell.id}', {json.dumps(cell.input)}, {cell.id});
-                        }}
-                    }});
+                    if (document.getElementById('cell-input-{cell.id}')) {{
+                        initEditor('cell-input-{cell.id}', {json.dumps(cell.input)}, {cell.id});
+                    }}
                 """
                 ),
                 cls="flex-grow w-full",

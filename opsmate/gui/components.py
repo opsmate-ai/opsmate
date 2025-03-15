@@ -152,7 +152,7 @@ class CellComponent:
                         ),
                         name="lang",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
-                        hx_vals=f"""js:{{hidden: true}}""",
+                        hx_vals=f"""js:{{hidden: false}}""",
                         hx_trigger="change",
                         disabled=not self.can_edit_lang(),
                         cls="select select-sm ml-2",
@@ -181,7 +181,7 @@ class CellComponent:
                         name="thinking_system",
                         hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         hx_trigger="change",
-                        hx_vals=f"""js:{{hidden: true}}""",
+                        hx_vals=f"""js:{{hidden: false}}""",
                         cls="select select-sm ml-2 min-w-[240px]",
                         hidden=self.cell.lang != CellLangEnum.TEXT_INSTRUCTION,
                         disabled=not self.can_edit_thinking_system(),
@@ -195,12 +195,9 @@ class CellComponent:
                     Button(
                         edit_icon_svg,
                         hx_vals=f"""js:{{hidden: false}}""",
-                        # hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
+                        hx_put=f"/blueprint/{self.blueprint.id}/cell/{self.cell.id}",
                         cls="btn btn-ghost btn-sm",
                         disabled=not self.can_edit(),
-                        **{
-                            "hx-on:click": f"document.getElementById('cell-input-container-{self.cell.id}').hidden = false; initEditor('cell-input-{self.cell.id}', {json.dumps(self.cell.input)}, {self.cell.id});",
-                        },
                     ),
                     Button(
                         stop_icon_svg,

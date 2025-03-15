@@ -557,7 +557,7 @@ async def post(cell_id: int):
         cell = Cell.find_by_id(session, cell_id)
         chat_history = await prefill_conversation(cell, session)
 
-        completion = await auto_complete(cell.input, chat_history)
+        completion = await auto_complete(cell.input, chat_history, model=config.model)
         return JSONResponse(
             {
                 "completion": completion,

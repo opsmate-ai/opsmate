@@ -43,8 +43,7 @@ from opsmate.gui.views import (
     tippy_js,
     popper_js,
 )
-from opsmate.gui.editor import editor_script
-from opsmate.gui.components import CellComponent
+from opsmate.gui.components import CellComponent, editor_script
 from opsmate.ingestions import ingest_from_config
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.ingestions.jobs import ingest, delete_ingestion

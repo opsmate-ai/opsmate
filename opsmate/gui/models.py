@@ -23,7 +23,7 @@ from sqlalchemy.orm import registry
 from opsmate.gui.config import config
 import yaml
 import pickle
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from opsmate.contexts import k8s_ctx
 
 logger = structlog.get_logger(__name__)
@@ -457,3 +457,59 @@ Conversation {idx + 1}:
 </assistant response>
 """
         yield conversation
+
+
+class Completion(BaseModel):
+    """
+    The completion for the user input
+    The completion must start with the input
+    """
+
+    input: str = Field(description="User input")
+    completion: str = Field(description="Completion for the user input")
+
+    @model_validator(mode="after")
+    def validate_completion(self):
+        if not self.completion.startswith(self.input):
+            raise ValueError("Completion must start with the input")
+        return self
+
+
+@dino(
+    model="gpt-4o-mini",
+    temperature=0.0,
+    max_tokens=2000,
+    response_model=str,
+)
+async def auto_complete(input: str, chat_history: list[Message]):
+    """
+    You are an intelligent autocompletion system for an operations management tool.
+
+    Given a partial input and conversation history, generate a natural continuation of the user's current thought or command.
+
+    <important>
+    * Your completion should be a direct continuation of the input text
+    * Keep completions concise and relevant to operations workflows
+    * Do not repeat any part of the input
+    * Consider the conversation history for context
+    * Focus on completing the current thought, not answering a question
+    </important>
+
+    Examples:
+
+    chat_history: we need to find out how many pods are running in the kube-system namespace
+    input: "kubectl get"
+    completion: " pods -n kube-system"
+
+    chat_history: we need to have more understanding of the production cost
+    input: "How many instances are
+    completion: " running in the production environment, and what are the instance specs?"
+
+    chat_history: the authentication service is slow
+    input: "What is the"
+    completion: " p99 latency of the authentication service over the past 3 hours? we need to establish a baseline for the latency"
+    """
+    return [
+        *chat_history,
+        Message(role="user", content=input),
+    ]

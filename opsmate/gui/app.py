@@ -12,6 +12,7 @@ from opsmate.gui.models import (
     EnvVar,
     ExecutionConfirmation,
     default_new_cell,
+    auto_complete,
 )
 from opsmate.gui.config import config
 from opsmate.gui.views import (
@@ -36,8 +37,13 @@ from opsmate.gui.views import (
     settings_body,
     new_envvar_form,
     add_envvar_button,
+    prefill_conversation,
+    ace_editor,
+    tippy_css,
+    tippy_js,
+    popper_js,
 )
-from opsmate.gui.components import CellComponent
+from opsmate.gui.components import CellComponent, editor_script
 from opsmate.ingestions import ingest_from_config
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.ingestions.jobs import ingest, delete_ingestion
@@ -70,6 +76,11 @@ app = FastHTML(
         tlink,
         dlink,
         picolink,
+        ace_editor,
+        tippy_css,
+        popper_js,
+        tippy_js,
+        editor_script,
         MarkdownJS(),
         HighlightJS(langs=("python", "bash")),
         nav,
@@ -536,6 +547,20 @@ async def post(blueprint_id: int):
         return (
             render_cells_container(active_workflow.cells, hx_swap_oob="true"),
             reset_button(blueprint),
+        )
+
+
+@app.route("/cell/{cell_id}/complete")
+async def post(cell_id: int):
+    with sqlmodel.Session(engine) as session:
+        cell = Cell.find_by_id(session, cell_id)
+        chat_history = await prefill_conversation(cell, session)
+
+        completion = await auto_complete(cell.input, chat_history, model=config.model)
+        return JSONResponse(
+            {
+                "completion": completion,
+            }
         )
 
 

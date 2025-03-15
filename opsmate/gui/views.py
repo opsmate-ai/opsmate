@@ -81,6 +81,14 @@ dlink = Link(
     href="https://cdn.jsdelivr.net/npm/daisyui@4.11.1/dist/full.min.css",
 )
 
+# Ace Editor
+ace_editor = Script(src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.37.2/ace.js")
+
+# Tippy JS
+tippy_css = Link(rel="stylesheet", href="https://unpkg.com/tippy.js@6/dist/tippy.css")
+popper_js = Script(src="https://unpkg.com/@popperjs/core@2")
+tippy_js = Script(src="https://unpkg.com/tippy.js@6")
+
 nav = (
     Nav(
         Div(
@@ -816,7 +824,7 @@ def home_body(db_session: Session, session_name: str, blueprint: BluePrint):
                     Div(
                         H1(session_name, cls="text-2xl font-bold"),
                         Span(
-                            "Press Shift+Enter to run cell",
+                            "Keyboard shortcuts: Shift+Enter to run cell, Ctrl+. (Windows) or Command+. (Mac) to autocomplete.",
                             cls="text-sm text-gray-500",
                         ),
                         cls="flex flex-col",

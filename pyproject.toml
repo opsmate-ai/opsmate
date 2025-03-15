@@ -1,6 +1,6 @@
 [project]
 name = "opsmate"
-version = "0.1.33a1"
+version = "0.1.34a0"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },

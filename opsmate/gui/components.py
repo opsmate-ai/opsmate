@@ -249,15 +249,7 @@ class CellComponent:
         )
 
     def cell_text_area(self):
-        return CodeEditor(self.cell)
-        # return Textarea(
-        #     self.cell.input,
-        #     name="input",
-        #     cls=f"w-full h-24 p-2 font-mono text-sm border rounded focus:outline-none focus:border-blue-500",
-        #     placeholder="Enter your instruction here...",
-        #     id=f"cell-input-{self.cell.id}",
-        #     hidden=self.cell.hidden,
-        # )
+        return code_editor(self.cell)
 
     def cell_output(self):
         if self.cell.output:
@@ -686,7 +678,7 @@ async function showCompletionSuggestion(editor, completionTippy, cellId) {
 )
 
 
-def CodeEditor(cell: Cell):
+def code_editor(cell: Cell):
     return (
         Div(
             # Toolbar(),

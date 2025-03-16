@@ -162,6 +162,12 @@ class ToolCall(BaseModel, Generic[OutputType]):
         sig = inspect.signature(self.__call__)
         return "context" in sig.parameters
 
+    def display(self, context: dict[str, Any] = {}):
+        if hasattr(self, "markdown"):
+            return self.markdown(context=context)
+        else:
+            return self.prompt_display()
+
     def prompt_display(self):
         """
         prompt_display is the method that is called to display the tool call in the prompt.

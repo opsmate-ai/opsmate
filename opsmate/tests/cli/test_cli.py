@@ -132,3 +132,76 @@ class TestRunCommandIntegration:
         # assert "hello world" in result.output.lower()
         # assert "### Tool outputs" in result.output
         # assert "### Observation" not in result.output
+
+
+class TestSolveCommandIntegration:
+    def test_solve_help(self, cli_runner):
+        """Test that the solve command shows help correctly"""
+        result = cli_runner.invoke(opsmate_cli, ["solve", "--help"])
+
+        assert result.exit_code == 0
+        assert "Solve a problem with the OpsMate" in result.output
+        assert "--model" in result.output
+        assert "--context" in result.output
+        assert "-i" in result.output
+        assert "--max-iter" in result.output
+        assert "--no-tool-output" in result.output
+        assert "--tool-calls-per-action" in result.output
+
+    def test_solve_basic(self, cli_runner):
+        """Test that the solve command works with a basic instruction"""
+        result = cli_runner.invoke(opsmate_cli, ["solve", "print 'hello world'"])
+
+        assert result.exit_code == 0
+        assert "Answer" in result.output
+
+    def test_solve_with_max_iter(self, cli_runner):
+        """Test that the solve command works with a max iter"""
+        result = cli_runner.invoke(
+            opsmate_cli, ["solve", "print 'hello world'", "--max-iter", "10"]
+        )
+
+        assert result.exit_code == 0
+        assert "Answer" in result.output
+
+    def test_solve_with_invalid_tools(self, cli_runner):
+        """Test that the solve command works with invalid tools"""
+        result = cli_runner.invoke(
+            opsmate_cli, ["solve", "print 'hello world'", "--tools", "invalid-tool"]
+        )
+
+        assert result.exit_code == 1
+        assert "Error: Tool invalid-tool not found." in result.output
+
+    def test_solve_with_selected_tool(self, cli_runner):
+        """Test that the solve command works with a selected tool"""
+        result = cli_runner.invoke(
+            opsmate_cli, ["solve", "print 'hello world'", "--tools", "ShellCommand"]
+        )
+
+        assert result.exit_code == 0
+
+    def test_solve_with_tool_from_discovery(self, cli_runner):
+        """Test that the solve command works with a tool from discovery"""
+        result = cli_runner.invoke(
+            opsmate_cli,
+            ["solve", "what's the current time?", "--tools", "current_time"],
+        )
+
+        assert result.exit_code == 0
+
+    def test_solve_with_answer_only(self, cli_runner):
+        """Test that the solve command works with an answer only"""
+        result = cli_runner.invoke(
+            opsmate_cli, ["solve", "what's the current time?", "--answer-only"]
+        )
+
+        assert result.exit_code == 0
+
+    def test_solve_with_no_tool_output(self, cli_runner):
+        """Test that the solve command works with no tool output"""
+        result = cli_runner.invoke(
+            opsmate_cli, ["solve", "what's the current time?", "-nt"]
+        )
+
+        assert result.exit_code == 0

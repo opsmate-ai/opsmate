@@ -348,7 +348,7 @@ async def run(
         if no_observation:
             for tool_call in observation.tool_outputs:
                 console.print(
-                    Markdown(tool_call.markdown(context={"in_terminal": True}))
+                    Markdown(tool_call.display(context={"in_terminal": True}))
                 )
             return
 
@@ -357,7 +357,7 @@ async def run(
         else:
             for tool_call in observation.tool_outputs:
                 console.print(
-                    Markdown(tool_call.markdown(context={"in_terminal": True}))
+                    Markdown(tool_call.display(context={"in_terminal": True}))
                 )
                 console.print(Markdown(observation.observation))
     except Exception as e:
@@ -382,7 +382,7 @@ async def run(
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @click.option(
-    "-n",
+    "-nt",
     "--no-tool-output",
     is_flag=True,
     help="Do not print tool outputs",
@@ -463,7 +463,7 @@ async def solve(
                 if not no_tool_output:
                     for tool_call in output.tool_outputs:
                         console.print(
-                            Markdown(tool_call.markdown(context={"in_terminal": True}))
+                            Markdown(tool_call.display(context={"in_terminal": True}))
                         )
                 console.print(Markdown(output.observation))
             case ReactAnswer():
@@ -596,7 +596,7 @@ async def chat(
 """
                     for tool_call in output.tool_outputs:
                         tp += f"""
-    {tool_call.markdown(context={"in_terminal": True})}
+    {tool_call.display(context={"in_terminal": True})}
     """
                     tp += f"""
 ### Observation

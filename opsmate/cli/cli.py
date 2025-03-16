@@ -162,6 +162,7 @@ def config_params(cli_config=config):
         @wraps(func)
         def wrapper(*args, **kwargs):
             kwargs["config"] = config_from_kwargs(kwargs)
+            config.validate_loglevel()
             addon_discovery()
             return func(*args, **kwargs)
 
@@ -171,10 +172,6 @@ def config_params(cli_config=config):
 
 
 def common_params(func):
-    # Apply config_params first
-    cp = config_params()
-    func = cp(func)
-
     # Then apply existing common params
     @click.option(
         "-m",
@@ -304,6 +301,7 @@ Edit the command if needed, then press Enter to execute:
     is_flag=True,
     help="Do not print observation",
 )
+@config_params()
 @common_params
 @traceit
 @coro
@@ -341,22 +339,30 @@ async def run(
             Message.user(instruction),
         ]
 
-    observation = await run_command(
-        instruction,
-        context=tool_call_context,
-        tool_calls_only=no_observation,
-    )
-    if no_observation:
-        for tool_call in observation.tool_outputs:
-            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
-        return
+    try:
+        observation = await run_command(
+            instruction,
+            context=tool_call_context,
+            tool_calls_only=no_observation,
+        )
+        if no_observation:
+            for tool_call in observation.tool_outputs:
+                console.print(
+                    Markdown(tool_call.markdown(context={"in_terminal": True}))
+                )
+            return
 
-    if no_tool_output:
-        print(observation.observation)
-    else:
-        for tool_call in observation.tool_outputs:
-            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
-            console.print(Markdown(observation.observation))
+        if no_tool_output:
+            print(observation.observation)
+        else:
+            for tool_call in observation.tool_outputs:
+                console.print(
+                    Markdown(tool_call.markdown(context={"in_terminal": True}))
+                )
+                console.print(Markdown(observation.observation))
+    except Exception as e:
+        console.print(f"Error: {e}")
+        exit(1)
 
 
 @opsmate_cli.command()
@@ -393,6 +399,7 @@ async def run(
     show_default=True,
     help="Number of tool calls per action",
 )
+@config_params()
 @common_params
 @traceit
 @coro
@@ -504,6 +511,7 @@ Commands:
     show_default=True,
     help="Number of tool calls per action",
 )
+@config_params()
 @common_params
 @traceit
 @coro

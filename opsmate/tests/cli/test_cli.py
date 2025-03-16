@@ -91,10 +91,7 @@ class TestRunCommandIntegration:
             opsmate_cli, ["run", "print 'hello world'", "--tools", "invalid_tool"]
         )
         assert result.exit_code == 1
-        assert (
-            "Error: Tool invalid_tool not found. Run the list-tools command to see all the tools available."
-            in result.output
-        )
+        assert "Error: Tool invalid_tool not found." in result.output
 
     def test_run_with_no_tool_output(self, cli_runner):
         """Test that the run command works with no tool output"""

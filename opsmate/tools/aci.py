@@ -526,7 +526,10 @@ class ACITool(ToolCall[Result], PresentationMixin):
             case "undo":
                 return self._render_undo_markdown()
             case _:
-                return self.output
+                return self._render_error()
+
+    def _render_error(self) -> str:
+        return f"Error: {self.output.error}"
 
     def _render_search_markdown(self) -> str:
         template = Template(

@@ -148,7 +148,6 @@ class Config(BaseSettings):
     def transformers_available(cls):
         return importlib.util.find_spec("transformers") is not None
 
-    @model_validator(mode="after")
     def validate_loglevel(self) -> Self:
         structlog.configure(
             wrapper_class=structlog.make_filtering_bound_logger(

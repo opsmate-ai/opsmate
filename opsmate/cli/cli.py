@@ -162,6 +162,7 @@ def config_params(cli_config=config):
         @wraps(func)
         def wrapper(*args, **kwargs):
             kwargs["config"] = config_from_kwargs(kwargs)
+            config.validate_loglevel()
             addon_discovery()
             return func(*args, **kwargs)
 
@@ -171,10 +172,6 @@ def config_params(cli_config=config):
 
 
 def common_params(func):
-    # Apply config_params first
-    cp = config_params()
-    func = cp(func)
-
     # Then apply existing common params
     @click.option(
         "-m",
@@ -293,17 +290,18 @@ Edit the command if needed, then press Enter to execute:
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @click.option(
-    "-n",
+    "-nt",
     "--no-tool-output",
     is_flag=True,
     help="Do not print tool outputs",
 )
 @click.option(
-    "--tool-calls-only",
+    "-no",
+    "--no-observation",
     is_flag=True,
-    default=True,
-    help="Only print tool calls",
+    help="Do not print observation",
 )
+@config_params()
 @common_params
 @traceit
 @coro
@@ -315,7 +313,7 @@ async def run(
     tool_call_context,
     system_prompt,
     no_tool_output,
-    tool_calls_only,
+    no_observation,
     config,
 ):
     """
@@ -341,22 +339,30 @@ async def run(
             Message.user(instruction),
         ]
 
-    observation = await run_command(
-        instruction,
-        context=tool_call_context,
-        tool_calls_only=tool_calls_only,
-    )
-    if tool_calls_only:
-        for tool_call in observation.tool_outputs:
-            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
-        return
+    try:
+        observation = await run_command(
+            instruction,
+            context=tool_call_context,
+            tool_calls_only=no_observation,
+        )
+        if no_observation:
+            for tool_call in observation.tool_outputs:
+                console.print(
+                    Markdown(tool_call.display(context={"in_terminal": True}))
+                )
+            return
 
-    if not no_tool_output:
-        for tool_call in observation.tool_outputs:
-            console.print(Markdown(tool_call.markdown(context={"in_terminal": True})))
-            console.print(Markdown(observation.observation))
-    else:
-        print(observation.observation)
+        if no_tool_output:
+            print(observation.observation)
+        else:
+            for tool_call in observation.tool_outputs:
+                console.print(
+                    Markdown(tool_call.display(context={"in_terminal": True}))
+                )
+                console.print(Markdown(observation.observation))
+    except Exception as e:
+        console.print(f"Error: {e}")
+        exit(1)
 
 
 @opsmate_cli.command()
@@ -376,7 +382,7 @@ async def run(
     help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @click.option(
-    "-n",
+    "-nt",
     "--no-tool-output",
     is_flag=True,
     help="Do not print tool outputs",
@@ -393,6 +399,7 @@ async def run(
     show_default=True,
     help="Number of tool calls per action",
 )
+@config_params()
 @common_params
 @traceit
 @coro
@@ -456,7 +463,7 @@ async def solve(
                 if not no_tool_output:
                     for tool_call in output.tool_outputs:
                         console.print(
-                            Markdown(tool_call.markdown(context={"in_terminal": True}))
+                            Markdown(tool_call.display(context={"in_terminal": True}))
                         )
                 console.print(Markdown(output.observation))
             case ReactAnswer():
@@ -504,6 +511,7 @@ Commands:
     show_default=True,
     help="Number of tool calls per action",
 )
+@config_params()
 @common_params
 @traceit
 @coro
@@ -588,7 +596,7 @@ async def chat(
 """
                     for tool_call in output.tool_outputs:
                         tp += f"""
-    {tool_call.markdown(context={"in_terminal": True})}
+    {tool_call.display(context={"in_terminal": True})}
     """
                     tp += f"""
 ### Observation

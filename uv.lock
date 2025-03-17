@@ -888,7 +888,7 @@ wheels = [
 
 [[package]]
 name = "instructor"
-version = "1.7.4"
+version = "1.7.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -903,9 +903,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/06/7728c2b70c5deb91318c70c32f54f2c1794cb325577ab54000c1272a1d90/instructor-1.7.4.tar.gz", hash = "sha256:1919808f8ba007e58b0306688f26620347e09a86a922119263ca2ca944b60bca", size = 67475485 }
+sdist = { url = "https://files.pythonhosted.org/packages/32/f2/7463cab642475e711b7b50f2306554444a227091ff7b00d31b8966d687f4/instructor-1.7.6.tar.gz", hash = "sha256:e17fa67cf026ee8230af3599e05a5ea3e25a17a804e4007768bf0263399a0822", size = 67499481 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/fa/32106b887ec8eee38bd8c898ee68d6c731a4285eb7395ba8a5e69d245d72/instructor-1.7.4-py3-none-any.whl", hash = "sha256:634c4fd7c05801baeac1eb6a6a9068240422fffa6e3dca3a51658dcb29ac068a", size = 79500 },
+    { url = "https://files.pythonhosted.org/packages/78/06/3dd7205fda8234765402b6d5cca4d8f345db328a2b97598a4bbf3b2dfdb8/instructor-1.7.6-py3-none-any.whl", hash = "sha256:d6ff70559b6fab18880ff6b5ee4e574bcf08c0ff2f916a34124318ea03385eab", size = 83922 },
 ]
 
 [package.optional-dependencies]
@@ -2000,7 +2000,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.34a2"
+version = "0.1.34a3"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -2066,7 +2066,7 @@ requires-dist = [
     { name = "graphviz", specifier = ">=0.20.3,<1.0.0" },
     { name = "html2text", specifier = "==2024.2.26" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "instructor", extras = ["anthropic"], specifier = "==1.7.4" },
+    { name = "instructor", extras = ["anthropic"], specifier = ">=1.7.6,<2.0.0" },
     { name = "jinja2", specifier = ">=3.1.6,<4.0.0" },
     { name = "lancedb", specifier = "==0.20.0" },
     { name = "matplotlib", specifier = ">=3.10.1,<4.0.0" },

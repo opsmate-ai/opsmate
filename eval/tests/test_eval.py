@@ -6,12 +6,6 @@ import yaml
 import structlog
 import tempfile
 from pydantic import BaseModel, Field
-import opentelemetry.trace as trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from openai_otel import OpenAIAutoInstrumentor
 from opsmate.libs.core.trace import traceit
 import os
 import time

@@ -1,13 +1,5 @@
 from opsmate import __version__
 from opsmate.libs.core.trace import traceit
-from openai_otel import OpenAIAutoInstrumentor
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-)
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -30,6 +22,8 @@ import click
 import structlog
 import sys
 
+console = Console()
+
 
 @cache
 def addon_discovery():
@@ -45,22 +39,10 @@ def coro(f):
     return wrapper
 
 
-console = Console()
-resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    import openlit
 
-otel_enabled = os.getenv("OTEL_ENABLED", "false").lower() == "true"
-
-if otel_enabled:
-    provider = TracerProvider(resource=resource)
-    exporter = OTLPSpanExporter(
-        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-        insecure=True,
-    )
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
-    OpenAIAutoInstrumentor().instrument()
+    openlit.init(application_name="opsmate")
 
 logger = structlog.get_logger(__name__)
 

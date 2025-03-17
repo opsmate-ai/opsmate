@@ -17,7 +17,6 @@ dependencies = [
     "structlog (>=24.4.0,<25.0.0)",
     "pyyaml (>=6.0.2,<7.0.0)",
     "click (>=8.1.7,<9.0.0)",
-    "openai-otel (>=0.1.0a1,<1.0.0)",
     "opentelemetry-exporter-otlp (>=1.27.0,<2.0.0)",
     "rich (>=13.8.1,<14.0.0)",
     "pydantic-settings (>=2.6.1,<3.0.0)",
@@ -33,6 +32,7 @@ dependencies = [
     "plotly (>=6.0.0,<7.0.0)",
     "pandas (>=2.2.3,<3.0.0)",
     "matplotlib (>=3.10.1,<4.0.0)",
+    "openlit>=1.26.0",
 ]
 
 [project.optional-dependencies]

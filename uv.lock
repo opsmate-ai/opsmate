@@ -80,17 +80,8 @@ wheels = [
 ]
 
 [[package]]
-name = "ansicon"
-version = "1.89.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b6/e2/1c866404ddbd280efedff4a9f15abfe943cb83cde6e895022370f3a61f85/ansicon-1.89.0.tar.gz", hash = "sha256:e4d039def5768a47e4afec8e89e83ec3ae5a26bf00ad851f914d1240b444d2b1", size = 67312 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/f9/f1c10e223c7b56a38109a3f2eb4e7fe9a757ea3ed3a166754fb30f65e466/ansicon-1.89.0-py2.py3-none-any.whl", hash = "sha256:f1def52d17f65c2c9682cf8370c03f541f410c1752d6a14029f97318e4b9dfec", size = 63675 },
-]
-
-[[package]]
 name = "anthropic"
-version = "0.48.0"
+version = "0.42.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -101,9 +92,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/20/e3/dba5eb132666517178488295305854304794367c4126e8261d2843b540f0/anthropic-0.48.0.tar.gz", hash = "sha256:5e94b571a3874295b6c8600d3797875abdca18946a9ade68b6aa0408caa31cad", size = 209603 }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/7c/91b79f5ae4a52497a4e330d66ea5929aec2878ee2c9f8a998dbe4f4c7f01/anthropic-0.42.0.tar.gz", hash = "sha256:bf8b0ed8c8cb2c2118038f29c58099d2f99f7847296cafdaa853910bfff4edf4", size = 192361 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/4b/9d2a167bd6c3db8391e0ae2853f94244667c557cc10a6d05898fde2f6ead/anthropic-0.48.0-py3-none-any.whl", hash = "sha256:e2495a07d14484f3219a5c0b902a63f9df8c2b3bd358f68b5ee86f1e89d1ba81", size = 242356 },
+    { url = "https://files.pythonhosted.org/packages/ba/33/b907a6d27dd0d8d3adb4edb5c9e9c85a189719ec6855051cce3814c8ef13/anthropic-0.42.0-py3-none-any.whl", hash = "sha256:46775f65b723c078a2ac9e9de44a46db5c6a4fabeacfd165e5ea78e6817f4eff", size = 203365 },
 ]
 
 [[package]]
@@ -305,45 +296,31 @@ css = [
 ]
 
 [[package]]
-name = "blessed"
-version = "1.20.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinxed", marker = "sys_platform == 'win32'" },
-    { name = "six" },
-    { name = "wcwidth" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/25/ae/92e9968ad23205389ec6bd82e2d4fca3817f1cdef34e10aa8d529ef8b1d7/blessed-1.20.0.tar.gz", hash = "sha256:2cdd67f8746e048f00df47a2880f4d6acbcdb399031b604e34ba8f71d5787680", size = 6655612 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/98/584f211c3a4bb38f2871fa937ee0cc83c130de50c955d6c7e2334dbf4acb/blessed-1.20.0-py2.py3-none-any.whl", hash = "sha256:0c542922586a265e699188e52d5f5ac5ec0dd517e5a1041d90d2bbf23f906058", size = 58372 },
-]
-
-[[package]]
 name = "boto3"
-version = "1.37.13"
+version = "1.37.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/50/1183ffa4782408907891af344a8e91d7bc5d7a9bae12e43fca8874da567e/boto3-1.37.13.tar.gz", hash = "sha256:295648f887464ab74c5c301a44982df76f9ba39ebfc16be5b8f071ad1a81fe95", size = 111349 }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/e5/5aa8f6671e291719073854aac51682bfe4fb498dabba32edcead1a54dd53/boto3-1.37.14.tar.gz", hash = "sha256:cf2e5e6d56efd5850db8ce3d9094132e4759cf2d4b5fd8200d69456bf61a20f3", size = 111387 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/64/9f9578142ba1ed3ecc6b82a53c5c4c4352108e1424f1d5d02b6239b4314f/boto3-1.37.13-py3-none-any.whl", hash = "sha256:90fa5a91d7d7456219f0b7c4a93b38335dc5cf4613d885da4d4c1d099e04c6b7", size = 139552 },
+    { url = "https://files.pythonhosted.org/packages/bd/fd/bf989e87fb7e94646db0fc2c98c9b0883051cadb36eadc2f2e71915c7427/boto3-1.37.14-py3-none-any.whl", hash = "sha256:56b4d1e084dbca43d5fdd070f633a84de61a6ce592655b4d239d263d1a0097fc", size = 139553 },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.37.13"
+version = "1.37.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/18/53/3593b438ab1f9b6837cc90a8582dfa71c71c639e9359a01fd4d110f0566e/botocore-1.37.13.tar.gz", hash = "sha256:60dfb831c54eb466db9b91891a6c8a0c223626caa049969d5d42858ad1e7f8c7", size = 13647494 }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/ff/5cffb437927fd9a2d20769b7ea4b29a2c1100d726e9c871ab9a1662a70f7/botocore-1.37.14.tar.gz", hash = "sha256:b0adce3f0fb42b914eb05079f50cf368cb9cf9745fdd206bd91fe6ac67b29aca", size = 13649221 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/43/2aa89ca8ab69196890b0682820469e62d93c4cf402ceb46a3007fd44b0c3/botocore-1.37.13-py3-none-any.whl", hash = "sha256:aa417bac0f4d79533080e6e17c0509e149353aec83cfe7879597a7942f7f08d0", size = 13411385 },
+    { url = "https://files.pythonhosted.org/packages/d3/5f/ed14337f24cbc1bb7f8433d1f286c386ca984b4a7ba9904e6cdd65085195/botocore-1.37.14-py3-none-any.whl", hash = "sha256:709a1796f436f8e378e52170e58501c1f3b5f2d1308238cf1d6a3bdba2e32851", size = 13414374 },
 ]
 
 [[package]]
@@ -779,17 +756,6 @@ wheels = [
 ]
 
 [[package]]
-name = "gpustat"
-version = "1.1.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "blessed" },
-    { name = "nvidia-ml-py" },
-    { name = "psutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/79/c4/46d005aec3bf911cb030467d91e062a5386ff4a03e51874424cacc0f60c1/gpustat-1.1.1.tar.gz", hash = "sha256:c18d3ed5518fc16300c42d694debc70aebb3be55cae91f1db64d63b5fa8af9d8", size = 98052 }
-
-[[package]]
 name = "graphviz"
 version = "0.20.3"
 source = { registry = "https://pypi.org/simple" }
@@ -970,12 +936,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/78/06/3dd7205fda8234765402b6d5cca4d8f345db328a2b97598a4bbf3b2dfdb8/instructor-1.7.6-py3-none-any.whl", hash = "sha256:d6ff70559b6fab18880ff6b5ee4e574bcf08c0ff2f916a34124318ea03385eab", size = 83922 },
 ]
 
-[package.optional-dependencies]
-anthropic = [
-    { name = "anthropic" },
-    { name = "xmltodict" },
-]
-
 [[package]]
 name = "ipykernel"
 version = "6.29.5"
@@ -1092,18 +1052,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899 },
-]
-
-[[package]]
-name = "jinxed"
-version = "1.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ansicon", marker = "sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/20/d0/59b2b80e7a52d255f9e0ad040d2e826342d05580c4b1d7d7747cfb8db731/jinxed-1.3.0.tar.gz", hash = "sha256:1593124b18a41b7a3da3b078471442e51dbad3d77b4d4f2b0c26ab6f7d660dbf", size = 80981 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/e3/0e0014d6ab159d48189e92044ace13b1e1fe9aa3024ba9f4e8cf172aa7c2/jinxed-1.3.0-py2.py3-none-any.whl", hash = "sha256:b993189f39dc2d7504d802152671535b06d380b26d78070559551cbf92df4fc5", size = 33085 },
 ]
 
 [[package]]
@@ -1888,15 +1836,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nvidia-ml-py"
-version = "12.570.86"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ad/6e/7b0c9b88c7d520fb8639024a1a3b6dd1db03bf2c17ae85040c8758d2eb6f/nvidia_ml_py-12.570.86.tar.gz", hash = "sha256:0508d4a0c7b6d015cf574530b95a62ed4fc89da3b8b47e1aefe6777db170ec8b", size = 43147 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d8/a8/ec37169be4e2b7063b9076ed3fe0661e87335fbca665eed3f48c415cb234/nvidia_ml_py-12.570.86-py3-none-any.whl", hash = "sha256:58907de35a845abd13dcb227f18298f3b5dd94a72d04c9e594e77711e95c0b51", size = 44442 },
-]
-
-[[package]]
 name = "nvidia-nccl-cu12"
 version = "2.21.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1950,23 +1889,25 @@ wheels = [
 
 [[package]]
 name = "openlit"
-version = "1.26.0"
+version = "1.33.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anthropic" },
     { name = "boto3" },
     { name = "botocore" },
-    { name = "gpustat" },
+    { name = "openai" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
+    { name = "pydantic" },
     { name = "requests" },
     { name = "schedule" },
-    { name = "tiktoken" },
+    { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/a8/cf517c8fb028aab1f818e6d997d556c90c5ba6a6df34088f03309d2af749/openlit-1.26.0.tar.gz", hash = "sha256:97f3c5edcf24fe7f0cf28829bdc590451d40282c586e4b4c579667ee906bcc12", size = 76539 }
+sdist = { url = "https://files.pythonhosted.org/packages/12/aa/d757b8057b18a0a64c2ad3c4ac9abb63a5e8e56452f9b2ff6904448d9aaa/openlit-1.33.19.tar.gz", hash = "sha256:ea1fe13334054f74a3905bd5f178c23ca79faf2816ee34417d3797aed5fa568a", size = 130400 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/4e/4c4969df3cb778b045a3d75e29b80d4e92f0ba258c748b460f576820e5a5/openlit-1.26.0-py3-none-any.whl", hash = "sha256:3cbd968bfcb8f873fb224aacdfcf61088c487a9afae7eea6cbec9e14b84e4c2d", size = 140724 },
+    { url = "https://files.pythonhosted.org/packages/19/7a/c93de426e89b14a1dc11ce75fbfced44247b5f1f04bb040df4b352f81b53/openlit-1.33.19-py3-none-any.whl", hash = "sha256:5ebc62de521087fadc5c8d4f16ec09a82ef23e1ef67ab1580979c67a075b9359", size = 269974 },
 ]
 
 [[package]]
@@ -2102,12 +2043,13 @@ version = "0.1.34a3"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "anthropic" },
     { name = "click" },
     { name = "fastapi", extra = ["standard"] },
     { name = "graphviz" },
     { name = "html2text" },
     { name = "httpx" },
-    { name = "instructor", extra = ["anthropic"] },
+    { name = "instructor" },
     { name = "jinja2" },
     { name = "lancedb" },
     { name = "matplotlib" },
@@ -2158,18 +2100,19 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14.1,<2.0.0" },
+    { name = "anthropic", specifier = ">=0.42.0" },
     { name = "click", specifier = ">=8.1.7,<9.0.0" },
     { name = "cohere", marker = "extra == 'reranker-cohere'", specifier = ">=5.14.0,<6.0.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.5,<1.0.0" },
     { name = "graphviz", specifier = ">=0.20.3,<1.0.0" },
     { name = "html2text", specifier = "==2024.2.26" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "instructor", extras = ["anthropic"], specifier = ">=1.7.6,<2.0.0" },
+    { name = "instructor", specifier = ">=1.7.6,<2.0.0" },
     { name = "jinja2", specifier = ">=3.1.6,<4.0.0" },
     { name = "lancedb", specifier = "==0.20.0" },
     { name = "matplotlib", specifier = ">=3.10.1,<4.0.0" },
     { name = "openai", specifier = ">=1.37.2,<2.0.0" },
-    { name = "openlit", specifier = ">=1.26.0" },
+    { name = "openlit", specifier = ">=1.33.19" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.27.0,<2.0.0" },
     { name = "pandas", specifier = ">=2.2.3,<3.0.0" },
     { name = "plotext", specifier = ">=5.3.2,<6.0.0" },
@@ -3194,25 +3137,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tiktoken"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "regex" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/4a/abaec53e93e3ef37224a4dd9e2fc6bb871e7a538c2b6b9d2a6397271daf4/tiktoken-0.7.0.tar.gz", hash = "sha256:1077266e949c24e0291f6c350433c6f0971365ece2b173a23bc3b9f9defef6b6", size = 33437 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/46/4cdda4186ce900608f522da34acf442363346688c71b938a90a52d7b84cc/tiktoken-0.7.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:71c55d066388c55a9c00f61d2c456a6086673ab7dec22dd739c23f77195b1908", size = 960446 },
-    { url = "https://files.pythonhosted.org/packages/b6/30/09ced367d280072d7a3e21f34263dfbbf6378661e7a0f6414e7c18971083/tiktoken-0.7.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:09ed925bccaa8043e34c519fbb2f99110bd07c6fd67714793c21ac298e449410", size = 906652 },
-    { url = "https://files.pythonhosted.org/packages/e6/7b/c949e4954441a879a67626963dff69096e3c774758b9f2bb0853f7b4e1e7/tiktoken-0.7.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:03c6c40ff1db0f48a7b4d2dafeae73a5607aacb472fa11f125e7baf9dce73704", size = 1047904 },
-    { url = "https://files.pythonhosted.org/packages/50/81/1842a22f15586072280364c2ab1e40835adaf64e42fe80e52aff921ee021/tiktoken-0.7.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d20b5c6af30e621b4aca094ee61777a44118f52d886dbe4f02b70dfe05c15350", size = 1079836 },
-    { url = "https://files.pythonhosted.org/packages/6d/87/51a133a3d5307cf7ae3754249b0faaa91d3414b85c3d36f80b54d6817aa6/tiktoken-0.7.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:d427614c3e074004efa2f2411e16c826f9df427d3c70a54725cae860f09e4bf4", size = 1092472 },
-    { url = "https://files.pythonhosted.org/packages/a5/1f/c93517dc6d3b2c9e988b8e24f87a8b2d4a4ab28920a3a3f3ea338397ae0c/tiktoken-0.7.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:8c46d7af7b8c6987fac9b9f61041b452afe92eb087d29c9ce54951280f899a97", size = 1141881 },
-    { url = "https://files.pythonhosted.org/packages/bf/4b/48ca098cb580c099b5058bf62c4cb5e90ca6130fa43ef4df27088536245b/tiktoken-0.7.0-cp312-cp312-win_amd64.whl", hash = "sha256:0bc603c30b9e371e7c4c7935aba02af5994a909fc3c0fe66e7004070858d3f8f", size = 799281 },
-]
-
-[[package]]
 name = "tinycss2"
 version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3593,11 +3517,11 @@ wheels = [
 
 [[package]]
 name = "xmltodict"
-version = "0.14.2"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/50/05/51dcca9a9bf5e1bce52582683ce50980bcadbc4fa5143b9f2b19ab99958f/xmltodict-0.14.2.tar.gz", hash = "sha256:201e7c28bb210e374999d1dde6382923ab0ed1a8a5faeece48ab525b7810a553", size = 51942 }
+sdist = { url = "https://files.pythonhosted.org/packages/39/0d/40df5be1e684bbaecdb9d1e0e40d5d482465de6b00cbb92b84ee5d243c7f/xmltodict-0.13.0.tar.gz", hash = "sha256:341595a488e3e01a85a9d8911d8912fd922ede5fecc4dce437eb4b6c8d037e56", size = 33813 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/45/fc303eb433e8a2a271739c98e953728422fa61a3c1f36077a49e395c972e/xmltodict-0.14.2-py2.py3-none-any.whl", hash = "sha256:20cc7d723ed729276e808f26fb6b3599f786cbc37e06c65e192ba77c40f20aac", size = 9981 },
+    { url = "https://files.pythonhosted.org/packages/94/db/fd0326e331726f07ff7f40675cd86aa804bfd2e5016c727fa761c934990e/xmltodict-0.13.0-py2.py3-none-any.whl", hash = "sha256:aa89e8fd76320154a40d19a0df04a4695fb9dc5ba977cbb68ab3e4eb225e7852", size = 9971 },
 ]
 
 [[package]]

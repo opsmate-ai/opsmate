@@ -170,8 +170,6 @@ def dino(
                             "dino.system_prompt": (
                                 system_prompt if system_prompt else ""
                             ),
-                            "dino.prompt_length": len(prompt),
-                            "dino.prompt": prompt,
                             "dino.tool_calls": [tool.__name__ for tool in _tools],
                         }
                     )

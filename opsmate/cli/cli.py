@@ -285,7 +285,7 @@ Edit the command if needed, then press Enter to execute:
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def run(
     instruction,
@@ -297,6 +297,7 @@ async def run(
     no_tool_output,
     no_observation,
     config,
+    span,
 ):
     """
     Run a task with the OpsMate.
@@ -306,6 +307,19 @@ async def run(
 
     if len(tools) == 0:
         tools = ctx.resolve_tools()
+
+    span.set_attributes(
+        {
+            "cli.run.instruction": instruction,
+            "cli.run.model": model,
+            "cli.run.context": context,
+            "cli.run.tools": [t.__name__ for t in tools],
+            "cli.run.system_prompt": system_prompt if system_prompt else "",
+            "cli.run.no_tool_output": no_tool_output,
+            "cli.run.no_observation": no_observation,
+            "cli.run.max_output_length": tool_call_context["max_output_length"],
+        }
+    )
 
     logger.info("Running on", instruction=instruction, model=model)
 

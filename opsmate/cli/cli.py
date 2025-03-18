@@ -40,9 +40,38 @@ def coro(f):
 
 
 if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-    import openlit
+    from opentelemetry.instrumentation.openai import OpenAIInstrumentor
+    from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+    from opentelemetry.instrumentation.lancedb import LanceInstrumentor
 
-    openlit.init(application_name="opsmate", disable_metrics=True)
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import (
+        BatchSpanProcessor,
+    )
+
+    if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
+    else:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+
+    resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opsmate")})
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter()
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
+    trace.set_tracer_provider(provider)
+
+    OpenAIInstrumentor().instrument()
+    AnthropicInstrumentor().instrument()
+    LanceInstrumentor().instrument()
+
 
 logger = structlog.get_logger(__name__)
 
@@ -849,6 +878,7 @@ async def ingest_prometheus_metrics_metadata(
 
 @opsmate_cli.command()
 @config_params()
+@traceit(exclude=["config"])
 def list_tools(config):
     """
     List all the tools available.

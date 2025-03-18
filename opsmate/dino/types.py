@@ -13,15 +13,17 @@ from typing import (
     Awaitable,
     TypeAlias,
 )
-import structlog
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
 from abc import ABC, abstractmethod
+import structlog
 import inspect
 import traceback
 import warnings
-import os
 
 warnings.filterwarnings("ignore", message="fields may not start with an underscore")
 logger = structlog.get_logger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class TextContent(BaseModel):
@@ -119,30 +121,39 @@ class ToolCall(BaseModel, Generic[OutputType]):
 
     async def run(self, context: dict[str, Any] = {}):
         """Run the tool call and return the output"""
-        try:
-            if inspect.iscoroutinefunction(self.__call__):
-                if self.call_has_context():
-                    self.output = await self(context=context)
+        with tracer.start_as_current_span(
+            name=f"{self.__class__.__name__}.run"
+        ) as span:
+            try:
+                if inspect.iscoroutinefunction(self.__call__):
+                    if self.call_has_context():
+                        self.output = await self(context=context)
+                    else:
+                        self.output = await self()
                 else:
-                    self.output = await self()
-            else:
-                if self.call_has_context():
-                    self.output = self(context=context)
-                else:
-                    self.output = self()
-        except Exception as e:
-            logger.error(
-                "Tool execution failed",
-                error=str(e),
-                tool=self.__class__.__name__,
-                stack=traceback.format_exc(),
-            )
-            self.output = {
-                "error": str(e),
-                "message": "error executing tool",
-                "stack": traceback.format_exc(),
-            }
-        return self.output
+                    if self.call_has_context():
+                        self.output = self(context=context)
+                    else:
+                        self.output = self()
+                span.add_event(
+                    "Tool call completed", attributes={"output": self.model_dump_json()}
+                )
+                span.set_status(StatusCode.OK)
+            except Exception as e:
+                logger.error(
+                    "Tool execution failed",
+                    error=str(e),
+                    tool=self.__class__.__name__,
+                    stack=traceback.format_exc(),
+                )
+                span.add_event("Tool call failed", attributes={"error": str(e)})
+                span.set_status(StatusCode.ERROR, str(e))
+                self.output = {
+                    "error": str(e),
+                    "message": "error executing tool",
+                    "stack": traceback.format_exc(),
+                }
+            return self.output
 
     @computed_field
     @property

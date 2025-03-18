@@ -219,26 +219,18 @@ def dino(
                                 ],
                             }
                         )
-                        tool_spans = []
                         tasks = []
                         for resp in initial_response:
-                            tool_span = tracer.start_span(
-                                name=f"dino.tool.{resp.__class__.__name__}"
-                            )
-                            tool_spans.append(tool_span)
-                            # ctx = trace.set_span_in_context(tool_span)
                             tasks.append(resp.run(context=tool_call_ctx))
 
                         await asyncio.gather(*tasks)
 
-                        for i, (resp, tool_span) in enumerate(
-                            zip(initial_response, tool_spans)
-                        ):
-                            logger.debug("Tool called", tool=resp.model_dump_json())
-                            messages.append(Message.user(resp.prompt_display()))
-                            tool_outputs.append(resp)
-
-                            tool_span.end()
+                        for tool_output in initial_response:
+                            logger.debug(
+                                "Tool output", tool=tool_output.model_dump_json()
+                            )
+                            messages.append(Message.user(tool_output.prompt_display()))
+                            tool_outputs.append(tool_output)
 
                 with tracer.start_as_current_span("dino.response") as response_span:
                     if tool_calls_only:

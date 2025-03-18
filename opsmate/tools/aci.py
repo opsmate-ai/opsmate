@@ -76,7 +76,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
     view <file|dir> [start] [end]        # View file (optional 0-indexed line range) or directory
     create <file> <content>          # Create new file
     update <file> <old> <new> [start] [end]       # Replace content (old must be unique), with optional 0-indexed line range
-    append <file> <line> <content>   # Insert at line number
+    insert <file> <line> <content>   # Insert at line number
     undo <file>                      # Undo last file change
 
     Notes:
@@ -349,6 +349,13 @@ class ACITool(ToolCall[Result], PresentationMixin):
         start = self.line_start if self.line_start is not None else 0
         end = self.line_end if self.line_end is not None else len(lines) - 1
 
+        if self.old_content is None or self.content == "":
+            return Result(
+                error="Old content cannot be empty",
+                operation="update",
+                path=self.path,
+            )
+
         # Validate line range
         if start < 0 or end >= len(lines) or start > end:
             return Result(
@@ -529,7 +536,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
                 return self._render_error()
 
     def _render_error(self) -> str:
-        return f"Error: {self.output.error}"
+        return f"Error: {self.output}"
 
     def _render_search_markdown(self) -> str:
         template = Template(

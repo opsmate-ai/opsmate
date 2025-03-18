@@ -1,6 +1,7 @@
 import structlog
 import sqlmodel
 from fasthtml.common import *
+from opsmate.libs.core.trace import start_trace
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
@@ -96,6 +97,7 @@ async def kb_ingest():
 
 @app.on_event("startup")
 async def startup():
+    start_trace()
     dev = os.environ.get("DEV", "false").lower() == "true"
     if dev:
         await kb_ingest()

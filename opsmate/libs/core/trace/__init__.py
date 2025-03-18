@@ -4,6 +4,7 @@ from opentelemetry import trace
 import inspect
 from typing import Callable
 from contextlib import asynccontextmanager
+import os
 
 tracer = trace.get_tracer("opsmate")
 
@@ -102,3 +103,41 @@ def _traceit(func: Callable, name: str = None, exclude: list = []):
         return async_wrapper
     else:
         return wrapper
+
+
+def start_trace():
+    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        from opentelemetry.instrumentation.openai import OpenAIInstrumentor
+        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+        from opentelemetry.instrumentation.lancedb import LanceInstrumentor
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import (
+            BatchSpanProcessor,
+        )
+
+        if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter,
+            )
+        else:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+
+        from opentelemetry.sdk.resources import SERVICE_NAME, PROCESS_PID, Resource
+
+        resource = Resource(
+            attributes={
+                SERVICE_NAME: os.getenv("SERVICE_NAME", "opsmate"),
+                PROCESS_PID: os.getpid(),
+            }
+        )
+        provider = TracerProvider(resource=resource)
+        exporter = OTLPSpanExporter()
+        processor = BatchSpanProcessor(exporter)
+        provider.add_span_processor(processor)
+        trace.set_tracer_provider(provider)
+
+        OpenAIInstrumentor().instrument()
+        AnthropicInstrumentor().instrument()
+        LanceInstrumentor().instrument()

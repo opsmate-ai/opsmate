@@ -1,5 +1,5 @@
 from opsmate import __version__
-from opsmate.libs.core.trace import traceit
+from opsmate.libs.core.trace import traceit, start_trace
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -39,39 +39,7 @@ def coro(f):
     return wrapper
 
 
-if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-    from opentelemetry.instrumentation.openai import OpenAIInstrumentor
-    from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
-    from opentelemetry.instrumentation.lancedb import LanceInstrumentor
-
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import (
-        BatchSpanProcessor,
-    )
-
-    if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-            OTLPSpanExporter,
-        )
-    else:
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-            OTLPSpanExporter,
-        )
-
-    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-
-    resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opsmate")})
-    provider = TracerProvider(resource=resource)
-    exporter = OTLPSpanExporter()
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
-    OpenAIInstrumentor().instrument()
-    AnthropicInstrumentor().instrument()
-    LanceInstrumentor().instrument()
-
+start_trace()
 
 logger = structlog.get_logger(__name__)
 

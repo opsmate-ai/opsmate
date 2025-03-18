@@ -673,5 +673,10 @@ async def post(id: int, command: str):
         )
 
 
+if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+    StarletteInstrumentor().instrument_app(app)
+
 if __name__ == "__main__":
     serve()

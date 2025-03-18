@@ -109,7 +109,6 @@ def start_trace():
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
         from opentelemetry.instrumentation.openai import OpenAIInstrumentor
         from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
-        from opentelemetry.instrumentation.lancedb import LanceInstrumentor
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import (
             BatchSpanProcessor,
@@ -140,4 +139,3 @@ def start_trace():
 
         OpenAIInstrumentor().instrument()
         AnthropicInstrumentor().instrument()
-        LanceInstrumentor().instrument()

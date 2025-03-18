@@ -42,7 +42,7 @@ def coro(f):
 if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
     import openlit
 
-    openlit.init(application_name="opsmate")
+    openlit.init(application_name="opsmate", disable_metrics=True)
 
 logger = structlog.get_logger(__name__)
 

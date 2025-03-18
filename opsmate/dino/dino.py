@@ -20,9 +20,12 @@ from .utils import args_dump
 import structlog
 from instructor import AsyncInstructor
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
 import asyncio
 
 logger = structlog.get_logger(__name__)
+tracer = trace.get_tracer("opsmate.dino")
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -142,101 +145,164 @@ def dino(
                     raise ValueError(
                         f"response_model {response_model} must have a tool_outputs field when tool_calls_only is True"
                     )
-            _model = _get_model(model, decorator_model)
-            _tools = _get_tools(tools, decorator_tools)
-            _client = _get_client(client, decorator_client)
-            provider = Provider.from_model(_model)
+            with tracer.start_as_current_span(f"dino.{fn.__name__}") as fn_span:
+                _model = _get_model(model, decorator_model)
+                _tools = _get_tools(tools, decorator_tools)
+                _client = _get_client(client, decorator_client)
+                provider = Provider.from_model(_model)
 
-            system_prompt = fn.__doc__
-            # if is coroutine, await it
-            if inspect.iscoroutinefunction(fn):
-                prompt = await fn(*args, **fn_kwargs)
-            else:
-                prompt = fn(*args, **fn_kwargs)
+                system_prompt = fn.__doc__
+                # if is coroutine, await it
+                if inspect.iscoroutinefunction(fn):
+                    prompt = await fn(*args, **fn_kwargs)
+                else:
+                    prompt = fn(*args, **fn_kwargs)
 
-            ikwargs = _instructor_kwargs(kwargs, fn_kwargs)
-            ikwargs["model"] = _model
+                ikwargs = _instructor_kwargs(kwargs, fn_kwargs)
+                ikwargs["model"] = _model
 
-            messages = []
-            if system_prompt:
-                messages.append(Message.system(system_prompt))
+                if fn_span.is_recording():
+                    fn_span.set_attributes(
+                        {
+                            "dino.model": _model,
+                            "dino.response_model": response_model.__name__,
+                            "dino.tool_calls_only": tool_calls_only,
+                            "dino.system_prompt": (
+                                system_prompt if system_prompt else ""
+                            ),
+                            "dino.prompt_length": len(prompt),
+                            "dino.prompt": prompt,
+                            "dino.tool_calls": [tool.__name__ for tool in _tools],
+                        }
+                    )
 
-            if isinstance(prompt, str):
-                messages.append(Message.user(prompt))
-            elif isinstance(prompt, BaseModel):
-                messages.append(Message.user(prompt.model_dump_json()))
-            elif isinstance(prompt, list) and all(
-                isinstance(m, Message) for m in prompt
-            ):
-                messages.extend(prompt)
-            else:
-                raise ValueError("Prompt must be a string, BaseModel, or List[Message]")
+                messages = []
+                if system_prompt:
+                    messages.append(Message.system(system_prompt))
 
-            tool_call_ctx = ikwargs.get("context", {})
-            tool_call_ctx["dino_model"] = _model
+                if isinstance(prompt, str):
+                    messages.append(Message.user(prompt))
+                elif isinstance(prompt, BaseModel):
+                    messages.append(Message.user(prompt.model_dump_json()))
+                elif isinstance(prompt, list) and all(
+                    isinstance(m, Message) for m in prompt
+                ):
+                    messages.extend(prompt)
+                else:
+                    raise ValueError(
+                        "Prompt must be a string, BaseModel, or List[Message]"
+                    )
 
-            tool_outputs: List[ToolCall] = []
-            if _tools:
-                initial_response = await provider.chat_completion(
-                    messages=messages,
-                    response_model=Iterable[Union[tuple(_tools)]],
-                    client=_client,
-                    max_retries=AsyncRetrying(
-                        stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
-                        wait=wait_fixed(1),
-                    ),
-                    **ikwargs,
-                )
-                tasks = [resp.run(context=tool_call_ctx) for resp in initial_response]
-                await asyncio.gather(*tasks)
+                tool_call_ctx = ikwargs.get("context", {})
+                tool_call_ctx["dino_model"] = _model
 
-                for resp in initial_response:
-                    # logger.info("individual tool output before", tool=resp.output)
-                    logger.debug("Tool called", tool=resp.model_dump_json())
-                    messages.append(Message.user(resp.prompt_display()))
-                    # logger.info("individual tool output after", tool=resp.output)
-                    tool_outputs.append(resp)
+                tool_outputs: List[ToolCall] = []
+                if _tools:
+                    with tracer.start_as_current_span(
+                        "dino.tool_calls"
+                    ) as tool_call_span:
+                        initial_response = await provider.chat_completion(
+                            messages=messages,
+                            response_model=Iterable[Union[tuple(_tools)]],
+                            client=_client,
+                            max_retries=AsyncRetrying(
+                                stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
+                                wait=wait_fixed(1),
+                            ),
+                            **ikwargs,
+                        )
 
-            if tool_calls_only:
-                response = response_model()
-                response.tool_outputs = tool_outputs
-            else:
-                response = await provider.chat_completion(
-                    messages=messages,
-                    response_model=response_model,
-                    client=_client,
-                    max_retries=AsyncRetrying(
-                        stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
-                        wait=wait_fixed(1),
-                    ),
-                    **ikwargs,
-                )
+                        tool_call_span.set_attributes(
+                            {
+                                "dino.tools_returned": len(tool_outputs),
+                                "dino.tools_returned_names": [
+                                    tool_output.__class__.__name__
+                                    for tool_output in tool_outputs
+                                ],
+                            }
+                        )
+                        tool_spans = []
+                        tasks = []
+                        for resp in initial_response:
+                            tool_span = tracer.start_span(
+                                name=f"dino.tool.{resp.__class__.__name__}"
+                            )
+                            tool_spans.append(tool_span)
+                            # ctx = trace.set_span_in_context(tool_span)
+                            tasks.append(resp.run(context=tool_call_ctx))
 
-                if hasattr(response, "tool_outputs"):
-                    assert (
-                        response.tool_outputs == []
-                    ), "must not hallucinate tool outputs"
-                    response.tool_outputs = tool_outputs
+                        await asyncio.gather(*tasks)
 
-            if not after_hook:
-                return response
+                        for i, (resp, tool_span) in enumerate(
+                            zip(initial_response, tool_spans)
+                        ):
+                            logger.debug("Tool called", tool=resp.model_dump_json())
+                            messages.append(Message.user(resp.prompt_display()))
+                            tool_outputs.append(resp)
 
-            _validate_after_hook(after_hook)
+                            tool_span.end()
 
-            hook_args, hook_kwargs = args_dump(fn, after_hook, args, fn_kwargs)
-            hook_kwargs.update(response=response)
+                with tracer.start_as_current_span("dino.response") as response_span:
+                    if tool_calls_only:
+                        response = response_model()
+                        response.tool_outputs = tool_outputs
+                    else:
+                        response = await provider.chat_completion(
+                            messages=messages,
+                            response_model=response_model,
+                            client=_client,
+                            max_retries=AsyncRetrying(
+                                stop=stop_after_attempt(ikwargs.get("max_retries", 3)),
+                                wait=wait_fixed(1),
+                            ),
+                            **ikwargs,
+                        )
 
-            if inspect.iscoroutinefunction(after_hook):
-                transformed_response = await after_hook(*hook_args, **hook_kwargs)
-            elif callable(after_hook):
-                transformed_response = after_hook(*hook_args, **hook_kwargs)
-            else:
-                raise ValueError("after_hook must be a coroutine or a function")
+                        if hasattr(response, "tool_outputs"):
+                            assert (
+                                response.tool_outputs == []
+                            ), "must not hallucinate tool outputs"
+                            response.tool_outputs = tool_outputs
 
-            if transformed_response is not None:
-                return transformed_response
+                    if not after_hook:
+                        fn_span.set_status(StatusCode.OK)
+                        return response
 
-            return response
+                    with tracer.start_as_current_span(
+                        "dino.after_hook"
+                    ) as after_hook_span:
+                        after_hook_span.set_attribute(
+                            "dino.after_hook_type",
+                            (
+                                "coroutine"
+                                if inspect.iscoroutinefunction(after_hook)
+                                else "function"
+                            ),
+                        )
+                        _validate_after_hook(after_hook)
+
+                        hook_args, hook_kwargs = args_dump(
+                            fn, after_hook, args, fn_kwargs
+                        )
+                        hook_kwargs.update(response=response)
+
+                        if inspect.iscoroutinefunction(after_hook):
+                            transformed_response = await after_hook(
+                                *hook_args, **hook_kwargs
+                            )
+                        elif callable(after_hook):
+                            transformed_response = after_hook(*hook_args, **hook_kwargs)
+                        else:
+                            raise ValueError(
+                                "after_hook must be a coroutine or a function"
+                            )
+
+                        if transformed_response is not None:
+                            after_hook_span.set_status(StatusCode.OK)
+                            return transformed_response
+
+                        after_hook_span.set_status(StatusCode.OK)
+                        return response
 
         return wrapper
 

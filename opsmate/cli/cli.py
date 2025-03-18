@@ -39,8 +39,6 @@ def coro(f):
     return wrapper
 
 
-start_trace()
-
 logger = structlog.get_logger(__name__)
 
 
@@ -92,7 +90,7 @@ def opsmate_cli():
     OpsMate is an SRE AI assistant that helps you manage production environment.
     This is the cli tool to interact with OpsMate.
     """
-    pass
+    start_trace()
 
 
 def config_params(cli_config=config):

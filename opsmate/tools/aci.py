@@ -349,11 +349,15 @@ class ACITool(ToolCall[Result], PresentationMixin):
         start = self.line_start if self.line_start is not None else 0
         end = self.line_end if self.line_end is not None else len(lines) - 1
 
-        if self.old_content is None or self.content == "":
+        if self.old_content is None or self.old_content == "":
             return Result(
                 error="Old content cannot be empty",
                 operation="update",
                 path=self.path,
+                old_content=self.old_content,
+                content=self.content,
+                line_start=start,
+                line_end=end,
             )
 
         # Validate line range

@@ -397,7 +397,7 @@ async def run(
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def solve(
     instruction,
@@ -411,6 +411,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
+    span,
 ):
     """
     Solve a problem with the OpsMate.
@@ -420,8 +421,19 @@ async def solve(
     if len(tools) == 0:
         tools = ctx.resolve_tools()
 
+    span.set_attributes(
+        {
+            "cli.solve.instruction": instruction,
+            "cli.solve.model": model,
+            "cli.solve.context": context,
+            "cli.solve.tools": [t.__name__ for t in tools],
+            "cli.solve.max_iter": max_iter,
+            "cli.solve.no_tool_output": no_tool_output,
+            "cli.solve.answer_only": answer_only,
+            "cli.solve.tool_calls_per_action": tool_calls_per_action,
+        }
+    )
     contexts = await ctx.resolve_contexts()
-
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 

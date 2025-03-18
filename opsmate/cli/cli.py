@@ -521,7 +521,7 @@ Commands:
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def chat(
     model,
@@ -532,6 +532,7 @@ async def chat(
     system_prompt,
     tool_calls_per_action,
     config,
+    span,
 ):
     """
     Chat with the OpsMate.
@@ -542,40 +543,50 @@ async def chat(
     if len(tools) == 0:
         tools = ctx.tools
 
+    span.set_attributes(
+        {
+            "cli.chat.model": model,
+            "cli.chat.max_iter": max_iter,
+            "cli.chat.context": context,
+            "cli.chat.tools": [t.__name__ for t in tools],
+            "cli.chat.system_prompt": system_prompt if system_prompt else "",
+            "cli.chat.tool_calls_per_action": tool_calls_per_action,
+        }
+    )
     opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-    chat_history = []
-    while True:
-        user_input = console.input("[bold cyan]You> [/bold cyan]")
-        if user_input == "!clear":
-            chat_history = []
-            opsmate_says("Chat history cleared")
-            continue
-        elif user_input == "!exit":
-            break
-        elif user_input == "!help":
-            console.print(help_msg)
-            continue
+    try:
+        chat_history = []
+        while True:
+            user_input = console.input("[bold cyan]You> [/bold cyan]")
+            if user_input == "!clear":
+                chat_history = []
+                opsmate_says("Chat history cleared")
+                continue
+            elif user_input == "!exit":
+                break
+            elif user_input == "!help":
+                console.print(help_msg)
+                continue
 
-        contexts = await ctx.resolve_contexts()
-        if system_prompt:
-            contexts = [
-                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-            ]
+            contexts = await ctx.resolve_contexts()
+            if system_prompt:
+                contexts = [
+                    Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                ]
 
-        run = run_react(
-            user_input,
-            contexts=contexts,
-            model=model,
-            max_iter=max_iter,
-            tools=tools,
-            chat_history=chat_history,
-            tool_call_context=tool_call_context,
-            tool_calls_per_action=tool_calls_per_action,
-        )
-        chat_history.append(Message.user(user_input))
+            run = run_react(
+                user_input,
+                contexts=contexts,
+                model=model,
+                max_iter=max_iter,
+                tools=tools,
+                chat_history=chat_history,
+                tool_call_context=tool_call_context,
+                tool_calls_per_action=tool_calls_per_action,
+            )
+            chat_history.append(Message.user(user_input))
 
-        try:
             async for output in run:
                 if isinstance(output, React):
                     tp = f"""
@@ -604,8 +615,8 @@ async def chat(
 """
                     for tool_call in output.tool_outputs:
                         tp += f"""
-    {tool_call.display(context={"in_terminal": True})}
-    """
+{tool_call.display(context={"in_terminal": True})}
+"""
                     tp += f"""
 ### Observation
 
@@ -613,8 +624,8 @@ async def chat(
 """
                     console.print(Markdown(tp))
                     chat_history.append(Message.assistant(tp))
-        except (KeyboardInterrupt, EOFError):
-            opsmate_says("Goodbye!")
+    except (KeyboardInterrupt, EOFError):
+        opsmate_says("Goodbye!")
 
 
 @opsmate_cli.command()

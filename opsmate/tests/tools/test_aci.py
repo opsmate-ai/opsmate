@@ -257,6 +257,13 @@ async def test_file_update(test_file):
         test_file, "Hello, world!\nThis is cool.\nThis is hot.\nVery very cool"
     )
 
+    # update with empty old content
+    tool7 = ACITool(
+        command="update", path=test_file, old_content="", content="This is hot."
+    )
+    result7 = await tool7.run()
+    assert result7.error == "Old content cannot be empty"
+
 
 @pytest.mark.asyncio
 async def test_file_search(test_file):

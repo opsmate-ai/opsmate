@@ -175,6 +175,16 @@ class Config(BaseSettings):
         with engine.connect() as conn:
             conn.execute(text("PRAGMA journal_mode=WAL"))
             conn.close()
+
+        if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+            from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+            SQLAlchemyInstrumentor().instrument(
+                engine=engine,
+                enable_commenter=True,
+                commenter_options={"comment_style": "sqlalchemy"},
+            )
+
         return engine
 
     def serialize_to_env(self):

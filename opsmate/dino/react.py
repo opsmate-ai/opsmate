@@ -12,12 +12,16 @@ from typing import (
 from pydantic import BaseModel
 from .dino import dino
 from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
+from opsmate.libs.core.trace import traceit
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
 from functools import wraps
 import inspect
 import structlog
 import yaml
 
 logger = structlog.get_logger(__name__)
+tracer = trace.get_tracer("opsmate.dino")
 
 
 async def _react_prompt(
@@ -84,6 +88,9 @@ Here is a list of tools you can use:
     ]
 
 
+@traceit(
+    exclude=["contexts", "tools", "chat_history", "react_prompt", "tool_call_context"]
+)
 async def run_react(
     question: str,
     contexts: List[str | Message] = [],
@@ -96,6 +103,7 @@ async def run_react(
     ] = _react_prompt,
     tool_calls_per_action: int = 3,
     tool_call_context: Dict[str, Any] = {},
+    span: trace.Span = None,
     **kwargs: Any,
 ):
     ctxs = []
@@ -146,27 +154,77 @@ thought: {react.thoughts}
     message_history = Message.normalise(chat_history)
     for ctx in ctxs:
         message_history.append(ctx)
-    for _ in range(max_iter):
-        react_result = await react(
-            question, message_history=message_history, tool_names=tools
-        )
-        if isinstance(react_result, React):
-            message_history.append(Message.user(react_result.model_dump_json()))
-            yield react_result
-            observation = await run_action(react_result, context=tool_call_context)
+    for i in range(max_iter):
+        with tracer.start_as_current_span(f"dino.react.iter.{i}") as iter_span:
+            react_result = await react(
+                question, message_history=message_history, tool_names=tools
+            )
+            if isinstance(react_result, React):
+                iter_span.add_event(
+                    "dino.react.thinking",
+                    attributes={
+                        "dino.react.type": "thinking",
+                        "dino.react.thoughts": react_result.thoughts,
+                        "dino.react.action": react_result.action,
+                    },
+                )
+                iter_span.set_attributes(
+                    {
+                        "dino.react.type": "thinking",
+                        "dino.react.thoughts": react_result.thoughts,
+                        "dino.react.action": react_result.action,
+                    }
+                )
+                message_history.append(Message.user(react_result.model_dump_json()))
+                yield react_result
+                with tracer.start_as_current_span(
+                    "dino.react.action",
+                    attributes={
+                        "dino.react.type": "action",
+                        "dino.react.action": react_result.action,
+                    },
+                ) as action_span:
+                    observation = await run_action(
+                        react_result, context=tool_call_context
+                    )
+                    action_span.set_attribute(
+                        "dino.react.observation",
+                        observation.observation,
+                    )
 
-            observation_out = observation.model_dump()
-            for idx, tool_output in enumerate(observation.tool_outputs):
-                if isinstance(tool_output, ToolCall):
-                    observation_out["tool_outputs"][idx] = tool_output.prompt_display()
-                elif isinstance(tool_output, str):
-                    observation_out["tool_outputs"][idx] = tool_output
+                    observation_out = observation.model_dump()
+                    for idx, tool_output in enumerate(observation.tool_outputs):
+                        if isinstance(tool_output, ToolCall):
+                            observation_out["tool_outputs"][
+                                idx
+                            ] = tool_output.prompt_display()
+                        elif isinstance(tool_output, str):
+                            observation_out["tool_outputs"][idx] = tool_output
 
-            message_history.append(Message.user(yaml.dump(observation_out)))
-            yield observation
-        elif isinstance(react_result, ReactAnswer):
-            yield react_result
-            break
+                    action_span.set_attribute(
+                        "dino.react.observation.tool_outputs",
+                        observation_out["tool_outputs"],
+                    )
+                    action_span.add_event(
+                        "dino.react.observation",
+                        attributes={
+                            "dino.react.observation": observation.observation,
+                            "dino.react.observation.tool_outputs": observation_out[
+                                "tool_outputs"
+                            ],
+                        },
+                    )
+                    message_history.append(Message.user(yaml.dump(observation_out)))
+                    yield observation
+            elif isinstance(react_result, ReactAnswer):
+                iter_span.set_attributes(
+                    {
+                        "dino.react.type": "answer",
+                        "dino.react.answer": react_result.answer,
+                    }
+                )
+                yield react_result
+                break
 
 
 def react(

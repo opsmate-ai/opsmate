@@ -1,6 +1,7 @@
 import structlog
 import sqlmodel
 from fasthtml.common import *
+from opsmate.libs.core.trace import start_trace
 from opsmate.gui.models import (
     Cell,
     CellLangEnum,
@@ -96,6 +97,7 @@ async def kb_ingest():
 
 @app.on_event("startup")
 async def startup():
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
     dev = os.environ.get("DEV", "false").lower() == "true"
     if dev:
         await kb_ingest()
@@ -670,6 +672,11 @@ async def post(id: int, command: str):
             hx_swap="delete",
         )
 
+
+if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+    StarletteInstrumentor().instrument_app(app)
 
 if __name__ == "__main__":
     serve()

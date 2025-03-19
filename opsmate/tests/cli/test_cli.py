@@ -3,11 +3,22 @@ import sys
 from click.testing import CliRunner
 from io import StringIO
 from opsmate.cli.cli import opsmate_cli
+import os
 
 
 @pytest.fixture
 def cli_runner():
-    return CliRunner()
+    # Store original environment variables
+    original_endpoint = os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
+    original_headers = os.environ.pop("OTEL_EXPORTER_OTLP_HEADERS", None)
+
+    yield CliRunner()
+
+    # Restore original environment variables if they existed
+    if original_endpoint is not None:
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = original_endpoint
+    if original_headers is not None:
+        os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = original_headers
 
 
 @pytest.fixture

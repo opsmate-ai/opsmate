@@ -64,6 +64,8 @@ import yaml
 import asyncio
 from typing import AsyncGenerator
 from opsmate.tools.prom import PromQuery
+from opentelemetry import trace
+from opsmate.libs.core.trace import traceit
 
 logger = structlog.get_logger()
 
@@ -410,7 +412,11 @@ async def gen_confirmation_prompt(cell: Cell, session: Session, send):
     return confirmation_prompt
 
 
-async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Session):
+@traceit(exclude=["cell", "session", "send", "swap"])
+async def execute_llm_react_instruction(
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
 
     logger.info("executing llm react instruction", cell_id=cell.id)
 
@@ -435,11 +441,17 @@ async def execute_llm_react_instruction(cell: Cell, swap: str, send, session: Se
                 "envvars": EnvVar.all(session),
                 "confirmation": confirmation_prompt,
             },
+            model=llm_model,
         ),
     )
 
 
-async def execute_llm_simple_instruction(cell: Cell, swap: str, send, session: Session):
+@traceit(exclude=["cell", "session", "send", "swap"])
+async def execute_llm_simple_instruction(
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     logger.info("executing llm simple instruction", cell_id=cell.id)
 
     cell = await render_notes_output(
@@ -453,8 +465,24 @@ async def execute_llm_simple_instruction(cell: Cell, swap: str, send, session: S
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
-async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Session):
+@traceit(exclude=["cell", "session", "send", "swap"])
+async def execute_llm_type2_instruction(
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     workflow = cell.workflow
+    span.set_attributes({"workflow_name": workflow.name})
+
+    span.add_event(
+        "executing llm type2 instruction",
+        {
+            "cell_id": cell.id,
+            "input": cell.input,
+            "workflow_name": workflow.name,
+        },
+    )
+
     if workflow.name == WorkflowEnum.UNDERSTANDING:
         if cell.cell_type == CellType.UNDERSTANDING_ASK_QUESTIONS:
             return await update_initial_understanding(cell, send, session)
@@ -475,8 +503,12 @@ async def execute_llm_type2_instruction(cell: Cell, swap: str, send, session: Se
         return await execute_polya_execution_instruction(cell, swap, send, session)
 
 
-async def execute_polya_understanding_instruction(cell: Cell, send, session: Session):
+@traceit(exclude=["cell", "send", "session"])
+async def execute_polya_understanding_instruction(
+    cell: Cell, send, session: Session, span: trace.Span
+):
     msg = cell.input.rstrip()
+
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.RUNNING)
@@ -513,6 +545,7 @@ async def execute_polya_understanding_instruction(cell: Cell, send, session: Ses
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def update_initial_understanding(
     cell: Cell,
     send,
@@ -545,11 +578,14 @@ async def update_initial_understanding(
     )
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def update_info_gathering(
     cell: Cell,
     send,
     session: Session,
+    span: trace.Span,
 ):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
 
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
@@ -576,7 +612,12 @@ async def update_info_gathering(
     )
 
 
-async def update_planning_optimial_solution(cell: Cell, send, session: Session):
+@traceit(exclude=["cell", "session", "send"])
+async def update_planning_optimial_solution(
+    cell: Cell, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
         .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
@@ -605,9 +646,12 @@ async def update_planning_optimial_solution(cell: Cell, send, session: Session):
     )
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def update_planning_knowledge_retrieval(
-    cell: Cell, swap: str, send, session: Session
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
 ):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     opsmate_workflow_step = session.exec(
         select(OpsmateWorkflowStep)
         .where(OpsmateWorkflowStep.id == cell.internal_workflow_step_id)
@@ -636,13 +680,16 @@ async def update_planning_knowledge_retrieval(
     )
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def update_planning_task_plan(cell: Cell, swap: str, send, session: Session):
     pass
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def execute_polya_planning_instruction(
-    cell: Cell, swap: str, send, session: Session
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
 ):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
     msg = cell.input.rstrip()
     logger.info("executing polya understanding instruction", cell_id=cell.id, input=msg)
 
@@ -683,9 +730,12 @@ async def execute_polya_planning_instruction(
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
+@traceit(exclude=["cell", "session", "send"])
 async def execute_polya_execution_instruction(
-    cell: Cell, swap: str, send, session: Session
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
 ):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     logger.info(
         "executing polya execution instruction", cell_id=cell.id, input=cell.input
     )
@@ -737,6 +787,8 @@ Here are the tasks to be performed **ONLY**:
 <important>
 * PR **must be raised** if you are asked to do so
 * Verify the tasks are correct if you are working on a pre-existing branch
+* When you do code editing using ACITool, make sure that you take the tabs and spaces into account.
+* Validate the changes using `ACITool.view` after you make the changes.
 </important>
 
 <instructions>
@@ -759,17 +811,28 @@ Here are the tasks to be performed **ONLY**:
                 "confirmation": confirmation_prompt,
                 "cwd": os.getcwd(),
             },
+            model=llm_model,
         ),
     )
 
 
-async def execute_notes_instruction(cell: Cell, swap: str, send, session: Session):
+@traceit(exclude=["cell", "session", "send"])
+async def execute_notes_instruction(
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     logger.info("executing notes instruction", cell_id=cell.id)
 
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
 
 
-async def execute_bash_instruction(cell: Cell, swap: str, send, session: Session):
+@traceit(exclude=["cell", "session", "send"])
+async def execute_bash_instruction(
+    cell: Cell, swap: str, send, session: Session, span: trace.Span
+):
+    span.set_attributes({"cell_id": cell.id, "input": cell.input})
+
     logger.info("executing bash instruction", cell_id=cell.id)
     outputs = []
     await send(

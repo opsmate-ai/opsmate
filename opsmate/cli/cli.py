@@ -1,13 +1,5 @@
 from opsmate import __version__
-from opsmate.libs.core.trace import traceit
-from openai_otel import OpenAIAutoInstrumentor
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-)
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opsmate.libs.core.trace import traceit, start_trace
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -30,6 +22,8 @@ import click
 import structlog
 import sys
 
+console = Console()
+
 
 @cache
 def addon_discovery():
@@ -44,23 +38,6 @@ def coro(f):
 
     return wrapper
 
-
-console = Console()
-resource = Resource(attributes={SERVICE_NAME: os.getenv("SERVICE_NAME", "opamate")})
-
-otel_enabled = os.getenv("OTEL_ENABLED", "false").lower() == "true"
-
-if otel_enabled:
-    provider = TracerProvider(resource=resource)
-    exporter = OTLPSpanExporter(
-        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-        insecure=True,
-    )
-    processor = BatchSpanProcessor(exporter)
-    provider.add_span_processor(processor)
-    trace.set_tracer_provider(provider)
-
-    OpenAIAutoInstrumentor().instrument()
 
 logger = structlog.get_logger(__name__)
 
@@ -113,7 +90,7 @@ def opsmate_cli():
     OpsMate is an SRE AI assistant that helps you manage production environment.
     This is the cli tool to interact with OpsMate.
     """
-    pass
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
 
 
 def config_params(cli_config=config):
@@ -303,7 +280,7 @@ Edit the command if needed, then press Enter to execute:
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def run(
     instruction,
@@ -315,6 +292,7 @@ async def run(
     no_tool_output,
     no_observation,
     config,
+    span,
 ):
     """
     Run a task with the OpsMate.
@@ -324,6 +302,19 @@ async def run(
 
     if len(tools) == 0:
         tools = ctx.resolve_tools()
+
+    span.set_attributes(
+        {
+            "cli.run.instruction": instruction,
+            "cli.run.model": model,
+            "cli.run.context": context,
+            "cli.run.tools": [t.__name__ for t in tools],
+            "cli.run.system_prompt": system_prompt if system_prompt else "",
+            "cli.run.no_tool_output": no_tool_output,
+            "cli.run.no_observation": no_observation,
+            "cli.run.max_output_length": tool_call_context["max_output_length"],
+        }
+    )
 
     logger.info("Running on", instruction=instruction, model=model)
 
@@ -401,7 +392,7 @@ async def run(
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def solve(
     instruction,
@@ -415,6 +406,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
+    span,
 ):
     """
     Solve a problem with the OpsMate.
@@ -424,8 +416,19 @@ async def solve(
     if len(tools) == 0:
         tools = ctx.resolve_tools()
 
+    span.set_attributes(
+        {
+            "cli.solve.instruction": instruction,
+            "cli.solve.model": model,
+            "cli.solve.context": context,
+            "cli.solve.tools": [t.__name__ for t in tools],
+            "cli.solve.max_iter": max_iter,
+            "cli.solve.no_tool_output": no_tool_output,
+            "cli.solve.answer_only": answer_only,
+            "cli.solve.tool_calls_per_action": tool_calls_per_action,
+        }
+    )
     contexts = await ctx.resolve_contexts()
-
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
@@ -513,7 +516,7 @@ Commands:
 )
 @config_params()
 @common_params
-@traceit
+@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 async def chat(
     model,
@@ -524,6 +527,7 @@ async def chat(
     system_prompt,
     tool_calls_per_action,
     config,
+    span,
 ):
     """
     Chat with the OpsMate.
@@ -534,40 +538,50 @@ async def chat(
     if len(tools) == 0:
         tools = ctx.tools
 
+    span.set_attributes(
+        {
+            "cli.chat.model": model,
+            "cli.chat.max_iter": max_iter,
+            "cli.chat.context": context,
+            "cli.chat.tools": [t.__name__ for t in tools],
+            "cli.chat.system_prompt": system_prompt if system_prompt else "",
+            "cli.chat.tool_calls_per_action": tool_calls_per_action,
+        }
+    )
     opsmate_says("Howdy! How can I help you?\n" + help_msg)
 
-    chat_history = []
-    while True:
-        user_input = console.input("[bold cyan]You> [/bold cyan]")
-        if user_input == "!clear":
-            chat_history = []
-            opsmate_says("Chat history cleared")
-            continue
-        elif user_input == "!exit":
-            break
-        elif user_input == "!help":
-            console.print(help_msg)
-            continue
+    try:
+        chat_history = []
+        while True:
+            user_input = console.input("[bold cyan]You> [/bold cyan]")
+            if user_input == "!clear":
+                chat_history = []
+                opsmate_says("Chat history cleared")
+                continue
+            elif user_input == "!exit":
+                break
+            elif user_input == "!help":
+                console.print(help_msg)
+                continue
 
-        contexts = await ctx.resolve_contexts()
-        if system_prompt:
-            contexts = [
-                Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
-            ]
+            contexts = await ctx.resolve_contexts()
+            if system_prompt:
+                contexts = [
+                    Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
+                ]
 
-        run = run_react(
-            user_input,
-            contexts=contexts,
-            model=model,
-            max_iter=max_iter,
-            tools=tools,
-            chat_history=chat_history,
-            tool_call_context=tool_call_context,
-            tool_calls_per_action=tool_calls_per_action,
-        )
-        chat_history.append(Message.user(user_input))
+            run = run_react(
+                user_input,
+                contexts=contexts,
+                model=model,
+                max_iter=max_iter,
+                tools=tools,
+                chat_history=chat_history,
+                tool_call_context=tool_call_context,
+                tool_calls_per_action=tool_calls_per_action,
+            )
+            chat_history.append(Message.user(user_input))
 
-        try:
             async for output in run:
                 if isinstance(output, React):
                     tp = f"""
@@ -596,8 +610,8 @@ async def chat(
 """
                     for tool_call in output.tool_outputs:
                         tp += f"""
-    {tool_call.display(context={"in_terminal": True})}
-    """
+{tool_call.display(context={"in_terminal": True})}
+"""
                     tp += f"""
 ### Observation
 
@@ -605,8 +619,8 @@ async def chat(
 """
                     console.print(Markdown(tp))
                     chat_history.append(Message.assistant(tp))
-        except (KeyboardInterrupt, EOFError):
-            opsmate_says("Goodbye!")
+    except (KeyboardInterrupt, EOFError):
+        opsmate_says("Goodbye!")
 
 
 @opsmate_cli.command()
@@ -830,6 +844,7 @@ async def ingest_prometheus_metrics_metadata(
 
 @opsmate_cli.command()
 @config_params()
+@traceit(exclude=["config"])
 def list_tools(config):
     """
     List all the tools available.

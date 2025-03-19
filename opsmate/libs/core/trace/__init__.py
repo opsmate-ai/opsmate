@@ -2,9 +2,13 @@ import json
 from functools import wraps
 from opentelemetry import trace
 import inspect
-from typing import Callable
+from typing import Callable, Optional, Sequence, List
 from contextlib import asynccontextmanager
 import os
+from opentelemetry.sdk.trace.sampling import Sampler, SamplingResult, Decision
+from opentelemetry.trace import Context, TraceState, SpanKind, Link
+from opentelemetry.util.types import Attributes
+from collections import OrderedDict
 
 tracer = trace.get_tracer("opsmate")
 
@@ -105,7 +109,49 @@ def _traceit(func: Callable, name: str = None, exclude: list = []):
         return wrapper
 
 
-def start_trace():
+class DiscardSampler(Sampler):
+    def __init__(self, spans_to_discard: List[str] = [], max_trace_ids: int = 1000):
+        self.spans_to_discard = spans_to_discard
+        self.max_trace_ids = max_trace_ids
+        self.discarded_trace_ids = OrderedDict()
+
+    def should_sample(
+        self,
+        parent_context: Optional["Context"],
+        trace_id: int,
+        name: str,
+        kind: Optional[SpanKind] = None,
+        attributes: Attributes = None,
+        links: Optional[Sequence[Link]] = None,
+        trace_state: Optional[TraceState] = None,
+    ) -> SamplingResult:
+        if trace_id in self.discarded_trace_ids:
+            self.discarded_trace_ids.move_to_end(trace_id)
+            self.discarded_trace_ids[trace_id] = True
+            return SamplingResult(
+                decision=Decision.DROP, attributes=attributes, trace_state=trace_state
+            )
+
+        if name in self.spans_to_discard:
+            if len(self.discarded_trace_ids) >= self.max_trace_ids:
+                self.discarded_trace_ids.popitem(last=False)  # Remove oldest item
+
+            self.discarded_trace_ids[trace_id] = True
+            return SamplingResult(
+                decision=Decision.DROP, attributes=attributes, trace_state=trace_state
+            )
+
+        return SamplingResult(
+            decision=Decision.RECORD_AND_SAMPLE,
+            attributes=attributes,
+            trace_state=trace_state,
+        )
+
+    def get_description(self) -> str:
+        return "Discard specific spans and their related traces with bounded memory"
+
+
+def start_trace(spans_to_discard: List[str] = []):
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
         from opentelemetry.instrumentation.openai import OpenAIInstrumentor
         from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
@@ -131,7 +177,10 @@ def start_trace():
                 PROCESS_PID: os.getpid(),
             }
         )
-        provider = TracerProvider(resource=resource)
+        provider = TracerProvider(
+            resource=resource,
+            sampler=DiscardSampler(spans_to_discard=spans_to_discard),
+        )
         exporter = OTLPSpanExporter()
         processor = BatchSpanProcessor(exporter)
         provider.add_span_processor(processor)

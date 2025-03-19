@@ -97,7 +97,7 @@ async def kb_ingest():
 
 @app.on_event("startup")
 async def startup():
-    start_trace()
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
     dev = os.environ.get("DEV", "false").lower() == "true"
     if dev:
         await kb_ingest()

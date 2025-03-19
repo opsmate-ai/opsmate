@@ -30,7 +30,7 @@ import traceback
 import inspect
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Context
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("dbq")
@@ -413,7 +413,10 @@ class Worker:
                 span.record_exception(e)
 
     async def _run(self, coroutine_id: int):
-        task = dequeue_task(self.session, queue_name=self.queue_name)
+        with tracer.start_as_current_span(
+            "dbq.dequeue_task", context=Context({"a": "b"})
+        ) as span:
+            task = dequeue_task(self.session, queue_name=self.queue_name)
 
         if not task:
             await asyncio.sleep(0.1)
@@ -525,9 +528,10 @@ class Worker:
     ):
         """Check if the fn has a ctx argument, if so, add the session to it"""
         with tracer.start_as_current_span("execute_function") as span:
-            fn_name = (
-                fn.__name__ if not isinstance(fn, Task) else fn.executable.__name__
-            )
+            if isinstance(fn, Task):
+                fn_name = f"{fn.executable.__module__}.{fn.executable.__name__}"
+            else:
+                fn_name = f"{fn.__module__}.{fn.__name__}"
             span.set_attribute("dbq.function.name", fn_name)
 
             if isinstance(fn, Task):

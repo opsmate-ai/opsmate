@@ -90,7 +90,7 @@ def opsmate_cli():
     OpsMate is an SRE AI assistant that helps you manage production environment.
     This is the cli tool to interact with OpsMate.
     """
-    start_trace()
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
 
 
 def config_params(cli_config=config):

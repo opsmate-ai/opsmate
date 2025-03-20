@@ -30,14 +30,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Allow uv to use the system Python by default
-        run: echo "UV_SYSTEM_PYTHON=1" >> $GITHUB_ENV
-        shell: bash
-
       - name: Install dependencies
         run: |
           pipx install uv --python $(which python${{ matrix.python-version }})
-          uv sync --group eval
+          uv export --group eval --no-hashes --no-editable --format requirements-txt > requirements.txt
+          pip install -r requirements.txt
 
       - name: Install kubectl
         run: |
@@ -51,6 +48,12 @@ jobs:
 
       - name: Run Evals
         uses: braintrustdata/eval-action@v1.0.13
+        env:
+          BRAINTRUST_PROJECT_ID: ${{ secrets.BRAINTRUST_PROJECT_ID }}
+          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CI: "true"
         with:
           api_key: ${{ secrets.BRAINTRUST_API_KEY }}
           runtime: python

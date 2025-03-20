@@ -12,7 +12,8 @@ logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("opsmate.eval")
 
 project_name = "opsmate-eval"
-project_id = os.getenv("BRAINTRUST_PROJECT_ID", "e2a452ae-1898-48c9-b468-914410fc4613")
+project_id = os.getenv("BRAINTRUST_PROJECT_ID")
+
 if os.getenv("BRAINTRUST_API_KEY") is not None:
     OTEL_EXPORTER_OTLP_ENDPOINT = "https://api.braintrust.dev/otel"
     OTEL_EXPORTER_OTLP_HEADERS = f"Authorization=Bearer {os.getenv('BRAINTRUST_API_KEY')}, x-bt-parent=project_id:{project_id}"

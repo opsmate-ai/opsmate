@@ -1,9 +1,12 @@
 name: Run Python evals
 
 on:
-  push:
-    paths:
-      - "evals/**"
+  pull_request:
+    branches:
+      - main
+  # push:
+  #   paths:
+  #     - "evals/**"
 
 permissions:
   pull-requests: write

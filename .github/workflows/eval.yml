@@ -30,11 +30,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Allow uv to use the system Python by default
+        run: echo "UV_SYSTEM_PYTHON=1" >> $GITHUB_ENV
+        shell: bash
+
       - name: Install dependencies
         run: |
           pipx install uv --python $(which python${{ matrix.python-version }})
-          uv export --group eval --no-hashes --no-editable --format requirements-txt > requirements.txt
-          pip install -r requirements.txt
+          uv sync --group eval
 
       - name: Install kubectl
         run: |

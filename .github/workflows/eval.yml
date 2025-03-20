@@ -33,8 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           pipx install uv --python $(which python${{ matrix.python-version }})
-          uv sync
-          uv export --group eval > requirements.txt
+          uv export --group eval --no-hashes --no-editable --format requirements-txt > requirements.txt
           pip install -r requirements.txt
 
       - name: Install kubectl

@@ -43,7 +43,7 @@ jobs:
           make kind-cluster
 
       - name: Run Evals
-        uses: braintrustdata/eval-action@v1
+        uses: braintrustdata/eval-action@v1.0.13
         with:
           api_key: ${{ secrets.BRAINTRUST_API_KEY }}
           runtime: python

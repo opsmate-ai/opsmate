@@ -57,4 +57,5 @@ jobs:
         with:
           api_key: ${{ secrets.BRAINTRUST_API_KEY }}
           runtime: python
-          root: evals
+          root: .
+          paths: evals

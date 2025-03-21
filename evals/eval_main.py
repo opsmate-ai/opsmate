@@ -1,6 +1,5 @@
 from braintrust import Eval, EvalHooks
-from autoevals.ragas import AnswerCorrectness
-from braintrust_core.score import Scorer, Score
+from evals.scorers import OpsmateScorer
 from opsmate.contexts import k8s_ctx
 from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
@@ -8,8 +7,6 @@ from opsmate.libs.core.trace import start_trace
 from opentelemetry import trace
 import structlog
 import os
-import subprocess
-import jinja2
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("opsmate.eval")
@@ -25,28 +22,6 @@ if os.getenv("BRAINTRUST_API_KEY") is not None:
     os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = OTEL_EXPORTER_OTLP_HEADERS
 
     start_trace()
-
-
-class OpsmateScorer(Scorer):
-    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
-        metadata = kwargs.get("metadata", {})
-        cmds = {}
-        for key, cmd in metadata.get("cmds", {}).items():
-            cmds[key] = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
-
-        expected = jinja2.Template(expected).render(**cmds)
-
-        logger.info("rendered expected", expected=expected)
-        answer_correctness = AnswerCorrectness()
-        score = answer_correctness.eval(
-            input=kwargs.get("input"),
-            output=output,
-            expected=expected,
-        )
-        score.metadata["cmds"] = cmds
-        score.metadata["rendered_expected"] = expected
-
-        return score
 
 
 async def k8s_agent(question: str, hooks: EvalHooks):
@@ -69,7 +44,7 @@ async def k8s_agent(question: str, hooks: EvalHooks):
             raise ValueError(f"Unexpected output type: {type(output)}")
 
 
-test_cases = [
+simple_test_cases = [
     {
         "input": "how many pods are running in the cluster?",
         "expected": "there are {{pod_num}} pods running in the cluster",
@@ -121,6 +96,40 @@ test_cases = [
         },
     },
 ]
+
+investigation_test_cases = [
+    {
+        "input": "what is the issue with the finance-app deployment, please summarise the root cause in 2 sentences.",
+        "expected": "the finance-app deployment is experiencing OOM (Out of Memory) kill errors, caused by the stress command from the polinux/stress image.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
+    {
+        "input": "why the ecomm-shop service is not running, please summarise the root cause in 2 sentences.",
+        "expected": "the ecomm-shop service is not running due to misconfigured readiness probe.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
+    {
+        "input": "why the accounting software is not deployed, please summarise the root cause in 2 sentences.",
+        "expected": "the accounting software is not deployed because it's not schedulable, due it is not tolerated to taint node-role.kubernetes.io/control-plane",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
+    {
+        "input": "why the hr-app is not running, please summarise the root cause in 2 sentences.",
+        "expected": "the hr-app is not running because the container image `do-not-exist-image:1.0.1` does not exist.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
+    {
+        "input": "why the innovation app is not ready? only investigate do not fix the issue, summarise the root cause in 2 sentences.",
+        "expected": "the innovation app is not ready because of database connection issues. The `mysql-service` that is supposed to be used by the app does not exist.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
+]
+
 models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
 # models = ["gpt-4o"]
 test_cases = [
@@ -130,7 +139,7 @@ test_cases = [
         "metadata": {"model": model, **case["metadata"]},
     }
     for model in models
-    for case in test_cases
+    for case in simple_test_cases + investigation_test_cases
 ]
 
 Eval(
@@ -139,6 +148,3 @@ Eval(
     task=k8s_agent,
     scores=[OpsmateScorer],
 )
-
-# import asyncio
-# asyncio.run(run("how many pods are in the cluster?"))

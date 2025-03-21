@@ -130,8 +130,8 @@ investigation_test_cases = [
     },
 ]
 
-models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
-# models = ["gpt-4o"]
+# models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
+models = ["gpt-4o"]
 test_cases = [
     {
         **case,
@@ -147,4 +147,5 @@ Eval(
     data=test_cases,
     task=k8s_agent,
     scores=[OpsmateScorer],
+    max_concurrency=2,
 )

@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecomm
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecomm-app
+  namespace: ecomm
+  labels:
+    app: ecomm-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecomm-app
+  template:
+    metadata:
+      labels:
+        app: ecomm-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.19
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            # Probing a non-existent endpoint
+            path: /health-check-endpoint-that-doesnt-exist
+            port: 80
+          # Very short timeout - may cause false negatives
+          timeoutSeconds: 1
+          # Very aggressive checking - causes excessive load
+          periodSeconds: 2
+          # Too many failures required before marking unready
+          failureThreshold: 10
+          # Too short initialization period
+          initialDelaySeconds: 1
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecomm-service
+  namespace: ecomm
+spec:
+  selector:
+    app: ecomm-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

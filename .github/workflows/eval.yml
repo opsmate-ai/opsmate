@@ -1,0 +1,61 @@
+name: Run Python evals
+
+on:
+  pull_request:
+    branches:
+      - main
+  # push:
+  #   paths:
+  #     - "evals/**"
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  eval:
+    name: Run evals
+    runs-on: ubuntu-latest
+    environment: ci
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pipx install uv --python $(which python${{ matrix.python-version }})
+          uv export --group eval --no-hashes --no-editable --format requirements-txt > requirements.txt
+          pip install -r requirements.txt
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      - name: Start the test cluster
+        run: |
+          make kind-cluster
+
+      - name: Run Evals
+        uses: braintrustdata/eval-action@v1.0.13
+        env:
+          BRAINTRUST_PROJECT_ID: ${{ secrets.BRAINTRUST_PROJECT_ID }}
+          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CI: "true"
+        with:
+          api_key: ${{ secrets.BRAINTRUST_API_KEY }}
+          runtime: python
+          root: .
+          paths: evals

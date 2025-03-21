@@ -1,6 +1,6 @@
 [project]
 name = "opsmate"
-version = "0.1.35a0"
+version = "0.1.36a0"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },
@@ -70,6 +70,10 @@ dev = [
 docs = [
     "mkdocs-material >=9.5.49,<10.0.0",
     "mkdocs-jupyter >=0.25.1,<1.0.0",
+]
+eval = [
+    "autoevals>=0.0.124",
+    "braintrust>=0.0.191",
 ]
 
 [tool.setuptools]

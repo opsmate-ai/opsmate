@@ -199,7 +199,7 @@
             spec:
               containers:
               - name: foo-container
-                image: nginx:latest
+                image: nginx:1.27.4-alpine-slim
     - description: create deployments foo-deploy-2
       manifest: |
         apiVersion: apps/v1
@@ -221,7 +221,7 @@
             spec:
               containers:
               - name: foo-container
-                image: nginx:latest
+                image: nginx:1.27.4-alpine-slim
   answer_verification:
     - command: kubectl -n beta get deploy --show-labels
       exit_code: 0

@@ -36,8 +36,7 @@ kind: $(LOCALBIN)
 .PHONY: kind-cluster
 kind-cluster: kind
 	$(KIND) create cluster --config eval/bootstrap/kind.yaml || true
-	./evals/build.sh
-	kubectl apply -f ./evals/scenarios/
+	./evals/setup.sh
 
 .PHONY: kind-destroy
 kind-destroy: kind

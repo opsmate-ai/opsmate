@@ -81,6 +81,16 @@ test_cases = [
         },
     },
     {
+        "input": "how many coredns pods are running in the cluster?",
+        "expected": "there are {{coredns_num}} coredns pods running in the cluster",
+        "tags": ["k8s", "simple"],
+        "metadata": {
+            "cmds": {
+                "coredns_num": "kubectl get pods -A --no-headers | grep -i coredns | wc -l",
+            }
+        },
+    },
+    {
         "input": "how many nodes are running in the cluster?",
         "expected": "there are {{node_num}} nodes running in the cluster",
         "tags": ["k8s", "simple"],
@@ -90,10 +100,29 @@ test_cases = [
             }
         },
     },
+    {
+        "input": "list the name of namespaces in the cluster",
+        "expected": "the namespaces in the cluster are {{namespaces}}",
+        "tags": ["k8s", "simple"],
+        "metadata": {
+            "cmds": {
+                "namespaces": "kubectl get namespaces --no-headers | awk '{print $1}'",
+            }
+        },
+    },
+    {
+        "input": "what is the version of the kubernetes cluster?",
+        "expected": "the version of the kubernetes cluster is {{version}}",
+        "tags": ["k8s", "simple"],
+        "metadata": {
+            "cmds": {
+                "version": """kubectl version | grep -i "Server Version" | awk '{print $3}'""",
+            }
+        },
+    },
 ]
-
-# models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
-models = ["gpt-4o"]
+models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
+# models = ["gpt-4o"]
 test_cases = [
     {
         **case,

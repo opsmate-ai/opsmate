@@ -7,7 +7,7 @@ authors = [
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12,<3.13"
+requires-python = "<4.0,>=3.10"
 dependencies = [
     "plotext (>=5.3.2,<6.0.0)",
     "pydantic (>=2.8.2,<3.0.0)",

@@ -2180,7 +2180,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.35a0"
+version = "0.1.37a0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -2207,6 +2207,7 @@ dependencies = [
     { name = "pytz" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "setuptools" },
     { name = "sqlmodel" },
     { name = "structlog" },
 ]
@@ -2272,6 +2273,7 @@ requires-dist = [
     { name = "rerankers", extras = ["transformers"], marker = "extra == 'reranker-answerdotai'" },
     { name = "rich", specifier = ">=13.8.1,<14.0.0" },
     { name = "sentence-transformers", marker = "extra == 'sentence-transformers'", specifier = ">=3.4.1,<4.0.0" },
+    { name = "setuptools", specifier = ">=76.0.0" },
     { name = "sqlmodel", specifier = ">=0.0.22,<1.0.0" },
     { name = "structlog", specifier = ">=24.4.0,<25.0.0" },
 ]

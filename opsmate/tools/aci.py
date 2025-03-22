@@ -70,7 +70,8 @@ class ACITool(ToolCall[Result], PresentationMixin):
     """
     # ACITool
 
-    File system utility with the following commands:
+    ACITool is a text editor built for AI Agents to search, view, create, update,
+    insert and undo file operations.
 
     search <file|dir> <content>           # Search in file/directory
     view <file|dir> [start] [end]        # View file (optional 0-indexed line range) or directory

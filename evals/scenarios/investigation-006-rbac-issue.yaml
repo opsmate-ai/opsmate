@@ -1,0 +1,115 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: content-service
+---
+# Create a service account for the content manager application
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: content-manager-sa
+  namespace: content-service
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: content-reader
+  namespace: content-service
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+---
+# Bind the role to the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: content-manager-binding
+  namespace: content-service
+subjects:
+- kind: ServiceAccount
+  name: content-manager-sa
+  namespace: content-service
+roleRef:
+  kind: Role
+  name: content-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+# Create a ConfigMap that the application needs to access
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: content-config
+  namespace: content-service
+data:
+  DATABASE_URL: "mysql://content-db:3306/content"
+  API_KEY: "sample-api-key-12345"
+---
+# Create a Secret that the application also needs to access
+apiVersion: v1
+kind: Secret
+metadata:
+  name: content-secrets
+  namespace: content-service
+type: Opaque
+data:
+  db-password: cGFzc3dvcmQxMjM= # base64 encoded "password123"
+---
+# Deploy the content manager application
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-manager
+  namespace: content-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: content-manager
+  template:
+    metadata:
+      labels:
+        app: content-manager
+    spec:
+      serviceAccountName: content-manager-sa
+      containers:
+      - name: content-app
+        image: nginx:1.21-alpine  # Using nginx as a placeholder
+        ports:
+        - containerPort: 80
+        env:
+        - name: CONFIG_MAP_NAME
+          value: "content-config"
+        - name: SECRET_NAME
+          value: "content-secrets"
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          set -eou pipefail
+          export CACERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          export TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          export NAMESPACE=content-service
+
+          echo "fetching ConfigMap from kubernetes..."
+          curl --fail --cacert $CACERT -H "Authorization: Bearer $TOKEN" https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/configmaps/${CONFIG_MAP_NAME}
+          echo "fetching Secret from kubernetes..."
+          curl --fail --cacert $CACERT -H "Authorization: Bearer $TOKEN" https://kubernetes.default.svc/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}
+
+          # Sleep to keep container running for investigation
+          echo "Starting nginx..."
+          nginx -g "daemon off;"
+---
+# Create a service for the content manager
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-manager
+  namespace: content-service
+spec:
+  selector:
+    app: content-manager
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

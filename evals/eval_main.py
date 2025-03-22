@@ -140,10 +140,16 @@ investigation_test_cases = [
         "tags": ["k8s", "investigation"],
         "metadata": {},
     },
+    {
+        "input": "what's wrong with the content-app service? Please investigate and summarize the root cause in 2 sentences.",
+        "expected": "The content-manager pod is failing to access ConfigMaps and Secrets due to insufficient RBAC permissions. The service account only has permissions for pods and services, but lacks permissions for ConfigMaps and Secrets resources.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
 ]
 
-# models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
-models = ["gpt-4o"]
+models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
+# models = ["gpt-4o"]
 test_cases = [
     {
         **case,
@@ -159,5 +165,5 @@ Eval(
     data=test_cases,
     task=k8s_agent,
     scores=[OpsmateScorer],
-    max_concurrency=2,
+    max_concurrency=1,
 )

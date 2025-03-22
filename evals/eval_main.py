@@ -128,6 +128,12 @@ investigation_test_cases = [
         "tags": ["k8s", "investigation"],
         "metadata": {},
     },
+    {
+        "input": "why the pod in the default namespace cannot access grafana service, please investigate and summarise the root cause in 2 sentences.",
+        "expected": "This is because the network policy `monitoring/grafana` is blocking the access to the grafana service. It is only allows traffic from pods with `app.kubernetes.io/name=prometheus` label within the same `monitoring` namespace.",
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
 ]
 
 # models = ["claude-3-7-sonnet-20250219", "gpt-4o"]

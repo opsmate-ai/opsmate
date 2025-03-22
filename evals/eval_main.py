@@ -95,6 +95,12 @@ simple_test_cases = [
             }
         },
     },
+    {
+        "input": "how to start an ephemeral ubuntu 24.04 pod in the cluster with interactive shell, return the command to run",
+        "expected": "kubectl run ubuntu --image=ubuntu:24.04 --rm -ti -- bash",
+        "tags": ["k8s", "simple"],
+        "metadata": {},
+    },
 ]
 
 investigation_test_cases = [

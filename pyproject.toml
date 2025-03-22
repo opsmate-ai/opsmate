@@ -1,13 +1,13 @@
 [project]
 name = "opsmate"
-version = "0.1.37a0"
+version = "0.1.38a0"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12,<3.13"
+requires-python = "<4.0,>=3.10"
 dependencies = [
     "plotext (>=5.3.2,<6.0.0)",
     "pydantic (>=2.8.2,<3.0.0)",

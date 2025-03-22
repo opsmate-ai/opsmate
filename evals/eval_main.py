@@ -101,6 +101,12 @@ simple_test_cases = [
         "tags": ["k8s", "simple"],
         "metadata": {},
     },
+    {
+        "input": "what RBAC permissions does content-manager-sa in the content ns have",
+        "expected": "the `content-manager-sa` in the `content-service` namespace has get, list, watch access to pods and services in the `content-service` namespace, granted through the `content-reader` role.",
+        "tags": ["k8s", "simple"],
+        "metadata": {},
+    },
 ]
 
 investigation_test_cases = [

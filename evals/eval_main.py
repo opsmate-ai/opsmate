@@ -152,6 +152,16 @@ investigation_test_cases = [
         "tags": ["k8s", "investigation"],
         "metadata": {},
     },
+    {
+        "input": "The audit server in the audit namespace doesn't appear to be functioning correctly. Please investigate and summarize the root cause in a few sentences.",
+        "expected": """
+        The audit server is not functioning correctly because it is unable to connect to the MySQL database.
+        This is due to the misconfigured matchLabels in the NetworkPolicy `audit/audit-server`.
+        The matchLabels are `app: audit-app` instead of `app: audit-server`.
+        """,
+        "tags": ["k8s", "investigation"],
+        "metadata": {},
+    },
 ]
 
 models = ["claude-3-7-sonnet-20250219", "gpt-4o"]

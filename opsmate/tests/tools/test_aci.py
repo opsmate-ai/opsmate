@@ -7,9 +7,9 @@ from opsmate.tools.aci import coder, Result
 
 
 def test_aci_file_history_persistence():
-    tool1 = ACITool(command="create", path="/tmp/test.txt", content="Hello, world!")
+    tool1 = ACITool(action="create", path="/tmp/test.txt", content="Hello, world!")
     tool1._file_history[Path("/tmp/test.txt")] = ["Hello, world!"]
-    tool2 = ACITool(command="create", path="/tmp/test.txt", content="Hello, world!")
+    tool2 = ACITool(action="create", path="/tmp/test.txt", content="Hello, world!")
     assert tool2._file_history.get(Path("/tmp/test.txt")) == ["Hello, world!"]
 
 
@@ -23,7 +23,7 @@ def test_file(tmp_path):
 
 @pytest.mark.asyncio
 async def test_file_create(tmp_path, test_file):
-    tool = ACITool(command="create", path=test_file, content="Hello, world!")
+    tool = ACITool(action="create", path=test_file, content="Hello, world!")
     result = await tool.run()
     assert result.output == "File created successfully"
     assert tool.output.output == "File created successfully"
@@ -31,25 +31,25 @@ async def test_file_create(tmp_path, test_file):
 
     # ensure that the file history is persisted in the class and updated
     test_file2 = str(tmp_path / "test2.txt")
-    tool2 = ACITool(command="create", path=test_file2, content="Hello, world!")
+    tool2 = ACITool(action="create", path=test_file2, content="Hello, world!")
     assert tool2._file_history[Path(test_file)] == ["Hello, world!"]
 
     # ensure duplicated file creation failed to init
     with pytest.raises(ValueError, match="test.txt already exists"):
-        ACITool(command="create", path=test_file, content="Hello, world!")
+        ACITool(action="create", path=test_file, content="Hello, world!")
 
 
 @pytest.mark.asyncio
 async def test_file_view(test_file):
     tool = ACITool(
-        command="create",
+        action="create",
         path=test_file,
         content="Hello, world!\nThis is cool.\nVery very cool",
     )
     result = await tool.run()
     assert result.output == "File created successfully"
 
-    tool2 = ACITool(command="view", path=test_file)
+    tool2 = ACITool(action="view", path=test_file)
     result2 = await tool2.run()
     assert (
         result2.output
@@ -58,7 +58,7 @@ async def test_file_view(test_file):
    2 | Very very cool"""
     )
 
-    tool3 = ACITool(command="view", path=test_file, line_start=1, line_end=2)
+    tool3 = ACITool(action="view", path=test_file, line_start=1, line_end=2)
     result3 = await tool3.run()
     assert (
         result3.output
@@ -67,7 +67,7 @@ async def test_file_view(test_file):
     )
 
     # with pytest.raises(ValueError, match="end line number 3 is out of range"):
-    tool = ACITool(command="view", path=test_file, line_start=1, line_end=3)
+    tool = ACITool(action="view", path=test_file, line_start=1, line_end=3)
     result = await tool.run()
     assert result == Result(
         error="Failed to view file: end line number 3 is out of range (file has 3 lines)",
@@ -95,7 +95,7 @@ async def test_file_view_directory(temp_dir):
     (Path(temp_dir) / "subdir2" / "file3.txt").touch()
     (Path(temp_dir) / "subdir2" / "subdir3" / "file4.txt").touch()
 
-    tool = ACITool(command="view", path=str(temp_dir))
+    tool = ACITool(action="view", path=str(temp_dir))
     result = await tool.run()
     assert (
         result.output
@@ -111,7 +111,7 @@ async def test_file_view_directory(temp_dir):
 
 
 async def recover_file(file_path):
-    tool = ACITool(command="undo", path=file_path)
+    tool = ACITool(action="undo", path=file_path)
     result = await tool.run()
     assert result == Result(
         output="File rolled back to previous state",
@@ -128,7 +128,7 @@ def assert_file_content(file_path, expected_content):
 @pytest.mark.asyncio
 async def test_file_insert(test_file):
     tool = ACITool(
-        command="create",
+        action="create",
         path=test_file,
         content="Hello, world!\nThis is cool.\nVery very cool",
     )
@@ -136,7 +136,7 @@ async def test_file_insert(test_file):
     assert result.output == "File created successfully"
 
     tool2 = ACITool(
-        command="insert", path=test_file, content="Hello, world!", insert_line_number=1
+        action="insert", path=test_file, content="Hello, world!", insert_line_number=1
     )
     result2 = await tool2.run()
     assert result2.output == "Content inserted successfully"
@@ -151,7 +151,7 @@ async def test_file_insert(test_file):
 
     # insert out of range
     tool3 = ACITool(
-        command="insert", path=test_file, content="Hello, world!", insert_line_number=4
+        action="insert", path=test_file, content="Hello, world!", insert_line_number=4
     )
     result3 = await tool3.run()
     assert result3 == Result(
@@ -166,7 +166,7 @@ async def test_file_insert(test_file):
 @pytest.mark.asyncio
 async def test_file_update(test_file):
     tool = ACITool(
-        command="create",
+        action="create",
         path=test_file,
         content="Hello, world!\nThis is cool.\nVery very cool\nVery very cool",
     )
@@ -174,7 +174,7 @@ async def test_file_update(test_file):
     assert result.output == "File created successfully"
 
     tool2 = ACITool(
-        command="update",
+        action="update",
         path=test_file,
         old_content="This is cool.",
         content="This is cold.",
@@ -194,7 +194,7 @@ async def test_file_update(test_file):
 
     # update with empty content
     tool3 = ACITool(
-        command="update", path=test_file, old_content="This is cool.\n", content=""
+        action="update", path=test_file, old_content="This is cool.\n", content=""
     )
     result3 = await tool3.run()
     assert result3.output == "Content updated successfully"
@@ -209,7 +209,7 @@ async def test_file_update(test_file):
 
     # update with non-existent content
     tool4 = ACITool(
-        command="update",
+        action="update",
         path=test_file,
         old_content="This is awesome.",
         content="This is hot.",
@@ -226,7 +226,7 @@ async def test_file_update(test_file):
 
     # update with multiple occurrences of old content
     tool5 = ACITool(
-        command="update",
+        action="update",
         path=test_file,
         old_content="Very very cool",
         content="This is hot.",
@@ -243,7 +243,7 @@ async def test_file_update(test_file):
 
     # update with line range
     tool6 = ACITool(
-        command="update",
+        action="update",
         path=test_file,
         old_content="Very very cool",
         content="This is hot.",
@@ -259,7 +259,7 @@ async def test_file_update(test_file):
 
     # update with empty old content
     tool7 = ACITool(
-        command="update", path=test_file, old_content="", content="This is hot."
+        action="update", path=test_file, old_content="", content="This is hot."
     )
     result7 = await tool7.run()
     assert result7.error == "Old content cannot be empty"
@@ -268,14 +268,14 @@ async def test_file_update(test_file):
 @pytest.mark.asyncio
 async def test_file_search(test_file):
     tool = ACITool(
-        command="create",
+        action="create",
         path=test_file,
         content="this is cool\nvery very cool\nOK OK",
     )
     result = await tool.run()
     assert result.output == "File created successfully"
 
-    tool2 = ACITool(command="search", path=test_file, content="this is cool")
+    tool2 = ACITool(action="search", path=test_file, content="this is cool")
     result2 = await tool2.run()
     # assert result2.output == "   0 | this is cool"
     assert (
@@ -285,11 +285,11 @@ async def test_file_search(test_file):
    2 - OK OK"""
     )
 
-    tool3 = ACITool(command="search", path=test_file, content="cool")
+    tool3 = ACITool(action="search", path=test_file, content="cool")
     result3 = await tool3.run()
     assert result3.output == "   0 | this is cool\n   1 | very very cool\n   2 - OK OK"
 
-    tool4 = ACITool(command="search", path=test_file, content="this is cool\nOK")
+    tool4 = ACITool(action="search", path=test_file, content="this is cool\nOK")
     result4 = await tool4.run()
     assert result4.output == "   0 | this is cool\n   1 - very very cool\n   2 | OK OK"
 
@@ -304,11 +304,11 @@ async def test_file_search_directory(temp_dir):
     file = Path(dir) / "file1.txt"
     file = str(file)
 
-    tool = ACITool(command="create", path=file, content="this is cool")
+    tool = ACITool(action="create", path=file, content="this is cool")
     result = await tool.run()
     assert result.output == "File created successfully"
 
-    tool2 = ACITool(command="search", path=dir, content="cool")
+    tool2 = ACITool(action="search", path=dir, content="cool")
     result2 = await tool2.run()
     assert result2.output == f"{dir}/file1.txt\n---\n   0 | this is cool\n"
 

@@ -34,8 +34,11 @@ class TextEditScorer(Scorer):
     def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
         metadata = kwargs.get("metadata", {})
         file_path = metadata.get("file_path")
-        with open(file_path, "r") as f:
-            real_output = f.read()
+        if file_path:
+            with open(file_path, "r") as f:
+                real_output = f.read()
+        else:
+            real_output = output
 
         closed_qa = ClosedQA()
         score = closed_qa.eval(

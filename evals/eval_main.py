@@ -200,7 +200,49 @@ text_edit_test_cases = [
             "file_path": f"{temp_dir}/text-edit-001-missing-resources-config.yaml",
         },
         "tags": ["k8s", "text-edit"],
-    }
+    },
+    {
+        "input": f"remove the liveness probe from the deploy in {temp_dir}/text-edit-002-remove-config.yaml",
+        "expected": "the deployment does not have a liveness probe, the kubernetes config is correct",
+        "metadata": {
+            "file_path": f"{temp_dir}/text-edit-002-remove-config.yaml",
+        },
+        "tags": ["k8s", "text-edit"],
+    },
+    {
+        "input": f"""Create a nginx-deploy.yml file in the {temp_dir} directory  with:
+* a namespace called `demo-ingress`
+* a deployment called `nginx-deploy` deployed in the `demo-ingress` namespace
+* a service called `nginx-service` deployed in the `demo-ingress` namespace with cluster ip
+Please carry out the operations above step by step.
+        """,
+        "expected": """
+* a namespace called `demo-ingress` is created
+* a deployment called `nginx-deploy` is deployed in the `demo-ingress` namespace
+* a service called `nginx-service` is deployed in the `demo-ingress` namespace that uses the deployment as its selector
+""",
+        "metadata": {
+            "file_path": f"{temp_dir}/nginx-deploy.yml",
+        },
+        "tags": ["k8s", "text-edit"],
+    },
+    {
+        "input": f"add a new service account called team-a-sa in the team-a namespace in the {temp_dir}/text-edit-003-insert.yaml file",
+        "expected": """
+* a namespace called `team-a` exists
+* a service account called `team-a-sa` exists in the `team-a` namespace
+""",
+        "metadata": {
+            "file_path": f"{temp_dir}/text-edit-003-insert.yaml",
+        },
+        "tags": ["k8s", "text-edit"],
+    },
+    {
+        "input": f"find the namespace that has the name `eastegg` in the confg files in {temp_dir} directory",
+        "expected": "a namespace called `eastegg` exists in the {temp_dir}/text-edit-004-search.yaml file",
+        "metadata": {},
+        "tags": ["k8s", "text-edit"],
+    },
 ]
 
 text_edit_test_cases = [

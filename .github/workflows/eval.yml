@@ -48,4 +48,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CI: "true"
         run: |
-          uv run braintrust eval ./evals/
+          uv run braintrust eval ./evals/ --num-workers 1

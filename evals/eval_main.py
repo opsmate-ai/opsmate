@@ -1,15 +1,17 @@
-from braintrust import Eval, EvalHooks, traced, current_experiment, current_span
+from braintrust import Eval, EvalHooks
 from evals.scorers import OpsmateScorer, TextEditScorer
 from opsmate.contexts import k8s_ctx
 from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
 from opsmate.libs.core.trace import start_trace
+from opsmate.libs.config import config
 from opentelemetry import trace
 import structlog
 import os
 import tempfile
 import shutil
 
+config.set_loglevel()
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("opsmate.eval")
 

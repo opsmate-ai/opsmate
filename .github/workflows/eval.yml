@@ -1,23 +1,18 @@
-name: Run Python evals
+name: Run Opsmate evals
 
 on:
-  pull_request:
-    branches:
-      - main
-  # push:
-  #   paths:
-  #     - "evals/**"
-
-permissions:
-  pull-requests: write
-  contents: read
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 1" # every Monday at 00:00 UTC
 
 jobs:
   eval:
     name: Run evals
     runs-on: ubuntu-latest
     environment: ci
-
+    strategy:
+      matrix:
+        python-version: ["3.12"]
     steps:
       - name: Checkout
         id: checkout
@@ -28,13 +23,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
-          pipx install uv --python $(which python${{ matrix.python-version }})
-          uv export --group eval --no-hashes --no-editable --format requirements-txt > requirements.txt
-          pip install -r requirements.txt
+          uv sync --group eval
 
       - name: Install kubectl
         run: |
@@ -47,15 +40,11 @@ jobs:
           make kind-cluster
 
       - name: Run Evals
-        uses: braintrustdata/eval-action@v1.0.13
         env:
           BRAINTRUST_PROJECT_ID: ${{ secrets.BRAINTRUST_PROJECT_ID }}
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CI: "true"
-        with:
-          api_key: ${{ secrets.BRAINTRUST_API_KEY }}
-          runtime: python
-          root: .
-          paths: evals
+        run: |
+          uv run braintrust eval ./evals/

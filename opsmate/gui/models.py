@@ -360,6 +360,7 @@ def default_new_cell(workflow: Workflow):
 
 
 # let's discover the plugins in the model for now
+config.set_loglevel()
 config.plugins_discover()
 
 

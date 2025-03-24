@@ -80,7 +80,7 @@ async def _react_prompt(
         Message.user(
             f"""
 Here is a list of tools you can use:
-{"\n".join(f"<tool>{t.__name__}: {t.__doc__}</tool>" for t in tool_names)}
+{"\n".join(f"<tool>\n{t.__name__}: \n{t.__doc__}\n</tool>" for t in tool_names)}
 """,
         ),
         Message.user(question),
@@ -136,7 +136,7 @@ thought: {react.thoughts}
 
 <important>
 * The tool you use must be relevant to the action.
-* Please use {tool_calls_per_action} tool calls at a time.
+* Please use no more than {tool_calls_per_action} tool calls at a time.
 </important>
             """,
             ),

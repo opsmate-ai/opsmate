@@ -1,5 +1,5 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Dict, List, Optional, ClassVar, Self, Any
 from collections import defaultdict
 from pathlib import Path
@@ -52,25 +52,28 @@ class Result(BaseModel):
     )
 
     insert_line_number: Optional[int] = Field(
-        description="The line number to insert the content at, only applicable for the `insert` command. Note the line number is 0-indexed.",
+        description="The line number to insert the content at, only applicable for the `insert` action. Note the line number is 0-indexed.",
         default=None,
     )
 
     line_start: Optional[int] = Field(
-        description="The start line number to be operated on, only applicable for the 'update' command. Note the line number is 0-indexed.",
+        description="The start line number to be operated on, only applicable for the 'update' action. Note the line number is 0-indexed.",
         default=None,
     )
     line_end: Optional[int] = Field(
-        description="The end line number to be operated on, only applicable for the 'update' command. Note the line number is 0-indexed.",
+        description="The end line number to be operated on, only applicable for the 'update' action. Note the line number is 0-indexed.",
         default=None,
     )
 
 
 class ACITool(ToolCall[Result], PresentationMixin):
+    model_config = ConfigDict(populate_by_name=True)
+
     """
     # ACITool
 
-    File system utility with the following commands:
+    ACITool is a text editor built for AI Agents to search, view, create, update,
+    insert and undo file operations.
 
     search <file|dir> <content>           # Search in file/directory
     view <file|dir> [start] [end]        # View file (optional 0-indexed line range) or directory
@@ -90,40 +93,41 @@ class ACITool(ToolCall[Result], PresentationMixin):
     # number of lines before and after the match
     search_context_window: ClassVar[int] = 4
 
-    command: str = Field(
-        description="The command to execute",
+    action: str = Field(
+        description="The action to take for text editing or searching",
         choices=["search", "view", "create", "update", "insert", "undo"],
     )
 
     path: str = Field(description="The path of the file or directory to be operated on")
 
     insert_line_number: Optional[int] = Field(
-        description="The line number to insert the content at, only applicable for the `insert` command. Note the line number is 0-indexed.",
+        description="The line number to insert the content at, only applicable for the `insert` action. Note the line number is 0-indexed.",
         default=None,
     )
 
     line_start: Optional[int] = Field(
-        description="The start line number to be operated on, only applicable to the 'view' and 'update' commands. Note the line number is 0-indexed.",
+        description="The start line number to be operated on, only applicable to the 'view' and 'update' actions. Note the line number is 0-indexed.",
         default=None,
     )
     line_end: Optional[int] = Field(
-        description="The end line number to be operated on, only applicable to the 'view' and 'update' commands. Note the line number is 0-indexed.",
+        description="The end line number to be operated on, only applicable to the 'view' and 'update' actions. Note the line number is 0-indexed.",
         default=None,
     )
 
     content: Optional[str] = Field(
-        description="The content to be added to the file, only applicable for the `search`, `create`, `update` and `insert` commands.",
+        description="The content to be added to the file, only applicable for the `search`, `create`, `update` and `insert` actions.",
         default=None,
+        alias="new_content",  # llm sometimes uses new_content instead of content and cannot be persuaded, thus create an alias
     )
 
     old_content: Optional[str] = Field(
-        description="The old content to be replaced by the new content, only applicable for the `update` command.",
+        description="The old content to be replaced by the new content, only applicable for the `update` action.",
         default=None,
     )
 
     @model_validator(mode="after")
     def validate_path(self) -> Self:
-        if self.command != "create":
+        if self.action != "create":
             if not Path(self.path).exists():
                 raise ValueError(f"File or directory {self.path} does not exist")
         else:
@@ -132,15 +136,15 @@ class ACITool(ToolCall[Result], PresentationMixin):
         return self
 
     @model_validator(mode="after")
-    def validate_search_command(self) -> Self:
-        if self.command == "search":
+    def validate_search_action(self) -> Self:
+        if self.action == "search":
             if self.content is None:
                 self.content = ""
         return self
 
     @model_validator(mode="after")
-    def validate_view_command(self) -> Self:
-        if self.command == "view":
+    def validate_view_action(self) -> Self:
+        if self.action == "view":
             if self.line_start is None and self.line_end is not None:
                 raise ValueError("line_start is required when line_end is provided")
             if self.line_end is None and self.line_start is not None:
@@ -155,43 +159,41 @@ class ACITool(ToolCall[Result], PresentationMixin):
         return self
 
     @model_validator(mode="after")
-    def validate_create_command(self) -> Self:
-        if self.command == "create":
+    def validate_create_action(self) -> Self:
+        if self.action == "create":
             if self.content is None:
-                raise ValueError("content is required for the create command")
+                raise ValueError("content is required for the create action")
         return self
 
     @model_validator(mode="after")
-    def validate_update_command(self) -> Self:
-        if self.command == "update":
+    def validate_update_action(self) -> Self:
+        if self.action == "update":
             if self.old_content is None:
-                raise ValueError("old_content is required for the update command")
+                raise ValueError("old_content is required for the update action")
             if self.content is None:
-                raise ValueError("new_content is required for the update command")
+                raise ValueError("content is required for the update action")
         return self
 
     @model_validator(mode="after")
-    def validate_insert_command(self) -> Self:
-        if self.command == "insert":
+    def validate_insert_action(self) -> Self:
+        if self.action == "insert":
             if self.content is None:
-                raise ValueError("content is required for the insert command")
+                raise ValueError("content is required for the insert action")
             if self.insert_line_number is None:
-                raise ValueError(
-                    "insert_line_number is required for the insert command"
-                )
+                raise ValueError("insert_line_number is required for the insert action")
         return self
 
     @model_validator(mode="after")
-    def validate_undo_command(self) -> Self:
-        if self.command == "undo":
+    def validate_undo_action(self) -> Self:
+        if self.action == "undo":
             if self.path is None:
-                raise ValueError("path is required for the undo command")
+                raise ValueError("path is required for the undo action")
         return self
 
     async def __call__(self) -> Result:
         logger.info(
-            "executing command",
-            command=self.command,
+            "executing action",
+            action=self.action,
             path=self.path,
             content=self.content,
             old_content=self.old_content,
@@ -199,20 +201,20 @@ class ACITool(ToolCall[Result], PresentationMixin):
             line_start=self.line_start,
             line_end=self.line_end,
         )
-        if self.command == "search":
+        if self.action == "search":
             return await self.search()
-        elif self.command == "view":
+        elif self.action == "view":
             return await self.view()
-        elif self.command == "create":
+        elif self.action == "create":
             return await self.create()
-        elif self.command == "update":
+        elif self.action == "update":
             return await self.update()
-        elif self.command == "insert":
+        elif self.action == "insert":
             return await self.insert()
-        elif self.command == "undo":
+        elif self.action == "undo":
             return await self.undo()
         else:
-            raise ValueError(f"Invalid command: {self.command}")
+            raise ValueError(f"Invalid action: {self.action}")
 
     async def create(self) -> Result:
         try:
@@ -523,7 +525,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
             return f"Failed to search file: {e}"
 
     def markdown(self, context: dict[str, Any] = {}):
-        match self.command:
+        match self.action:
             case "search":
                 return self._render_search_markdown()
             case "view":
@@ -684,7 +686,7 @@ path: `{{ output.path }}`
 
 old_content: `{{ old_content }}`
 
-new_content: `{{ content }}`
+content: `{{ content }}`
 
 {% if output.line_start %}
 line_start: `{{ output.line_start }}`

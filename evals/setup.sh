@@ -3,10 +3,17 @@
 set -euo pipefail
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+
 (
     cd $scriptDir/apps/innovation-lab
     docker build -t innovation-lab-app:v1 .
     kind load docker-image innovation-lab-app:v1 --name troubleshooting-eval
+)
+
+(
+    cd $scriptDir/apps/audit-server
+    docker build -t audit-server:v1 .
+    kind load docker-image audit-server:v1 --name troubleshooting-eval
 )
 
 kubectl apply -f $scriptDir/scenarios/

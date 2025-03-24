@@ -50,7 +50,9 @@ DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(yaml_file=default_config_file, env_file=".env")
+    model_config = SettingsConfigDict(
+        yaml_file=default_config_file, env_file=".env", populate_by_name=True
+    )
 
     @classmethod
     def settings_customise_sources(
@@ -148,7 +150,7 @@ class Config(BaseSettings):
     def transformers_available(cls):
         return importlib.util.find_spec("transformers") is not None
 
-    def validate_loglevel(self) -> Self:
+    def set_loglevel(self) -> Self:
         structlog.configure(
             wrapper_class=structlog.make_filtering_bound_logger(
                 logging.getLevelNamesMapping()[self.loglevel]

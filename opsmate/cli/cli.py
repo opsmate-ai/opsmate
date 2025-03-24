@@ -134,12 +134,13 @@ def config_params(cli_config=config):
                 if field_name in kwargs:
                     setattr(cli_config, field_name, kwargs.pop(field_name))
 
+            cli_config.set_loglevel()
             return cli_config
 
         @wraps(func)
         def wrapper(*args, **kwargs):
             kwargs["config"] = config_from_kwargs(kwargs)
-            config.validate_loglevel()
+
             addon_discovery()
             return func(*args, **kwargs)
 

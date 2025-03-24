@@ -1,0 +1,114 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: audit
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-server
+  namespace: audit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: audit-server
+  template:
+    metadata:
+      labels:
+        app: audit-server
+    spec:
+      containers:
+        - name: audit-server
+          image: audit-server:v1
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 20
+          env:
+            - name: MYSQL_HOST
+              value: "mysql-db-service"
+            - name: MYSQL_USER
+              value: "webapp"
+            - name: MYSQL_PASSWORD
+              value: "password123"
+            - name: MYSQL_DATABASE
+              value: "appdb"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-db
+  namespace: audit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-db
+  template:
+    metadata:
+      labels:
+        app: mysql-db
+    spec:
+      containers:
+        - name: mysql-db
+          image: mysql:latest
+          ports:
+            - containerPort: 3306
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          env:
+            - name: MYSQL_USER
+              value: "webapp"
+            - name: MYSQL_PASSWORD
+              value: "password123"
+            - name: MYSQL_ROOT_PASSWORD
+              value: "password123"
+            - name: MYSQL_DATABASE
+              value: "appdb"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-db-service
+  namespace: audit
+spec:
+  selector:
+    app: mysql-db
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-access
+  namespace: audit
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql-db
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: audit-app
+  policyTypes:
+    - Ingress

@@ -504,18 +504,29 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
             formatted_lines = []
             for line in result.splitlines():
-                # line_num, content = re.split(r"[:-]", line)
-                match = re.split(r"([:-])", line, maxsplit=1)
-                if len(match) >= 3:
-                    line_num, sep, content = match
-                else:
-                    raise ValueError(f"Failed to split line: {line}")
-                line_num, sep, content = match
+                # Skip grep's separator lines and error messages
+                if line.startswith("--") or line.startswith("grep:"):
+                    continue
 
-                if sep == ":":
-                    sep = "|"
-
-                formatted_lines.append(f"{int(line_num)-1:4d} {sep} {content.rstrip()}")
+                # Use regex match instead of split for more reliable parsing
+                match = re.match(r"^(\d+)([-:])(.*?)$", line)
+                if match:
+                    line_num, sep, content = match.groups()
+                    try:
+                        line_num = int(line_num)
+                        if sep == ":":
+                            sep = "|"
+                        formatted_lines.append(
+                            f"{line_num-1:4d} {sep} {content.rstrip()}"
+                        )
+                    except ValueError as err:
+                        logger.error(
+                            "Failed to parse line",
+                            line=line,
+                            error=err,
+                            traceback=traceback.format_exc(),
+                        )
+                        continue
 
             return "\n".join(formatted_lines)
         except Exception as e:

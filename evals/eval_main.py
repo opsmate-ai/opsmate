@@ -1,5 +1,5 @@
-from braintrust import Eval, EvalHooks
-from evals.scorers import OpsmateScorer
+from braintrust import Eval, EvalHooks, traced, current_experiment, current_span
+from evals.scorers import OpsmateScorer, TextEditScorer
 from opsmate.contexts import k8s_ctx
 from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
@@ -7,6 +7,8 @@ from opsmate.libs.core.trace import start_trace
 from opentelemetry import trace
 import structlog
 import os
+import tempfile
+import shutil
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("opsmate.eval")
@@ -181,5 +183,40 @@ Eval(
     data=test_cases,
     task=k8s_agent,
     scores=[OpsmateScorer],
+    max_concurrency=1,
+)
+
+
+# create a temp directory and copy all the scenarios files to it
+temp_dir = tempfile.mkdtemp()
+for file in os.listdir("evals/scenarios"):
+    shutil.copy(f"evals/scenarios/{file}", temp_dir)
+
+text_edit_test_cases = [
+    {
+        "input": f"add resource request and limit to the deploy in {temp_dir}/text-edit-001-missing-resources-config.yaml",
+        "expected": "the resource and requests exist in the deployment, the kubernetes config is correct",
+        "metadata": {
+            "file_path": f"{temp_dir}/text-edit-001-missing-resources-config.yaml",
+        },
+        "tags": ["k8s", "text-edit"],
+    }
+]
+
+text_edit_test_cases = [
+    {
+        **case,
+        "tags": [model, *case["tags"]],
+        "metadata": {"model": model, **case["metadata"]},
+    }
+    for model in models
+    for case in text_edit_test_cases
+]
+
+Eval(
+    name=project_name,
+    data=text_edit_test_cases,
+    task=k8s_agent,
+    scores=[TextEditScorer],
     max_concurrency=1,
 )

@@ -1,5 +1,6 @@
 from braintrust_core.score import Scorer, Score
 from autoevals.ragas import AnswerCorrectness
+from autoevals import ClosedQA
 import subprocess
 import jinja2
 import structlog
@@ -26,4 +27,22 @@ class OpsmateScorer(Scorer):
         score.metadata["cmds"] = cmds
         score.metadata["rendered_expected"] = expected
 
+        return score
+
+
+class TextEditScorer(Scorer):
+    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
+        metadata = kwargs.get("metadata", {})
+        file_path = metadata.get("file_path")
+        with open(file_path, "r") as f:
+            real_output = f.read()
+
+        closed_qa = ClosedQA()
+        score = closed_qa.eval(
+            input=kwargs.get("input"),
+            output=real_output,
+            criteria=expected,
+        )
+
+        score.metadata["real_output"] = real_output
         return score

@@ -28,16 +28,11 @@ spec:
         - containerPort: 80
         readinessProbe:
           httpGet:
-            # Probing a non-existent endpoint
             path: /health-check-endpoint-that-doesnt-exist
             port: 80
-          # Very short timeout - may cause false negatives
           timeoutSeconds: 1
-          # Very aggressive checking - causes excessive load
           periodSeconds: 2
-          # Too many failures required before marking unready
           failureThreshold: 10
-          # Too short initialization period
           initialDelaySeconds: 1
         resources:
           limits:

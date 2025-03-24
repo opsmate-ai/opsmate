@@ -11,8 +11,12 @@ from functools import cache
 import os
 import pkg_resources
 import structlog
+from pydantic import ValidationError
+from opentelemetry import trace
+from pprint import pformat
 
 logger = structlog.get_logger(__name__)
+tracer = trace.get_tracer("dino.provider")
 
 T = TypeVar("T")
 
@@ -45,7 +49,7 @@ class Provider(ABC):
 
     @classmethod
     @abstractmethod
-    def default_client(cls) -> AsyncInstructor: ...
+    def _default_client(cls) -> AsyncInstructor: ...
 
     providers: dict[str, Type["Provider"]] = {}
 
@@ -59,6 +63,23 @@ class Provider(ABC):
     @classmethod
     def _filter_kwargs(cls, kwargs: dict[str, Any]) -> dict[str, Any]:
         return {k: v for k, v in kwargs.items() if k in cls.allowed_kwargs}
+
+    @classmethod
+    @cache
+    def default_client(cls) -> AsyncInstructor:
+        client = cls._default_client()
+        client.on("parse:error", cls._handle_parse_error)
+        return client
+
+    @classmethod
+    def _handle_parse_error(cls, e: Exception):
+        with tracer.start_as_current_span("dino.provider.handle_parse_error") as span:
+            span.set_attribute("error", str(e))
+            span.set_attribute("error_type", e.__class__.__name__)
+
+            if isinstance(e, ValidationError):
+                span.set_attribute("error_details", pformat(e.errors()))
+                logger.debug("Validation error", error=e.errors())
 
 
 def register_provider(name: str):
@@ -130,7 +151,7 @@ class OpenAIProvider(Provider):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def _default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(AsyncOpenAI())
 
     @staticmethod
@@ -221,7 +242,7 @@ class AnthropicProvider(Provider):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def _default_client(cls) -> AsyncInstructor:
         return instructor.from_anthropic(AsyncAnthropic())
 
     @staticmethod
@@ -272,7 +293,7 @@ class XAIProvider(OpenAIProvider):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def _default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(
             AsyncOpenAI(
                 base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),

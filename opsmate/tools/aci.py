@@ -115,6 +115,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
     content: Optional[str] = Field(
         description="The content to be added to the file, only applicable for the `search`, `create`, `update` and `insert` actions.",
         default=None,
+        alias="new_content",  # llm sometimes uses new_content instead of content and cannot be persuaded, thus create an alias
     )
 
     old_content: Optional[str] = Field(
@@ -168,7 +169,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
             if self.old_content is None:
                 raise ValueError("old_content is required for the update action")
             if self.content is None:
-                raise ValueError("new_content is required for the update action")
+                raise ValueError("content is required for the update action")
         return self
 
     @model_validator(mode="after")
@@ -683,7 +684,7 @@ path: `{{ output.path }}`
 
 old_content: `{{ old_content }}`
 
-new_content: `{{ content }}`
+content: `{{ content }}`
 
 {% if output.line_start %}
 line_start: `{{ output.line_start }}`

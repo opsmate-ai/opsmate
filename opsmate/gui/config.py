@@ -1,7 +1,7 @@
 from opsmate.libs.config import Config as OpsmateConfig
-from pydantic import Field, model_validator
+from pydantic import Field
 from opsmate.plugins import PluginRegistry
-from typing import List, Self
+from typing import List
 
 
 class Config(OpsmateConfig):

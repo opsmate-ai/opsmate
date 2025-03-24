@@ -50,7 +50,9 @@ DEFAULT_SENTENCE_TRANSFORMERS_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(yaml_file=default_config_file, env_file=".env")
+    model_config = SettingsConfigDict(
+        yaml_file=default_config_file, env_file=".env", populate_by_name=True
+    )
 
     @classmethod
     def settings_customise_sources(

@@ -1,5 +1,5 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Dict, List, Optional, ClassVar, Self, Any
 from collections import defaultdict
 from pathlib import Path
@@ -67,6 +67,8 @@ class Result(BaseModel):
 
 
 class ACITool(ToolCall[Result], PresentationMixin):
+    model_config = ConfigDict(populate_by_name=True)
+
     """
     # ACITool
 

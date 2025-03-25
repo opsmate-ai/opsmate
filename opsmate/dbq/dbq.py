@@ -22,6 +22,7 @@ from sqlmodel import (
     col,
     delete,
 )
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import registry
 import importlib
 import asyncio
@@ -271,6 +272,7 @@ def purge_tasks(
     session: Session,
     task_name: str,
     queue_name: str = DEFAULT_QUEUE_NAME,
+    wait: bool = False,
 ):
     """
     Purge all the non running tasks from the database.
@@ -279,19 +281,46 @@ def purge_tasks(
         session (Session): The database session to use.
         queue_name (str): The name of the queue to purge tasks from.
         task_name (str): The name of the task to purge, must be the full name of the task.
+        wait (bool): If True, wait for the tasks to be purged.
     """
-    result = session.exec(
-        delete(TaskItem)
-        .where(TaskItem.queue_name == queue_name)
-        .where(TaskItem.func == task_name)
-        .where(TaskItem.status != TaskStatus.RUNNING)
-    )
-    logger.info(
-        "purged tasks",
-        task_name=task_name,
-        queue_name=queue_name,
-        count=result.rowcount,
-    )
+    while True:
+        try:
+            result = session.exec(
+                delete(TaskItem)
+                .where(TaskItem.queue_name == queue_name)
+                .where(TaskItem.func == task_name)
+                .where(TaskItem.status != TaskStatus.RUNNING)
+            )
+        except OperationalError as e:
+            # possibly caused by lock contention
+            continue
+        except Exception as e:
+            logger.error("error purging tasks", error=str(e))
+            time.sleep(1)
+            continue
+        logger.info(
+            "purged tasks",
+            task_name=task_name,
+            queue_name=queue_name,
+            count=result.rowcount,
+        )
+        if not wait:
+            break
+
+        leftover = session.exec(
+            select(func.count(col(TaskItem.id)))
+            .where(TaskItem.queue_name == queue_name)
+            .where(TaskItem.func == task_name)
+        ).one()
+        if leftover == 0:
+            break
+        logger.info(
+            "waiting for all tasks to be purged",
+            leftover=leftover,
+            task_name=task_name,
+            queue_name=queue_name,
+        )
+        time.sleep(1)
 
 
 def dequeue_task(session: Session, queue_name: str = DEFAULT_QUEUE_NAME):
@@ -317,6 +346,9 @@ def dequeue_task(session: Session, queue_name: str = DEFAULT_QUEUE_NAME):
             updated_at=datetime.now(UTC),
         )
     )
+    # commit to make sure it doesn't block other
+    session.commit()
+
     if result.rowcount == 0:
         return dequeue_task(session, queue_name=queue_name)
 

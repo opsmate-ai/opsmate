@@ -809,10 +809,15 @@ async def worker(workers, queue, config):
     show_default=True,
     help="Interval seconds to run the reindex task",
 )
+@click.option(
+    "--wait",
+    is_flag=True,
+    help="Wait for the current reindex task to be completed",
+)
 @config_params()
 @auto_migrate
 @coro
-async def schedule_embeddings_reindex(config, interval_seconds):
+async def schedule_embeddings_reindex(config, interval_seconds, wait):
     """
     Schedule the reindex embeddings table task.
     After schedule the reindex task will be run periodically every 30 seconds.
@@ -826,7 +831,7 @@ async def schedule_embeddings_reindex(config, interval_seconds):
     reindex_task_name = "opsmate.knowledgestore.models.reindex_table"
     engine = config.db_engine()
     with Session(engine) as session:
-        purge_tasks(session, reindex_task_name)
+        purge_tasks(session, reindex_task_name, wait=wait)
         await schedule_reindex_table(session, interval_seconds)
 
 

@@ -17,7 +17,7 @@ from lancedb.rerankers import (
     CohereReranker,
     RRFReranker,
 )
-from opsmate.dbq.dbq import enqueue_task
+from opsmate.dbq.dbq import enqueue_task, dbq_task, Task as DbqTask
 from opentelemetry import trace
 from functools import cache
 from datetime import timedelta, UTC
@@ -187,6 +187,20 @@ async def init_table():
         return table
 
 
+class ReindexTableTask(DbqTask):
+    async def on_success(self, task, ctx: Dict[str, Any]):
+        session: Session = ctx["session"]
+        enqueue_task(
+            session,
+            reindex_table,
+            *task.args,
+            wait_until=datetime.now(UTC) + timedelta(seconds=30),
+            priority=100,
+            **task.kwargs,
+        )
+
+
+@dbq_task(task_type=ReindexTableTask)
 async def reindex_table(interval_seconds: int = 30, ctx: Dict[str, Any] = {}):
     """
     Reindex the knowledge store table
@@ -199,15 +213,6 @@ async def reindex_table(interval_seconds: int = 30, ctx: Dict[str, Any] = {}):
 
         next_run_at = datetime.now(UTC) + timedelta(seconds=interval_seconds)
         span.add_event("dbq.task.wait_until", {"wait_until": next_run_at.isoformat()})
-
-        session = ctx["session"]
-        enqueue_task(
-            session,
-            reindex_table,
-            interval_seconds=interval_seconds,
-            wait_until=next_run_at,
-            priority=100,
-        )
 
 
 async def schedule_reindex_table(session: Session, interval_seconds: int = 30):

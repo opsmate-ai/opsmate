@@ -272,55 +272,27 @@ def purge_tasks(
     session: Session,
     task_name: str,
     queue_name: str = DEFAULT_QUEUE_NAME,
-    wait: bool = False,
+    non_running: bool = True,
 ):
     """
-    Purge all the non running tasks from the database.
+    Purge all the given task from the database.
 
     Parameters:
         session (Session): The database session to use.
         queue_name (str): The name of the queue to purge tasks from.
         task_name (str): The name of the task to purge, must be the full name of the task.
-        wait (bool): If True, wait for the tasks to be purged.
+        non_running (bool): If True, purge only non running tasks.
     """
-    while True:
-        try:
-            result = session.exec(
-                delete(TaskItem)
-                .where(TaskItem.queue_name == queue_name)
-                .where(TaskItem.func == task_name)
-                .where(TaskItem.status != TaskStatus.RUNNING)
-            )
-        except OperationalError as e:
-            # possibly caused by lock contention
-            continue
-        except Exception as e:
-            logger.error("error purging tasks", error=str(e))
-            time.sleep(1)
-            continue
-        logger.info(
-            "purged tasks",
-            task_name=task_name,
-            queue_name=queue_name,
-            count=result.rowcount,
-        )
-        if not wait:
-            break
 
-        leftover = session.exec(
-            select(func.count(col(TaskItem.id)))
-            .where(TaskItem.queue_name == queue_name)
-            .where(TaskItem.func == task_name)
-        ).one()
-        if leftover == 0:
-            break
-        logger.info(
-            "waiting for all tasks to be purged",
-            leftover=leftover,
-            task_name=task_name,
-            queue_name=queue_name,
-        )
-        time.sleep(1)
+    with tracer.start_as_current_span("purge_tasks") as span:
+        query = delete(TaskItem)
+        if non_running:
+            query = query.where(TaskItem.status != TaskStatus.RUNNING)
+        query = query.where(TaskItem.queue_name == queue_name)
+        query = query.where(TaskItem.func == task_name)
+        result = session.exec(query)
+
+        return result.rowcount
 
 
 def dequeue_task(session: Session, queue_name: str = DEFAULT_QUEUE_NAME):

@@ -10,6 +10,7 @@ import structlog
 import os
 import tempfile
 import shutil
+import jinja2
 
 config.set_loglevel()
 logger = structlog.get_logger(__name__)
@@ -32,10 +33,14 @@ async def k8s_agent(question: str, hooks: EvalHooks):
     with tracer.start_as_current_span("eval_k8s_agent") as span:
         span.set_attribute("question", question)
 
+        rendered_question = jinja2.Template(question).render(**hooks.metadata)
+        span.set_attribute("rendered_question", rendered_question)
+        hooks.metadata["input"] = rendered_question
+
         contexts = await k8s_ctx.resolve_contexts()
         tools = k8s_ctx.resolve_tools()
         async for output in run_react(
-            question,
+            rendered_question,
             contexts=contexts,
             tools=tools,
             model=hooks.metadata.get("model"),
@@ -199,27 +204,39 @@ investigation_test_cases = [
     },
 ]
 
+
+def seed_text_edit_scenario(filename: str):
+    temp_dir = tempfile.mkdtemp()
+
+    if os.path.exists(f"evals/scenarios/{filename}"):
+        shutil.copy(f"evals/scenarios/{filename}", temp_dir)
+    return {
+        "temp_dir": temp_dir,
+        "file_path": f"{temp_dir}/{filename}",
+    }
+
+
 text_edit_test_cases = [
     {
-        "input": f"add resource request and limit to the deploy in {temp_dir}/text-edit-001-missing-resources-config.yaml",
+        "input": "add resource request and limit to the deploy in {{file_path}}",
         "expected": "the resource and requests exist in the deployment, the kubernetes config is correct",
         "metadata": {
-            "file_path": f"{temp_dir}/text-edit-001-missing-resources-config.yaml",
             "scorer": "TextEditScorer",
+            "filename": "text-edit-001-missing-resources-config.yaml",
         },
         "tags": ["k8s", "text-edit"],
     },
     {
-        "input": f"remove the liveness probe from the deploy in {temp_dir}/text-edit-002-remove-config.yaml",
+        "input": "remove the liveness probe from the deploy in {{file_path}}",
         "expected": "the deployment does not have a liveness probe, the kubernetes config is correct",
         "metadata": {
-            "file_path": f"{temp_dir}/text-edit-002-remove-config.yaml",
             "scorer": "TextEditScorer",
+            "filename": "text-edit-002-remove-config.yaml",
         },
         "tags": ["k8s", "text-edit"],
     },
     {
-        "input": f"""Create a nginx-deploy.yml file in the {temp_dir} directory with:
+        "input": """Create a nginx-deploy.yml file in the {{temp_dir}} directory with:
 * a namespace called `demo-ingress`
 * a deployment called `nginx-deploy` deployed in the `demo-ingress` namespace
 * a service called `nginx-service` deployed in the `demo-ingress` namespace with cluster ip
@@ -231,29 +248,29 @@ Please carry out the operations above step by step.
 * a service called `nginx-service` is deployed in the `demo-ingress` namespace that uses the deployment as its selector
 """,
         "metadata": {
-            "file_path": f"{temp_dir}/nginx-deploy.yml",
             "scorer": "TextEditScorer",
+            "filename": "nginx-deploy.yml",
         },
         "tags": ["k8s", "text-edit"],
     },
     {
-        "input": f"add a new service account called team-a-sa in the team-a namespace in the {temp_dir}/text-edit-003-insert.yaml file",
+        "input": "add a new service account called team-a-sa in the team-a namespace in the {{file_path}} file",
         "expected": """
 * a namespace called `team-a` exists
 * a service account called `team-a-sa` exists in the `team-a` namespace
 """,
         "metadata": {
-            "file_path": f"{temp_dir}/text-edit-003-insert.yaml",
             "scorer": "TextEditScorer",
+            "filename": "text-edit-003-insert.yaml",
         },
         "tags": ["k8s", "text-edit"],
     },
     {
-        "input": f"find the namespace that has the name `eastegg` in the confg files in {temp_dir} directory",
-        "expected": f"a namespace called `eastegg` exists in the {temp_dir}/text-edit-004-search.yaml file",
+        "input": "find the namespace that has the name `eastegg` in the confg files in {{temp_dir}} directory",
+        "expected": "a namespace called `eastegg` exists in the {{file_path}} file",
         "metadata": {
-            "file_path": f"{temp_dir}/text-edit-004-search.yaml",
             "scorer": "TextEditScorer",
+            "filename": "text-edit-004-search.yaml",
         },
         "tags": ["k8s", "text-edit"],
     },
@@ -265,7 +282,15 @@ test_cases = [
     {
         **case,
         "tags": [model, *case["tags"]],
-        "metadata": {"model": model, **case["metadata"]},
+        "metadata": {
+            "model": model,
+            **case["metadata"],
+            **(
+                seed_text_edit_scenario(case["metadata"]["filename"])
+                if "filename" in case["metadata"]
+                else {}
+            ),
+        },
     }
     for model in models
     for case in simple_test_cases + investigation_test_cases + text_edit_test_cases

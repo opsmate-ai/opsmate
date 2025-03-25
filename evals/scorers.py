@@ -60,11 +60,12 @@ class TextEditScorer(Scorer):
         else:
             real_output = output
 
+        rendered_expected = jinja2.Template(expected).render(**metadata)
         closed_qa = ClosedQA()
         score = closed_qa.eval(
             input=kwargs.get("input"),
             output=real_output,
-            criteria=expected,
+            criteria=rendered_expected,
         )
 
         score.metadata["real_output"] = real_output

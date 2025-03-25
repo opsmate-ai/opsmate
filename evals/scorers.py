@@ -17,6 +17,8 @@ class OpsmateScorer(Scorer):
                 scorer_cls = CorrectnessScorer
             case "TextEditScorer":
                 scorer_cls = TextEditScorer
+            case "MitigationScorer":
+                scorer_cls = MitigationScorer
             case _:
                 raise ValueError(f"Unknown scorer: {scorer}")
 
@@ -70,3 +72,29 @@ class TextEditScorer(Scorer):
 
         score.metadata["real_output"] = real_output
         return score
+
+
+class MitigationScorer(Scorer):
+    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
+        try:
+            metadata = kwargs.get("metadata", {})
+            criteria = metadata.get("criteria")
+            cmds = metadata.get("cmds", {})
+
+            for key, cmd in cmds.items():
+                cmds[key] = (
+                    subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+                )
+
+            fact = jinja2.Template(metadata.get("fact")).render(**cmds)
+            closed_qa = ClosedQA()
+            score = closed_qa.eval(
+                input=kwargs.get("input"),
+                output=fact,
+                criteria=criteria,
+            )
+            score.metadata["fact"] = fact
+            return score
+        finally:
+            for cleanup in metadata.get("cleanups", []):
+                subprocess.run(cleanup, shell=True)

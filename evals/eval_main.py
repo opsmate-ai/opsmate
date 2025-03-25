@@ -11,6 +11,7 @@ import os
 import tempfile
 import shutil
 import jinja2
+import subprocess
 
 config.set_loglevel()
 logger = structlog.get_logger(__name__)
@@ -29,7 +30,15 @@ if os.getenv("BRAINTRUST_API_KEY") is not None:
     start_trace()
 
 
+def setup_hooks(hooks: EvalHooks):
+    setups = hooks.metadata.get("setups", [])
+    for setup in setups:
+        subprocess.run(setup, shell=True)
+
+
 async def k8s_agent(question: str, hooks: EvalHooks):
+    setup_hooks(hooks)
+
     with tracer.start_as_current_span("eval_k8s_agent") as span:
         span.set_attribute("question", question)
 
@@ -276,6 +285,71 @@ Please carry out the operations above step by step.
     },
 ]
 
+mitigation_test_cases = [
+    {
+        "input": """create a single pod of image `httpd:2.4.41-alpine` in the namespace `default`.
+The pod should be named `pod1` and container should be named `pod1-container`.
+""",
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "criteria": """
+* the pod is created in the `default` namespace
+* the pod uses the image `httpd:2.4.41-alpine`
+* the pod is named `pod1`
+* the pod uses the container named `pod1-container`
+""",
+            "cmds": {
+                "get_pod": "kubectl get pod pod1 -oyaml",
+            },
+            "fact": """Here is the output of the pod:
+```
+{{get_pod}}
+```
+""",
+            "cleanups": [
+                "kubectl delete pod pod1",
+            ],
+        },
+        "tags": ["k8s", "mitigation"],
+    },
+    {
+        "input": """Team foo needs to create a kubernetes job. This Job should run image `busybox:1.31.0` and execute `sleep 2 && echo done`.
+It should be in namespace `foo`, run a total of 3 times and should execute 2 runs in parallel.
+
+Each pod created by the Job should have the label id: `awesome-job`.
+The job should be named `foo-new-job` and the container `foo-new-job-container`.
+
+Please create the kubernetes job and verify the output.""",
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "criteria": """
+* the job is created in the `foo` namespace
+* the name of the job is `foo-new-job`
+* the job has an `id=awesome-job` label
+* the job has a parallelism of 2
+* the job has a completions of 3
+* the job has a container named `foo-new-job-container`
+""",
+            "cmds": {
+                "get_job": "kubectl -n foo get job foo-new-job -oyaml",
+            },
+            "setups": [
+                "kubectl create namespace foo || true",
+            ],
+            "fact": """Here is the output of the job:
+```
+{{get_job}}
+```
+""",
+            "cleanups": [
+                "kubectl delete job foo-new-job",
+                "kubectl delete namespace foo",
+            ],
+        },
+        "tags": ["k8s", "mitigation"],
+    },
+]
+
 models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
 
 test_cases = [
@@ -293,7 +367,10 @@ test_cases = [
         },
     }
     for model in models
-    for case in simple_test_cases + investigation_test_cases + text_edit_test_cases
+    for case in simple_test_cases
+    + investigation_test_cases
+    + text_edit_test_cases
+    + mitigation_test_cases
 ]
 
 Eval(

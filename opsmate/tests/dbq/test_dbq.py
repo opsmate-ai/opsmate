@@ -11,6 +11,7 @@ from opsmate.dbq.dbq import (
     await_task_completion,
     dbq_task,
     Task,
+    purge_tasks,
 )
 import asyncio
 import structlog
@@ -279,3 +280,53 @@ class TestDbq:
             task_id = enqueue_task(session, dummy_with_context)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 1
+
+    def test_purge_tasks(self, session: Session):
+        # Create tasks with different statuses
+        task_id1 = enqueue_task(session, dummy, 1, 2)
+        task_id2 = enqueue_task(session, dummy, 3, 4)
+        task_id3 = enqueue_task(session, dummy_plus, 5, 6)
+        enqueue_task(session, dummy_plus, 7, 8)
+        enqueue_task(session, dummy_with_context)
+
+        # Set different statuses
+        task1 = session.exec(select(TaskItem).where(TaskItem.id == task_id1)).first()
+        task1.status = TaskStatus.RUNNING
+
+        task2 = session.exec(select(TaskItem).where(TaskItem.id == task_id2)).first()
+        task2.status = TaskStatus.COMPLETED
+
+        task3 = session.exec(select(TaskItem).where(TaskItem.id == task_id3)).first()
+        task3.status = TaskStatus.FAILED
+
+        session.commit()
+
+        # Test purging only non-running tasks for dummy function
+        count = purge_tasks(session, "test_dbq.dummy", non_running=True)
+        assert count == 1, "Should purge one non-running dummy task"
+
+        # Verify remaining tasks
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 4, "Should have 4 tasks remaining"
+
+        # Test purging all tasks for dummy_plus function
+        count = purge_tasks(session, "test_dbq.dummy_plus", non_running=False)
+        assert count == 2, "Should purge all dummy_plus tasks"
+
+        # Verify remaining tasks
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 2, "Should have 2 tasks remaining"
+
+        # Test purging with custom queue name
+        task_id6 = enqueue_task(session, dummy, 9, 10, queue_name="custom_queue")
+        count = purge_tasks(session, "test_dbq.dummy", queue_name="custom_queue")
+        assert count == 1, "Should purge task from custom queue"
+
+        # Test purging running tasks
+        count = purge_tasks(session, "test_dbq.dummy", non_running=False)
+        assert count == 1, "Should purge remaining dummy task (running)"
+
+        # Verify final state
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 1, "Should have 1 task remaining"
+        assert remaining_tasks[0].func == "test_dbq.dummy_with_context"

@@ -56,7 +56,7 @@ class GroqProvider(Provider):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def _default_client(cls) -> AsyncInstructor:
         return instructor.from_groq(
             AsyncGroq(
                 base_url=os.getenv("GROQ_BASE_URL", cls.DEFAULT_BASE_URL),

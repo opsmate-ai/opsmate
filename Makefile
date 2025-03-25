@@ -35,7 +35,7 @@ kind: $(LOCALBIN)
 
 .PHONY: kind-cluster
 kind-cluster: kind
-	$(KIND) create cluster --config eval/bootstrap/kind.yaml || true
+	$(KIND) create cluster --config evals/kind.yaml || true
 	./evals/setup.sh
 
 .PHONY: kind-destroy

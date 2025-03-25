@@ -453,6 +453,91 @@ Here is the output from opsmate:
         },
         "tags": ["k8s", "mitigation"],
     },
+    {
+        "input": """Team alpha decided to take over control of one e-commerce webserver from Team beta.
+The e-commerce system is called `my-happy-socks` in the `alpha` namespace.
+Search for the correct deploy in Namespace alpha and move it to Namespace beta, and remove the deployment from alpha.
+
+Please move the kubernetes deployment and verify the output.
+""",
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "setups": [
+                "kubectl create namespace alpha || true",
+                "kubectl create namespace beta || true",
+                """kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    namespace: alpha
+    name: my-happy-socks
+    labels:
+        app: my-happy-socks
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: my-happy-socks
+    template:
+        metadata:
+            labels:
+                app: my-happy-socks
+        spec:
+            containers:
+            - name: container
+              image: nginx:1.27.4-alpine-slim
+EOF
+""",
+            ],
+            "cleanups": [
+                "kubectl delete namespace alpha",
+                "kubectl delete namespace beta",
+            ],
+            "criteria": """
+    * the deployment is created like for like in the `beta` namespace
+    * the deployment is removed from the `alpha` namespace
+    """,
+            "cmds": {
+                "get_deploy": "kubectl get deploy -n beta my-happy-socks -oyaml",
+                "get_deploy_alpha": "kubectl get deploy -n alpha",
+            },
+            "fact": """This is the previous deployment in alpha namespace:
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    namespace: alpha
+    name: my-happy-socks
+    labels:
+        app: my-happy-socks
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: my-happy-socks
+    template:
+        metadata:
+            labels:
+                app: my-happy-socks
+        spec:
+            containers:
+            - name: container
+              image: nginx:1.27.4-alpine-slim
+```
+
+Here is the output of the beta deployment:
+```
+{{get_deploy}}
+```
+
+Here is the current deployment resources in alpha namespace:
+```
+{{get_deploy_alpha}}
+```
+""",
+        },
+        "tags": ["k8s", "mitigation"],
+    },
 ]
 
 models = ["claude-3-7-sonnet-20250219", "gpt-4o"]

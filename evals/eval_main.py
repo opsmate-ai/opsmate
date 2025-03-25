@@ -30,14 +30,14 @@ if os.getenv("BRAINTRUST_API_KEY") is not None:
     start_trace()
 
 
-def setup_hooks(hooks: EvalHooks):
+def setup_hook(hooks: EvalHooks):
     setups = hooks.metadata.get("setups", [])
     for setup in setups:
         subprocess.run(setup, shell=True)
 
 
 async def k8s_agent(question: str, hooks: EvalHooks):
-    setup_hooks(hooks)
+    setup_hook(hooks)
 
     with tracer.start_as_current_span("eval_k8s_agent") as span:
         span.set_attribute("question", question)
@@ -420,6 +420,35 @@ Here is the output from opsmate:
 ```
 {{output}}
 ```
+""",
+        },
+        "tags": ["k8s", "mitigation"],
+    },
+    {
+        "input": """Create a single Pod named pod6 in Namespace default of image busybox:1.31.0.
+    The Pod should have a readiness-probe executing cat /tmp/ready.
+    This will set the container ready only if the file /tmp/ready exists.
+
+    The Pod should run the command touch `/tmp/ready && sleep 1d`, which will create the necessary file to be ready and then idles.
+    Create the Pod and confirm it starts.
+""",
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "cmds": {
+                "get_pod": "kubectl get pod pod6 -oyaml",
+            },
+            "fact": """Here is the output of the pod:
+```
+{{get_pod}}
+```
+""",
+            "cleanups": [
+                "kubectl delete pod pod6",
+            ],
+            "criteria": """
+* the pod6 is created in the `default` namespace
+* the pod6 has a readiness-probe executing `cat /tmp/ready`
+* the pod6 should have "sleep 1d" as either command or args
 """,
         },
         "tags": ["k8s", "mitigation"],

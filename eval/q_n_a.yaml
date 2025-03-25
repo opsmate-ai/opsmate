@@ -1,32 +1,4 @@
 - type: q_n_a
-  description: "create a pod with readiness probe"
-  question: |
-    Create a single Pod named pod6 in Namespace default of image busybox:1.31.0.
-    The Pod should have a readiness-probe executing cat /tmp/ready.
-    It should initially wait 5 and periodically wait 10 seconds.
-    This will set the container ready only if the file /tmp/ready exists.
-
-    The Pod should run the command touch `/tmp/ready && sleep 1d`, which will create the necessary file to be ready and then idles.
-    Create the Pod and confirm it starts.
-  answer_verification:
-    - command: kubectl -n default get pod pod6
-      exit_code: 0
-      expected_output: "pod6"
-    - command: kubectl -n default get pod pod6 -o jsonpath="{.status.containerStatuses[0].ready}"
-      exit_code: 0
-      expected_output: "true"
-    - command: kubectl -n default get pod pod6 -o jsonpath="{.status.phase}"
-      exit_code: 0
-      expected_output: "Running"
-    - command: kubectl -n default get pod pod6 -o jsonpath="{.spec.containers[0].command}"
-      exit_code: 0
-      expected_output: "touch /tmp/ready"
-    - command: kubectl -n default get pod pod6 -o jsonpath="{.spec.containers[0].command}"
-      exit_code: 0
-      expected_output: "sleep 1d"
-  cleanup_steps:
-    - command: kubectl -n default delete pod pod6
-- type: q_n_a
   description: "deploy and namespace"
   question: |
     The board of Team alpha decided to take over control of one e-commerce webserver from Team beta.

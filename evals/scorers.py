@@ -81,12 +81,14 @@ class MitigationScorer(Scorer):
             criteria = metadata.get("criteria")
             cmds = metadata.get("cmds", {})
 
+            kv = {}
             for key, cmd in cmds.items():
-                cmds[key] = (
+                kv[key] = (
                     subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
                 )
+            kv["output"] = output
 
-            fact = jinja2.Template(metadata.get("fact")).render(**cmds)
+            fact = jinja2.Template(metadata.get("fact")).render(**kv)
             closed_qa = ClosedQA()
             score = closed_qa.eval(
                 input=kwargs.get("input"),

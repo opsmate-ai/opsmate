@@ -348,6 +348,82 @@ Please create the kubernetes job and verify the output.""",
         },
         "tags": ["k8s", "mitigation"],
     },
+    {
+        "input": """Team bar needs 3 Pods of image httpd:2.4-alpine, create a Deployment named bar-123 for this. The containers should be named bar-pod-123.
+Each container should have a memory request of 20Mi and a memory limit of 50Mi.
+Team bar has its own ServiceAccount bar-sa-v2 under which the Pods should run. The Deployment should be in Namespace bar.
+Please create the kubernetes deployment and verify the output.""",
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "setups": [
+                "kubectl create namespace bar || true",
+                "kubectl create serviceaccount bar-sa-v2 -n bar",
+            ],
+            "cleanups": [
+                "kubectl delete namespace bar",
+            ],
+            "criteria": """
+* the deployment is created in the `bar` namespace
+* the deployment has a service account named `bar-sa-v2`
+* the deployment has a container named `bar-pod-123`
+* the container has a memory request of 20Mi and a memory limit of 50Mi
+* the deployment has 3 replicas
+""",
+            "cmds": {
+                "get_deployment": "kubectl -n bar get deployment bar-123 -oyaml",
+            },
+            "fact": """Here is the output of the deployment:
+```
+{{get_deployment}}
+```
+""",
+        },
+        "tags": ["k8s", "mitigation"],
+    },
+    {
+        "input": """Team secret-lab has its own ServiceAccount named da-sa in Namespace secret-lab.
+A coworker needs the token from the Secret that belongs to that ServiceAccount.
+Please provide the base64 decoded token of the Secret to the coworker.
+        """,
+        "metadata": {
+            "scorer": "MitigationScorer",
+            "setups": [
+                "kubectl create namespace secret-lab || true",
+                "kubectl create serviceaccount da-sa -n secret-lab",
+                """kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: da-sa-secret
+  namespace: secret-lab
+  annotations:
+    kubernetes.io/service-account.name: da-sa
+EOF
+""",
+            ],
+            "cleanups": [
+                "kubectl delete namespace secret-lab",
+            ],
+            "cmds": {
+                "get_secret": "kubectl -n secret-lab get secret da-sa-secret -o jsonpath='{.data.token}' | base64 -d",
+            },
+            "criteria": """
+* output from opsmate for the service account token is correct
+""",
+            "fact": """Here is the output of the secret:
+```
+{{get_secret}}
+```
+
+Here is the output from opsmate:
+```
+{{output}}
+```
+""",
+        },
+        "tags": ["k8s", "mitigation"],
+    },
 ]
 
 models = ["claude-3-7-sonnet-20250219", "gpt-4o"]

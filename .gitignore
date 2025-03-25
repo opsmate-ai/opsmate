@@ -163,8 +163,8 @@ cython_debug/
 /.bin/
 /data/
 
-eval/notebooks/website
-eval/notebooks/opsmate-embedding
+evals/notebooks/website
+evals/notebooks/opsmate-embedding
 
 .sesskey
 

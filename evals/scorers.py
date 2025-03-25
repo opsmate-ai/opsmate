@@ -11,6 +11,28 @@ logger = structlog.get_logger(__name__)
 class OpsmateScorer(Scorer):
     def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
         metadata = kwargs.get("metadata", {})
+        scorer = metadata.get("scorer")
+        match scorer:
+            case "CorrectnessScorer":
+                scorer_cls = CorrectnessScorer
+            case "TextEditScorer":
+                scorer_cls = TextEditScorer
+            case "MitigationScorer":
+                scorer_cls = MitigationScorer
+            case _:
+                raise ValueError(f"Unknown scorer: {scorer}")
+
+        score = scorer_cls().eval(
+            output=output,
+            expected=expected,
+            **kwargs,
+        )
+        return score
+
+
+class CorrectnessScorer(Scorer):
+    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
+        metadata = kwargs.get("metadata", {})
         cmds = {}
         for key, cmd in metadata.get("cmds", {}).items():
             cmds[key] = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
@@ -40,12 +62,41 @@ class TextEditScorer(Scorer):
         else:
             real_output = output
 
+        rendered_expected = jinja2.Template(expected).render(**metadata)
         closed_qa = ClosedQA()
         score = closed_qa.eval(
             input=kwargs.get("input"),
             output=real_output,
-            criteria=expected,
+            criteria=rendered_expected,
         )
 
         score.metadata["real_output"] = real_output
         return score
+
+
+class MitigationScorer(Scorer):
+    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
+        try:
+            metadata = kwargs.get("metadata", {})
+            criteria = metadata.get("criteria")
+            cmds = metadata.get("cmds", {})
+
+            kv = {}
+            for key, cmd in cmds.items():
+                kv[key] = (
+                    subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+                )
+            kv["output"] = output
+
+            fact = jinja2.Template(metadata.get("fact")).render(**kv)
+            closed_qa = ClosedQA()
+            score = closed_qa.eval(
+                input=kwargs.get("input"),
+                output=fact,
+                criteria=criteria,
+            )
+            score.metadata["fact"] = fact
+            return score
+        finally:
+            for cleanup in metadata.get("cleanups", []):
+                subprocess.run(cleanup, shell=True)

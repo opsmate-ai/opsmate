@@ -11,6 +11,26 @@ logger = structlog.get_logger(__name__)
 class OpsmateScorer(Scorer):
     def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
         metadata = kwargs.get("metadata", {})
+        scorer = metadata.get("scorer")
+        match scorer:
+            case "CorrectnessScorer":
+                scorer_cls = CorrectnessScorer
+            case "TextEditScorer":
+                scorer_cls = TextEditScorer
+            case _:
+                raise ValueError(f"Unknown scorer: {scorer}")
+
+        score = scorer_cls().eval(
+            output=output,
+            expected=expected,
+            **kwargs,
+        )
+        return score
+
+
+class CorrectnessScorer(Scorer):
+    def _run_eval_sync(self, output, expected=None, **kwargs) -> Score:
+        metadata = kwargs.get("metadata", {})
         cmds = {}
         for key, cmd in metadata.get("cmds", {}).items():
             cmds[key] = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()

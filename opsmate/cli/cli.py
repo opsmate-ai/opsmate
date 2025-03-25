@@ -664,6 +664,16 @@ async def reset(skip_confirm, config):
                     os.remove(f)
 
     def remove_embeddings_db_path(embeddings_db_path):
+        if (
+            embeddings_db_path.startswith("gs://")
+            or embeddings_db_path.startswith("az://")
+            or embeddings_db_path.startswith("s3://")
+        ):
+            logger.info(
+                "Skipping deletion of embeddings db path",
+                embeddings_db_path=embeddings_db_path,
+            )
+            return
         shutil.rmtree(embeddings_db_path, ignore_errors=True)
 
     db_url = config.db_url
@@ -789,6 +799,35 @@ async def worker(workers, queue, config):
     except KeyboardInterrupt:
         task.cancel()
         await task
+
+
+@opsmate_cli.command()
+@click.option(
+    "-i",
+    "--interval-seconds",
+    default=30,
+    show_default=True,
+    help="Interval seconds to run the reindex task",
+)
+@config_params()
+@auto_migrate
+@coro
+async def schedule_embeddings_reindex(config, interval_seconds):
+    """
+    Schedule the reindex embeddings table task.
+    After schedule the reindex task will be run periodically every 30 seconds.
+
+    We encourage you to run this command without `opsmate worker` running to avoid race conditions.
+    """
+    from opsmate.knowledgestore.models import schedule_reindex_table
+    from opsmate.dbq.dbq import purge_tasks
+    from sqlmodel import Session
+
+    reindex_task_name = "opsmate.knowledgestore.models.reindex_table"
+    engine = config.db_engine()
+    with Session(engine) as session:
+        purge_tasks(session, reindex_task_name)
+        await schedule_reindex_table(session, interval_seconds)
 
 
 @opsmate_cli.command()

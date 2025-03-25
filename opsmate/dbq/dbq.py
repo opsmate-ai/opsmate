@@ -20,6 +20,7 @@ from sqlmodel import (
     select,
     func,
     col,
+    delete,
 )
 from sqlalchemy.orm import registry
 import importlib
@@ -208,6 +209,7 @@ def enqueue_task(
     queue_name: str = DEFAULT_QUEUE_NAME,
     priority: int | None = None,
     max_retries: int | None = None,
+    wait_until: datetime = datetime.now(UTC),
     **kwargs: Dict[str, Any],
 ):
     """
@@ -220,6 +222,7 @@ def enqueue_task(
         queue_name (str): The name of the queue to enqueue the task to. Defaults to DEFAULT_QUEUE_NAME.
         priority (int | None): The priority of the task. Default to DEFAULT_PRIORITY if not provided.
         max_retries (int | None): The maximum number of retries for the task. Default to DEFAULT_MAX_RETRIES if not provided.
+        wait_until (datetime): The datetime to wait until the task is executed. Defaults to now.
         **kwargs (Dict[str, Any]): The keyword arguments to pass to the function.
     """
     with tracer.start_as_current_span("enqueue_task", kind=SpanKind.PRODUCER) as span:
@@ -234,6 +237,7 @@ def enqueue_task(
             args=args,
             kwargs=kwargs,
             queue_name=queue_name,
+            wait_until=wait_until,
         )
 
         if max_retries is None:
@@ -261,6 +265,33 @@ def enqueue_task(
         span.set_attribute("dbq.task.id", task.id)
 
         return task.id
+
+
+def purge_tasks(
+    session: Session,
+    task_name: str,
+    queue_name: str = DEFAULT_QUEUE_NAME,
+):
+    """
+    Purge all the non running tasks from the database.
+
+    Parameters:
+        session (Session): The database session to use.
+        queue_name (str): The name of the queue to purge tasks from.
+        task_name (str): The name of the task to purge, must be the full name of the task.
+    """
+    result = session.exec(
+        delete(TaskItem)
+        .where(TaskItem.queue_name == queue_name)
+        .where(TaskItem.func == task_name)
+        .where(TaskItem.status != TaskStatus.RUNNING)
+    )
+    logger.info(
+        "purged tasks",
+        task_name=task_name,
+        queue_name=queue_name,
+        count=result.rowcount,
+    )
 
 
 def dequeue_task(session: Session, queue_name: str = DEFAULT_QUEUE_NAME):

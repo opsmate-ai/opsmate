@@ -81,7 +81,7 @@ class Config(BaseSettings):
 
     embeddings_db_path: str = Field(
         default=default_embeddings_db_path,
-        description="The path to the lance db",
+        description="The path to the lance db. When s3:// is used for AWS S3, az:// is used for Azure Blob Storage, and gs:// is used for Google Cloud Storage",
         alias="OPSMATE_EMBEDDINGS_DB_PATH",
     )
     embedding_registry_name: str = Field(

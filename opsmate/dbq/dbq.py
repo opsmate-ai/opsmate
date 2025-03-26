@@ -22,7 +22,7 @@ from sqlmodel import (
     col,
     delete,
 )
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import registry
 import importlib
 import asyncio
@@ -30,9 +30,11 @@ import structlog
 import time
 import traceback
 import inspect
+from copy import deepcopy
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
-from opentelemetry.trace import SpanKind, Context
+from opentelemetry.trace import SpanKind
+from functools import wraps
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer("dbq")
@@ -282,6 +284,9 @@ def purge_tasks(
         queue_name (str): The name of the queue to purge tasks from.
         task_name (str): The name of the task to purge, must be the full name of the task.
         non_running (bool): If True, purge only non running tasks.
+
+    Returns:
+        tuple: A tuple containing the number of tasks purged and the number of running tasks.
     """
 
     with tracer.start_as_current_span("purge_tasks") as span:
@@ -291,8 +296,17 @@ def purge_tasks(
         query = query.where(TaskItem.queue_name == queue_name)
         query = query.where(TaskItem.func == task_name)
         result = session.exec(query)
+        session.commit()
 
-        return result.rowcount
+        # get current running tasks count
+        running_tasks = session.exec(
+            select(func.count(col(TaskItem.id)))
+            .where(TaskItem.status == TaskStatus.RUNNING)
+            .where(TaskItem.queue_name == queue_name)
+            .where(TaskItem.func == task_name)
+        ).one()
+
+        return result.rowcount, running_tasks
 
 
 def dequeue_task(session: Session, queue_name: str = DEFAULT_QUEUE_NAME):
@@ -341,37 +355,58 @@ async def await_task_completion(
 
         start = time.time()
         while True:
-            task = session.exec(select(TaskItem).where(TaskItem.id == task_id)).first()
-            if task.status == TaskStatus.COMPLETED or task.status == TaskStatus.FAILED:
-                span.set_attribute("dbq.task.status", task.status.value)
-                span.set_attribute("dbq.await.duration", time.time() - start)
-                return task
-            if time.time() - start > timeout:
-                span.set_status(Status(StatusCode.ERROR))
-                span.set_attribute("dbq.await.duration", time.time() - start)
-                span.set_attribute("dbq.await.timed_out", True)
-                raise TimeoutError(
-                    f"Task {task_id} did not complete within {timeout} seconds"
-                )
-            await asyncio.sleep(interval)
+            with Session(session.get_bind()) as session:
+                task = session.exec(
+                    select(TaskItem).where(TaskItem.id == task_id)
+                ).first()
+                if (
+                    task.status == TaskStatus.COMPLETED
+                    or task.status == TaskStatus.FAILED
+                ):
+                    span.set_attribute("dbq.task.status", task.status.value)
+                    span.set_attribute("dbq.await.duration", time.time() - start)
+                    return task
+                if time.time() - start > timeout:
+                    span.set_status(Status(StatusCode.ERROR))
+                    span.set_attribute("dbq.await.duration", time.time() - start)
+                    span.set_attribute("dbq.await.timed_out", True)
+                    raise TimeoutError(
+                        f"Task {task_id} did not complete within {timeout} seconds"
+                    )
+                await asyncio.sleep(interval)
 
 
 class Worker:
+    def with_context(func):
+        """
+        A decorator to add a context to the function.
+        """
+
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            try:
+                ctx = deepcopy(self.context)
+                session = Session(self.engine)
+                ctx["session"] = session
+                return await func(self, *args, ctx=ctx, session=session, **kwargs)
+            finally:
+                session.close()
+
+        return wrapper
+
     def __init__(
         self,
-        session: Session,
+        engine: Engine,
         concurrency: int = 1,
         context: Dict[str, Any] = {},
         queue_name: str = DEFAULT_QUEUE_NAME,
     ):
-        self.session = session
+        self.engine = engine
         self.running = True
         self.lock = asyncio.Lock()
         self.concurrency = concurrency
         self.context = context
         self.queue_name = queue_name
-        if self.context.get("session") is None:
-            self.context["session"] = self.session
 
     async def start(self):
         logger.info(
@@ -393,7 +428,10 @@ class Worker:
         logger.info("dbq coroutine stopped", coroutine_id=coroutine_id)
 
     async def _on_success(
-        self, task: TaskItem, fn: Callable[..., Awaitable[Any]] | Task
+        self,
+        task: TaskItem,
+        fn: Callable[..., Awaitable[Any]] | Task,
+        ctx: Dict[str, Any],
     ):
         if not isinstance(fn, Task):
             return
@@ -403,7 +441,7 @@ class Worker:
             span.set_attribute("dbq.task.function", task.func)
 
             try:
-                await fn.on_success(task, self.context)
+                await fn.on_success(task, ctx)
             except Exception as e:
                 logger.error("error on task success", task_id=task.id, error=str(e))
                 span.set_status(Status(StatusCode.ERROR))
@@ -414,6 +452,7 @@ class Worker:
         task: TaskItem,
         fn: Callable[..., Awaitable[Any]] | Task,
         error: Exception,
+        ctx: Dict[str, Any],
     ):
         if not isinstance(fn, Task):
             return
@@ -424,14 +463,17 @@ class Worker:
             span.set_attribute("dbq.task.error", str(error))
 
             try:
-                await fn.on_failure(task, error, self.context)
+                await fn.on_failure(task, error, ctx)
             except Exception as e:
                 logger.error("error on task failure", task_id=task.id, error=str(e))
                 span.set_status(Status(StatusCode.ERROR))
                 span.record_exception(e)
 
     async def _before_run(
-        self, task: TaskItem, fn: Callable[..., Awaitable[Any]] | Task
+        self,
+        task: TaskItem,
+        fn: Callable[..., Awaitable[Any]] | Task,
+        ctx: Dict[str, Any],
     ):
         if not isinstance(fn, Task):
             return
@@ -441,17 +483,16 @@ class Worker:
             span.set_attribute("dbq.task.function", task.func)
 
             try:
-                await fn.before_run(task, self.context)
+                await fn.before_run(task, ctx)
             except Exception as e:
                 logger.error("error on task before run", task_id=task.id, error=str(e))
                 span.set_status(Status(StatusCode.ERROR))
                 span.record_exception(e)
 
-    async def _run(self, coroutine_id: int):
-        with tracer.start_as_current_span(
-            "dbq.dequeue_task", context=Context({"a": "b"})
-        ) as span:
-            task = dequeue_task(self.session, queue_name=self.queue_name)
+    @with_context
+    async def _run(self, coroutine_id: int, ctx: Dict[str, Any], session: Session):
+        with tracer.start_as_current_span("dbq.dequeue_task") as span:
+            task = dequeue_task(session, queue_name=self.queue_name)
 
         if not task:
             await asyncio.sleep(0.1)
@@ -471,8 +512,8 @@ class Worker:
                 fn = getattr(importlib.import_module(fn_module), fn_name)
                 logger.debug("imported function", func=task.func)
 
-                await self._before_run(task, fn)
-                result = await self.maybe_context_fn(fn, task.args, task.kwargs)
+                await self._before_run(task, fn, ctx)
+                result = await self.maybe_context_fn(fn, task.args, ctx, task.kwargs)
 
                 logger.info(
                     "task completed",
@@ -485,9 +526,9 @@ class Worker:
                 task.updated_at = datetime.now(UTC)
                 task.generation_id = task.generation_id + 1
                 task.wait_until = datetime.now(UTC)  # Reset wait_until on success
-                self.session.commit()
+                session.commit()
                 span.set_attribute("dbq.task.status", TaskStatus.COMPLETED.value)
-                await self._on_success(task, fn)
+                await self._on_success(task, fn, ctx)
             except RetryException as e:
                 if task.retry_count >= task.max_retries:
                     logger.error(
@@ -535,21 +576,22 @@ class Worker:
 
                 task.updated_at = datetime.now(UTC)
                 task.generation_id = task.generation_id + 1
-                self.session.commit()
-                await self._on_failure(task, fn, e)
+                session.commit()
+                await self._on_failure(task, fn, e, ctx)
                 return
             except Exception as e:
                 logger.error(
                     "error running task",
                     task_id=task.id,
                     error=str(e),
+                    stack_trace=traceback.format_exc(),
                     coroutine_id=coroutine_id,
                 )
                 task.error = str(e)
                 task.status = TaskStatus.FAILED
                 task.updated_at = datetime.now(UTC)
                 task.generation_id = task.generation_id + 1
-                self.session.commit()
+                session.commit()
                 span.set_status(Status(StatusCode.ERROR))
                 span.set_attribute("dbq.task.status", TaskStatus.FAILED.value)
                 span.set_attribute("dbq.task.error", str(e))
@@ -559,6 +601,7 @@ class Worker:
         self,
         fn: Callable[..., Awaitable[Any]] | Task,
         args: List[Any],
+        ctx: Dict[str, Any],
         kwargs: Dict[str, Any],
     ):
         """Check if the fn has a ctx argument, if so, add the session to it"""
@@ -575,24 +618,26 @@ class Worker:
                 run = fn
 
             if "ctx" in inspect.signature(run).parameters:
-                return await run(*args, ctx=self.context, **kwargs)
+                return await run(*args, ctx=ctx, **kwargs)
             return await run(*args, **kwargs)
 
     def queue_size(self):
-        return self.session.exec(
-            select(func.count(col(TaskItem.id)))
-            .select_from(TaskItem)
-            .where(TaskItem.status == TaskStatus.PENDING)
-            .where(TaskItem.queue_name == self.queue_name)
-        ).one()
+        with Session(self.engine) as session:
+            return session.exec(
+                select(func.count(col(TaskItem.id)))
+                .select_from(TaskItem)
+                .where(TaskItem.status == TaskStatus.PENDING)
+                .where(TaskItem.queue_name == self.queue_name)
+            ).one()
 
     def inflight_size(self):
-        return self.session.exec(
-            select(func.count(col(TaskItem.id)))
-            .select_from(TaskItem)
-            .where(TaskItem.status == TaskStatus.RUNNING)
-            .where(TaskItem.queue_name == self.queue_name)
-        ).one()
+        with Session(self.engine) as session:
+            return session.exec(
+                select(func.count(col(TaskItem.id)))
+                .select_from(TaskItem)
+                .where(TaskItem.status == TaskStatus.RUNNING)
+                .where(TaskItem.queue_name == self.queue_name)
+            ).one()
 
     def idle(self):
         return self.queue_size() == 0 and self.inflight_size() == 0

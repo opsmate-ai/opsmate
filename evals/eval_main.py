@@ -125,7 +125,7 @@ simple_test_cases = [
         },
     },
     {
-        "input": "how to start an ephemeral ubuntu 24.04 pod in the cluster with interactive shell, return the command to run, DO NOT  actually run the command",
+        "input": "how to start an ephemeral ubuntu 24.04 pod in the cluster with interactive shell, return the command to run",
         "expected": "kubectl run ubuntu --image=ubuntu:24.04 --rm -ti -- bash",
         "tags": ["k8s", "simple"],
         "metadata": {
@@ -540,7 +540,7 @@ Here is the current deployment resources in alpha namespace:
     },
 ]
 
-models = ["grok-2-1212", "gpt-4o"]
+models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
 
 test_cases = [
     {

@@ -1,6 +1,5 @@
 import pytest
 import asyncio
-import os
 from opsmate.runtime.runtime import LocalRuntime, RuntimeError
 from contextlib import asynccontextmanager
 
@@ -10,9 +9,10 @@ async def local_runtime():
     runtime = LocalRuntime()
     # Connect before each test
     await runtime.connect()
-    yield runtime
-    # Ensure we disconnect after each test
-    await runtime.disconnect()
+    try:
+        yield runtime
+    finally:
+        await runtime.disconnect()
 
 
 class TestLocalRuntime:
@@ -111,9 +111,12 @@ class TestLocalRuntime:
         assert runtime.connected is False
 
         # Run should automatically reconnect
-        result2 = await runtime.run("echo 'After Reconnect'")
-        assert "After Reconnect" in result2
-        assert runtime.connected is True
+        try:
+            result2 = await runtime.run("echo 'After Reconnect'")
+            assert "After Reconnect" in result2
+            assert runtime.connected is True
+        finally:
+            await runtime.disconnect()
 
     @pytest.mark.asyncio
     async def test_working_directory(self):

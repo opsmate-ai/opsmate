@@ -47,6 +47,7 @@ class LocalRuntime(Runtime):
     async def disconnect(self):
         if self.process and self.process.returncode is None:
             self.process.terminate()
+            self.process._transport.close()
             self.connected = False
 
     async def run(

@@ -1,5 +1,7 @@
 `opsmate schedule-embeddings-reindex` schedules a task to reindex the embeddings. Note that this command only schedules the task.To reindex the embeddings, the `opsmate worker` process needs to be running.
 
+Opsmate uses LanceDB to store the embedding vectors for semantic search and full text search. By default LanceDB [does not support](https://lancedb.github.io/lancedb/concepts/data_management/) incremental indexing. This `schedule-embeddings-reindex` command schedules a task to reindex the embeddings. Once the reindex task is scheduled, the task will be run periodically by default every 30 seconds.
+
 ## OPTIONS
 
 ```bash

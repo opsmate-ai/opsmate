@@ -70,6 +70,7 @@ nav:
   - Production: production.md
   - Integrations:
     - Add New LLM Providers: integrations/add-new-llm-providers.md
+    - Use Cloud Storage for Embeddings Storage: integrations/use-cloud-storage-for-embeddings-storage.md
     - Advanced Knowledge Retrieval: integrations/advanced-knowledge-retrieval.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md

@@ -646,7 +646,9 @@ def list_contexts(config):
 @coro
 async def reset(skip_confirm, config):
     """
-    Reset the OpsMate.
+    Reset the OpsMate database and embeddings db.
+    Note that if the database is using litestream it will not be reset.
+    Same applies to the embeddings db, if the embedding db is using GCS, S3 or Azure Blob Storage, it will not be reset.
     """
     import glob
     import shutil

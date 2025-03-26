@@ -20,9 +20,11 @@ Options:
   --embedding-registry-name TEXT  The name of the embedding registry (env:
                                   OPSMATE_EMBEDDING_REGISTRY_NAME)  [default:
                                   openai]
-  --embeddings-db-path TEXT       The path to the lance db (env:
-                                  OPSMATE_EMBEDDINGS_DB_PATH)  [default:
-                                  /root/.opsmate/embeddings]
+  --embeddings-db-path TEXT       The path to the lance db. When s3:// is used
+                                  for AWS S3, az:// is used for Azure Blob
+                                  Storage, and gs:// is used for Google Cloud
+                                  Storage (env: OPSMATE_EMBEDDINGS_DB_PATH)
+                                  [default: /root/.opsmate/embeddings]
   --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
                                   [default: /root/.opsmate/contexts]
   --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
@@ -31,6 +33,7 @@ Options:
                                   sqlite:////root/.opsmate/opsmate.db]
   --help                          Show this message and exit.
 ```
+
 ## USAGE
 
 ### Basic

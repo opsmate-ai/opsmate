@@ -10,6 +10,7 @@ from opsmate.tools import ShellCommand
 def context_dir():
     current_dir = path.dirname(path.abspath(__file__))
     context_dir = path.join(current_dir, "fixtures/contexts")
+    ContextRegistry.reset()
     ContextRegistry.discover(context_dir)
     yield
     ContextRegistry.reset()

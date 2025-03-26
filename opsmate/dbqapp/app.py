@@ -1,7 +1,6 @@
 from opsmate.dbq.dbq import Worker
 from opsmate.libs.config import config
 import asyncio
-from sqlmodel import create_engine, Session, text
 import structlog
 import signal
 
@@ -11,8 +10,7 @@ logger = structlog.get_logger()
 async def main(worker_count: int = 10, worker_queue: str = "default"):
     engine = config.db_engine()
 
-    session = Session(engine)
-    worker = Worker(session, worker_count, queue_name=worker_queue)
+    worker = Worker(engine, worker_count, queue_name=worker_queue)
 
     def handle_signal(signal_number, frame):
         logger.info("Received signal", signal_number=signal_number)

@@ -23,6 +23,10 @@ You can start using Opsmate by running it locally on your workstation. There are
     # or
     pipx upgrade opsmate
     ```
+=== "uvx"
+    ```bash
+    uvx opsmate [OPTIONS] COMMAND [ARGS]...
+    ```
 
 === "Docker"
     ```bash

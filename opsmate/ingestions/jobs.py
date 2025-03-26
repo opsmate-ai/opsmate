@@ -128,7 +128,6 @@ async def chunk_and_store(
     )
 
     await table.add(kbs)
-    await table.optimize()
 
     doc_record.update_chunk_count(session, len(kbs))
 

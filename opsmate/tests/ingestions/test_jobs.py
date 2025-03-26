@@ -21,18 +21,18 @@ class TestJobs(BaseTestCase):
     @pytest.fixture
     def engine(self):
         engine = create_engine("sqlite:///:memory:")
+        IngestionSQLModel.metadata.create_all(engine)
+        DBQSQLModel.metadata.create_all(engine)
         return engine
 
     @pytest.fixture
     def session(self, engine: Engine):
-        IngestionSQLModel.metadata.create_all(engine)
-        DBQSQLModel.metadata.create_all(engine)
         with Session(engine) as session:
             yield session
 
     @asynccontextmanager
-    async def with_worker(self, session: Session):
-        worker = Worker(session, concurrency=5, context={"session": session})
+    async def with_worker(self, engine: Engine):
+        worker = Worker(engine, concurrency=5)
         worker_task = asyncio.create_task(worker.start())
         try:
             yield worker
@@ -48,7 +48,7 @@ class TestJobs(BaseTestCase):
         os.getenv("CI") == "true", reason="flakey test on Github Actions"
     )
     @pytest.mark.asyncio
-    async def test_ingest(self, session: Session):
+    async def test_ingest(self, engine: Engine, session: Session):
         async def ingest_all():
             enqueue_task(
                 session,
@@ -70,7 +70,7 @@ class TestJobs(BaseTestCase):
                 .to_list()
             )
 
-        async with self.with_worker(session) as worker:
+        async with self.with_worker(engine) as worker:
             await ingest_all()
             await self.await_task_pool_idle(worker)
 

@@ -35,3 +35,7 @@ opsmate list-models
 │ xai       │ grok-2-1212                │
 └───────────┴────────────────────────────┘
 ```
+
+## SEE ALSO
+
+- [Add new LLM providers](../integrations/add-new-llm-providers.md)

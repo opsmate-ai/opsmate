@@ -11,6 +11,7 @@ from opsmate.dbq.dbq import (
     await_task_completion,
     dbq_task,
     Task,
+    purge_tasks,
 )
 import asyncio
 import structlog
@@ -92,17 +93,17 @@ class TestDbq:
     @pytest.fixture
     def engine(self):
         engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(engine)
         return engine
 
     @pytest.fixture
     def session(self, engine: Engine):
-        SQLModel.metadata.create_all(engine)
         with Session(engine) as session:
             yield session
 
     @asynccontextmanager
-    async def with_worker(self, session: Session):
-        worker = Worker(session, concurrency=2)
+    async def with_worker(self, engine: Engine):
+        worker = Worker(engine, concurrency=2)
         worker_task = asyncio.create_task(worker.start())
         try:
             yield worker
@@ -139,15 +140,15 @@ class TestDbq:
         assert task.generation_id == 2
 
     @pytest.mark.asyncio
-    async def test_worker(self, session: Session):
-        async with self.with_worker(session):
+    async def test_worker(self, session: Session, engine: Engine):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy, 1, 2)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 3
 
     @pytest.mark.asyncio
-    async def test_worker_with_concurrency(self, session: Session):
-        async with self.with_worker(session):
+    async def test_worker_with_concurrency(self, session: Session, engine: Engine):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy, 1, 2)
             task_id2 = enqueue_task(session, dummy, 2, 3)
             task = await await_task_completion(session, task_id, 3)
@@ -156,8 +157,10 @@ class TestDbq:
             assert task2.result == 5
 
     @pytest.mark.asyncio
-    async def test_worker_with_exception_without_retry(self, session: Session):
-        async with self.with_worker(session):
+    async def test_worker_with_exception_without_retry(
+        self, session: Session, engine: Engine
+    ):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy, 1, "abc")
             task = await await_task_completion(session, task_id, 3)
             assert task.result is None
@@ -172,8 +175,10 @@ class TestDbq:
             ), "should not retry as the error is not in the retry on list"
 
     @pytest.mark.asyncio
-    async def test_worker_with_exception_with_retry(self, session: Session):
-        async with self.with_worker(session):
+    async def test_worker_with_exception_with_retry(
+        self, session: Session, engine: Engine
+    ):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy_with_retry_on, 1, "a")
             task = await await_task_completion(session, task_id, 3)
             assert task.result is None
@@ -186,8 +191,10 @@ class TestDbq:
             assert task.max_retries == 1
 
     @pytest.mark.asyncio
-    async def test_task_with_decorator_max_retries(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_decorator_max_retries(
+        self, session: Session, engine: Engine
+    ):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy_plus, 1, "a")
             task = await await_task_completion(session, task_id, 3)
             assert task.result == None
@@ -200,8 +207,8 @@ class TestDbq:
             assert task.max_retries == 1
 
     @pytest.mark.asyncio
-    async def test_task_with_complex_signature(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_complex_signature(self, session: Session, engine: Engine):
+        async with self.with_worker(engine):
             task_id = enqueue_task(
                 session,
                 dummy_with_complex_signature,
@@ -214,23 +221,25 @@ class TestDbq:
             assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
-    async def test_task_with_complex_return_value(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_complex_return_value(
+        self, session: Session, engine: Engine
+    ):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy_return_complex_value)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == {"a": 1, "b": 2}
             assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
-    async def test_worker_queue_size(self, session: Session):
-        worker = Worker(session, concurrency=2)
+    async def test_worker_queue_size(self, session: Session, engine: Engine):
+        worker = Worker(engine, concurrency=2)
         assert worker.queue_size() == 0
         enqueue_task(session, dummy, 1, 2)
         assert worker.queue_size() == 1
 
     @pytest.mark.asyncio
-    async def test_worker_inflight_size(self, session: Session):
-        worker = Worker(session, concurrency=2)
+    async def test_worker_inflight_size(self, session: Session, engine: Engine):
+        worker = Worker(engine, concurrency=2)
         assert worker.inflight_size() == 0
         task_id = enqueue_task(session, dummy, 1, 2)
         task = session.exec(select(TaskItem).where(TaskItem.id == task_id)).first()
@@ -240,10 +249,10 @@ class TestDbq:
         assert worker.inflight_size() == 1
 
     @pytest.mark.asyncio
-    async def test_task_with_priority(self, session: Session):
+    async def test_task_with_priority(self, session: Session, engine: Engine):
         task_id = enqueue_task(session, dummy, 1, 2, priority=1)
         task_id2 = enqueue_task(session, dummy, 1, 2, priority=2)
-        async with self.with_worker(session):
+        async with self.with_worker(engine):
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 3
             task2 = await await_task_completion(session, task_id2, 3)
@@ -252,8 +261,10 @@ class TestDbq:
             assert task.updated_at > task2.updated_at
 
     @pytest.mark.asyncio
-    async def test_task_with_decorator_with_priority(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_decorator_with_priority(
+        self, session: Session, engine: Engine
+    ):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy_plus, 1, 2)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 3
@@ -265,8 +276,8 @@ class TestDbq:
             assert task.updated_at < task2.updated_at
 
     @pytest.mark.asyncio
-    async def test_task_with_custom_task(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_custom_task(self, session: Session, engine: Engine):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, custom_dummy_task, 4, 5)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 4
@@ -274,8 +285,70 @@ class TestDbq:
             assert task.status == TaskStatus.COMPLETED
 
     @pytest.mark.asyncio
-    async def test_task_with_context(self, session: Session):
-        async with self.with_worker(session):
+    async def test_task_with_context(self, session: Session, engine: Engine):
+        async with self.with_worker(engine):
             task_id = enqueue_task(session, dummy_with_context)
             task = await await_task_completion(session, task_id, 3)
             assert task.result == 1
+
+    def test_purge_tasks(self, session: Session, engine: Engine):
+        # Create tasks with different statuses
+        task_id1 = enqueue_task(session, dummy, 1, 2)
+        task_id2 = enqueue_task(session, dummy, 3, 4)
+        task_id3 = enqueue_task(session, dummy_plus, 5, 6)
+        enqueue_task(session, dummy_plus, 7, 8)
+        enqueue_task(session, dummy_with_context)
+
+        # Set different statuses
+        task1 = session.exec(select(TaskItem).where(TaskItem.id == task_id1)).first()
+        task1.status = TaskStatus.RUNNING
+
+        task2 = session.exec(select(TaskItem).where(TaskItem.id == task_id2)).first()
+        task2.status = TaskStatus.COMPLETED
+
+        task3 = session.exec(select(TaskItem).where(TaskItem.id == task_id3)).first()
+        task3.status = TaskStatus.FAILED
+
+        session.commit()
+
+        # Test purging only non-running tasks for dummy function
+        purged_count, running_count = purge_tasks(
+            session, "test_dbq.dummy", non_running=True
+        )
+        assert purged_count == 1, "Should purge one non-running dummy task"
+        assert running_count == 1, "Should have one running dummy task"
+
+        # Verify remaining tasks
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 4, "Should have 4 tasks remaining"
+
+        # Test purging all tasks for dummy_plus function
+        purged_count, running_count = purge_tasks(
+            session, "test_dbq.dummy_plus", non_running=False
+        )
+        assert purged_count == 2, "Should purge all dummy_plus tasks"
+        assert running_count == 0, "Should have no running dummy_plus tasks"
+
+        # Verify remaining tasks
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 2, "Should have 2 tasks remaining"
+
+        # Test purging with custom queue name
+        task_id6 = enqueue_task(session, dummy, 9, 10, queue_name="custom_queue")
+        purged_count, running_count = purge_tasks(
+            session, "test_dbq.dummy", queue_name="custom_queue"
+        )
+        assert purged_count == 1, "Should purge task from custom queue"
+        assert running_count == 0, "Should have no running tasks in custom queue"
+
+        # Test purging running tasks
+        purged_count, running_count = purge_tasks(
+            session, "test_dbq.dummy", non_running=False
+        )
+        assert purged_count == 1, "Should purge remaining dummy task (running)"
+        assert running_count == 0, "Should have no running dummy tasks remaining"
+
+        # Verify final state
+        remaining_tasks = session.exec(select(TaskItem)).all()
+        assert len(remaining_tasks) == 1, "Should have 1 task remaining"
+        assert remaining_tasks[0].func == "test_dbq.dummy_with_context"

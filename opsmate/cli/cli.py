@@ -646,7 +646,9 @@ def list_contexts(config):
 @coro
 async def reset(skip_confirm, config):
     """
-    Reset the OpsMate.
+    Reset the OpsMate database and embeddings db.
+    Note that if the database is using litestream it will not be reset.
+    Same applies to the embeddings db, if the embedding db is using GCS, S3 or Azure Blob Storage, it will not be reset.
     """
     import glob
     import shutil
@@ -664,6 +666,16 @@ async def reset(skip_confirm, config):
                     os.remove(f)
 
     def remove_embeddings_db_path(embeddings_db_path):
+        if (
+            embeddings_db_path.startswith("gs://")
+            or embeddings_db_path.startswith("az://")
+            or embeddings_db_path.startswith("s3://")
+        ):
+            logger.info(
+                "Skipping deletion of embeddings db path",
+                embeddings_db_path=embeddings_db_path,
+            )
+            return
         shutil.rmtree(embeddings_db_path, ignore_errors=True)
 
     db_url = config.db_url
@@ -789,6 +801,53 @@ async def worker(workers, queue, config):
     except KeyboardInterrupt:
         task.cancel()
         await task
+
+
+@opsmate_cli.command()
+@click.option(
+    "-i",
+    "--interval-seconds",
+    default=30,
+    show_default=True,
+    help="Interval seconds to run the reindex task",
+)
+@click.option(
+    "-nw",
+    "--no-wait-for-completion",
+    is_flag=True,
+    help="Do not wait for the reindex task to complete before scheduling the next one",
+)
+@config_params()
+@auto_migrate
+@coro
+async def schedule_embeddings_reindex(config, interval_seconds, no_wait_for_completion):
+    """
+    Schedule the reindex embeddings table task.
+    It will purge all the reindex tasks before scheduling the new one.
+    After schedule the reindex task will be run periodically every 30 seconds.
+    """
+    from opsmate.knowledgestore.models import schedule_reindex_table
+    from opsmate.dbq.dbq import purge_tasks
+    from sqlmodel import Session
+
+    reindex_task_name = "opsmate.knowledgestore.models.reindex_table"
+    engine = config.db_engine()
+    with Session(engine) as session:
+        while True:
+            purged, running = purge_tasks(
+                session, task_name=reindex_task_name, non_running=True
+            )
+            if running and not no_wait_for_completion:
+                console.print(
+                    f"""{purged} reindex tasks purged, {running} reindex tasks running.
+Waiting for them to complete before scheduling the next one...
+"""
+                )
+                await asyncio.sleep(5)
+            else:
+                break
+
+        await schedule_reindex_table(session, interval_seconds)
 
 
 @opsmate_cli.command()

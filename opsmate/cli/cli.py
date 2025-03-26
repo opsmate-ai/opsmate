@@ -824,8 +824,6 @@ async def schedule_embeddings_reindex(config, interval_seconds, wait_for_complet
     Schedule the reindex embeddings table task.
     It will purge all the reindex tasks before scheduling the new one.
     After schedule the reindex task will be run periodically every 30 seconds.
-
-    You MUST run this command without `opsmate worker` running to avoid race conditions.
     """
     from opsmate.knowledgestore.models import schedule_reindex_table
     from opsmate.dbq.dbq import purge_tasks

@@ -59,6 +59,7 @@ nav:
     - opsmate worker: CLI/worker.md
     - opsmate ingest: CLI/ingest.md
     - opsmate ingest-prometheus-metrics-metadata: CLI/ingest-prometheus-metrics-metadata.md
+    - opsmate schedule-embeddings-reindex: CLI/schedule-embeddings-reindex.md
     - opsmate db-migrate: CLI/db-migrate.md
     - opsmate db-rollback: CLI/db-rollback.md
     - opsmate db-revisions: CLI/db-revisions.md

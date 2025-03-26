@@ -812,16 +812,15 @@ async def worker(workers, queue, config):
     help="Interval seconds to run the reindex task",
 )
 @click.option(
-    "-w",
-    "--wait-for-completion",
+    "-nw",
+    "--no-wait-for-completion",
     is_flag=True,
-    show_default=True,
-    help="Wait for the reindex task to complete before scheduling the next one",
+    help="Do not wait for the reindex task to complete before scheduling the next one",
 )
 @config_params()
 @auto_migrate
 @coro
-async def schedule_embeddings_reindex(config, interval_seconds, wait_for_completion):
+async def schedule_embeddings_reindex(config, interval_seconds, no_wait_for_completion):
     """
     Schedule the reindex embeddings table task.
     It will purge all the reindex tasks before scheduling the new one.
@@ -838,7 +837,7 @@ async def schedule_embeddings_reindex(config, interval_seconds, wait_for_complet
             purged, running = purge_tasks(
                 session, task_name=reindex_task_name, non_running=True
             )
-            if running and wait_for_completion:
+            if running and not no_wait_for_completion:
                 console.print(
                     f"""{purged} reindex tasks purged, {running} reindex tasks running.
 Waiting for them to complete before scheduling the next one...

@@ -1,5 +1,5 @@
 services:
-  sandbox:
+  default:
     image: ubuntu:24.04
     init: true
     entrypoint: ["sleep", "infinity"]

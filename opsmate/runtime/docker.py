@@ -5,14 +5,48 @@ from tempfile import NamedTemporaryFile
 from opsmate.runtime.runtime import register_runtime, RuntimeConfig
 from pydantic import Field, ConfigDict
 from typing import Dict
+from subprocess import check_output as co
+import structlog
+import uuid
+
+logger = structlog.get_logger(__name__)
 
 
 class DockerRuntimeConfig(RuntimeConfig):
     model_config = ConfigDict(populate_by_name=True)
 
-    container_name: str = Field(alias="RUNTIME_DOCKER_CONTAINER_NAME")
+    container_name: str = Field(alias="RUNTIME_DOCKER_CONTAINER_NAME", default="")
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_DOCKER_SHELL")
     envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_DOCKER_ENV")
+
+    # image_name: str = Field(
+    #     default="",
+    #     alias="RUNTIME_DOCKER_IMAGE_NAME",
+    #     description="Name of the image to run",
+    # )
+
+    # entrypoint: str = Field(
+    #     default="sleep",
+    #     alias="RUNTIME_DOCKER_ENTRYPOINT",
+    #     description="Entrypoint to run the container",
+    # )
+
+    # cmd: str = Field(
+    #     default="infinity",
+    #     alias="RUNTIME_DOCKER_CMD",
+    #     description="Command to start the container",
+    # )
+
+    compose_file: str = Field(
+        default="docker-compose.yml",
+        alias="RUNTIME_DOCKER_COMPOSE_FILE",
+        description="Path to the docker compose file",
+    )
+    service_name: str = Field(
+        default="default",
+        alias="RUNTIME_DOCKER_SERVICE_NAME",
+        description="Name of the service to run",
+    )
 
 
 @register_runtime("docker", DockerRuntimeConfig)
@@ -28,12 +62,64 @@ class DockerRuntime(LocalRuntime):
                 f.flush()
             self.envvars_file = f.name
 
-        shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
-
         self._lock = asyncio.Lock()
         self.process = None
         self.connected = False
-        self.shell_cmd = shell_cmd
+        self.from_config(config)
+        print(self.shell_cmd)
+
+    def _from_compose(self, config: DockerRuntimeConfig):
+        if not os.path.exists(config.compose_file):
+            logger.error(
+                f"Docker compose file not found", compose_file=config.compose_file
+            )
+            return None
+
+        output = co(
+            ["docker", "compose", "-f", config.compose_file, "up", "-d"], text=True
+        ).strip()
+        print(output)
+        self.shell_cmd = f"docker compose -f {config.compose_file} exec {config.service_name} {config.shell_cmd}"
+        self.from_compose = True
+
+    # def _from_image(self, config: DockerRuntimeConfig):
+    #     if config.image_name == "":
+    #         logger.error(f"Docker image name not found", image_name=config.image_name)
+    #         return None
+
+    #     self.container_name = f"opsmate-{uuid.uuid4()}"
+    #     cmd = [
+    #         "docker",
+    #         "run",
+    #         "-d",
+    #         "--rm",
+    #         "--name",
+    #         self.container_name,
+    #         "--entrypoint",
+    #         config.entrypoint,
+    #         config.image_name,
+    #         config.cmd,
+    #     ]
+    #     output = co(
+    #         cmd,
+    #         text=True,
+    #     ).strip()
+    #     print(output)
+    #     self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
+    #     self.from_image = True
+
+    # def _from_container(self, config: DockerRuntimeConfig):
+    #     output = co(["docker", "start", self.container_name], text=True).strip()
+    #     self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
+    #     self.from_container = True
+
+    def from_config(self, config: DockerRuntimeConfig):
+        if config.container_name != "":
+            self._from_container(config)
+        # elif config.image_name != "":
+        #     self._from_image(config)
+        else:
+            self._from_compose(config)
 
     async def _start_shell(self):
         if (

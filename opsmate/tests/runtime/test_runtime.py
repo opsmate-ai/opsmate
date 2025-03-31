@@ -1,12 +1,13 @@
 import pytest
 import asyncio
 from opsmate.runtime import LocalRuntime, RuntimeError, Runtime
+from opsmate.runtime.local import LocalRuntimeConfig
 from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
 async def local_runtime(envvars={}):
-    runtime = LocalRuntime(envvars=envvars)
+    runtime = LocalRuntime(LocalRuntimeConfig(envvars=envvars))
     # Connect before each test
     await runtime.connect()
     try:

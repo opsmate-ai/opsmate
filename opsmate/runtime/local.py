@@ -1,21 +1,28 @@
-from opsmate.runtime.runtime import Runtime, RuntimeError, register_runtime
+from opsmate.runtime.runtime import (
+    Runtime,
+    RuntimeError,
+    register_runtime,
+    RuntimeConfig,
+)
+from pydantic import Field
 import asyncio
-import os
 
 
-@register_runtime("local")
+class LocalRuntimeConfig(RuntimeConfig):
+    shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_LOCAL_SHELL")
+    envvars: dict[str, str] = Field(default_factory=dict, alias="RUNTIME_LOCAL_ENV")
+
+
+@register_runtime("local", LocalRuntimeConfig)
 class LocalRuntime(Runtime):
     """Local runtime allows model to execute tool calls within the same namespace as the opsmate process."""
 
-    def __init__(self, shell_cmd=None, envvars={}):
+    def __init__(self, config: LocalRuntimeConfig = LocalRuntimeConfig()):
         self._lock = asyncio.Lock()
         self.process = None
         self.connected = False
-        if shell_cmd is None:
-            self.shell_cmd = os.environ.get("SHELL", "/bin/bash")
-        else:
-            self.shell_cmd = shell_cmd
-        self.envvars = envvars
+        self.shell_cmd = config.shell_cmd
+        self.envvars = config.envvars
 
     async def connect(self):
         await self._start_shell()

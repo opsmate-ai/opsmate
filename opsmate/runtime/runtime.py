@@ -1,13 +1,21 @@
 from abc import ABC, abstractmethod
 from typing import Type
+from pydantic_settings import BaseSettings
+from pydantic import ConfigDict, Field
+
 import pkg_resources
 import structlog
 
 logger = structlog.get_logger(__name__)
 
 
+class RuntimeConfig(BaseSettings):
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Runtime(ABC):
     runtimes: dict[str, Type["Runtime"]] = {}
+    configs: dict[str, Type[RuntimeConfig]] = {}
 
     @abstractmethod
     async def run(self, *args, **kwargs):
@@ -25,9 +33,11 @@ class Runtime(ABC):
 class RuntimeError(Exception): ...
 
 
-def register_runtime(name: str):
+def register_runtime(name: str, config: Type[RuntimeConfig]):
     def wrapper(cls: Type[Runtime]):
         Runtime.runtimes[name] = cls
+        Runtime.configs[name] = config
+
         return cls
 
     return wrapper

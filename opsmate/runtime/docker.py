@@ -2,28 +2,32 @@ import os
 import asyncio
 from opsmate.runtime.local import LocalRuntime
 from tempfile import NamedTemporaryFile
-from opsmate.runtime.runtime import register_runtime
+from opsmate.runtime.runtime import register_runtime, RuntimeConfig
+from pydantic import Field
 
 
-@register_runtime("docker")
+class DockerRuntimeConfig(RuntimeConfig):
+    container_name: str = Field(alias="RUNTIME_DOCKER_CONTAINER_NAME")
+    shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_DOCKER_SHELL")
+    envvars: dict[str, str] = Field(default_factory=dict, alias="RUNTIME_DOCKER_ENV")
+
+
+@register_runtime("docker", DockerRuntimeConfig)
 class DockerRuntime(LocalRuntime):
     """Docker runtime allows model to execute tool calls within a docker container."""
 
-    def __init__(
-        self,
-        container_name: str,
-        envvars: dict = {},
-        shell_cmd: str = "/bin/bash",
-    ):
-        self.container_name = container_name
-        # write the envvars to a tmp file
+    def __init__(self, config: DockerRuntimeConfig):
+        self.container_name = config.container_name
+
         with NamedTemporaryFile(delete=False) as f:
-            for key, value in envvars.items():
+            for key, value in config.envvars.items():
                 f.write(f"{key}={value}\n")
                 f.flush()
             self.envvars_file = f.name
-        shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {shell_cmd}"
-        super().__init__(shell_cmd=shell_cmd, envvars=envvars)
+
+        shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
+
+        super().__init__(shell_cmd=shell_cmd, envvars=config.envvars)
 
     async def _start_shell(self):
         if (

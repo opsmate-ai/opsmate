@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from opsmate.runtime.runtime import LocalRuntime, RuntimeError
+from opsmate.runtime import LocalRuntime, RuntimeError
 from contextlib import asynccontextmanager
 
 

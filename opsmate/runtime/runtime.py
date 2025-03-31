@@ -121,6 +121,22 @@ class Runtime(ABC):
     async def disconnect(self):
         pass
 
+    @abstractmethod
+    async def os_info(self):
+        pass
+
+    @abstractmethod
+    async def whoami(self):
+        pass
+
+    @abstractmethod
+    async def runtime_info(self):
+        pass
+
+    @abstractmethod
+    async def has_systemd(self):
+        pass
+
 
 class RuntimeError(Exception): ...
 

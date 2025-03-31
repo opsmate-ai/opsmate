@@ -7,6 +7,8 @@ from opsmate.runtime.runtime import (
 from pydantic import Field
 import asyncio
 from typing import Dict
+import os
+from copy import deepcopy
 
 
 class LocalRuntimeConfig(RuntimeConfig):
@@ -23,7 +25,11 @@ class LocalRuntime(Runtime):
         self.process = None
         self.connected = False
         self.shell_cmd = config.shell_cmd
-        self.envvars = config.envvars
+
+        # xxx: try to to inject the whole environment
+        self.envvars = deepcopy(os.environ)
+        for key, value in config.envvars.items():
+            self.envvars[key] = value
 
     async def connect(self):
         await self._start_shell()
@@ -50,6 +56,20 @@ class LocalRuntime(Runtime):
             self.process._transport.close()
             self.connected = False
 
+    async def os_info(self):
+        return await self.run("cat /etc/os-release")
+
+    async def whoami(self):
+        return await self.run("whoami")
+
+    async def has_systemd(self):
+        return await self.run(
+            "[[ $(command -v systemctl) ]] && echo 'has systemd' || echo 'no systemd'"
+        )
+
+    async def runtime_info(self):
+        return "local runtime"
+
     async def run(self, command: str, timeout: float = 120.0):
         async with self._lock:
             try:
@@ -70,7 +90,9 @@ class LocalRuntime(Runtime):
                     while True:
                         line = await self.process.stdout.readline()
                         line_str = line.decode().rstrip("\n")
-                        if line_str == marker:
+                        if line_str.endswith(marker):
+                            # Remove the marker from the output
+                            output.append(line_str[: -len(marker)])
                             break
                         output.append(line_str)
 

@@ -53,3 +53,19 @@ class DockerRuntime(LocalRuntime):
     async def disconnect(self):
         os.remove(self.envvars_file)
         await super().disconnect()
+
+    async def os_info(self):
+        return await self.run("cat /etc/os-release")
+
+    async def whoami(self):
+        return await self.run("whoami")
+
+    async def has_systemd(self):
+        return await self.run(
+            "[[ $(command -v systemctl) ]] && echo 'has systemd' || echo 'no systemd'"
+        )
+
+    async def runtime_info(self):
+        return """docker runtime
+Use `DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC` for package management in Debian/Ubuntu based containers.
+        """

@@ -15,6 +15,7 @@ from typing import (
 )
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
+from opsmate.runtime import Runtime
 from abc import ABC, abstractmethod
 import structlog
 import inspect
@@ -232,7 +233,7 @@ class Context(BaseModel):
     description: str = Field(description="The description of the context", default="")
 
     # make system prompt coroutine as crafting the system prompt might involve network calls
-    system_prompt: Optional[Callable[[], Awaitable[str]]] = Field(
+    system_prompt: Optional[Callable[[Runtime | None], Awaitable[str]]] = Field(
         description="The system prompt of the context", default=None
     )
     contexts: List["Context"] = Field(
@@ -256,11 +257,11 @@ class Context(BaseModel):
                 tools.add(tool)
         return tools
 
-    async def resolve_contexts(self):
+    async def resolve_contexts(self, runtime: Runtime | None = None):
         """resolve_contexts aggregates all the contexts from the context hierarchy"""
         contexts = []
         if self.system_prompt:
-            contexts.append(Message.system(await self.system_prompt()))
+            contexts.append(Message.system(await self.system_prompt(runtime=runtime)))
         for ctx in self.contexts:
-            contexts.extend(await ctx.resolve_contexts())
+            contexts.extend(await ctx.resolve_contexts(runtime=runtime))
         return contexts

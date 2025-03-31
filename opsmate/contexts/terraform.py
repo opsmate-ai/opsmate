@@ -1,6 +1,6 @@
 from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
-import subprocess
 from opsmate.dino.context import context
+from opsmate.runtime import Runtime
 
 
 @context(
@@ -12,7 +12,7 @@ from opsmate.dino.context import context
         HtmlToText,
     ],
 )
-async def terraform_ctx() -> str:
+async def terraform_ctx(runtime: Runtime) -> str:
     """Terraform SME"""
 
     return f"""
@@ -21,7 +21,7 @@ You are a world class SRE who is an expert in terraform. You are tasked to help 
 </assistant>
 
 <available_terraform_options>
-{__terraform_help()}
+{await __terraform_help(runtime)}
 </available_terraform_options>
 
 <important>
@@ -30,6 +30,5 @@ When you have issue with executing `terraform <subcommand>` try to use `terrafor
     """
 
 
-def __terraform_help() -> str:
-    output = subprocess.run(["terraform", "-help"], capture_output=True)
-    return output.stdout.decode()
+async def __terraform_help(runtime: Runtime) -> str:
+    return await runtime.run("terraform -help")

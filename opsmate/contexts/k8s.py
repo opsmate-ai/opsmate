@@ -7,6 +7,7 @@ from opsmate.tools import (
 )
 import subprocess
 from opsmate.dino.context import context
+from opsmate.runtime import Runtime
 
 
 @context(
@@ -19,7 +20,7 @@ from opsmate.dino.context import context
         PrometheusTool,
     ],
 )
-async def k8s_ctx() -> str:
+async def k8s_ctx(runtime: Runtime) -> str:
     """Kubernetes SME"""
 
     return f"""
@@ -40,11 +41,11 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 </important>
 
 <available_k8s_contexts>
-{__kube_contexts()}
+{await __kube_contexts(runtime)}
 </available_k8s_contexts>
 
 <available_namespaces>
-{__namespaces()}
+{await __namespaces(runtime)}
 </available_namespaces>
 
 <available_command_line_tools>
@@ -56,11 +57,9 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
     """
 
 
-def __namespaces() -> str:
-    output = subprocess.run(["kubectl", "get", "ns"], capture_output=True)
-    return output.stdout.decode()
+async def __namespaces(runtime: Runtime) -> str:
+    return await runtime.run("kubectl get ns -o jsonpath='{.items[*].metadata.name}'")
 
 
-def __kube_contexts() -> str:
-    output = subprocess.run(["kubectl", "config", "get-contexts"], capture_output=True)
-    return output.stdout.decode()
+async def __kube_contexts(runtime: Runtime) -> str:
+    return await runtime.run("kubectl config get-contexts")

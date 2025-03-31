@@ -165,6 +165,7 @@ def with_runtime(func):
         for _, runtime_config in Runtime.configs.items():
             kwargs.pop(runtime_config.__name__, None)
 
+        kwargs["runtime"] = runtime
         try:
             await runtime.connect()
             return await func(*args, **kwargs)
@@ -315,7 +316,7 @@ Edit the command if needed, then press Enter to execute:
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
 async def run(
     instruction,
     model,
@@ -325,6 +326,7 @@ async def run(
     system_prompt,
     no_tool_output,
     no_observation,
+    runtime,
     config,
     span,
 ):
@@ -354,7 +356,7 @@ async def run(
 
     @dino(model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
-        sys_prompts = await ctx.resolve_contexts()
+        sys_prompts = await ctx.resolve_contexts(runtime=runtime)
         if system_prompt:
             sys_prompts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
@@ -429,7 +431,7 @@ async def run(
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtime", "tools"])
 async def solve(
     instruction,
     model,
@@ -442,6 +444,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
+    runtime,
     span,
 ):
     """
@@ -464,7 +467,7 @@ async def solve(
             "cli.solve.tool_calls_per_action": tool_calls_per_action,
         }
     )
-    contexts = await ctx.resolve_contexts()
+    contexts = await ctx.resolve_contexts(runtime=runtime)
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
@@ -555,7 +558,7 @@ Commands:
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
 async def chat(
     model,
     max_iter,
@@ -564,6 +567,7 @@ async def chat(
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
+    runtime,
     config,
     span,
 ):
@@ -602,7 +606,7 @@ async def chat(
                 console.print(help_msg)
                 continue
 
-            contexts = await ctx.resolve_contexts()
+            contexts = await ctx.resolve_contexts(runtime=runtime)
             if system_prompt:
                 contexts = [
                     Message.system(f"<system_prompt>{system_prompt}</system_prompt>")

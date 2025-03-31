@@ -1,8 +1,9 @@
-from opsmate.runtime.runtime import Runtime, RuntimeError
+from opsmate.runtime.runtime import Runtime, RuntimeError, register_runtime
 import asyncio
 import os
 
 
+@register_runtime("local")
 class LocalRuntime(Runtime):
     def __init__(self, shell_cmd=None, envvars={}):
         self._lock = asyncio.Lock()

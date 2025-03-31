@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from opsmate.runtime import LocalRuntime, RuntimeError
+from opsmate.runtime import LocalRuntime, RuntimeError, Runtime
 from contextlib import asynccontextmanager
 
 
@@ -130,3 +130,13 @@ class TestLocalRuntime:
             result2 = await runtime.run("pwd")
 
             assert result2.strip() == "/tmp"
+
+    @pytest.mark.asyncio
+    async def test_discover_runtimes(self):
+        """Test that runtimes can be discovered."""
+        # runtimes = discover_runtimes()
+        assert "local" in Runtime.runtimes
+
+        local_runtime = Runtime.runtimes["local"]
+        assert issubclass(local_runtime, Runtime)
+        assert issubclass(local_runtime, LocalRuntime)

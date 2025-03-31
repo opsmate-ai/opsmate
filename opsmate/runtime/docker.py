@@ -117,10 +117,10 @@ class DockerRuntime(LocalRuntime):
     #     self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
     #     self.from_image = True
 
-    # def _from_container(self, config: DockerRuntimeConfig):
-    #     output = co(["docker", "start", self.container_name], text=True).strip()
-    #     self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
-    #     self.from_container = True
+    def _from_container(self, config: DockerRuntimeConfig):
+        output = co(["docker", "start", self.container_name], text=True).strip()
+        self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
+        self.from_container = True
 
     def from_config(self, config: DockerRuntimeConfig):
         if config.container_name != "":

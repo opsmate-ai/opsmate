@@ -153,10 +153,18 @@ def config_params(cli_config=config):
 def with_runtime(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        runtime_class: Runtime = kwargs.get("config").runtime_class()
-        runtime = runtime_class(envvars=os.environ)
+        config = kwargs.get("config")
+        runtime_name = config.runtime
+        runtime_class: Runtime = config.runtime_class()
+        runtime_config_name = Runtime.configs[runtime_name].__name__
+        runtime_config = kwargs.pop(runtime_config_name)
+        runtime = runtime_class(runtime_config)
         tool_call_context = kwargs.get("tool_call_context")
         tool_call_context["runtime"] = runtime
+
+        for _, runtime_config in Runtime.configs.items():
+            kwargs.pop(runtime_config.__name__, None)
+
         try:
             await runtime.connect()
             return await func(*args, **kwargs)
@@ -164,6 +172,12 @@ def with_runtime(func):
             await runtime.disconnect()
 
     return wrapper
+
+
+def runtime_params(func):
+    for _, runtime_config in Runtime.configs.items():
+        func = runtime_config.config_params()(func)
+    return func
 
 
 def common_params(func):
@@ -297,6 +311,7 @@ Edit the command if needed, then press Enter to execute:
     help="Do not print observation",
 )
 @config_params()
+@runtime_params
 @common_params
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 @coro
@@ -410,6 +425,7 @@ async def run(
     help="Number of tool calls per action",
 )
 @config_params()
+@runtime_params
 @common_params
 @traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
@@ -535,8 +551,9 @@ Commands:
     help="Number of tool calls per action",
 )
 @config_params()
+@runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 @coro
 @with_runtime
 async def chat(

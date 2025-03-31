@@ -6,11 +6,12 @@ from opsmate.runtime.runtime import (
 )
 from pydantic import Field
 import asyncio
+from typing import Dict
 
 
 class LocalRuntimeConfig(RuntimeConfig):
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_LOCAL_SHELL")
-    envvars: dict[str, str] = Field(default_factory=dict, alias="RUNTIME_LOCAL_ENV")
+    envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_LOCAL_ENV")
 
 
 @register_runtime("local", LocalRuntimeConfig)

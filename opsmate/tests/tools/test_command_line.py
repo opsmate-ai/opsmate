@@ -28,8 +28,8 @@ class TestCommandLine(BaseTestCase):
         )
         result = await tool.run(context={"envvars": {"TEST": "test"}})
         assert result is not None
-        assert result == "test"
+        assert result == "test\n"
 
         result = await tool.run(context={"envvars": {"TEST": "test2"}})
         assert result is not None
-        assert result == "test2"
+        assert result == "test2\n"

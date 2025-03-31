@@ -6,7 +6,7 @@ import asyncio
 import os
 import inspect
 from opsmate.tools.utils import maybe_truncate_text
-from opsmate.runtime import LocalRuntime
+from opsmate.runtime.local import LocalRuntime, LocalRuntimeConfig
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
@@ -28,10 +28,8 @@ class ShellCommand(ToolCall[str], PresentationMixin):
 
     async def __call__(self, context: dict[str, Any] = {}):
         with tracer.start_as_current_span("shell_command") as span:
-            envvars = os.environ.copy()
-            extra_envvars = context.get("envvars", {})
+            envvars = context.get("envvars", {})
             max_output_length = context.get("max_output_length", 10000)
-            envvars.update(extra_envvars)
             logger.info("running shell command", command=self.command)
 
             runtime = context.get("runtime", None)
@@ -50,7 +48,7 @@ class ShellCommand(ToolCall[str], PresentationMixin):
                 return "Command execution cancelled by user, try something else."
 
             if runtime is None:
-                runtime = LocalRuntime(envvars=envvars)
+                runtime = LocalRuntime(LocalRuntimeConfig(envvars=envvars))
                 await runtime.connect()
 
             try:

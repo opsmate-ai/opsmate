@@ -261,7 +261,15 @@ class Context(BaseModel):
         """resolve_contexts aggregates all the contexts from the context hierarchy"""
         contexts = []
         if self.system_prompt:
-            contexts.append(Message.system(await self.system_prompt(runtime=runtime)))
+            # Check if system_prompt expects a runtime parameter
+            sig = inspect.signature(self.system_prompt)
+            if "runtime" in sig.parameters:
+                # Function expects runtime parameter
+                content = await self.system_prompt(runtime=runtime)
+            else:
+                # Function doesn't expect runtime parameter
+                content = await self.system_prompt()
+            contexts.append(Message.system(content))
         for ctx in self.contexts:
             contexts.extend(await ctx.resolve_contexts(runtime=runtime))
         return contexts

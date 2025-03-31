@@ -5,6 +5,8 @@ import os
 
 @register_runtime("local")
 class LocalRuntime(Runtime):
+    """Local runtime allows model to execute tool calls within the same namespace as the opsmate process."""
+
     def __init__(self, shell_cmd=None, envvars={}):
         self._lock = asyncio.Lock()
         self.process = None

@@ -13,6 +13,7 @@ from sqlmodel import create_engine, text
 import importlib.util
 import json
 import os
+from opsmate.runtime import Runtime
 
 logger = structlog.get_logger(__name__)
 
@@ -126,6 +127,12 @@ class Config(BaseSettings):
         alias="OPSMATE_SPLITTER_CONFIG",
     )
 
+    runtime: str = Field(
+        default="local",
+        description="The runtime to use",
+        alias="OPSMATE_RUNTIME",
+    )
+
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
 
     @field_validator("embedding_registry_name")
@@ -215,6 +222,9 @@ class Config(BaseSettings):
 
         for key, value in env_vars.items():
             os.environ[key] = value
+
+    def runtime_class(self):
+        return Runtime.runtimes[self.runtime]
 
 
 config = Config()

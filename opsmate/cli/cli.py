@@ -14,6 +14,7 @@ from functools import wraps
 from opsmate.libs.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
+from opsmate.runtime import Runtime
 from functools import cache
 from typing import Dict
 import asyncio
@@ -147,6 +148,22 @@ def config_params(cli_config=config):
         return wrapper
 
     return decorator
+
+
+def with_runtime(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        runtime_class: Runtime = kwargs.get("config").runtime_class()
+        runtime = runtime_class(envvars=os.environ)
+        tool_call_context = kwargs.get("tool_call_context")
+        tool_call_context["runtime"] = runtime
+        try:
+            await runtime.connect()
+            return await func(*args, **kwargs)
+        finally:
+            await runtime.disconnect()
+
+    return wrapper
 
 
 def common_params(func):
@@ -283,6 +300,7 @@ Edit the command if needed, then press Enter to execute:
 @common_params
 @traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
 async def run(
     instruction,
     model,
@@ -395,6 +413,7 @@ async def run(
 @common_params
 @traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
 async def solve(
     instruction,
     model,
@@ -519,6 +538,7 @@ Commands:
 @common_params
 @traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
 async def chat(
     model,
     max_iter,
@@ -1015,6 +1035,22 @@ async def ingest(source, path, glob, config):
 alembic_cfg_path = os.path.join(
     os.path.dirname(__file__), "..", "migrations", "alembic.ini"
 )
+
+
+@opsmate_cli.command()
+@coro
+async def list_runtimes():
+    """
+    List all the runtimes available.
+    """
+    table = Table(title="Runtimes", show_header=True, show_lines=True)
+    table.add_column("Name")
+    table.add_column("Description")
+
+    for name, runtime in Runtime.runtimes.items():
+        table.add_row(name, runtime.__doc__)
+
+    console.print(table)
 
 
 @opsmate_cli.command()

@@ -313,9 +313,9 @@ Edit the command if needed, then press Enter to execute:
 @config_params()
 @runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 @coro
 @with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 async def run(
     instruction,
     model,
@@ -427,9 +427,9 @@ async def run(
 @config_params()
 @runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
 @with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 async def solve(
     instruction,
     model,
@@ -553,9 +553,9 @@ Commands:
 @config_params()
 @runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 @coro
 @with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools"])
 async def chat(
     model,
     max_iter,

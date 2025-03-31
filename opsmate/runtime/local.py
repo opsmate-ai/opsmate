@@ -1,28 +1,34 @@
 from opsmate.runtime.runtime import Runtime, RuntimeError
 import asyncio
+import os
 
 
 class LocalRuntime(Runtime):
-    def __init__(self, shell_cmd="/bin/bash"):
+    def __init__(self, shell_cmd=None, envvars={}):
         self._lock = asyncio.Lock()
         self.process = None
         self.connected = False
-        self.shell_cmd = shell_cmd
+        if shell_cmd is None:
+            self.shell_cmd = os.environ.get("SHELL", "/bin/bash")
+        else:
+            self.shell_cmd = shell_cmd
+        self.envvars = envvars
 
     async def connect(self):
         await self._start_shell()
 
-    async def _start_shell(self, shell_cmd="/bin/bash"):
+    async def _start_shell(self):
         if (
             not self.process
             or self.process.returncode is not None
             or not self.connected
         ):
             self.process = await asyncio.create_subprocess_shell(
-                shell_cmd,
+                self.shell_cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
+                env=self.envvars,
             )
             self.connected = True
         return self.process
@@ -33,28 +39,15 @@ class LocalRuntime(Runtime):
             self.process._transport.close()
             self.connected = False
 
-    async def run(
-        self, command: str, envvars: dict[str, str] = {}, timeout: float = 120.0
-    ):
+    async def run(self, command: str, timeout: float = 120.0):
         async with self._lock:
             try:
                 if not self.connected:
                     await self._start_shell()
 
-                # Set environment variables if needed
-                env_commands = []
-                for key, value in envvars.items():
-                    env_commands.append(f"export {key}={value}")
-
-                if env_commands:
-                    env_setup = "; ".join(env_commands) + "; "
-                    full_command = env_setup + command
-                else:
-                    full_command = command
-
                 # Add a unique marker to identify end of output
                 marker = f"__END_OF_COMMAND_{id(command)}__"
-                full_command = f"{full_command}; echo '{marker}'\n"
+                full_command = f"{command}; echo '{marker}'\n"
 
                 # Send command to the shell
                 self.process.stdin.write(full_command.encode())

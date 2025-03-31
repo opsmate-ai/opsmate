@@ -163,7 +163,12 @@ class Config(BaseSettings):
         opsmate_dir = str(Path.home() / ".opsmate")
         Path(opsmate_dir).mkdir(parents=True, exist_ok=True)
         Path(self.plugins_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
+        if not (
+            self.embeddings_db_path.startswith("s3://")
+            or self.embeddings_db_path.startswith("az://")
+            or self.embeddings_db_path.startswith("gs://")
+        ):
+            Path(self.embeddings_db_path).mkdir(parents=True, exist_ok=True)
         Path(self.contexts_dir).mkdir(parents=True, exist_ok=True)
         return self
 

@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
-async def local_runtime():
-    runtime = LocalRuntime()
+async def local_runtime(envvars={}):
+    runtime = LocalRuntime(envvars=envvars)
     # Connect before each test
     await runtime.connect()
     try:
@@ -57,10 +57,8 @@ class TestLocalRuntime:
     @pytest.mark.asyncio
     async def test_run_with_env_vars(self):
         """Test running a command with environment variables."""
-        async with local_runtime() as runtime:
-            result = await runtime.run(
-                "echo $TEST_VAR", envvars={"TEST_VAR": "test_value"}
-            )
+        async with local_runtime(envvars={"TEST_VAR": "test_value"}) as runtime:
+            result = await runtime.run("echo $TEST_VAR")
             assert "test_value" in result
 
     @pytest.mark.asyncio

@@ -8,6 +8,7 @@ from typing import Dict
 from subprocess import check_output as co
 import structlog
 import uuid
+import subprocess
 
 logger = structlog.get_logger(__name__)
 
@@ -56,7 +57,7 @@ class DockerRuntime(LocalRuntime):
     def __init__(self, config: DockerRuntimeConfig):
         self.container_name = config.container_name
 
-        with NamedTemporaryFile(delete=False) as f:
+        with NamedTemporaryFile(mode="w", delete=False) as f:
             for key, value in config.envvars.items():
                 f.write(f"{key}={value}\n")
                 f.flush()
@@ -66,7 +67,6 @@ class DockerRuntime(LocalRuntime):
         self.process = None
         self.connected = False
         self.from_config(config)
-        print(self.shell_cmd)
 
     def _from_compose(self, config: DockerRuntimeConfig):
         if not os.path.exists(config.compose_file):
@@ -76,9 +76,18 @@ class DockerRuntime(LocalRuntime):
             return None
 
         output = co(
-            ["docker", "compose", "-f", config.compose_file, "up", "-d"], text=True
+            [
+                "docker",
+                "compose",
+                "-f",
+                config.compose_file,
+                "--env-file",
+                self.envvars_file,
+                "up",
+                "-d",
+            ],
+            text=True,
         ).strip()
-        print(output)
         self.shell_cmd = f"docker compose -f {config.compose_file} exec {config.service_name} {config.shell_cmd}"
         self.from_compose = True
 

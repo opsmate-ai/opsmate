@@ -29,6 +29,10 @@ jobs:
         run: |
           uv run pytest ./opsmate/tests -n auto
       - name: Docker runtime tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI: "true"
         run: |
           DOCKER_RUNTIME_TESTS=true uv run pytest ./opsmate/tests -m "serial"
 

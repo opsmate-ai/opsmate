@@ -1,4 +1,6 @@
 site_name: Opsmate
+repo_name: opsmate
+repo_url: https://github.com/jingkaihe/opsmate
 site_url: https://docs.opsmate.hjktech.uk
 theme:
   name: material
@@ -48,6 +50,7 @@ plugins:
       ignore_h1_titles: true
       execute: false
   - search
+  - social
 nav:
   - Introduction: index.md
   - CLI Reference:
@@ -78,3 +81,9 @@ nav:
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb
     - Knowledge Management: cookbooks/knowledge-management.ipynb
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jingkaihe/opsmate
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/he_jingkai

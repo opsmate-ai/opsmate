@@ -69,7 +69,7 @@ dev = [
     "snakeviz >=2.2.2,<3.0.0",
 ]
 docs = [
-    "mkdocs-material >=9.5.49,<10.0.0",
+    "mkdocs-material[imaging]>=9.5.49,<10.0.0",
     "mkdocs-jupyter >=0.25.1,<1.0.0",
 ]
 eval = [

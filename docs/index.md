@@ -62,5 +62,5 @@ export XAI_API_KEY="xai-..."
 
 Check out:
 
-- [CLI](cli.md) for simple command usage.
+- [CLI](./CLI/index.md) for simple command usage.
 - [Production](production.md) for production use cases.

@@ -2258,6 +2258,18 @@ wheels = [
 ]
 
 [[package]]
+name = "mkdocs-asciinema-player"
+version = "0.16.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mkdocs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/1e/02ffe62a3c463973db22dbef1c04c8d5e409f4ea5887d158c6aa81770bec/mkdocs_asciinema_player-0.16.0.tar.gz", hash = "sha256:4c30fca7351decdb69eff5176d58097cf593f3e8a886e992899c9f2910ce5450", size = 89930 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/3d/9368776e95d42aff43acca746ca8e37f7abe2e2747c934dfe5cc55f23eab/mkdocs_asciinema_player-0.16.0-py3-none-any.whl", hash = "sha256:09a87fa1b1390b25bf38b8b8528f93f1cfd4ae181598231300a58e4665196b11", size = 92556 },
+]
+
+[[package]]
 name = "mkdocs-get-deps"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3000,6 +3012,7 @@ dev = [
     { name = "snakeviz" },
 ]
 docs = [
+    { name = "mkdocs-asciinema-player" },
     { name = "mkdocs-jupyter" },
     { name = "mkdocs-material", extra = ["imaging"] },
 ]
@@ -3056,6 +3069,7 @@ dev = [
     { name = "snakeviz", specifier = ">=2.2.2,<3.0.0" },
 ]
 docs = [
+    { name = "mkdocs-asciinema-player", specifier = ">=0.16.0" },
     { name = "mkdocs-jupyter", specifier = ">=0.25.1,<1.0.0" },
     { name = "mkdocs-material", extras = ["imaging"], specifier = ">=9.5.49,<10.0.0" },
 ]

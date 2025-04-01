@@ -1,10 +1,14 @@
 import os
 import asyncio
+from opsmate.runtime.runtime import (
+    register_runtime,
+    RuntimeConfig,
+    RuntimeError,
+    co,
+)
 from opsmate.runtime.local import LocalRuntime
-from opsmate.runtime.runtime import register_runtime, RuntimeConfig, RuntimeError, co
 from pydantic import Field, ConfigDict
 from typing import List
-
 import structlog
 
 

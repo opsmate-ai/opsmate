@@ -55,12 +55,17 @@ async def docker_runtime(
         yield runtime
     finally:
         await runtime.disconnect()
-        if runtime.from_compose:
+        if runtime._from_compose:
             try:
                 subprocess.run(
                     f"docker compose -f {compose_file} down", shell=True, check=False
                 )
                 os.remove(compose_file)
+            except Exception:
+                pass
+        if runtime._from_container:
+            try:
+                co(["docker", "rm", "-f", container_name])
             except Exception:
                 pass
 
@@ -133,18 +138,25 @@ services:
         await runtime.disconnect()
 
     @pytest.mark.asyncio
-    async def test_container_name_not_exist(self):
-        """Test when the container name does not exist."""
-        runtime = DockerRuntime(
-            DockerRuntimeConfig(container_name="nonexistent-container")
-        )
+    async def test_compose_service_not_exist(self):
+        """Test when the compose service does not exist."""
+        with NamedTemporaryFile("w", suffix=".yml", delete=False) as f:
+            f.write(
+                """
+services:
+  default:
+    image: alpine
+    command: sleep infinity
+            """
+            )
+            compose_file = f.name
+
         with pytest.raises(RuntimeError) as excinfo:
-            await runtime.connect()
-        assert "Failed to start docker container" in str(excinfo.value)
-        assert (
-            "Error response from daemon: No such container: nonexistent-container"
-            in str(excinfo.value)
-        )
+            async with docker_runtime(
+                compose_file=compose_file, service_name="nonexistent-service"
+            ):
+                pass
+        assert "Service nonexistent-service not found" in str(excinfo.value)
 
     @pytest.mark.asyncio
     async def test_run_simple_command(self):
@@ -337,3 +349,91 @@ services:
         # Disconnect should remove the file
         await runtime.disconnect()
         assert not os.path.exists(runtime.envvars_file)
+
+
+@pytest.mark.serial
+@pytest.mark.skipif(
+    os.getenv("DOCKER_RUNTIME_TESTS") != "true",
+    reason="DOCKER_RUNTIME_TESTS is not set",
+)
+class TestDockerRuntimeFromContainer:
+    @pytest.mark.asyncio
+    async def test_from_container(self):
+        """Test that docker runtime can be created from a container."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            assert runtime.connected is True
+            assert runtime.from_container is True
+            assert runtime.process is not None
+            assert runtime.process.returncode is None
+
+    @pytest.mark.asyncio
+    async def test_container_name_not_exist(self):
+        """Test when the container name does not exist."""
+        runtime = DockerRuntime(
+            DockerRuntimeConfig(container_name="nonexistent-container")
+        )
+        with pytest.raises(RuntimeError) as excinfo:
+            await runtime.connect()
+        assert "Failed to start docker container" in str(excinfo.value)
+        assert (
+            "Error response from daemon: No such container: nonexistent-container"
+            in str(excinfo.value)
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_simple_command(self):
+        """Test running a simple echo command."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result = await runtime.run("echo 'Hello, World!'")
+            assert "Hello, World!" in result
+
+    @pytest.mark.asyncio
+    async def test_run_multiple_commands(self):
+        """Test running multiple commands in sequence."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result1 = await runtime.run("echo 'First Command'")
+            assert "First Command" in result1
+
+            result2 = await runtime.run("echo 'Second Command'")
+            assert "Second Command" in result2
+
+    @pytest.mark.asyncio
+    async def test_run_with_env_vars(self):
+        """Test running a command with environment variables."""
+        async with docker_runtime(
+            container_name="testbox",
+            envvars={"TEST_ENV1": "value1", "TEST_ENV2": "value2"},
+        ) as runtime:
+            result = await runtime.run("echo $TEST_ENV1")
+            assert "value1" in result
+
+            result = await runtime.run("echo $TEST_ENV2")
+            assert "value2" in result
+
+    @pytest.mark.asyncio
+    async def test_runtime_info(self):
+        """Test runtime_info method."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result = await runtime.runtime_info()
+            assert "docker runtime" in result
+
+    @pytest.mark.asyncio
+    async def test_os_info(self):
+        """Test os_info method."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result = await runtime.os_info()
+            assert "Alpine" in result or "alpine" in result
+
+    @pytest.mark.asyncio
+    async def test_whoami(self):
+        """Test whoami method."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result = await runtime.whoami()
+            assert "root" in result
+
+    @pytest.mark.asyncio
+    async def test_has_systemd(self):
+        """Test has_systemd method."""
+        async with docker_runtime(container_name="testbox") as runtime:
+            result = await runtime.has_systemd()
+            assert "no systemd" in result

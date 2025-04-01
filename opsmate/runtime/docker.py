@@ -17,6 +17,7 @@ def co(cmd, **kwargs):
     Return the exit code and output of the command.
     """
     kwargs["stderr"] = subprocess.STDOUT
+    kwargs["text"] = True
     try:
         output = subprocess.check_output(cmd, **kwargs).strip()
         return 0, output
@@ -77,6 +78,9 @@ class DockerRuntime(LocalRuntime):
         self._lock = asyncio.Lock()
         self.process = None
         self.connected = False
+
+        self.from_compose = False
+        self.from_container = False
         self.from_config(config)
 
     def _from_compose(self, config: DockerRuntimeConfig):
@@ -86,60 +90,65 @@ class DockerRuntime(LocalRuntime):
             )
             return None
 
-        self.bootstrap = [
-            "docker",
-            "compose",
-            "-f",
-            config.compose_file,
-            "--env-file",
-            self.envvars_file,
-            "up",
-            "-d",
-        ]
+        async def bootstrap():
+            exit_code, output = co(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    config.compose_file,
+                    "--env-file",
+                    self.envvars_file,
+                    "up",
+                    "-d",
+                ]
+            )
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to start docker container", output=output)
+            logger.info(f"Started docker container", output=output)
+
+            # check if service name exists
+            exit_code, output = co(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    config.compose_file,
+                    "ps",
+                    "--services",
+                ]
+            )
+            if exit_code != 0:
+                raise RuntimeError(
+                    f"Failed to check if service name exists", output=output
+                )
+
+            if config.service_name not in output:
+                raise RuntimeError(
+                    f"Service {config.service_name} not found",
+                    output=output,
+                )
+
+        self.bootstrap = bootstrap
 
         self.shell_cmd = f"docker compose -f {config.compose_file} exec {config.service_name} {config.shell_cmd}"
+
         self.from_compose = True
 
-    # def _from_image(self, config: DockerRuntimeConfig):
-    #     if config.image_name == "":
-    #         logger.error(f"Docker image name not found", image_name=config.image_name)
-    #         return None
-
-    #     self.container_name = f"opsmate-{uuid.uuid4()}"
-    #     cmd = [
-    #         "docker",
-    #         "run",
-    #         "-d",
-    #         "--rm",
-    #         "--name",
-    #         self.container_name,
-    #         "--entrypoint",
-    #         config.entrypoint,
-    #         config.image_name,
-    #         config.cmd,
-    #     ]
-    #     output = co(
-    #         cmd,
-    #         text=True,
-    #     ).strip()
-    #     print(output)
-    #     self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
-    #     self.from_image = True
-
     def _from_container(self, config: DockerRuntimeConfig):
-        self.bootstrap = [
-            "docker",
-            "start",
-            self.container_name,
-        ]
+        async def bootstrap():
+            exit_code, output = co(["docker", "start", self.container_name])
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to start docker container", output=output)
+            logger.info(f"Started docker container", output=output)
+
+        self.bootstrap = bootstrap
         self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
         self.from_container = True
 
     def from_config(self, config: DockerRuntimeConfig):
         if config.container_name != "":
             self._from_container(config)
-        # elif config.image_name != "":
-        #     self._from_image(config)
         else:
             self._from_compose(config)
 
@@ -160,11 +169,9 @@ class DockerRuntime(LocalRuntime):
 
     async def connect(self):
         if self.bootstrap:
-            exit_code, output = co(self.bootstrap)
-            if exit_code != 0:
-                raise RuntimeError(f"Failed to start docker container", output=output)
+            await self.bootstrap()
 
-        await super().connect()
+        await self._start_shell()
 
     async def disconnect(self):
         os.remove(self.envvars_file)

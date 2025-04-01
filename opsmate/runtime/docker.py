@@ -2,27 +2,13 @@ import os
 import asyncio
 from opsmate.runtime.local import LocalRuntime
 from tempfile import NamedTemporaryFile
-from opsmate.runtime.runtime import register_runtime, RuntimeConfig, RuntimeError
+from opsmate.runtime.runtime import register_runtime, RuntimeConfig, RuntimeError, co
 from pydantic import Field, ConfigDict
 from typing import Dict
 import structlog
-import subprocess
+
 
 logger = structlog.get_logger(__name__)
-
-
-def co(cmd, **kwargs):
-    """
-    Check output of a command.
-    Return the exit code and output of the command.
-    """
-    kwargs["stderr"] = subprocess.STDOUT
-    kwargs["text"] = True
-    try:
-        output = subprocess.check_output(cmd, **kwargs).strip()
-        return 0, output
-    except subprocess.CalledProcessError as e:
-        return e.returncode, e.output
 
 
 class DockerRuntimeConfig(RuntimeConfig):
@@ -31,24 +17,6 @@ class DockerRuntimeConfig(RuntimeConfig):
     container_name: str = Field(alias="RUNTIME_DOCKER_CONTAINER_NAME", default="")
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_DOCKER_SHELL")
     envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_DOCKER_ENV")
-
-    # image_name: str = Field(
-    #     default="",
-    #     alias="RUNTIME_DOCKER_IMAGE_NAME",
-    #     description="Name of the image to run",
-    # )
-
-    # entrypoint: str = Field(
-    #     default="sleep",
-    #     alias="RUNTIME_DOCKER_ENTRYPOINT",
-    #     description="Entrypoint to run the container",
-    # )
-
-    # cmd: str = Field(
-    #     default="infinity",
-    #     alias="RUNTIME_DOCKER_CMD",
-    #     description="Command to start the container",
-    # )
 
     compose_file: str = Field(
         default="docker-compose.yml",

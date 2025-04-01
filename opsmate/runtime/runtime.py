@@ -6,6 +6,7 @@ from functools import wraps
 import click
 import pkg_resources
 import structlog
+import subprocess
 
 logger = structlog.get_logger(__name__)
 
@@ -173,3 +174,22 @@ def discover_runtimes(group_name="opsmate.runtime.runtimes"):
                 continue
         except Exception as e:
             logger.error("Error loading runtime", name=entry_point.name, error=e)
+
+
+def co(cmd, **kwargs):
+    """
+    Check output of a command.
+    Return the exit code and output of the command.
+    If timeout is specified, the command will be terminated after timeout seconds.
+    Return code for timeout is 124 (consistent with the timeout command).
+    """
+    kwargs["stderr"] = subprocess.STDOUT
+    kwargs["text"] = True
+
+    try:
+        output = subprocess.check_output(cmd, **kwargs).strip()
+        return 0, output
+    except subprocess.CalledProcessError as e:
+        return e.returncode, e.output
+    except subprocess.TimeoutExpired as e:
+        return 124, e.stdout

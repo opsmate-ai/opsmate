@@ -60,7 +60,7 @@ class GroqProvider(Provider):
         messages: List[Message],
         max_retries: int | AsyncRetrying = 3,
         validation_context: dict[str, Any] | None = None,
-        context: dict[str, Any] | None = None,  # {{ edit_1 }}
+        context: dict[str, Any] | None = None,
         strict: bool = True,
         client: AsyncInstructor | None = None,
         **kwargs: Any,
@@ -130,7 +130,7 @@ If you are not familar with Python entry point based plugin system, you can refe
 ### Step 4: Install the dependencies
 
 ```bash
-pip install -e .
+opsmate install -e .
 ```
 
 ### Step 5: Test the provider
@@ -184,4 +184,10 @@ The top 10 news on Hacker News are:
 * Show HN: I made a website where you can create your own "Life in Weeks" timeline
 * Drone captures narwhals using their tusks to explore, forage and play
 * Maestro – Next generation mobile UI automation
+```
+
+### Cleanup
+
+```bash
+opsmate uninstall -y opsmate-provider-groq
 ```

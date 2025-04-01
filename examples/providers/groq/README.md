@@ -5,7 +5,7 @@ This example demonstrates how to register a new provider. In this case we are re
 ## Installation
 
 ```bash
-pip install -e .
+opsmate install -e .
 ```
 
 After installation you can list all the models via
@@ -57,4 +57,10 @@ The top 10 news on Hacker News are:
 * Show HN: I made a website where you can create your own "Life in Weeks" timeline
 * Drone captures narwhals using their tusks to explore, forage and play
 * Maestro – Next generation mobile UI automation
+```
+
+## Uninstall
+
+```bash
+opsmate uninstall -y opsmate-provider-groq
 ```

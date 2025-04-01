@@ -215,13 +215,7 @@ opsmate chat --runtime gce \
 
 Here is an e2e interaction with the GCE runtime:
 
-```asciinema-player
-{
-    "file": "../assets/gce-runtime.cast",
-    "auto_play": true,
-    "speed": 1.5
-}
-```
+{{ asciinema("/assets/gce-runtime.cast") }}
 
 In the example I am interacting with a GCE instance called `my-vm` in the `europe-west1-c` zone running inside a VPC without any public IP address. Opsmate uses the `gcloud compute ssh` command to connect to the instance with the help from [IAP tunneling](https://cloud.google.com/iap/docs/using-tcp-forwarding).
 

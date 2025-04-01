@@ -28,13 +28,7 @@ opsmate chat --runtime ssh \
 
 The following asciinema demo shows how to use the SSH runtime to "chat" with a remote VM.
 
-```asciinema-player
-{
-    "file": "../assets/ssh-runtime.cast",
-    "auto_play": true,
-    "speed": 1.5
-}
-```
+{{ asciinema("/assets/ssh-runtime.cast") }}
 
 Here are some of the common configuration options for the SSH runtime:
 

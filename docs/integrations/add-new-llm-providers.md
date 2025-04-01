@@ -60,7 +60,7 @@ class GroqProvider(Provider):
         messages: List[Message],
         max_retries: int | AsyncRetrying = 3,
         validation_context: dict[str, Any] | None = None,
-        context: dict[str, Any] | None = None,  # {{ edit_1 }}
+        context: dict[str, Any] | None = None,
         strict: bool = True,
         client: AsyncInstructor | None = None,
         **kwargs: Any,

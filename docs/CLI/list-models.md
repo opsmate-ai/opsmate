@@ -4,7 +4,7 @@ Currently on OpsMate we cherry-pick the models that are suitable for performing 
 
 ## OPTIONS
 
-```bash
+```
 Usage: opsmate list-models [OPTIONS]
 
   List all the models available.

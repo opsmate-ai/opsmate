@@ -1,8 +1,8 @@
 `db-revisions` shows all the revisions of the opsmate database.
 
-## USAGE
+## OPTIONS
 
-```bash
+```
 Usage: opsmate db-revisions [OPTIONS]
 
   List all the revisions available.

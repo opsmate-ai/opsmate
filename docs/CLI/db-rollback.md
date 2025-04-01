@@ -1,8 +1,8 @@
 `db-rollback` is used to rollback the opsmate database to the previous version.
 
-## USAGE
+## OPTIONS
 
-```bash
+```
 Usage: opsmate db-rollback [OPTIONS]
 
   Rollback migrations.

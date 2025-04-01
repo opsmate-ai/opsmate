@@ -32,3 +32,15 @@ To list all the versions available, run `opsmate db-revisions`.
 
 - [opsmate db-revisions](./db-revisions.md)
 - [opsmate db-rollback](./db-rollback.md)
+
+## OPTIONS
+
+```
+Usage: opsmate db-migrate [OPTIONS]
+
+  Apply migrations.
+
+Options:
+  -r, --revision TEXT  Revision to upgrade to  [default: head]
+  --help               Show this message and exit.
+```

@@ -2,7 +2,7 @@
 
 ## OPTIONS
 
-```bash
+```
 Usage: opsmate reset [OPTIONS]
 
   Reset the OpsMate database and embeddings db. Note that if the database is
@@ -13,6 +13,8 @@ Usage: opsmate reset [OPTIONS]
 Options:
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
+  --runtime TEXT                  The runtime to use (env: OPSMATE_RUNTIME)
+                                  [default: local]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
                                   OPSMATE_CATEGORISE)  [default: True]
   --reranker-name TEXT            The name of the reranker model (env:
@@ -37,7 +39,6 @@ Options:
   --skip-confirm                  Skip confirmation
   --help                          Show this message and exit.
 ```
-
 
 ## EXAMPLES
 

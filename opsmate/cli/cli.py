@@ -17,6 +17,7 @@ from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
 from functools import cache
 from typing import Dict
+from runpy import run_module
 import asyncio
 import os
 import click
@@ -1120,6 +1121,69 @@ def db_revisions():
 
     alembic_cfg = AlembicConfig(alembic_cfg_path)
     command.history(alembic_cfg)
+
+
+@opsmate_cli.command()
+@click.argument("packages", nargs=-1, required=False)
+@click.option(
+    "-U",
+    "--upgrade",
+    is_flag=True,
+    help="Upgrade the given packages to the latest version",
+)
+@click.option(
+    "--force-reinstall",
+    is_flag=True,
+    help="Reinstall all packages even if they are already up-to-date",
+)
+@click.option(
+    "-e",
+    "--editable",
+    help="""Install a project in editable mode (i.e. setuptools "develop mode") from a local project path or a VCS url""",
+)
+@click.option(
+    "--no-cache-dir",
+    is_flag=True,
+    help="Disable the cache",
+)
+def install(packages, upgrade, force_reinstall, editable, no_cache_dir):
+    """
+    Install the opsmate plugins.
+    """
+    args = ["pip", "install"]
+    if upgrade:
+        args.append("--upgrade")
+    if force_reinstall:
+        args.append("--force-reinstall")
+    if editable:
+        args.extend(["--editable", editable])
+    if no_cache_dir:
+        args.append("--no-cache-dir")
+    args.extend(packages)
+
+    sys.argv = args
+    run_module("pip", run_name="__main__")
+
+
+@opsmate_cli.command()
+@click.argument("packages", nargs=-1, required=True)
+@click.option(
+    "-y",
+    "--yes",
+    is_flag=True,
+    help="Do not prompt for confirmation",
+)
+def uninstall(packages, yes):
+    """
+    Uninstall the given packages.
+    """
+    args = ["pip", "uninstall"]
+    if yes:
+        args.append("--yes")
+    args.extend(packages)
+
+    sys.argv = args
+    run_module("pip", run_name="__main__")
 
 
 @opsmate_cli.command()

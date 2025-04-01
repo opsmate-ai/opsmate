@@ -5,7 +5,7 @@ This example demonstrates how to register a new runtime. In this case we are reg
 ## Installation
 
 ```bash
-pip install -e .
+opsmate install -e .
 ```
 
 After installation you can list the runtimes via
@@ -36,3 +36,9 @@ opsmate chat --runtime gce \
 ```
 
 This will start a chat with the GCE instance `my-vm` in the zone `europe-west1-c`.
+
+## Uninstall
+
+```bash
+opsmate uninstall -y opsmate-runtime-gce
+```

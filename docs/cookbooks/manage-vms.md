@@ -35,3 +35,23 @@ The following asciinema demo shows how to use the SSH runtime to "chat" with a r
     "speed": 1.5
 }
 ```
+
+Here are some of the common configuration options for the SSH runtime:
+
+```bash
+  --runtime-ssh-connect-retries INTEGER
+                                  Set connect_retries (env:
+                                  RUNTIME_SSH_CONNECT_RETRIES)  [default: 3]
+  --runtime-ssh-timeout INTEGER   Set timeout (env: RUNTIME_SSH_TIMEOUT)
+                                  [default: 10]
+  --runtime-ssh-shell TEXT        Set shell_cmd (env: RUNTIME_SSH_SHELL)
+                                  [default: /bin/bash]
+  --runtime-ssh-key-file TEXT     Set key_file (env: RUNTIME_SSH_KEY_FILE)
+  --runtime-ssh-password TEXT     Set password (env: RUNTIME_SSH_PASSWORD)
+  --runtime-ssh-username TEXT     Set username (env: RUNTIME_SSH_USERNAME)
+                                  [default: ""]
+  --runtime-ssh-port INTEGER      Set port (env: RUNTIME_SSH_PORT)  [default:
+                                  22]
+  --runtime-ssh-host TEXT         Set host (env: RUNTIME_SSH_HOST)  [default:
+                                  ""]
+```

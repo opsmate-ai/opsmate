@@ -138,7 +138,18 @@ class Runtime(ABC):
         pass
 
 
-class RuntimeError(Exception): ...
+class RuntimeError(Exception):
+    """
+    Exception raised when a runtime operation fails.
+    """
+
+    def __init__(self, message: str, output: str | None = None):
+        self.message = message
+        self.output = output
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"{self.message}\n{self.output}"
 
 
 def register_runtime(name: str, config: Type[RuntimeConfig]):

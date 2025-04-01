@@ -2,15 +2,26 @@ import os
 import asyncio
 from opsmate.runtime.local import LocalRuntime
 from tempfile import NamedTemporaryFile
-from opsmate.runtime.runtime import register_runtime, RuntimeConfig
+from opsmate.runtime.runtime import register_runtime, RuntimeConfig, RuntimeError
 from pydantic import Field, ConfigDict
 from typing import Dict
-from subprocess import check_output as co
 import structlog
-import uuid
 import subprocess
 
 logger = structlog.get_logger(__name__)
+
+
+def co(cmd, **kwargs):
+    """
+    Check output of a command.
+    Return the exit code and output of the command.
+    """
+    kwargs["stderr"] = subprocess.STDOUT
+    try:
+        output = subprocess.check_output(cmd, **kwargs).strip()
+        return 0, output
+    except subprocess.CalledProcessError as e:
+        return e.returncode, e.output
 
 
 class DockerRuntimeConfig(RuntimeConfig):
@@ -75,19 +86,17 @@ class DockerRuntime(LocalRuntime):
             )
             return None
 
-        output = co(
-            [
-                "docker",
-                "compose",
-                "-f",
-                config.compose_file,
-                "--env-file",
-                self.envvars_file,
-                "up",
-                "-d",
-            ],
-            text=True,
-        ).strip()
+        self.bootstrap = [
+            "docker",
+            "compose",
+            "-f",
+            config.compose_file,
+            "--env-file",
+            self.envvars_file,
+            "up",
+            "-d",
+        ]
+
         self.shell_cmd = f"docker compose -f {config.compose_file} exec {config.service_name} {config.shell_cmd}"
         self.from_compose = True
 
@@ -118,7 +127,11 @@ class DockerRuntime(LocalRuntime):
     #     self.from_image = True
 
     def _from_container(self, config: DockerRuntimeConfig):
-        output = co(["docker", "start", self.container_name], text=True).strip()
+        self.bootstrap = [
+            "docker",
+            "start",
+            self.container_name,
+        ]
         self.shell_cmd = f"docker exec --env-file {self.envvars_file} -i {self.container_name} {config.shell_cmd}"
         self.from_container = True
 
@@ -144,6 +157,14 @@ class DockerRuntime(LocalRuntime):
             )
             self.connected = True
         return self.process
+
+    async def connect(self):
+        if self.bootstrap:
+            exit_code, output = co(self.bootstrap)
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to start docker container", output=output)
+
+        await super().connect()
 
     async def disconnect(self):
         os.remove(self.envvars_file)

@@ -1,0 +1,10 @@
+[project]
+name = "opsmate-runtime-gce"
+version = "0.1.0"
+description = "GCE runtime for opsmate"
+dependencies = [
+    "opsmate",
+]
+
+[project.entry-points."opsmate.runtime.runtimes"]
+gce = "gce:GCERuntime"

@@ -1,5 +1,8 @@
 site_name: Opsmate
+repo_name: opsmate
+repo_url: https://github.com/jingkaihe/opsmate
 site_url: https://docs.opsmate.hjktech.uk
+edit_uri: edit/main/docs/
 theme:
   name: material
   features:
@@ -48,6 +51,8 @@ plugins:
       ignore_h1_titles: true
       execute: false
   - search
+  - social
+  - asciinema-player
 nav:
   - Introduction: index.md
   - CLI Reference:
@@ -74,7 +79,15 @@ nav:
     - Advanced Knowledge Retrieval: integrations/advanced-knowledge-retrieval.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
+    - Manage VMs via SSH: cookbooks/manage-vms.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb
     - Knowledge Management: cookbooks/knowledge-management.ipynb
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jingkaihe/opsmate
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/he_jingkai

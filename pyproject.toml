@@ -1,6 +1,6 @@
 [project]
 name = "opsmate"
-version = "0.1.40a0"
+version = "0.1.41a0"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },
@@ -69,8 +69,9 @@ dev = [
     "snakeviz >=2.2.2,<3.0.0",
 ]
 docs = [
-    "mkdocs-material >=9.5.49,<10.0.0",
+    "mkdocs-material[imaging]>=9.5.49,<10.0.0",
     "mkdocs-jupyter >=0.25.1,<1.0.0",
+    "mkdocs-asciinema-player>=0.16.0",
 ]
 eval = [
     "autoevals>=0.0.124",

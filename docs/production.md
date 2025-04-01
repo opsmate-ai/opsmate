@@ -4,7 +4,7 @@ This documentation highlights how to run Opsmate in production environment.
 
 ## Why bother?
 
-`Opsmate` can be used as a [command line tool](cli.md) standalone however it comes with a few limitations:
+`Opsmate` can be used as a [command line tool](./CLI/index.md) standalone however it comes with a few limitations:
 
 - Every local workstation is a snowflake in its own way, thus it's hard to have a consistent experience across different machines.
 - Some of the production environments access are simply not available from the local workstation.

@@ -6,7 +6,11 @@ import asyncio
 import os
 import inspect
 from opsmate.tools.utils import maybe_truncate_text
+from opsmate.runtime.local import LocalRuntime, LocalRuntimeConfig
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
+tracer = trace.get_tracer(__name__)
 logger = structlog.get_logger(__name__)
 
 
@@ -23,28 +27,43 @@ class ShellCommand(ToolCall[str], PresentationMixin):
     )
 
     async def __call__(self, context: dict[str, Any] = {}):
-        envvars = os.environ.copy()
-        extra_envvars = context.get("envvars", {})
-        max_output_length = context.get("max_output_length", 10000)
-        envvars.update(extra_envvars)
-        logger.info("running shell command", command=self.command)
+        with tracer.start_as_current_span("shell_command") as span:
+            envvars = context.get("envvars", {})
+            max_output_length = context.get("max_output_length", 10000)
+            logger.info("running shell command", command=self.command)
 
-        if not await self.confirmation_prompt(context):
-            return "Command execution cancelled by user, try something else."
+            runtime = context.get("runtime", None)
+            transit_runtime = True if runtime is None else False
 
-        try:
-            process = await asyncio.create_subprocess_shell(
-                self.command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-                env=envvars,
+            span.set_attributes(
+                {
+                    "runtime": runtime.__class__.__name__,
+                    "transit_runtime": transit_runtime,
+                    "command": self.command,
+                    "description": self.description,
+                }
             )
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(), timeout=self.timeout
-            )
-            return maybe_truncate_text(stdout.decode(), max_output_length)
-        except Exception as e:
-            return str(e)
+
+            if not await self.confirmation_prompt(context):
+                return "Command execution cancelled by user, try something else."
+
+            if runtime is None:
+                runtime = LocalRuntime(LocalRuntimeConfig(envvars=envvars))
+                await runtime.connect()
+
+            try:
+                out = await runtime.run(self.command, timeout=self.timeout)
+
+                span.set_attributes({"output": out})
+                return maybe_truncate_text(out, max_output_length)
+            except Exception as e:
+                err_msg = str(e)
+                span.set_attributes({"error": err_msg})
+                span.set_status(Status(StatusCode.ERROR))
+                return err_msg
+            finally:
+                if transit_runtime:
+                    await runtime.disconnect()
 
     async def confirmation_prompt(self, context: dict[str, Any] = {}):
         confirmation = context.get("confirmation", None)

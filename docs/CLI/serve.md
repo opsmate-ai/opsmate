@@ -7,7 +7,7 @@ The server has two major functionalities:
 
 ## OPTIONS
 
-```bash
+```
 Usage: opsmate serve [OPTIONS]
 
   Start the OpsMate server.
@@ -31,6 +31,8 @@ Options:
                                   [default: session]
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
+  --runtime TEXT                  The runtime to use (env: OPSMATE_RUNTIME)
+                                  [default: local]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
                                   OPSMATE_CATEGORISE)  [default: True]
   --reranker-name TEXT            The name of the reranker model (env:
@@ -56,7 +58,6 @@ Options:
                                   latest version  [default: True]
   --help                          Show this message and exit.
 ```
-
 
 ## EXAMPLES
 

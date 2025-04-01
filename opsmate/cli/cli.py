@@ -14,6 +14,7 @@ from functools import wraps
 from opsmate.libs.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
+from opsmate.runtime import Runtime
 from functools import cache
 from typing import Dict
 import asyncio
@@ -149,6 +150,37 @@ def config_params(cli_config=config):
     return decorator
 
 
+def with_runtime(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        config = kwargs.get("config")
+        runtime_name = config.runtime
+        runtime_class: Runtime = config.runtime_class()
+        runtime_config_name = Runtime.configs[runtime_name].__name__
+        runtime_config = kwargs.pop(runtime_config_name)
+        runtime = runtime_class(runtime_config)
+        tool_call_context = kwargs.get("tool_call_context")
+        tool_call_context["runtime"] = runtime
+
+        for _, runtime_config in Runtime.configs.items():
+            kwargs.pop(runtime_config.__name__, None)
+
+        kwargs["runtime"] = runtime
+        try:
+            await runtime.connect()
+            return await func(*args, **kwargs)
+        finally:
+            await runtime.disconnect()
+
+    return wrapper
+
+
+def runtime_params(func):
+    for _, runtime_config in Runtime.configs.items():
+        func = runtime_config.config_params()(func)
+    return func
+
+
 def common_params(func):
     # Then apply existing common params
     @click.option(
@@ -280,9 +312,11 @@ Edit the command if needed, then press Enter to execute:
     help="Do not print observation",
 )
 @config_params()
+@runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
 async def run(
     instruction,
     model,
@@ -292,6 +326,7 @@ async def run(
     system_prompt,
     no_tool_output,
     no_observation,
+    runtime,
     config,
     span,
 ):
@@ -321,7 +356,7 @@ async def run(
 
     @dino(model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
-        sys_prompts = await ctx.resolve_contexts()
+        sys_prompts = await ctx.resolve_contexts(runtime=runtime)
         if system_prompt:
             sys_prompts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
@@ -392,9 +427,11 @@ async def run(
     help="Number of tool calls per action",
 )
 @config_params()
+@runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtime", "tools"])
 async def solve(
     instruction,
     model,
@@ -407,6 +444,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
+    runtime,
     span,
 ):
     """
@@ -429,7 +467,7 @@ async def solve(
             "cli.solve.tool_calls_per_action": tool_calls_per_action,
         }
     )
-    contexts = await ctx.resolve_contexts()
+    contexts = await ctx.resolve_contexts(runtime=runtime)
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
@@ -516,9 +554,11 @@ Commands:
     help="Number of tool calls per action",
 )
 @config_params()
+@runtime_params
 @common_params
-@traceit(exclude=["system_prompt", "config", "tool_call_context"])
 @coro
+@with_runtime
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
 async def chat(
     model,
     max_iter,
@@ -527,6 +567,7 @@ async def chat(
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
+    runtime,
     config,
     span,
 ):
@@ -565,7 +606,7 @@ async def chat(
                 console.print(help_msg)
                 continue
 
-            contexts = await ctx.resolve_contexts()
+            contexts = await ctx.resolve_contexts(runtime=runtime)
             if system_prompt:
                 contexts = [
                     Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
@@ -1015,6 +1056,22 @@ async def ingest(source, path, glob, config):
 alembic_cfg_path = os.path.join(
     os.path.dirname(__file__), "..", "migrations", "alembic.ini"
 )
+
+
+@opsmate_cli.command()
+@coro
+async def list_runtimes():
+    """
+    List all the runtimes available.
+    """
+    table = Table(title="Runtimes", show_header=True, show_lines=True)
+    table.add_column("Name")
+    table.add_column("Description")
+
+    for name, runtime in Runtime.runtimes.items():
+        table.add_row(name, runtime.__doc__)
+
+    console.print(table)
 
 
 @opsmate_cli.command()

@@ -6,7 +6,7 @@ from opsmate.tools import (
     PrometheusTool,
 )
 from opsmate.dino.context import context
-import platform
+from opsmate.runtime import Runtime
 
 
 @context(
@@ -19,14 +19,28 @@ import platform
         PrometheusTool,
     ],
 )
-async def cli_ctx() -> str:
+async def cli_ctx(runtime: Runtime) -> str:
     """System Admin Assistant"""
 
     return f"""
   <assistant>
   You are a world class SRE who is good at solving problems. You are given access to the terminal for solving problems.
-  The OS you are current running on is {platform.system()}.
   </assistant>
+
+  <sys-info>
+    <os-info>
+    {await runtime.os_info()}
+    </os-info>
+    <whoami>
+    {await runtime.whoami()}
+    </whoami>
+    <runtime-info>
+    {await runtime.runtime_info()}
+    </runtime-info>
+    <has-systemd>
+    {await runtime.has_systemd()}
+    </has-systemd>
+  </sys-info>
 
   <important>
   - If you anticipate the command will generates a lot of output, you should limit the output via piping it to `tail -n 100` command or grepping it with a specific pattern.

@@ -29,6 +29,9 @@ docker-push:
 	docker tag $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION) $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
 	docker push $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
 
+gen-docs: docker-build # generate the docs for the CLI
+	uv run python hack/gen-docs.py
+
 .PHONY: kind
 kind: $(LOCALBIN)
 	test -s $(LOCALBIN)/kind || curl -Lo $(LOCALBIN)/kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64 && chmod +x $(LOCALBIN)/kind

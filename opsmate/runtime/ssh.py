@@ -21,7 +21,7 @@ class SSHRuntimeConfig(RuntimeConfig):
     password: Optional[str] = Field(default=None, alias="RUNTIME_SSH_PASSWORD")
     key_file: Optional[str] = Field(default=None, alias="RUNTIME_SSH_KEY_FILE")
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_SSH_SHELL")
-    envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_SSH_ENV")
+    # envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_SSH_ENV")
     timeout: int = Field(default=10, alias="RUNTIME_SSH_TIMEOUT")
     connect_retries: int = Field(default=3, alias="RUNTIME_SSH_CONNECT_RETRIES")
 
@@ -41,10 +41,10 @@ class SSHRuntime(LocalRuntime):
         self.connect_retries = config.connect_retries
 
         # Create a temporary file to store environment variables
-        with NamedTemporaryFile(mode="w", delete=False) as f:
-            for key, value in config.envvars.items():
-                f.write(f'export {key}="{value}"\n')
-            self.envvars_file = f.name
+        # with NamedTemporaryFile(mode="w", delete=False) as f:
+        #     for key, value in config.envvars.items():
+        #         f.write(f'export {key}="{value}"\n')
+        #     self.envvars_file = f.name
 
         self._lock = asyncio.Lock()
         self.process = None
@@ -123,33 +123,33 @@ class SSHRuntime(LocalRuntime):
                 await asyncio.sleep(2)
 
         # Upload environment variables file if any variables were defined
-        if os.path.getsize(self.envvars_file) > 0:
-            remote_envfile = f"/tmp/opsmate_env_{os.path.basename(self.envvars_file)}"
-            scp_cmd = ["scp", "-P", str(self.port), "-o", "StrictHostKeyChecking=no"]
+        # if os.path.getsize(self.envvars_file) > 0:
+        #     remote_envfile = f"/tmp/opsmate_env_{os.path.basename(self.envvars_file)}"
+        #     scp_cmd = ["scp", "-P", str(self.port), "-o", "StrictHostKeyChecking=no"]
 
-            if self.key_file:
-                scp_cmd.extend(["-i", self.key_file])
+        #     if self.key_file:
+        #         scp_cmd.extend(["-i", self.key_file])
 
-            scp_cmd.extend(
-                [self.envvars_file, f"{self.username}@{self.host}:{remote_envfile}"]
-            )
+        #     scp_cmd.extend(
+        #         [self.envvars_file, f"{self.username}@{self.host}:{remote_envfile}"]
+        #     )
 
-            exit_code, output = co(scp_cmd)
-            if exit_code != 0:
-                raise RuntimeError(
-                    f"Failed to upload environment variables file", output=output
-                )
+        #     exit_code, output = co(scp_cmd)
+        #     if exit_code != 0:
+        #         raise RuntimeError(
+        #             f"Failed to upload environment variables file", output=output
+        #         )
 
-            # Source the environment file
-            source_cmd = await self._build_ssh_command()
-            source_cmd.extend([f"echo 'source {remote_envfile}' >> ~/.bashrc"])
-            co(source_cmd)
+        #     # Source the environment file
+        #     source_cmd = await self._build_ssh_command()
+        #     source_cmd.extend([f"echo 'source {remote_envfile}' >> ~/.bashrc"])
+        #     co(source_cmd)
 
         await self._start_shell()
 
     async def disconnect(self):
         """Disconnect from the SSH server and clean up resources."""
-        os.remove(self.envvars_file)
+        # os.remove(self.envvars_file)
         await super().disconnect()
 
     async def os_info(self):

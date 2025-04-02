@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Callable, Optional, TypeVar, ParamSpec, ClassVar, List
+from typing import Dict, Callable, Optional, TypeVar, ParamSpec, ClassVar, List, Type
 from opsmate.dino.types import ToolCall
 import asyncio
 import structlog
@@ -8,6 +8,8 @@ import os
 import sys
 import importlib
 import inspect
+import pkg_resources
+import traceback
 
 logger = structlog.get_logger(__name__)
 
@@ -120,6 +122,30 @@ class PluginRegistry(BaseModel):
         cls._load_builtin(ignore_conflicts=ignore_conflicts)
         for plugin_dir in plugin_dirs:
             cls._discover(plugin_dir, ignore_conflicts)
+
+        cls._discover_tools_via_entry_points()
+
+    @classmethod
+    def _discover_tools_via_entry_points(cls, group_name="opsmate.tools"):
+        """discover tools via entry points"""
+        for entry_point in pkg_resources.iter_entry_points(group_name):
+            try:
+                tool_cls = entry_point.load()
+                if not issubclass(tool_cls, ToolCall):
+                    logger.error(
+                        "Tool must inherit from ToolCall", tool=tool_cls.__name__
+                    )
+                    continue
+                cls._tools[tool_cls.__name__] = tool_cls
+                cls._tool_sources[tool_cls.__name__] = inspect.getfile(tool_cls)
+            except Exception as e:
+                logger.error(
+                    "Error loading tool",
+                    tool=entry_point.name,
+                    error=e,
+                    stacktrace=traceback.format_exc(),
+                )
+                continue
 
     @classmethod
     def _discover(cls, plugin_dir: str, ignore_conflicts: bool = False):

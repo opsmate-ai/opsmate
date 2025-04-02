@@ -3,7 +3,7 @@ import asyncio
 from opsmate.runtime.local import LocalRuntime
 from tempfile import NamedTemporaryFile
 from opsmate.runtime.runtime import register_runtime, RuntimeConfig, RuntimeError, co
-from pydantic import Field, ConfigDict
+from pydantic import Field
 from typing import Dict
 import structlog
 
@@ -12,8 +12,6 @@ logger = structlog.get_logger(__name__)
 
 
 class DockerRuntimeConfig(RuntimeConfig):
-    model_config = ConfigDict(populate_by_name=True)
-
     container_name: str = Field(alias="RUNTIME_DOCKER_CONTAINER_NAME", default="")
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_DOCKER_SHELL")
     envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_DOCKER_ENV")

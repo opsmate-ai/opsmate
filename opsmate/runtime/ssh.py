@@ -13,8 +13,6 @@ logger = structlog.get_logger(__name__)
 
 
 class SSHRuntimeConfig(RuntimeConfig):
-    model_config = ConfigDict(populate_by_name=True)
-
     host: str = Field(alias="RUNTIME_SSH_HOST", default="")
     port: int = Field(default=22, alias="RUNTIME_SSH_PORT")
     username: str = Field(alias="RUNTIME_SSH_USERNAME", default="")

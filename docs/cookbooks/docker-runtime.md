@@ -63,3 +63,19 @@ opsmate solve \
 ```
 
 {{ asciinema("/assets/docker-compose-runtime.cast") }}
+
+Here are some of the common configuration options for the docker runtime:
+
+```bash
+  --runtime-docker-service-name TEXT
+  --runtime-docker-compose-file TEXT
+                                  Path to the docker compose file (env:
+                                  docker-compose.yml]
+  --runtime-docker-shell TEXT     Set shell_cmd (env: RUNTIME_DOCKER_SHELL)
+  --runtime-docker-container-name TEXT
+```
+
+## See Also
+
+- [Kubernetes Runtime](k8s-runtime.md)
+- [SSH Runtime](manage-vms.md)

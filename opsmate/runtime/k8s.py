@@ -114,11 +114,31 @@ class K8sRuntime(LocalRuntime):
 
             self.container_name = output.strip()
 
+        # Get the image name
+        exit_code, output = co(
+            [
+                "kubectl",
+                "get",
+                "pod",
+                "-n",
+                self.namespace,
+                self.pod_name,
+                "-o",
+                f"jsonpath={{.spec.containers[?(@.name=='{self.container_name}')].image}}",
+            ]
+        )
+
+        if exit_code != 0 or not output.strip():
+            raise RuntimeError(f"Failed to get image name", output=output)
+
+        self.image = output.strip()
+
         logger.info(
             "Connected to pod",
             namespace=self.namespace,
             pod=self.pod_name,
             container=self.container_name,
+            image=self.image,
         )
 
         await self._start_shell()
@@ -144,8 +164,9 @@ class K8sRuntime(LocalRuntime):
             return "Unknown"
 
     async def runtime_info(self):
-        return f"""kubernetes runtime
+        return f"""Current pod environment:
 Namespace: {self.namespace}
 Pod: {self.pod_name}
 Container: {self.container_name if self.container_name else "default"}
+Image: {self.image}
 """

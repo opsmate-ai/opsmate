@@ -87,6 +87,7 @@ nav:
     - Cookbooks: cookbooks/index.md
     - Manage VMs via SSH: cookbooks/manage-vms.md
     - Docker Runtime: cookbooks/docker-runtime.md
+    - Kubernetes Runtime: cookbooks/k8s-runtime.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb

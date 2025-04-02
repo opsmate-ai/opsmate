@@ -3,7 +3,6 @@
 # get the version from the pyproject.toml file
 import tomllib
 import asyncio
-from markdown import markdown
 
 with open("pyproject.toml", "rb") as f:
     pyproject = tomllib.load(f)
@@ -43,6 +42,7 @@ async def main():
         "db-rollback",
         "ingest-prometheus-metrics-metadata",
         "ingest",
+        "install",
         "list-contexts",
         "list-models",
         "list-tools",
@@ -52,6 +52,7 @@ async def main():
         "schedule-embeddings-reindex",
         "serve",
         "solve",
+        "uninstall",
         "worker",
     ]
 

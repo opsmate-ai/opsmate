@@ -41,6 +41,15 @@ Options:
                                   [default: /root/.opsmate/plugins]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
+  --runtime-k8s-shell TEXT        Set shell_cmd (env: RUNTIME_K8S_SHELL)
+                                  [default: /bin/sh]
+  --runtime-k8s-container TEXT    Name of the container of the pod, if not
+                                  specified, the first container will be used
+                                  (env: RUNTIME_K8S_CONTAINER)
+  --runtime-k8s-pod TEXT          Set pod_name (env: RUNTIME_K8S_POD)
+                                  [default: ""]
+  --runtime-k8s-namespace TEXT    Set namespace (env: RUNTIME_K8S_NAMESPACE)
+                                  [default: default]
   --runtime-ssh-connect-retries INTEGER
                                   Set connect_retries (env:
                                   RUNTIME_SSH_CONNECT_RETRIES)  [default: 3]

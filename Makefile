@@ -29,7 +29,7 @@ docker-push:
 	docker tag $(CONTAINER_REGISTRY)/$(IMAGE_NAME):$(VERSION) $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
 	docker push $(CONTAINER_REGISTRY)/$(IMAGE_NAME):latest
 
-gen-docs: docker-build # generate the docs for the CLI
+gen-docs: # generate the docs for the CLI
 	uv run python hack/gen-docs.py
 
 .PHONY: kind

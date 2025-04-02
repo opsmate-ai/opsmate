@@ -66,6 +66,8 @@ nav:
     - opsmate serve: CLI/serve.md
     - opsmate worker: CLI/worker.md
     - opsmate ingest: CLI/ingest.md
+    - opsmate install: CLI/install.md
+    - opsmate uninstall: CLI/uninstall.md
     - opsmate ingest-prometheus-metrics-metadata: CLI/ingest-prometheus-metrics-metadata.md
     - opsmate schedule-embeddings-reindex: CLI/schedule-embeddings-reindex.md
     - opsmate db-migrate: CLI/db-migrate.md
@@ -84,6 +86,8 @@ nav:
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Manage VMs via SSH: cookbooks/manage-vms.md
+    - Docker Runtime: cookbooks/docker-runtime.md
+    - Kubernetes Runtime: cookbooks/k8s-runtime.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb

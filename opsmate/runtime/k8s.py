@@ -12,7 +12,7 @@ logger = structlog.get_logger(__name__)
 
 class K8sRuntimeConfig(RuntimeConfig):
     namespace: str = Field(alias="RUNTIME_K8S_NAMESPACE", default="default")
-    pod_name: str = Field(alias="RUNTIME_K8S_POD")
+    pod_name: str = Field(alias="RUNTIME_K8S_POD", default="")
     container_name: Optional[str] = Field(
         alias="RUNTIME_K8S_CONTAINER",
         default=None,

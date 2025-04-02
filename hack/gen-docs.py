@@ -43,6 +43,7 @@ async def main():
         "db-rollback",
         "ingest-prometheus-metrics-metadata",
         "ingest",
+        "install",
         "list-contexts",
         "list-models",
         "list-tools",
@@ -52,6 +53,7 @@ async def main():
         "schedule-embeddings-reindex",
         "serve",
         "solve",
+        "uninstall",
         "worker",
     ]
 

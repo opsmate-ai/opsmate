@@ -66,6 +66,8 @@ nav:
     - opsmate serve: CLI/serve.md
     - opsmate worker: CLI/worker.md
     - opsmate ingest: CLI/ingest.md
+    - opsmate install: CLI/install.md
+    - opsmate uninstall: CLI/uninstall.md
     - opsmate ingest-prometheus-metrics-metadata: CLI/ingest-prometheus-metrics-metadata.md
     - opsmate schedule-embeddings-reindex: CLI/schedule-embeddings-reindex.md
     - opsmate db-migrate: CLI/db-migrate.md

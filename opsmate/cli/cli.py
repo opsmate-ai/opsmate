@@ -18,6 +18,7 @@ from opsmate.runtime import Runtime
 from functools import cache
 from typing import Dict
 from runpy import run_module
+from contextlib import aclosing
 import asyncio
 import os
 import click
@@ -472,22 +473,27 @@ async def solve(
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
-    async for output in run_react(
-        instruction,
-        contexts=contexts,
-        model=model,
-        max_iter=max_iter,
-        tools=tools,
-        tool_call_context=tool_call_context,
-        tool_calls_per_action=tool_calls_per_action,
-    ):
-        match output:
-            case React():
-                if answer_only:
-                    continue
-                console.print(
-                    Markdown(
-                        f"""
+    # to deal with https://github.com/open-telemetry/opentelemetry-python/issues/2606
+    # src of fix: https://logfire.pydantic.dev/docs/reference/advanced/generators/#use-a-generator-as-a-context-manager
+    async with aclosing(
+        run_react(
+            instruction,
+            contexts=contexts,
+            model=model,
+            max_iter=max_iter,
+            tools=tools,
+            tool_call_context=tool_call_context,
+            tool_calls_per_action=tool_calls_per_action,
+        )
+    ) as run:
+        async for output in run:
+            match output:
+                case React():
+                    if answer_only:
+                        continue
+                    console.print(
+                        Markdown(
+                            f"""
 ## Thought process
 ### Thought
 
@@ -497,31 +503,33 @@ async def solve(
 
 {output.action}
 """
-                    )
-                )
-            case Observation():
-                if answer_only:
-                    continue
-                console.print(Markdown("## Observation"))
-                if not no_tool_output:
-                    for tool_call in output.tool_outputs:
-                        console.print(
-                            Markdown(tool_call.display(context={"in_terminal": True}))
                         )
-                console.print(Markdown(output.observation))
-            case ReactAnswer():
-                if answer_only:
-                    print(output.answer)
-                    break
-                console.print(
-                    Markdown(
-                        f"""
+                    )
+                case Observation():
+                    if answer_only:
+                        continue
+                    console.print(Markdown("## Observation"))
+                    if not no_tool_output:
+                        for tool_call in output.tool_outputs:
+                            console.print(
+                                Markdown(
+                                    tool_call.display(context={"in_terminal": True})
+                                )
+                            )
+                    console.print(Markdown(output.observation))
+                case ReactAnswer():
+                    if answer_only:
+                        print(output.answer)
+                        break
+                    console.print(
+                        Markdown(
+                            f"""
 ## Answer
 
 {output.answer}
 """
+                        )
                     )
-                )
 
 
 help_msg = """

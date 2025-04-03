@@ -9,6 +9,7 @@ import asyncio
 from typing import Dict, Optional, Any
 import pymysql
 import pymysql.cursors
+import pandas as pd
 
 
 class MySQLRuntimeConfig(RuntimeConfig):
@@ -98,7 +99,26 @@ class MySQLRuntime(Runtime):
         return await self.run("SELECT CURRENT_USER() as user")
 
     async def runtime_info(self):
-        return "mysql runtime"
+        # return "mysql runtime"
+        if self.config.database:
+            result = f"mysql runtime connected to {self.config.database} database"
+            table_descriptions = await self.describe_tables()
+            for table_name, table_description in table_descriptions.items():
+                result += f"\n- {table_name}"
+                result += table_description.to_markdown()
+            return result
+
+        else:
+            return "mysql runtime"
+
+    async def describe_tables(self):
+        tables = await self.run("SHOW TABLES")
+        table_names = [table["Tables_in_" + self.config.database] for table in tables]
+        table_descriptions: Dict[str, pd.DataFrame] = {}
+        for table_name in table_names:
+            table_description = await self.run(f"DESCRIBE {table_name}")
+            table_descriptions[table_name] = pd.DataFrame(table_description)
+        return table_descriptions
 
     async def has_systemd(self):
         return False
@@ -120,11 +140,15 @@ class MySQLRuntime(Runtime):
                             .upper()
                             .startswith(("SELECT", "SHOW", "DESCRIBE", "EXPLAIN"))
                         ):
-                            result = await loop.run_in_executor(None, cursor.fetchall)
-                            return str(result)
+                            return await loop.run_in_executor(None, cursor.fetchall)
                         else:
                             await loop.run_in_executor(None, self.connection.commit)
-                            return f"Query executed successfully. Rows affected: {cursor.rowcount}"
+                            return (
+                                {
+                                    "status": "success",
+                                    "rows_affected": cursor.rowcount,
+                                },
+                            )
 
                 result = await asyncio.wait_for(execute_query(), timeout=timeout)
                 return result

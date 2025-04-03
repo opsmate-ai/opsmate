@@ -1,11 +1,21 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import Field
-from typing import Any
+from typing import Any, Tuple, Dict, Union, List
 from .runtime import MySQLRuntime
+import pandas as pd
 
 
-class MySQLTool(ToolCall[str], PresentationMixin):
+ResultType = Union[
+    Tuple[Dict[str, Any], ...],
+    List[Dict[str, Any]],
+]
+
+
+class MySQLTool(ToolCall[ResultType], PresentationMixin):
     """MySQL tool"""
+
+    class Config:
+        arbitrary_types_allowed = True
 
     query: str = Field(description="The query to execute")
     timeout: int = Field(
@@ -19,4 +29,15 @@ class MySQLTool(ToolCall[str], PresentationMixin):
         return await runtime.run(self.query, timeout=self.timeout)
 
     def markdown(self, context: dict[str, Any] = {}):
-        return self.output
+        result = pd.DataFrame(self.output)
+        return f"""
+## MySQL Query
+
+```sql
+{self.query}
+```
+
+## Result
+
+{result.to_markdown()}
+"""

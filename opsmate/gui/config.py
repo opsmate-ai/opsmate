@@ -1,6 +1,7 @@
 from opsmate.libs.config import Config as OpsmateConfig
 from pydantic import Field
 from opsmate.plugins import PluginRegistry
+from opsmate.dino.context import ContextRegistry
 from typing import List
 
 
@@ -22,6 +23,11 @@ class Config(OpsmateConfig):
         alias="OPSMATE_SYSTEM_PROMPT",
         default="",
     )
+    context: str = Field(
+        default="k8s",
+        alias="OPSMATE_CONTEXT",
+        description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
+    )
 
     model: str = Field(
         default="gpt-4o",
@@ -33,8 +39,9 @@ class Config(OpsmateConfig):
     # def validate_tools(self) -> Self:
     #     PluginRegistry.discover(self.plugins_dir)
     #     return self
-    def plugins_discover(self):
+    def addon_discovery(self):
         PluginRegistry.discover(self.plugins_dir)
+        ContextRegistry.discover(self.contexts_dir)
 
     def opsmate_tools(self):
         return PluginRegistry.get_tools_from_list(self.tools)

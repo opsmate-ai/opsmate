@@ -14,7 +14,7 @@ from .dino import dino
 from .types import Message, React, ReactAnswer, Observation, ToolCall, Context
 from opsmate.libs.core.trace import traceit
 from opentelemetry import trace
-from opentelemetry.trace.status import Status, StatusCode
+from opsmate.runtime.runtime import Runtime
 from functools import wraps
 import inspect
 import structlog
@@ -254,12 +254,14 @@ def react(
     P = ParamSpec("P")
     T = TypeVar("T")
 
-    async def _extend_contexts(contexts: List[str | Context]):
+    async def _extend_contexts(
+        contexts: List[str | Context], runtime: Runtime | None = None
+    ):
         for ctx in contexts:
             if isinstance(ctx, str):
                 yield Message.system(ctx)
             elif isinstance(ctx, Context):
-                for c in await ctx.resolve_contexts():
+                for c in await ctx.resolve_contexts(runtime=runtime):
                     yield c
             else:
                 raise ValueError(f"Invalid context type: {type(ctx)}")
@@ -287,10 +289,11 @@ def react(
             extra_tools: List[ToolCall] = [],
             tool_calls_per_action: int = _tool_calls_per_action,
             tool_call_context: Dict[str, Any] = {},
+            runtime: Runtime | None = None,
             **kwargs: P.kwargs,
         ) -> Awaitable[React | Observation | ReactAnswer]:
             ctxs = []
-            async for ctx in _extend_contexts(contexts):
+            async for ctx in _extend_contexts(contexts, runtime=runtime):
                 ctxs.append(ctx)
 
             if inspect.iscoroutinefunction(fn):
@@ -299,7 +302,7 @@ def react(
                 prompt = fn(*args, **kwargs)
             chat_history = kwargs.get("chat_history", [])
 
-            async for ctx in _extend_contexts(extra_contexts):
+            async for ctx in _extend_contexts(extra_contexts, runtime=runtime):
                 ctxs.append(ctx)
 
             for tool in _extend_tools(extra_contexts):

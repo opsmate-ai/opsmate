@@ -8,6 +8,8 @@ import pkg_resources
 import structlog
 import subprocess
 import traceback
+import json
+import os
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +48,29 @@ class CommaSeparatedList(click.Option):
 
 
 class RuntimeConfig(BaseSettings):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    def serialize_to_env(self):
+        """Serialize the config to a dictionary of environment variables"""
+
+        env_vars = {}
+
+        for field_name, field_value in self.model_dump().items():
+            if field_value is None:
+                continue
+
+            field_info = self.model_fields.get(field_name)
+            alias = field_info.alias
+
+            if isinstance(field_value, dict):
+                env_vars[alias] = json.dumps(field_value)
+            elif isinstance(field_value, list) or isinstance(field_value, tuple):
+                env_vars[alias] = json.dumps(field_value)
+            else:
+                env_vars[alias] = str(field_value)
+
+        for key, value in env_vars.items():
+            os.environ[key] = value
 
     @classmethod
     def config_params(cls):

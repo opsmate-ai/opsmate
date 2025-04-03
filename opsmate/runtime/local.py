@@ -9,9 +9,12 @@ import asyncio
 from typing import Dict
 import os
 from copy import deepcopy
+from pydantic import ConfigDict
 
 
 class LocalRuntimeConfig(RuntimeConfig):
+    model_config = ConfigDict(populate_by_name=True)
+
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_LOCAL_SHELL")
     envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_LOCAL_ENV")
 
@@ -27,7 +30,7 @@ class LocalRuntime(Runtime):
         self.shell_cmd = config.shell_cmd
 
         # xxx: try to to inject the whole environment
-        self.envvars = deepcopy(os.environ)
+        self.envvars = dict(deepcopy(os.environ))
         for key, value in config.envvars.items():
             self.envvars[key] = value
 

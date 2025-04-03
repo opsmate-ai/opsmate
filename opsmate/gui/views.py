@@ -7,8 +7,8 @@ from opsmate.gui.models import (
     BluePrint,
     Workflow,
     CellType,
-    gen_k8s_simple,
-    gen_k8s_react,
+    gen_simple,
+    gen_react,
     conversation_context,
     CellLangEnum,
     ThinkingSystemEnum,
@@ -16,6 +16,7 @@ from opsmate.gui.models import (
     CellStateEnum,
     EnvVar,
     ExecutionConfirmation,
+    with_runtime,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -66,11 +67,12 @@ from typing import AsyncGenerator
 from opsmate.tools.prom import PromQuery
 from opentelemetry import trace
 from opsmate.libs.core.trace import traceit
+import os
 
 logger = structlog.get_logger()
 
-k8s_react = gen_k8s_react()
-k8s_simple = gen_k8s_simple()
+react = gen_react()
+simple = gen_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model
@@ -429,21 +431,24 @@ async def execute_llm_react_instruction(
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    await react_streaming(
-        cell,
-        swap,
-        send,
-        session,
-        k8s_react(
-            cell.input,
-            chat_history=chat_history,
-            tool_call_context={
-                "envvars": EnvVar.all(session),
-                "confirmation": confirmation_prompt,
-            },
-            model=llm_model,
-        ),
-    )
+    async with with_runtime() as runtime:
+        await react_streaming(
+            cell,
+            swap,
+            send,
+            session,
+            react(
+                cell.input,
+                chat_history=chat_history,
+                tool_call_context={
+                    "envvars": EnvVar.all(session),
+                    "confirmation": confirmation_prompt,
+                    "runtime": runtime,
+                },
+                model=llm_model,
+                runtime=runtime,
+            ),
+        )
 
 
 @traceit(exclude=["cell", "session", "send", "swap"])
@@ -459,7 +464,7 @@ async def execute_llm_simple_instruction(
     )
 
     chat_history = await prefill_conversation(cell, session)
-    result = await k8s_simple(cell.input, chat_history=chat_history)
+    result = await simple(cell.input, chat_history=chat_history)
 
     await new_simple_cell(result, cell, session, send)
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)
@@ -798,22 +803,25 @@ Here are the tasks to be performed **ONLY**:
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    await react_streaming(
-        cell,
-        swap,
-        send,
-        session,
-        iac_sme(
-            instruction,
-            chat_history=chat_history,
-            tool_call_context={
-                "envvars": EnvVar.all(session),
-                "confirmation": confirmation_prompt,
-                "cwd": os.getcwd(),
-            },
-            model=llm_model,
-        ),
-    )
+    async with with_runtime() as runtime:
+        await react_streaming(
+            cell,
+            swap,
+            send,
+            session,
+            iac_sme(
+                instruction,
+                chat_history=chat_history,
+                tool_call_context={
+                    "envvars": EnvVar.all(session),
+                    "confirmation": confirmation_prompt,
+                    "cwd": os.getcwd(),
+                    "runtime": runtime,
+                },
+                model=llm_model,
+                runtime=runtime,
+            ),
+        )
 
 
 @traceit(exclude=["cell", "session", "send"])

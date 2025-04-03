@@ -97,7 +97,6 @@ async def kb_ingest():
 
 @app.on_event("startup")
 async def startup():
-    start_trace(spans_to_discard=["dbq.dequeue_task"])
     dev = os.environ.get("DEV", "false").lower() == "true"
     if dev:
         await kb_ingest()
@@ -675,6 +674,8 @@ async def post(id: int, command: str):
 
 if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
     from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
 
     StarletteInstrumentor().instrument_app(app)
 

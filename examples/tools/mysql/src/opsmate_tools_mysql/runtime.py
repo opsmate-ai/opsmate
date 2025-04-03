@@ -104,7 +104,8 @@ class MySQLRuntime(Runtime):
             result = f"mysql runtime connected to {self.config.database} database"
             table_descriptions = await self.describe_tables()
             for table_name, table_description in table_descriptions.items():
-                result += f"\n- {table_name}"
+                result += f"\n## Table:{table_name}\n"
+                result += f"### Schema\n"
                 result += table_description.to_markdown()
             return result
 

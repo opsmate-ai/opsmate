@@ -1,5 +1,3 @@
-# docker run --name mysql-server -e MYSQL_ROOT_PASSWORD=my-secret-pw -d -p 3306:3306 mysql
-
 services:
   mysql-server:
     image: mysql:9.2.0

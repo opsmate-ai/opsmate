@@ -1,6 +1,11 @@
-# MySQL Tool
+This cookbook highlights how to create a tool that can be used to interact with a MySQL database.
 
-This is an early prototype of a MySQL tool for OpsMate.
+The full code for this cookbook can be found [here](https://github.com/jingkaihe/opsmate/tree/main/examples/tools/mysql).
+
+## Prerequisites
+
+- You have Opsmate installed. Please refer to the [installation guide](https://opsmate.com/docs/getting-started/installation) for more information.
+- You have docker and docker compose installed for the purpose of spinning up a MySQL server.
 
 ## Should I use this tool?
 
@@ -20,6 +25,7 @@ Here is the guide to help you to make decisions about whether you should use thi
 
 Change directory to this folder and run:
 ```bash
+cd examples/tools/mysql
 opsmate install -e .
 ```
 
@@ -42,11 +48,11 @@ opsmate chat --runtime mysql \
 
 ## Implementation Details
 
-The tool is implemented in the `mysql/tool.py` file.
+The tool is implemented in the [`mysql/tool.py`](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/mysql/tool.py) file.
 
-The tool uses the `MySQLRuntime` class to connect to the MySQL server, which is implements the `Runtime` interface. It is implemented in the `mysql/runtime.py` file.
+The tool uses the `MySQLRuntime` class to connect to the MySQL server, which is implements the `Runtime` interface. It is implemented in the [`mysql/runtime.py`](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/mysql/runtime.py) file.
 
-In the [pyproject.toml](./pyproject.toml) file you can find the entry points for the tool and the runtime:
+In the [pyproject.toml](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/pyproject.toml) file you can find the entry points for the tool and the runtime:
 
 ```toml
 [project.entry-points."opsmate.tools"]
@@ -83,3 +89,31 @@ opsmate chat --help | grep -i mysql
   --runtime-mysql-host TEXT       The host of the MySQL server (env:
                                   RUNTIME_MYSQL_HOST)  [default: localhost]
 ```
+
+## Show Cases
+
+Here is an example of "chatting" with the `x-for-pet` database using Opsmate:
+
+<script
+  src="https://asciinema.org/a/gnZBCx6hO9fq0AM4Pvzv5oFCg.js"
+  id="asciicast-gnZBCx6hO9fq0AM4Pvzv5oFCg"
+  async="true"
+  data-theme="solarized-dark"
+  data-speed="2"
+  data-loop=true
+  data-autoplay=true
+  data-rows="30"
+></script>
+
+Here is another example of Claude Sonnet 3.7 conducting database schema analysis (the text size is a bit small, please feel free to zoom in):
+
+<script
+  src="https://asciinema.org/a/3FNuT7JdySxnAM29GUdXuqw6L.js"
+  id="asciicast-3FNuT7JdySxnAM29GUdXuqw6L"
+  async="true"
+  data-theme="solarized-dark"
+  data-speed="2"
+  data-loop=true
+  data-autoplay=true
+  data-rows="50"
+></script>

@@ -46,6 +46,9 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 plugins:
   - mkdocs-jupyter:
       ignore_h1_titles: true
@@ -88,6 +91,7 @@ nav:
     - Manage VMs via SSH: cookbooks/manage-vms.md
     - Docker Runtime: cookbooks/docker-runtime.md
     - Kubernetes Runtime: cookbooks/k8s-runtime.md
+    - Interacting with MySQL using Opsmate: cookbooks/interacting-with-mysql-using-opsmate.md
     - Use Opsmate for Automation: cookbooks/automation-using-python-runtime.ipynb
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb

@@ -25,6 +25,7 @@ import yaml
 import pickle
 from pydantic import BaseModel, model_validator
 from opsmate.contexts import k8s_ctx
+from contextlib import asynccontextmanager
 
 logger = structlog.get_logger(__name__)
 
@@ -379,21 +380,40 @@ def gen_k8s_react():
     return k8s_react
 
 
+def get_runtime():
+    runtime_class = config.runtime_class()
+    runtime_config_cls = runtime_class.configs[config.runtime]
+    runtime_config = runtime_config_cls()
+    return runtime_class(runtime_config)
+
+
+@asynccontextmanager
+async def with_runtime():
+    runtime = get_runtime()
+    try:
+        await runtime.connect()
+        yield runtime
+    finally:
+        await runtime.disconnect()
+
+
 def gen_k8s_simple():
-    system_prompt = (
-        config.system_prompt if config.system_prompt != "" else k8s_ctx.system_prompt
-    )
+    runtime = get_runtime()
 
     @dino(
         model=config.model,
         response_model=Observation,
         tools=config.opsmate_tools(),
     )
-    def instruction(question: str, chat_history: List[Message] = []):
-        f"""
-        {system_prompt}
-        """
+    async def instruction(question: str, chat_history: List[Message] = []):
+        if config.system_prompt:
+            sys_prompts = [
+                Message.system(f"<system_prompt>{config.system_prompt}</system_prompt>")
+            ]
+        else:
+            sys_prompts = await k8s_ctx.resolve_contexts(runtime=runtime)
         return [
+            *sys_prompts,
             *chat_history,
             Message.user(
                 f"Please answer the question:\n<question>{question}</question>"

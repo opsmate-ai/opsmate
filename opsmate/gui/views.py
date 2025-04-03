@@ -16,6 +16,7 @@ from opsmate.gui.models import (
     CellStateEnum,
     EnvVar,
     ExecutionConfirmation,
+    with_runtime,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -429,21 +430,23 @@ async def execute_llm_react_instruction(
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    await react_streaming(
-        cell,
-        swap,
-        send,
-        session,
-        k8s_react(
-            cell.input,
-            chat_history=chat_history,
-            tool_call_context={
-                "envvars": EnvVar.all(session),
-                "confirmation": confirmation_prompt,
-            },
-            model=llm_model,
-        ),
-    )
+    async with with_runtime() as runtime:
+        await react_streaming(
+            cell,
+            swap,
+            send,
+            session,
+            k8s_react(
+                cell.input,
+                chat_history=chat_history,
+                tool_call_context={
+                    "envvars": EnvVar.all(session),
+                    "confirmation": confirmation_prompt,
+                },
+                model=llm_model,
+                runtime=runtime,
+            ),
+        )
 
 
 @traceit(exclude=["cell", "session", "send", "swap"])
@@ -798,22 +801,24 @@ Here are the tasks to be performed **ONLY**:
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    await react_streaming(
-        cell,
-        swap,
-        send,
-        session,
-        iac_sme(
-            instruction,
-            chat_history=chat_history,
-            tool_call_context={
-                "envvars": EnvVar.all(session),
-                "confirmation": confirmation_prompt,
-                "cwd": os.getcwd(),
-            },
-            model=llm_model,
-        ),
-    )
+    async with with_runtime() as runtime:
+        await react_streaming(
+            cell,
+            swap,
+            send,
+            session,
+            iac_sme(
+                instruction,
+                chat_history=chat_history,
+                tool_call_context={
+                    "envvars": EnvVar.all(session),
+                    "confirmation": confirmation_prompt,
+                    "cwd": os.getcwd(),
+                },
+                model=llm_model,
+                runtime=runtime,
+            ),
+        )
 
 
 @traceit(exclude=["cell", "session", "send"])

@@ -151,15 +151,19 @@ def config_params(cli_config=config):
     return decorator
 
 
+def runtime_from_kwargs(kwargs):
+    config = kwargs.get("config")
+    runtime_name = config.runtime
+    runtime_class: Runtime = config.runtime_class()
+    runtime_config_name = Runtime.configs[runtime_name].__name__
+    runtime_config = kwargs.pop(runtime_config_name)
+    return runtime_class(runtime_config)
+
+
 def with_runtime(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        config = kwargs.get("config")
-        runtime_name = config.runtime
-        runtime_class: Runtime = config.runtime_class()
-        runtime_config_name = Runtime.configs[runtime_name].__name__
-        runtime_config = kwargs.pop(runtime_config_name)
-        runtime = runtime_class(runtime_config)
+        runtime = runtime_from_kwargs(kwargs)
         tool_call_context = kwargs.get("tool_call_context")
         tool_call_context["runtime"] = runtime
 
@@ -766,14 +770,21 @@ async def reset(skip_confirm, config):
     help="Number of uvicorn workers to serve on",
 )
 @click.option(
+    "--runtime",
+    default="",
+    show_default=True,
+    help="Runtime to use",
+)
+@click.option(
     "--dev",
     is_flag=True,
     help="Run in development mode",
 )
 @config_params(gui_config)
+@runtime_params
 @auto_migrate
 @coro
-async def serve(host, port, workers, dev, config):
+async def serve(host, port, workers, dev, config, **kwargs):
     """
     Start the OpsMate server.
     """
@@ -785,6 +796,11 @@ async def serve(host, port, workers, dev, config):
     # serialize config to environment variables
     config.serialize_to_env()
 
+    runtime_name = config.runtime
+    runtime_config_name = Runtime.configs[runtime_name].__name__
+    runtime_config = kwargs.pop(runtime_config_name)
+    runtime_config.serialize_to_env()
+
     await kb_ingest()
     engine = config.db_engine()
 
@@ -792,7 +808,7 @@ async def serve(host, port, workers, dev, config):
         seed_blueprints(session)
 
     if dev:
-        await uvicorn.run(
+        uvicorn.run(
             "opsmate.apiserver.apiserver:app",
             host=host,
             port=port,

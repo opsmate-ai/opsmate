@@ -45,3 +45,47 @@ opsmate chat --runtime mysql \
   --runtime-mysql-host localhost \
   --tools MySQLTool
 ```
+
+## Implementation Details
+
+The tool is implemented in the `mysql/tool.py` file.
+
+The tool uses the `MySQLRuntime` class to connect to the MySQL server, which is implements the `Runtime` interface. It is implemented in the `mysql/runtime.py` file.
+
+In the [pyproject.toml](./pyproject.toml) file you can find the entry points for the tool and the runtime:
+
+```toml
+[project.entry-points."opsmate.tools"]
+tool = "mysql.tool:MySQLTool"
+
+[project.entry-points."opsmate.runtime.runtimes"]
+runtime = "mysql.runtime:MySQLRuntime"
+```
+
+This is to make sure that the tools are "autodiscovered" by Opsmate on startup. To verify this you can run the following commands:
+
+```bash
+# to verify the mysql tool is autodiscovered
+opsmate list-tools | grep -i mysql
+│ MySQLTool           │ MySQL tool
+```
+
+```bash
+# to verify the mysql runtime is autodiscovered
+opsmate chat --help | grep -i mysql
+  --runtime-mysql-timeout INTEGER
+                                  The timeout of the MySQL server (env:
+                                  RUNTIME_MYSQL_TIMEOUT)  [default: 120]
+  --runtime-mysql-charset TEXT    The charset of the MySQL server (env:
+                                  RUNTIME_MYSQL_CHARSET)  [default: utf8mb4]
+  --runtime-mysql-database TEXT   The database of the MySQL server (env:
+                                  RUNTIME_MYSQL_DATABASE)
+  --runtime-mysql-password TEXT   The password of the MySQL server (env:
+                                  RUNTIME_MYSQL_PASSWORD)  [default: ""]
+  --runtime-mysql-user TEXT       The user of the MySQL server (env:
+                                  RUNTIME_MYSQL_USER)  [default: root]
+  --runtime-mysql-port INTEGER    The port of the MySQL server (env:
+                                  RUNTIME_MYSQL_PORT)  [default: 3306]
+  --runtime-mysql-host TEXT       The host of the MySQL server (env:
+                                  RUNTIME_MYSQL_HOST)  [default: localhost]
+```

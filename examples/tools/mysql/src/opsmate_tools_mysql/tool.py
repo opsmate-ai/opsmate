@@ -1,7 +1,7 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import Field
 from typing import Any, Tuple, Dict, Union, List
-from .runtime import MySQLRuntime
+from .runtime import MySQLRuntime, RuntimeError
 import pandas as pd
 
 
@@ -26,7 +26,17 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
         runtime = context.get("runtime")
         if not isinstance(runtime, MySQLRuntime):
             raise RuntimeError("MySQL runtime not found")
-        return await runtime.run(self.query, timeout=self.timeout)
+        try:
+            return await runtime.run(self.query, timeout=self.timeout)
+        except RuntimeError as e:
+            return (
+                {
+                    "status": "error",
+                    "message": str(e),
+                },
+            )
+        except Exception:
+            raise
 
     def markdown(self, context: dict[str, Any] = {}):
         result = pd.DataFrame(self.output)

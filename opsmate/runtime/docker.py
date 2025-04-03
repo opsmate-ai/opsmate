@@ -54,7 +54,7 @@ class DockerRuntime(LocalRuntime):
             logger.error(
                 f"Docker compose file not found", compose_file=config.compose_file
             )
-            return None
+            raise RuntimeError(f"Docker compose file {config.compose_file} not found")
 
         async def bootstrap():
             exit_code, output = co(

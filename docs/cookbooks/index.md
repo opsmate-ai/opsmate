@@ -16,3 +16,4 @@ Welcome to the Opsmate Cookbook Collection. Here you will find a variety of exam
 - [Knowledge Management](knowledge-management.ipynb)
 - [Docker Runtime](docker-runtime.md)
 - [Kubernetes Runtime](k8s-runtime.md)
+- [Interacting with MySQL using Opsmate](interacting-with-mysql-using-opsmate.md)

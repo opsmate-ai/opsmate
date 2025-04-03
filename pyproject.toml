@@ -1,6 +1,6 @@
 [project]
 name = "opsmate"
-version = "0.1.43a0"
+version = "0.1.44a0"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },
@@ -36,6 +36,7 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy>=0.52b0",
     "opentelemetry-instrumentation-starlette>=0.52b0",
     "setuptools>=76.0.0",
+    "tabulate>=0.9.0",
 ]
 
 [project.optional-dependencies]

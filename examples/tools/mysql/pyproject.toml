@@ -1,0 +1,21 @@
+[project]
+name = "opsmate-tools-mysql"
+version = "0.1.0"
+description = "MySQL tool for opsmate"
+dependencies = [
+    "opsmate",
+    "pymysql[rsa]",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mysql"]
+
+[project.entry-points."opsmate.tools"]
+tool = "mysql.tool:MySQLTool"
+
+[project.entry-points."opsmate.runtime.runtimes"]
+runtime = "mysql.runtime:MySQLRuntime"

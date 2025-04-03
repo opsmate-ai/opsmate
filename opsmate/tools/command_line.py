@@ -1,10 +1,7 @@
-from typing import ClassVar, Any
+from typing import Any, List
 from pydantic import Field
 from opsmate.dino.types import ToolCall, PresentationMixin
 import structlog
-import asyncio
-import os
-import inspect
 from opsmate.tools.utils import maybe_truncate_text
 from opsmate.runtime.local import LocalRuntime, LocalRuntimeConfig
 from opentelemetry import trace
@@ -65,15 +62,8 @@ class ShellCommand(ToolCall[str], PresentationMixin):
                 if transit_runtime:
                     await runtime.disconnect()
 
-    async def confirmation_prompt(self, context: dict[str, Any] = {}):
-        confirmation = context.get("confirmation", None)
-        if confirmation is None:
-            return True
-
-        if inspect.iscoroutinefunction(confirmation):
-            return await confirmation(self)
-        else:
-            return confirmation(self)
+    def confirmation_fields(self) -> List[str]:
+        return ["command"]
 
     def markdown(self, context: dict[str, Any] = {}):
         return f"""

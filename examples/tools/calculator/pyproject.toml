@@ -1,0 +1,10 @@
+[project]
+name = "opsmate-tools-calculator"
+version = "0.1.0"
+description = "Calculator tool for opsmate"
+dependencies = [
+    "opsmate",
+]
+
+[project.entry-points."opsmate.tools"]
+calculator = "calculator:Calculator"

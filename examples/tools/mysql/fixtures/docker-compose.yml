@@ -1,0 +1,13 @@
+services:
+  mysql-server:
+    image: mysql:9.2.0
+    environment:
+      MYSQL_ROOT_PASSWORD: my-secret-pw
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mydb.sql:/docker-entrypoint-initdb.d/mydb.sql
+
+volumes:
+  mysql_data:

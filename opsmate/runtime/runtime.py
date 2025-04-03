@@ -7,6 +7,7 @@ import click
 import pkg_resources
 import structlog
 import subprocess
+import traceback
 
 logger = structlog.get_logger(__name__)
 
@@ -173,7 +174,12 @@ def discover_runtimes(group_name="opsmate.runtime.runtimes"):
                 )
                 continue
         except Exception as e:
-            logger.error("Error loading runtime", name=entry_point.name, error=e)
+            logger.error(
+                "Error loading runtime",
+                name=entry_point.name,
+                error=e,
+                traceback=traceback.format_exc(),
+            )
 
 
 def co(cmd, **kwargs):

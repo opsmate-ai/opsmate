@@ -109,7 +109,9 @@ async def run_react(
     ctxs = []
     for ctx in contexts:
         if isinstance(ctx, str):
-            ctxs.append(Message.system(ctx))
+            ctxs.append(
+                Message.system(ctx)
+            )  # by this point, ctxs contains the system prompt
         elif isinstance(ctx, Message):
             ctxs.append(ctx)
         else:
@@ -122,7 +124,7 @@ async def run_react(
         Please stictly only carry out the action within the <action>...</action> tag.
         """
         return [
-            *ctxs,
+            # *ctxs,
             *message_history,
             Message.assistant(
                 f"""

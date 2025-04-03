@@ -7,8 +7,8 @@ from opsmate.gui.models import (
     BluePrint,
     Workflow,
     CellType,
-    gen_k8s_simple,
-    gen_k8s_react,
+    gen_simple,
+    gen_react,
     conversation_context,
     CellLangEnum,
     ThinkingSystemEnum,
@@ -70,8 +70,8 @@ from opsmate.libs.core.trace import traceit
 
 logger = structlog.get_logger()
 
-k8s_react = gen_k8s_react()
-k8s_simple = gen_k8s_simple()
+react = gen_react()
+simple = gen_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model
@@ -436,7 +436,7 @@ async def execute_llm_react_instruction(
             swap,
             send,
             session,
-            k8s_react(
+            react(
                 cell.input,
                 chat_history=chat_history,
                 tool_call_context={
@@ -462,7 +462,7 @@ async def execute_llm_simple_instruction(
     )
 
     chat_history = await prefill_conversation(cell, session)
-    result = await k8s_simple(cell.input, chat_history=chat_history)
+    result = await simple(cell.input, chat_history=chat_history)
 
     await new_simple_cell(result, cell, session, send)
     await render_notes_output(cell, session, send, cell_state=CellStateEnum.COMPLETED)

@@ -801,6 +801,8 @@ async def serve(host, port, workers, dev, config, **kwargs):
     runtime_config = kwargs.pop(runtime_config_name)
     runtime_config.serialize_to_env()
 
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
     await kb_ingest()
     engine = config.db_engine()
 

@@ -24,8 +24,8 @@ from opsmate.gui.config import config
 import yaml
 import pickle
 from pydantic import BaseModel, model_validator
-from opsmate.contexts import k8s_ctx
 from contextlib import asynccontextmanager
+from opsmate.dino.context import ContextRegistry
 
 logger = structlog.get_logger(__name__)
 
@@ -362,11 +362,12 @@ def default_new_cell(workflow: Workflow):
 
 # let's discover the plugins in the model for now
 config.set_loglevel()
-config.plugins_discover()
+config.addon_discovery()
 
 
-def gen_k8s_react():
-    contexts = [config.system_prompt] if config.system_prompt != "" else [k8s_ctx]
+def gen_react():
+    ctx = ContextRegistry.get_context(config.context)
+    contexts = [config.system_prompt] if config.system_prompt != "" else [ctx]
 
     @react(
         model=config.model,
@@ -397,8 +398,9 @@ async def with_runtime():
         await runtime.disconnect()
 
 
-def gen_k8s_simple():
+def gen_simple():
     runtime = get_runtime()
+    ctx = ContextRegistry.get_context(config.context)
 
     @dino(
         model=config.model,
@@ -411,7 +413,7 @@ def gen_k8s_simple():
                 Message.system(f"<system_prompt>{config.system_prompt}</system_prompt>")
             ]
         else:
-            sys_prompts = await k8s_ctx.resolve_contexts(runtime=runtime)
+            sys_prompts = await ctx.resolve_contexts(runtime=runtime)
         return [
             *sys_prompts,
             *chat_history,

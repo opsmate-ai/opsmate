@@ -6,8 +6,7 @@ from rich.text import Text
 from rich.prompt import Prompt
 from rich.markdown import Markdown
 from opsmate.dino import dino, run_react
-from opsmate.dino.types import Observation, ReactAnswer, React, Message
-from opsmate.tools.command_line import ShellCommand
+from opsmate.dino.types import Observation, ReactAnswer, React, Message, ToolCall
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
@@ -267,25 +266,24 @@ def auto_migrate(func):
     return wrapper
 
 
-async def confirmation_prompt(tool_call: ShellCommand):
+async def confirmation_prompt(tool_call: ToolCall):
     console.print(
         Markdown(
             f"""
-## Command Confirmation
+## Execution Confirmation
 
-Edit the command if needed, then press Enter to execute:
-!cancel - Cancel the command
+Edit the execution if needed, then press Enter to execute:
+!cancel - Cancel the execution
 """
         )
     )
     try:
-        prompt = Prompt.ask(
-            "Press Enter or edit the command",
-            default=tool_call.command,
-        )
-        tool_call.command = prompt
-        if prompt == "!cancel":
-            return False
+        for field in tool_call.confirmation_fields():
+            prompt = Prompt.ask(
+                f"Enter the value for {field}",
+                default=tool_call.model_dump()[field],
+            )
+            setattr(tool_call, field, prompt)
         return True
     except (KeyboardInterrupt, EOFError):
         console.print("\nCommand cancelled")

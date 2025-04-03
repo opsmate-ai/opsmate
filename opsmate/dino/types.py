@@ -191,6 +191,22 @@ class ToolCall(BaseModel, Generic[OutputType]):
         """
         return self.model_dump_json()
 
+    async def confirmation_prompt(self, context: dict[str, Any] = {}):
+        confirmation = context.get("confirmation", None)
+        if confirmation is None:
+            return True
+
+        if inspect.iscoroutinefunction(confirmation):
+            return await confirmation(self)
+        else:
+            return confirmation(self)
+
+    def confirmation_fields(self) -> List[str]:
+        """
+        confirmation_fields is the method that is called to get the fields that are used to confirm the tool call.
+        """
+        return []
+
 
 class PresentationMixin(ABC):
     @abstractmethod

@@ -3,7 +3,6 @@ from pydantic import Field
 from typing import Any, Tuple, Dict, Union, List
 from .runtime import MySQLRuntime, RuntimeError
 import pandas as pd
-import inspect
 
 ResultType = Union[
     Tuple[Dict[str, Any], ...],
@@ -26,6 +25,15 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
         runtime = context.get("runtime")
         if not isinstance(runtime, MySQLRuntime):
             raise RuntimeError("MySQL runtime not found")
+
+        if not await self.confirmation_prompt(context):
+            return (
+                {
+                    "status": "cancelled",
+                    "message": "Query execution cancelled by user, try something else.",
+                },
+            )
+
         try:
             return await runtime.run(self.query, timeout=self.timeout)
         except RuntimeError as e:
@@ -52,12 +60,5 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
 {result.to_markdown()}
 """
 
-    async def confirmation_prompt(self, context: dict[str, Any] = {}):
-        confirmation = context.get("confirmation", None)
-        if confirmation is None:
-            return True
-
-        if inspect.iscoroutinefunction(confirmation):
-            return await confirmation(self)
-        else:
-            return confirmation(self)
+    def confirmation_fields(self) -> List[str]:
+        return ["query"]

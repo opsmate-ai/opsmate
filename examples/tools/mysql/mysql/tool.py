@@ -3,7 +3,7 @@ from pydantic import Field
 from typing import Any, Tuple, Dict, Union, List
 from .runtime import MySQLRuntime, RuntimeError
 import pandas as pd
-
+import inspect
 
 ResultType = Union[
     Tuple[Dict[str, Any], ...],
@@ -51,3 +51,13 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
 
 {result.to_markdown()}
 """
+
+    async def confirmation_prompt(self, context: dict[str, Any] = {}):
+        confirmation = context.get("confirmation", None)
+        if confirmation is None:
+            return True
+
+        if inspect.iscoroutinefunction(confirmation):
+            return await confirmation(self)
+        else:
+            return confirmation(self)

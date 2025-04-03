@@ -24,7 +24,7 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
     async def __call__(self, context: dict[str, Any] = {}):
         runtime = context.get("runtime")
         if not isinstance(runtime, MySQLRuntime):
-            raise RuntimeError("MySQL runtime not found")
+            raise RuntimeError(f"Runtime {runtime} is not a MySQLRuntime")
 
         if not await self.confirmation_prompt(context):
             return (

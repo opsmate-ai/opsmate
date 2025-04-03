@@ -67,6 +67,7 @@ from typing import AsyncGenerator
 from opsmate.tools.prom import PromQuery
 from opentelemetry import trace
 from opsmate.libs.core.trace import traceit
+import os
 
 logger = structlog.get_logger()
 
@@ -442,6 +443,7 @@ async def execute_llm_react_instruction(
                 tool_call_context={
                     "envvars": EnvVar.all(session),
                     "confirmation": confirmation_prompt,
+                    "runtime": runtime,
                 },
                 model=llm_model,
                 runtime=runtime,
@@ -814,6 +816,7 @@ Here are the tasks to be performed **ONLY**:
                     "envvars": EnvVar.all(session),
                     "confirmation": confirmation_prompt,
                     "cwd": os.getcwd(),
+                    "runtime": runtime,
                 },
                 model=llm_model,
                 runtime=runtime,

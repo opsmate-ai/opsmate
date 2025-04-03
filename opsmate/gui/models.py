@@ -375,10 +375,10 @@ def gen_react():
         tools=config.opsmate_tools(),
         iterable=True,
     )
-    async def k8s_react(question: str, chat_history: List[Message] = []):
+    async def run_react(question: str, chat_history: List[Message] = []):
         return question
 
-    return k8s_react
+    return run_react
 
 
 def get_runtime():

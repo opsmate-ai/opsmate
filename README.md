@@ -3,6 +3,7 @@
 
 [![PyPI version](https://badge.fury.io/py/opsmate.svg)](https://badge.fury.io/py/opsmate)
 [![Container Image](https://ghcr-badge.egpl.dev/jingkaihe/opsmate/latest_tag?trim=major&label=image&nbsp;tag)](https://github.com/jingkaihe/opsmate/pkgs/container/opsmate)
+[![Link to documentation](https://img.shields.io/static/v1?label=%F0%9F%93%96&message=Documentation&color=blue)](https://docs.opsmate.hjktech.uk/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Opsmate is an AI SRE teammate to free you from the toils of production engineering.

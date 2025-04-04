@@ -9,6 +9,19 @@ Opsmate is an AI SRE teammate to free you from the toils of production engineeri
 
 Modern infrastructure and production environments are complex. Opsmate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start](#quick-start)
+- [Advanced Usage](#advanced-usage)
+- [Use Cases](#use-cases)
+- [Integrations](#integrations)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 - 🤖 **Natural Language Interface**: Run commands using natural language without remembering complex syntax
@@ -130,6 +143,7 @@ Opsmate supports various use cases:
 ## Integrations
 
 For a comprehensive list of integrations, please refer to the [integrations](https://docs.opsmate.hjktech.uk/integrations/add-new-llm-providers/) and [cookbooks](https://docs.opsmate.hjktech.uk/cookbooks/) sections.
+
 ## Documentation
 
 For comprehensive documentation, visit [here](https://docs.opsmate.hjktech.uk).

@@ -1,6 +1,6 @@
 `opsmate list-models` lists all the models available.
 
-Currently on OpsMate we cherry-pick the models that are suitable for performing SRE/DevOps oriented tasks that being said in the future we will look into supporting extra models through the plugin system.
+Currently on Opsmate we cherry-pick the models that are suitable for performing SRE/DevOps oriented tasks that being said in the future we will look into supporting extra models through the plugin system.
 
 ## OPTIONS
 

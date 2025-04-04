@@ -13,7 +13,7 @@ Options:
 
 ## USAGE
 
-The command below will list all the runtimes available to OpsMate.
+The command below will list all the runtimes available to Opsmate.
 
 ```bash
 opsmate list-runtimes

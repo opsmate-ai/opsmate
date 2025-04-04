@@ -1,6 +1,6 @@
 # MySQL Tool
 
-This is an early prototype of a MySQL tool for OpsMate.
+This is an early prototype of a MySQL tool for Opsmate.
 
 ## Should I use this tool?
 

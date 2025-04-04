@@ -1,11 +1,11 @@
-`opsmate reset` deletes all the data used by OpsMate. Note that it DOES NOT delete the plugins.
+`opsmate reset` deletes all the data used by Opsmate. Note that it DOES NOT delete the plugins.
 
 ## OPTIONS
 
 ```
 Usage: opsmate reset [OPTIONS]
 
-  Reset the OpsMate database and embeddings db. Note that if the database is
+  Reset the Opsmate database and embeddings db. Note that if the database is
   using litestream it will not be reset. Same applies to the embeddings db, if
   the embedding db is using GCS, S3 or Azure Blob Storage, it will not be
   reset.
@@ -42,7 +42,7 @@ Options:
 
 ## EXAMPLES
 
-### Reset the OpsMate
+### Reset the Opsmate
 
 This will reset the database and the vector store. You will be prompted to confirm the reset.
 
@@ -50,7 +50,7 @@ This will reset the database and the vector store. You will be prompted to confi
 opsmate reset
 ```
 
-### Reset the OpsMate without confirmation
+### Reset the Opsmate without confirmation
 
 This will reset the databases without confirmation.
 

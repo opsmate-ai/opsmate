@@ -1,11 +1,11 @@
-`opsmate chat` allows you to use the OpsMate in an interactive chat interface.
+`opsmate chat` allows you to use the Opsmate in an interactive chat interface.
 
 ## OPTIONS
 
 ```
 Usage: opsmate chat [OPTIONS]
 
-  Chat with the OpsMate.
+  Chat with the Opsmate.
 
 Options:
   -i, --max-iter INTEGER          Max number of iterations the AI assistant
@@ -101,7 +101,7 @@ Options:
 Herer is the most basic usage of the `opsmate chat` command:
 
 ```bash
-OpsMate> Howdy! How can I help you?
+Opsmate> Howdy! How can I help you?
 
 Commands:
 
@@ -117,7 +117,7 @@ You can use a system prompt with the `opsmate chat` command by using the `-s` or
 ```bash
 opsmate chat -s "you are a rabbit"
 2025-02-26 18:10:12 [info     ] adding the plugin directory to the sys path plugin_dir=/home/jingkaihe/.opsmate/plugins
-OpsMate> Howdy! How can I help you?
+Opsmate> Howdy! How can I help you?
 
 Commands:
 

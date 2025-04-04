@@ -1,6 +1,6 @@
 # GCE Runtime
 
-This example demonstrates how to register a new runtime. In this case we are registering [GCE](https://cloud.google.com/compute) as the runtime for OpsMate.
+This example demonstrates how to register a new runtime. In this case we are registering [GCE](https://cloud.google.com/compute) as the runtime for Opsmate.
 
 ## Installation
 

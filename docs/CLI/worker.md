@@ -7,7 +7,7 @@ This is required for any knowledge ingestion, as the process can be long running
 ```
 Usage: opsmate worker [OPTIONS]
 
-  Start the OpsMate worker.
+  Start the Opsmate worker.
 
 Options:
   -w, --workers INTEGER           Number of concurrent background workers

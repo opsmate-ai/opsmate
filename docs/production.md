@@ -193,9 +193,20 @@ spec:
   podTemplate:
     spec:
       serviceAccountName: opsmate-cluster-reader
+      initContainers:
+        - name: opsmate-db-migrate
+          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
+          args:
+            - db-migrate
+          envFrom:
+            - configMapRef:
+                name: opsmate-config
+          volumeMounts:
+            - name: opsmate-vol
+              mountPath: /var/opsmate
       containers:
         - name: opsmate
-          image: ghcr.io/jingkaihe/opsmate:0.1.27a0
+          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
           ports:
             - containerPort: 8000
           envFrom:
@@ -208,8 +219,9 @@ spec:
               mountPath: /var/opsmate
           args:
             - serve
+            - --auto-migrate=false
         - name: worker
-          image: ghcr.io/jingkaihe/opsmate:0.1.27a0
+          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
           envFrom:
             - secretRef:
                 name: opsmate-secret
@@ -217,6 +229,7 @@ spec:
                 name: opsmate-config
           args:
             - worker
+            - --auto-migrate=false
           volumeMounts:
             - name: opsmate-vol
               mountPath: /var/opsmate

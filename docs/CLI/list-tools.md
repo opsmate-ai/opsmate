@@ -38,7 +38,7 @@ Options:
 
 ## USAGE
 
-The command below will list all the tools available to OpsMate. Notes the plugins can be installed in the `~/.opsmate/plugins` directory. The example you see below only lists all the built-in tools.
+The command below will list all the tools available to Opsmate. Notes the plugins can be installed in the `~/.opsmate/plugins` directory. The example you see below only lists all the built-in tools.
 
 ```bash
 opsmate list-tools

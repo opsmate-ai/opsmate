@@ -1,13 +1,13 @@
 `opsmate solve` solves a SRE/DevOps oriented task via reasoning.
 
-Unlike most of the state-of-the-art LLMs models (e.g. o1-pro, deepseek R1) that scheming in the background and come back to you 1 minute later, OpsMate reasoning via actively interactive with the environment to gather information and trial and error to find the best solution. We believe short feedback loop is key to solve SRE/DevOps oriented tasks.
+Unlike most of the state-of-the-art LLMs models (e.g. o1-pro, deepseek R1) that scheming in the background and come back to you 1 minute later, Opsmate reasoning via actively interactive with the environment to gather information and trial and error to find the best solution. We believe short feedback loop is key to solve SRE/DevOps oriented tasks.
 
 ## OPTIONS
 
 ```
 Usage: opsmate solve [OPTIONS] INSTRUCTION
 
-  Solve a problem with the OpsMate.
+  Solve a problem with the Opsmate.
 
 Options:
   -i, --max-iter INTEGER          Max number of iterations the AI assistant
@@ -102,7 +102,7 @@ Options:
 
 ### The most basic usage
 
-In the example below, the OpsMate will reason about the problem and come up with a solution, going through the "thought-action-observation" loop.
+In the example below, the Opsmate will reason about the problem and come up with a solution, going through the "thought-action-observation" loop.
 
 ```bash
 opsmate solve "how many cores on the server?"
@@ -117,7 +117,7 @@ opsmate solve "how many cores on the server?" -m grok-2-1212
 
 ### Increase the number of iterations
 
-You can increase the number of iterations the OpsMate can reason about by using the `--max-iter` option for anything that requires long reasoning. There are a few things to bare in mind though:
+You can increase the number of iterations the Opsmate can reason about by using the `--max-iter` option for anything that requires long reasoning. There are a few things to bare in mind though:
 
 - More iterations means more LLM tokens used. As the context window gets progressively larger over iterations, the cost will increase.
 - In real-world use cases more iterations doesn't necessarily translate to better results. The common pattern we have observed is that with the current frontier LLMs, 10-15 iterations is the sweet spot. The longer the task, the more "confused" LLM becomes.
@@ -128,7 +128,7 @@ opsmate solve "how many cores on the server?" --max-iter 20
 
 ### Use various tools
 
-The OpsMate can use various tools to solve the problem. You can see the list of available tools by running the `list-tools` command. To use these tools, you can pass the `--tools` option.
+The Opsmate can use various tools to solve the problem. You can see the list of available tools by running the `list-tools` command. To use these tools, you can pass the `--tools` option.
 
 Here is an example of gathering top 10 news from hacker news and write it to a file:
 

@@ -89,8 +89,8 @@ class CommaSeparatedList(click.Option):
 @click.group()
 def opsmate_cli():
     """
-    OpsMate is an SRE AI assistant that helps you manage production environment.
-    This is the cli tool to interact with OpsMate.
+    Opsmate is an SRE AI assistant that helps you manage production environment.
+    This is the cli tool to interact with Opsmate.
     """
     start_trace(spans_to_discard=["dbq.dequeue_task"])
 
@@ -335,7 +335,7 @@ async def run(
     span,
 ):
     """
-    Run a task with the OpsMate.
+    Run a task with the Opsmate.
     """
 
     ctx = get_context(context)
@@ -452,7 +452,7 @@ async def solve(
     span,
 ):
     """
-    Solve a problem with the OpsMate.
+    Solve a problem with the Opsmate.
     """
     ctx = get_context(context)
 
@@ -583,7 +583,7 @@ async def chat(
     span,
 ):
     """
-    Chat with the OpsMate.
+    Chat with the Opsmate.
     """
 
     ctx = get_context(context)
@@ -698,7 +698,7 @@ def list_contexts(config):
 @coro
 async def reset(skip_confirm, config):
     """
-    Reset the OpsMate database and embeddings db.
+    Reset the Opsmate database and embeddings db.
     Note that if the database is using litestream it will not be reset.
     Same applies to the embeddings db, if the embedding db is using GCS, S3 or Azure Blob Storage, it will not be reset.
     """
@@ -734,14 +734,14 @@ async def reset(skip_confirm, config):
     db_url = db_url.replace("sqlite:///", "")
 
     if skip_confirm:
-        console.print("Resetting OpsMate")
+        console.print("Resetting Opsmate")
         remove_db_url(db_url)
         remove_embeddings_db_path(config.embeddings_db_path)
         return
 
     if (
         Prompt.ask(
-            f"""Are you sure you want to reset OpsMate? This will delete:
+            f"""Are you sure you want to reset Opsmate? This will delete:
 - {db_url}
 - {config.embeddings_db_path}
 """,
@@ -786,7 +786,7 @@ async def reset(skip_confirm, config):
 @coro
 async def serve(host, port, workers, dev, config, **kwargs):
     """
-    Start the OpsMate server.
+    Start the Opsmate server.
     """
     import uvicorn
     from sqlmodel import Session
@@ -855,7 +855,7 @@ async def serve(host, port, workers, dev, config, **kwargs):
 @coro
 async def worker(workers, queue, config):
     """
-    Start the OpsMate worker.
+    Start the Opsmate worker.
     """
     from opsmate.dbqapp import app as dbqapp
     from opsmate.knowledgestore.models import init_table
@@ -1213,7 +1213,7 @@ def uninstall(packages, yes):
 @opsmate_cli.command()
 def version():
     """
-    Show the version of the OpsMate.
+    Show the version of the Opsmate.
     """
     console.print(__version__)
 
@@ -1230,7 +1230,7 @@ def get_context(ctx_name: str):
 
 def opsmate_says(message: str):
     text = Text()
-    text.append("OpsMate> ", style="bold green")
+    text.append("Opsmate> ", style="bold green")
     text.append(message)
     console.print(text)
 

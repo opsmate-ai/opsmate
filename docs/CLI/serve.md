@@ -10,16 +10,21 @@ The server has two major functionalities:
 ```
 Usage: opsmate serve [OPTIONS]
 
-  Start the OpsMate server.
+  Start the Opsmate server.
 
 Options:
   -h, --host TEXT                 Host to serve on  [default: 0.0.0.0]
   -p, --port INTEGER              Port to serve on  [default: 8080]
   -w, --workers INTEGER           Number of uvicorn workers to serve on
                                   [default: 2]
+  --runtime TEXT                  Runtime to use  [default: ""]
   --dev                           Run in development mode
   --model TEXT                    Set model (env: OPSMATE_MODEL)  [default:
                                   gpt-4o]
+  --context TEXT                  The context to use for the session. Run
+                                  `opsmate list-contexts` to see the available
+                                  contexts. (env: OPSMATE_CONTEXT)  [default:
+                                  k8s]
   --system-prompt TEXT            Set system_prompt (env:
                                   OPSMATE_SYSTEM_PROMPT)  [default: ""]
   --tools TEXT                    Set tools (env: OPSMATE_TOOLS)  [default: Sh
@@ -54,6 +59,46 @@ Options:
                                   [default: /root/.opsmate/plugins]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
+  --runtime-k8s-shell TEXT        Set shell_cmd (env: RUNTIME_K8S_SHELL)
+                                  [default: /bin/sh]
+  --runtime-k8s-container TEXT    Name of the container of the pod, if not
+                                  specified, the first container will be used
+                                  (env: RUNTIME_K8S_CONTAINER)
+  --runtime-k8s-pod TEXT          Set pod_name (env: RUNTIME_K8S_POD)
+                                  [default: ""]
+  --runtime-k8s-namespace TEXT    Set namespace (env: RUNTIME_K8S_NAMESPACE)
+                                  [default: default]
+  --runtime-ssh-connect-retries INTEGER
+                                  Set connect_retries (env:
+                                  RUNTIME_SSH_CONNECT_RETRIES)  [default: 3]
+  --runtime-ssh-timeout INTEGER   Set timeout (env: RUNTIME_SSH_TIMEOUT)
+                                  [default: 10]
+  --runtime-ssh-shell TEXT        Set shell_cmd (env: RUNTIME_SSH_SHELL)
+                                  [default: /bin/bash]
+  --runtime-ssh-key-file TEXT     Set key_file (env: RUNTIME_SSH_KEY_FILE)
+  --runtime-ssh-password TEXT     Set password (env: RUNTIME_SSH_PASSWORD)
+  --runtime-ssh-username TEXT     Set username (env: RUNTIME_SSH_USERNAME)
+                                  [default: ""]
+  --runtime-ssh-port INTEGER      Set port (env: RUNTIME_SSH_PORT)  [default:
+                                  22]
+  --runtime-ssh-host TEXT         Set host (env: RUNTIME_SSH_HOST)  [default:
+                                  ""]
+  --runtime-docker-service-name TEXT
+                                  Name of the service to run (env:
+                                  RUNTIME_DOCKER_SERVICE_NAME)  [default:
+                                  default]
+  --runtime-docker-compose-file TEXT
+                                  Path to the docker compose file (env:
+                                  RUNTIME_DOCKER_COMPOSE_FILE)  [default:
+                                  docker-compose.yml]
+  --runtime-docker-shell TEXT     Set shell_cmd (env: RUNTIME_DOCKER_SHELL)
+                                  [default: /bin/bash]
+  --runtime-docker-container-name TEXT
+                                  Set container_name (env:
+                                  RUNTIME_DOCKER_CONTAINER_NAME)  [default:
+                                  ""]
+  --runtime-local-shell TEXT      Set shell_cmd (env: RUNTIME_LOCAL_SHELL)
+                                  [default: /bin/bash]
   --auto-migrate BOOLEAN          Automatically migrate the database to the
                                   latest version  [default: True]
   --help                          Show this message and exit.
@@ -61,9 +106,9 @@ Options:
 
 ## EXAMPLES
 
-### Start the OpsMate server
+### Start the Opsmate server
 
-The command below starts the OpsMate server on the default host and port.
+The command below starts the Opsmate server on the default host and port.
 
 ```bash
 opsmate serve

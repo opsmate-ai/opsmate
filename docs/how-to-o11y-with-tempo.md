@@ -9,7 +9,7 @@ To run Grafana and Tempo locally:
 )
 ```
 
-To run OpsMate with tracing enabled:
+To run Opsmate with tracing enabled:
 
 ```bash
 OTEL_ENABLED=true opsmate chat

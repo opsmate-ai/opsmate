@@ -3,6 +3,7 @@
 The AI SRE teammate to free you from the toils of production engineering.
 
 [![PyPI version](https://badge.fury.io/py/opsmate.svg)](https://badge.fury.io/py/opsmate)
+[![Container Image](https://ghcr-badge.egpl.dev/jingkaihe/opsmate/latest_tag?trim=major&label=image&nbsp;tag)](https://github.com/jingkaihe/opsmate/pkgs/container/opsmate)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Modern infrastructure and production environments are complex. OpsMate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.

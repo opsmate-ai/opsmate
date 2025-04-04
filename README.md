@@ -8,7 +8,7 @@
 
 Opsmate is an AI SRE teammate to free you from the toils of production engineering.
 
-<img src="assets/demo.gif">
+<img src="assets/demo.gif" width="700">
 
 Modern infrastructure and production environments are complex. Opsmate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.
 

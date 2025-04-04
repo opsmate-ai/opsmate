@@ -5,7 +5,7 @@
 ```
 Usage: opsmate run [OPTIONS] INSTRUCTION
 
-  Run a task with the OpsMate.
+  Run a task with the Opsmate.
 
 Options:
   -c, --context TEXT              Context to be added to the prompt. Run the

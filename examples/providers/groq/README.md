@@ -1,6 +1,6 @@
 # Groq Provider
 
-This example demonstrates how to register a new provider. In this case we are registering [Groq](https://groq.com) as the LLM provider for OpsMate.
+This example demonstrates how to register a new provider. In this case we are registering [Groq](https://groq.com) as the LLM provider for Opsmate.
 
 ## Installation
 

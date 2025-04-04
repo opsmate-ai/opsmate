@@ -36,7 +36,7 @@ class TestRunCommandIntegration:
         result = cli_runner.invoke(opsmate_cli, ["run", "--help"])
 
         assert result.exit_code == 0
-        assert "Run a task with the OpsMate" in result.output
+        assert "Run a task with the Opsmate" in result.output
         assert "--model" in result.output
         assert "--context" in result.output
         assert "-nt" in result.output
@@ -148,7 +148,7 @@ class TestSolveCommandIntegration:
         result = cli_runner.invoke(opsmate_cli, ["solve", "--help"])
 
         assert result.exit_code == 0
-        assert "Solve a problem with the OpsMate" in result.output
+        assert "Solve a problem with the Opsmate" in result.output
         assert "--model" in result.output
         assert "--context" in result.output
         assert "-i" in result.output

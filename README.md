@@ -1,12 +1,13 @@
-# OpsMate
+# Opsmate
 
-The AI SRE teammate to free you from the toils of production engineering.
 
 [![PyPI version](https://badge.fury.io/py/opsmate.svg)](https://badge.fury.io/py/opsmate)
 [![Container Image](https://ghcr-badge.egpl.dev/jingkaihe/opsmate/latest_tag?trim=major&label=image&nbsp;tag)](https://github.com/jingkaihe/opsmate/pkgs/container/opsmate)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Modern infrastructure and production environments are complex. OpsMate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.
+Opsmate is an AI SRE teammate to free you from the toils of production engineering.
+
+Modern infrastructure and production environments are complex. Opsmate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.
 
 ## Features
 
@@ -16,24 +17,29 @@ Modern infrastructure and production environments are complex. OpsMate is a 24/7
 - 🛠️ **Multiple Runtimes**: Supports various execution environments such as Local, [Docker](./docs/cookbooks/docker-runtime.md), [Kubernetes](./docs/cookbooks/k8s-runtime.md) and [remote VMs](./docs/cookbooks/manage-vms.md).
 - 🔭 **Modern Observability Tooling**: Built-in support for [Prometheus](https://prometheus.io/) allows you to create time series dashboards with natural language, and more to come.
 - 🧠 **Knowledge Management**: Ingest and use domain-specific knowledge
-- 📈 **Web UI & API**: Access OpsMate through a web interface or API
-- 🔌 **Plugin System**: Extend OpsMate with custom plugins
+- 📈 **Web UI & API**: Access Opsmate through a web interface or API
+- 🔌 **Plugin System**: Extend Opsmate with custom plugins
 
 ## Installation
 
 Choose your preferred installation method:
 
+The recommended way of installing opsmate is using `uv`:
+
+```bash
+# Using uvx
+uv tool install -U opsmate
+```
+
+Other than that, you can also install opsmate using `pip`, `pipx` or `docker`.
 ```bash
 # Using pip
 pip install -U opsmate
 
-# Using pipx (recommended)
+# Using pipx
 pipx install opsmate
 # or
 pipx upgrade opsmate
-
-# Using uvx
-uvx opsmate [OPTIONS] COMMAND [ARGS]...
 
 # Using Docker
 docker pull ghcr.io/jingkaihe/opsmate:latest
@@ -48,7 +54,7 @@ pipx install ./dist/opsmate-*.whl
 
 ## Configuration
 
-OpsMate is powered by large language models. It currently supports:
+Opsmate is powered by large language models. It currently supports:
 
 * [OpenAI](https://platform.openai.com/api-keys)
 * [Anthropic](https://console.anthropic.com/settings/keys)
@@ -96,7 +102,7 @@ $ opsmate serve
 
 ## Advanced Usage
 
-OpsMate can be deployed in production environments using the `opsmate-operator` in a Kubernetes cluster, providing:
+Opsmate can be deployed in production environments using the `opsmate-operator` in a Kubernetes cluster, providing:
 
 - Task scheduling via CRDs
 - Dedicated HTTPS endpoints and web UI for tasks
@@ -108,7 +114,7 @@ Check our [production documentation](https://docs.opsmate.hjktech.uk/production/
 
 ## Use Cases
 
-OpsMate supports various use cases:
+Opsmate supports various use cases:
 
 - Production issue troubleshooting and resolution
 - Root cause analysis
@@ -134,4 +140,4 @@ Contributions are welcome! See our [development guide](docs/development.md) for 
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

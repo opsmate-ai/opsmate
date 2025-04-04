@@ -10,7 +10,7 @@ The server has two major functionalities:
 ```
 Usage: opsmate serve [OPTIONS]
 
-  Start the OpsMate server.
+  Start the Opsmate server.
 
 Options:
   -h, --host TEXT                 Host to serve on  [default: 0.0.0.0]
@@ -61,9 +61,9 @@ Options:
 
 ## EXAMPLES
 
-### Start the OpsMate server
+### Start the Opsmate server
 
-The command below starts the OpsMate server on the default host and port.
+The command below starts the Opsmate server on the default host and port.
 
 ```bash
 opsmate serve

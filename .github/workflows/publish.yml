@@ -21,6 +21,8 @@ jobs:
             url: https://pypi.org/p/opsmate
           - name: opsmate-provider-groq
             url: https://pypi.org/p/opsmate-provider-groq
+          - name: opsmate-provider-fireworks
+            url: https://pypi.org/p/opsmate-provider-fireworks
     environment:
       name: pypi
       url: ${{ matrix.package.url }}

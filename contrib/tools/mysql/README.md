@@ -1,6 +1,6 @@
-# MySQL Tool
+# opsmate-tool-mysql
 
-This is an early prototype of a MySQL tool for Opsmate.
+`opsmate-tool-mysql` is a tool for Opsmate that allows you to interact with MySQL databases with the assistance of a LLM.
 
 ## Should I use this tool?
 
@@ -20,7 +20,7 @@ Here is the guide to help you to make decisions about whether you should use thi
 
 Change directory to this folder and run:
 ```bash
-opsmate install -e .
+opsmate install opsmate-tool-mysql
 ```
 
 ## Usage
@@ -82,4 +82,10 @@ opsmate chat --help | grep -i mysql
                                   RUNTIME_MYSQL_PORT)  [default: 3306]
   --runtime-mysql-host TEXT       The host of the MySQL server (env:
                                   RUNTIME_MYSQL_HOST)  [default: localhost]
+```
+
+## Uninstall
+
+```bash
+opsmate uninstall -y opsmate-tool-mysql
 ```

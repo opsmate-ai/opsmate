@@ -5,25 +5,23 @@ from instructor.client import T
 from instructor import AsyncInstructor
 from tenacity import AsyncRetrying
 from functools import cache
-from groq import AsyncGroq
+from fireworks.client import AsyncFireworks
 import instructor
 import os
 
 
-@register_provider("groq")
-class GroqProvider(Provider):
-    DEFAULT_BASE_URL = "https://api.groq.com"
+@register_provider("fireworks")
+class FireworksProvider(Provider):
+    DEFAULT_BASE_URL = "https://api.fireworks.ai/inference/v1"
 
-    # Here is the full list of models that support tool use https://console.groq.com/docs/tool-use
     models = [
-        "qwen-2.5-32b",
-        "deepseek-r1-distill-qwen-32b",
-        "deepseek-r1-distill-llama-70b",
-        "llama-3.3-70b-versatile",
-        # commented out as it cannot reliably use tools
-        # "llama-3.1-8b-instant",
-        # "mixtral-8x7b-32768",
-        # "gemma2-9b-it",
+        "accounts/fireworks/models/llama-v3p1-405b-instruct",
+        "accounts/fireworks/models/llama-v3p3-70b-instruct",
+        "accounts/fireworks/models/deepseek-r1",
+        "accounts/fireworks/models/deepseek-v3",
+        "accounts/fireworks/models/deepseek-v3-0324",
+        "accounts/fireworks/models/deepseek-r1-distill-llama-70b",
+        "accounts/fireworks/models/qwen2p5-72b-instruct",
     ]
 
     @classmethod
@@ -57,10 +55,10 @@ class GroqProvider(Provider):
     @classmethod
     @cache
     def _default_client(cls) -> AsyncInstructor:
-        return instructor.from_groq(
-            AsyncGroq(
-                base_url=os.getenv("GROQ_BASE_URL", cls.DEFAULT_BASE_URL),
-                api_key=os.getenv("GROQ_API_KEY"),
+        return instructor.from_fireworks(
+            AsyncFireworks(
+                base_url=os.getenv("FIREWORKS_BASE_URL", cls.DEFAULT_BASE_URL),
+                api_key=os.getenv("FIREWORKS_API_KEY"),
             ),
-            mode=instructor.Mode.JSON,
+            mode=instructor.Mode.FIREWORKS_TOOLS,
         )

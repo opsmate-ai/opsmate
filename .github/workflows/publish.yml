@@ -7,11 +7,29 @@ on:
     paths:
       - 'pyproject.toml'
       - '.github/workflows/publish.yml'
+      - 'contrib/providers/fireworks/pyproject.toml'
+      - 'contrib/providers/groq/pyproject.toml'
+      - 'contrib/tools/mysql/pyproject.toml'
 
 jobs:
-  release-build:
+  pypi-publish:
     runs-on: ubuntu-latest
-    environment: ci
+    strategy:
+      matrix:
+        package:
+          - name: opsmate
+            url: https://pypi.org/p/opsmate
+          - name: opsmate-provider-groq
+            url: https://pypi.org/p/opsmate-provider-groq
+          - name: opsmate-provider-fireworks
+            url: https://pypi.org/p/opsmate-provider-fireworks
+          - name: opsmate-tool-mysql
+            url: https://pypi.org/p/opsmate-tool-mysql
+    environment:
+      name: pypi
+      url: ${{ matrix.package.url }}
+    permissions:
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,34 +38,19 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+
       - name: Install dependencies
         run: |
           pipx install uv --python $(which python3.12)
+
       - name: Build package
         run: |
-          uv build
-      - name: upload dists
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
-  pypi-publish:
-    runs-on: ubuntu-latest
-    needs:
-      - release-build
-    environment:
-      name: pypi
-      url: https://pypi.org/p/opsmate
-    permissions:
-      id-token: write
-    steps:
-      - name: Retrieve release distributions
-        uses: actions/download-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
+          uv build --package ${{ matrix.package.name }}
+
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   build-and-push-image:
     runs-on: ubuntu-latest

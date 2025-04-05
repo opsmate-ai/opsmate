@@ -1,6 +1,6 @@
 [project]
 name = "opsmate"
-version = "0.1.45a0"
+version = "0.1.46a1"
 description = "opsmate is a SRE AI assistant"
 authors = [
     { name="Jingkai", email="jingkai@hey.com" },
@@ -37,6 +37,8 @@ dependencies = [
     "opentelemetry-instrumentation-starlette>=0.52b0",
     "setuptools>=76.0.0",
     "tabulate>=0.9.0",
+    "aiohttp!=3.11.13,>=3.11.0", # because 3.11.13 is yanked
+    "pip>=25.0.1",
 ]
 
 [project.optional-dependencies]
@@ -79,9 +81,18 @@ eval = [
     "braintrust>=0.0.191",
 ]
 
-[tool.setuptools]
-py-modules = ["opsmate"]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+
+[tool.uv.sources]
+opsmate-provider-groq = { workspace = true }
+opsmate-provider-fireworks = { workspace = true }
+opsmate-tool-mysql = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "contrib/providers/*",
+    "contrib/tools/*",
+]

@@ -10,6 +10,7 @@ on:
     #   - '.github/workflows/publish.yml'
     #   - 'contrib/providers/fireworks/pyproject.toml'
     #   - 'contrib/providers/groq/pyproject.toml'
+    #   - 'contrib/tools/mysql/pyproject.toml'
 
 jobs:
   pypi-publish:
@@ -23,6 +24,8 @@ jobs:
             url: https://pypi.org/p/opsmate-provider-groq
           - name: opsmate-provider-fireworks
             url: https://pypi.org/p/opsmate-provider-fireworks
+          - name: opsmate-tool-mysql
+            url: https://pypi.org/p/opsmate-tool-mysql
     environment:
       name: pypi
       url: ${{ matrix.package.url }}

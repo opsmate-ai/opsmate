@@ -1,6 +1,6 @@
 This cookbook highlights how to create a tool that can be used to interact with a MySQL database.
 
-The full code for this cookbook can be found [here](https://github.com/jingkaihe/opsmate/tree/main/examples/tools/mysql).
+The full code for this cookbook can be found [here](https://github.com/jingkaihe/opsmate/tree/main/contrib/tools/mysql).
 
 ## Prerequisites
 
@@ -48,11 +48,11 @@ opsmate chat --runtime mysql \
 
 ## Implementation Details
 
-The tool is implemented in the [`mysql/tool.py`](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/mysql/tool.py) file.
+The tool is implemented in the [`mysql/tool.py`](https://github.com/jingkaihe/opsmate/blob/main/contrib/tools/mysql/mysql/tool.py) file.
 
-The tool uses the `MySQLRuntime` class to connect to the MySQL server, which is implements the `Runtime` interface. It is implemented in the [`mysql/runtime.py`](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/mysql/runtime.py) file.
+The tool uses the `MySQLRuntime` class to connect to the MySQL server, which is implements the `Runtime` interface. It is implemented in the [`mysql/runtime.py`](https://github.com/jingkaihe/opsmate/blob/main/contrib/tools/mysql/mysql/runtime.py) file.
 
-In the [pyproject.toml](https://github.com/jingkaihe/opsmate/blob/main/examples/tools/mysql/pyproject.toml) file you can find the entry points for the tool and the runtime:
+In the [pyproject.toml](https://github.com/jingkaihe/opsmate/blob/main/contrib/tools/mysql/pyproject.toml) file you can find the entry points for the tool and the runtime:
 
 ```toml
 [project.entry-points."opsmate.tools"]

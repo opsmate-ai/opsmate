@@ -3159,7 +3159,7 @@ eval = [
 [[package]]
 name = "opsmate-provider-fireworks"
 version = "0.1.0"
-source = { editable = "contrib/providers/firewworks" }
+source = { editable = "contrib/providers/fireworks" }
 dependencies = [
     { name = "fireworks-ai" },
     { name = "opsmate" },

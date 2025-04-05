@@ -88,6 +88,7 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 opsmate-provider-groq = { workspace = true }
+opsmate-provider-fireworks = { workspace = true }
 
 [tool.uv.workspace]
 members = [

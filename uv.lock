@@ -13,7 +13,7 @@ members = [
     "opsmate",
     "opsmate-provider-fireworks",
     "opsmate-provider-groq",
-    "opsmate-tools-mysql",
+    "opsmate-tool-mysql",
 ]
 
 [[package]]
@@ -3074,7 +3074,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.46a0"
+version = "0.1.46a1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3233,7 +3233,7 @@ requires-dist = [
 ]
 
 [[package]]
-name = "opsmate-tools-mysql"
+name = "opsmate-tool-mysql"
 version = "0.1.0a0"
 source = { editable = "contrib/tools/mysql" }
 dependencies = [

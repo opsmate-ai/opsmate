@@ -37,6 +37,7 @@ dependencies = [
     "opentelemetry-instrumentation-starlette>=0.52b0",
     "setuptools>=76.0.0",
     "tabulate>=0.9.0",
+    "aiohttp!=3.11.13,>=3.11.0", # because 3.11.13 is yanked
 ]
 
 [project.optional-dependencies]
@@ -82,3 +83,12 @@ eval = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+
+[tool.uv.sources]
+opsmate-provider-groq = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "contrib/providers/*",
+]

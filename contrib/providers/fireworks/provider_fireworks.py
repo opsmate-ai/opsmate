@@ -21,7 +21,7 @@ class FireworksProvider(Provider):
         "accounts/fireworks/models/deepseek-v3",
         "accounts/fireworks/models/deepseek-v3-0324",
         "accounts/fireworks/models/deepseek-r1-distill-llama-70b",
-        "accounts/fireworks/models/qwen2p5-coder-32b-instruct",
+        "accounts/fireworks/models/qwen2p5-72b-instruct",
     ]
 
     @classmethod

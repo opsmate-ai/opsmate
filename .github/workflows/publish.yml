@@ -12,11 +12,18 @@ on:
     #   - 'contrib/providers/groq/pyproject.toml'
 
 jobs:
-  pypi-publish-opsmate:
+  pypi-publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - name: opsmate
+            url: https://pypi.org/p/opsmate
+          - name: opsmate-provider-groq
+            url: https://pypi.org/p/opsmate-provider-groq
     environment:
       name: pypi
-      url: https://pypi.org/p/opsmate
+      url: ${{ matrix.package.url }}
     permissions:
       id-token: write
     steps:
@@ -27,38 +34,15 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+
       - name: Install dependencies
         run: |
           pipx install uv --python $(which python3.12)
+
       - name: Build package
         run: |
-          uv build --package opsmate
-      - name: Publish release distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: true
+          uv build --package ${{ matrix.package.name }}
 
-  pypi-publish-opsmate-provider-groq:
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/opsmate-provider-groq
-    permissions:
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pipx install uv --python $(which python3.12)
-      - name: Build package
-        run: |
-          uv build --package opsmate-provider-groq
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

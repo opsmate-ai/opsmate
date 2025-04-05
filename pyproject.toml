@@ -79,9 +79,6 @@ eval = [
     "braintrust>=0.0.191",
 ]
 
-[tool.setuptools]
-py-modules = ["opsmate"]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

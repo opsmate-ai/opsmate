@@ -3158,7 +3158,7 @@ eval = [
 
 [[package]]
 name = "opsmate-provider-fireworks"
-version = "0.1.0"
+version = "0.1.0a0"
 source = { editable = "contrib/providers/fireworks" }
 dependencies = [
     { name = "fireworks-ai" },
@@ -3173,7 +3173,7 @@ requires-dist = [
 
 [[package]]
 name = "opsmate-provider-groq"
-version = "0.1.0"
+version = "0.1.0a0"
 source = { editable = "contrib/providers/groq" }
 dependencies = [
     { name = "groq" },

@@ -1,7 +1,13 @@
 [project]
 name = "opsmate-provider-groq"
-version = "0.1.0"
+version = "0.1.0a0"
 description = "Groq provider for opsmate"
+authors = [
+    { name="Jingkai He", email="jingkai@hey.com" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = "<4.0,>=3.10"
 dependencies = [
     "opsmate",
     "groq>=0.22.0",

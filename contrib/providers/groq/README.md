@@ -1,11 +1,11 @@
-# Groq Provider
+# opsmate-provider-groq
 
-This example demonstrates how to register a new provider. In this case we are registering [Groq](https://groq.com) as the LLM provider for Opsmate.
+`opsmate-provider-groq` provides selected models from [Groq](https://groq.com).
 
 ## Installation
 
 ```bash
-opsmate install -e .
+opsmate install opsmate-provider-groq
 ```
 
 After installation you can list all the models via

@@ -1,7 +1,13 @@
 [project]
 name = "opsmate-provider-fireworks"
-version = "0.1.0"
+version = "0.1.0a0"
 description = "Fireworks AI provider for opsmate"
+authors = [
+    { name="Jingkai He", email="jingkai@hey.com" },
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = "<4.0,>=3.10"
 dependencies = [
     "opsmate",
     "fireworks-ai>=0.15.12",

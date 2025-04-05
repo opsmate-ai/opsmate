@@ -16,7 +16,9 @@ class GroqProvider(Provider):
 
     # Here is the full list of models that support tool use https://console.groq.com/docs/tool-use
     models = [
+        "qwen-qwq-32b",
         "qwen-2.5-32b",
+        "mistral-saba-24b",
         "deepseek-r1-distill-qwen-32b",
         "deepseek-r1-distill-llama-70b",
         "llama-3.3-70b-versatile",

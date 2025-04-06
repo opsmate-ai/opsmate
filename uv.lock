@@ -3234,7 +3234,7 @@ requires-dist = [
 
 [[package]]
 name = "opsmate-tool-mysql"
-version = "0.1.0a0"
+version = "0.1.1a0"
 source = { editable = "contrib/tools/mysql" }
 dependencies = [
     { name = "opsmate" },

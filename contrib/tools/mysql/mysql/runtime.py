@@ -141,7 +141,11 @@ class MySQLRuntime(Runtime):
                             .upper()
                             .startswith(("SELECT", "SHOW", "DESCRIBE", "EXPLAIN"))
                         ):
-                            return await loop.run_in_executor(None, cursor.fetchall)
+                            try:
+                                return await loop.run_in_executor(None, cursor.fetchall)
+                            finally:
+                                # commit so that we do not have a stale view in case of transactions happen in separate connections
+                                await loop.run_in_executor(None, self.connection.commit)
                         else:
                             await loop.run_in_executor(None, self.connection.commit)
                             return (

@@ -29,21 +29,21 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CI: "true"
         run: |
-          uv run pytest ./opsmate/tests -n auto
+          uv run pytest ./opsmate/tests -n auto -m "not serial"
       - name: Docker runtime tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CI: "true"
         run: |
-          CONTAINER_RUNTIME_TEST=true uv run pytest ./opsmate/tests
+          uv run pytest ./opsmate/tests -m serial
       - name: mysql tool tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CI: "true"
         run: |
-          CONTAINER_RUNTIME_TEST=true uv run --package opsmate-tool-mysql pytest ./contrib/tests
+          uv run --package opsmate-tool-mysql pytest ./contrib/tests
 
   build-image:
     runs-on: ubuntu-latest

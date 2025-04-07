@@ -49,7 +49,37 @@ async def _react_prompt(
     </response_format 2>
 
     <important 1>
-    When you know how to perform a task, provide the steps as an action rather than giving them as an answer.
+    If you are requested with a general query in which you can answer outright without accessing to any internal knowledge-base,
+    you can directly give the answer without going through the thought process.
+
+    These query often include:
+    - How can I install a curl package?
+    - Can you provide me with instructions on how to install a curl package?
+    - What are the steps to install a curl package?
+
+    And does not include:
+    - How can I install $A_INTERNAL_TOOL where you have no knowledge of $A_INTERNAL_TOOL
+    - Can you provide me with instructions on how to install $A_INTERNAL_TOOL
+    - What are the steps to install $A_INTERNAL_TOOL
+
+    For example:
+
+    User: how to kill process with pid 1234?
+
+    GOOD Response:
+    <answer>
+    You can kill process with pid 1234 using the `kill -TERM 1234` command.
+    </answer>
+
+    BAD Response:
+    <react>
+    thought: I need to kill process using the kill command
+    action: run `kill -TERM 1234`
+    </react>
+    </important 1>
+
+    <important 2>
+    When you are asked how to perform a task, provide the steps as an action rather than giving them as an answer.
 
     BAD EXAMPLE:
     <react>
@@ -62,10 +92,6 @@ async def _react_prompt(
     thought: I need to kill process using the kill command
     action: run `kill -TERM 1234`
     </react>
-    </important 1 >
-
-    <important 2>
-    If you know the answer straight away, feel free to give the answer without going through the thought process.
     </important 2>
 
     <important 3>

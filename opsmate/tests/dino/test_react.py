@@ -238,6 +238,7 @@ async def test_react_decorator_with_tool_call_context():
     )
     async def weather_agent(query: str):
         """
+        You are a weather agent who has access to the real time weather through the `weather` tool.
         use the `weather` tool to get the weather of the city
         """
         return f"answer the query: {query} answer should be either sunny or cloudy"

@@ -69,10 +69,7 @@ async def docker_runtime(
                 pass
 
 
-@pytest.mark.skipif(
-    os.getenv("CONTAINER_RUNTIME_TEST") != "true",
-    reason="CONTAINER_RUNTIME_TEST is not set",
-)
+@pytest.mark.serial
 class TestDockerRuntimeCompose:
     @pytest.mark.asyncio
     async def test_connect_disconnect(self):
@@ -349,10 +346,7 @@ services:
         assert not os.path.exists(runtime.envvars_file)
 
 
-@pytest.mark.skipif(
-    os.getenv("CONTAINER_RUNTIME_TEST") != "true",
-    reason="CONTAINER_RUNTIME_TEST is not set",
-)
+@pytest.mark.serial
 class TestDockerRuntimeFromContainer:
     @pytest.mark.asyncio
     async def test_from_container(self):

@@ -1,4 +1,10 @@
-from opsmate.tools import ShellCommand, KnowledgeRetrieval, ACITool, HtmlToText
+from opsmate.tools import (
+    ShellCommand,
+    KnowledgeRetrieval,
+    ACITool,
+    HtmlToText,
+    Thinking,
+)
 from opsmate.dino.context import context
 from opsmate.runtime import Runtime
 
@@ -10,6 +16,7 @@ from opsmate.runtime import Runtime
         KnowledgeRetrieval,
         ACITool,
         HtmlToText,
+        Thinking,
     ],
 )
 async def terraform_ctx(runtime: Runtime) -> str:

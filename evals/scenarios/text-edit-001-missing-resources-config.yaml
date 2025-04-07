@@ -2,25 +2,25 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: finance
+  name: construction
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: finance-app
-  namespace: finance
+  name: construction-app
+  namespace: construction
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: finance-app
+      app: construction-app
   template:
     metadata:
       labels:
-        app: finance-app
+        app: construction-app
     spec:
       containers:
-        - name: finance-app
+        - name: construction-app
           image: nginx:1.27.4-alpine-slim
           livenessProbe:
             httpGet:
@@ -33,11 +33,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: finance-app-service
-  namespace: finance
+  name: construction-app-service
+  namespace: construction
 spec:
   selector:
-    app: finance-app
+    app: construction-app
   ports:
     - protocol: TCP
       port: 80

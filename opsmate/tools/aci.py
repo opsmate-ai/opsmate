@@ -70,18 +70,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
     """
     ACITool is a text editor built for AI Agents to search, view, create, update,
     insert and undo file operations.
-
-    search <file|dir> <content>           # Search in file/directory
-    view <file|dir> [start] [end]        # View file (optional 0-indexed line range) or directory
-    create <file> <content>          # Create new file
-    update <file> <old> <new> [start] [end]       # Replace content (old must be unique), with optional 0-indexed line range
-    insert <file> <line> <content>   # Insert at line number
-    undo <file>                      # Undo last file change
-
-    Notes:
-    - Line numbers are 0-indexed
-    - Directory view: 2-depth, ignores dotfiles
-    - Empty new content in update deletes old content
+    DO NOT use ACITool for the purpose of knowledge retrieval.
     """
 
     model_config = ConfigDict(populate_by_name=True)

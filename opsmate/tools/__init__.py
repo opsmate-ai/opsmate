@@ -19,6 +19,7 @@ from .system import (
     SysStats,
 )
 from .prom import PrometheusTool
+from .thinking import Thinking
 
 __all__ = [
     "current_time",
@@ -41,4 +42,5 @@ __all__ = [
     "SysEnv",
     "SysStats",
     "PrometheusTool",
+    "Thinking",
 ]

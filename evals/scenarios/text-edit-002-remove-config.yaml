@@ -2,25 +2,25 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: finance
+  name: film-production
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: finance-app
-  namespace: finance
+  name: film-production-app
+  namespace: film-production
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: finance-app
+      app: film-production-app
   template:
     metadata:
       labels:
-        app: finance-app
+        app: film-production-app
     spec:
       containers:
-        - name: finance-app
+        - name: film-production-app
           image: nginx:1.27.4-alpine-slim
           livenessProbe:
             httpGet:
@@ -33,11 +33,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: finance-app-service
-  namespace: finance
+  name: film-production-app-service
+  namespace: film-production
 spec:
   selector:
-    app: finance-app
+    app: film-production-app
   ports:
     - protocol: TCP
       port: 80

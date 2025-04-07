@@ -4,6 +4,7 @@ from opsmate.tools import (
     ACITool,
     HtmlToText,
     PrometheusTool,
+    Thinking,
 )
 from opsmate.dino.context import context
 from opsmate.runtime import Runtime
@@ -17,6 +18,7 @@ from opsmate.runtime import Runtime
         ACITool,
         HtmlToText,
         PrometheusTool,
+        Thinking,
     ],
 )
 async def cli_ctx(runtime: Runtime) -> str:

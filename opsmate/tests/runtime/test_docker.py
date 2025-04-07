@@ -5,7 +5,6 @@ from opsmate.runtime.docker import DockerRuntimeConfig
 from contextlib import asynccontextmanager
 import os
 from tempfile import NamedTemporaryFile
-import uuid
 import subprocess
 from subprocess import check_call as co
 
@@ -70,10 +69,9 @@ async def docker_runtime(
                 pass
 
 
-@pytest.mark.serial
 @pytest.mark.skipif(
-    os.getenv("DOCKER_RUNTIME_TESTS") != "true",
-    reason="DOCKER_RUNTIME_TESTS is not set",
+    os.getenv("CONTAINER_RUNTIME_TEST") != "true",
+    reason="CONTAINER_RUNTIME_TEST is not set",
 )
 class TestDockerRuntimeCompose:
     @pytest.mark.asyncio
@@ -351,10 +349,9 @@ services:
         assert not os.path.exists(runtime.envvars_file)
 
 
-@pytest.mark.serial
 @pytest.mark.skipif(
-    os.getenv("DOCKER_RUNTIME_TESTS") != "true",
-    reason="DOCKER_RUNTIME_TESTS is not set",
+    os.getenv("CONTAINER_RUNTIME_TEST") != "true",
+    reason="CONTAINER_RUNTIME_TEST is not set",
 )
 class TestDockerRuntimeFromContainer:
     @pytest.mark.asyncio

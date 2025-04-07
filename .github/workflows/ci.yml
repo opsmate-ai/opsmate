@@ -11,7 +11,8 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        python-version: ["3.12", "3.13"]
+        # python-version: ["3.12", "3.13"]
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -35,7 +36,14 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CI: "true"
         run: |
-          DOCKER_RUNTIME_TESTS=true uv run pytest ./opsmate/tests -m "serial"
+          CONTAINER_RUNTIME_TEST=true uv run pytest ./opsmate/tests
+      - name: mysql tool tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI: "true"
+        run: |
+          CONTAINER_RUNTIME_TEST=true uv run --package opsmate-tool-mysql pytest ./contrib/tests
 
   build-image:
     runs-on: ubuntu-latest

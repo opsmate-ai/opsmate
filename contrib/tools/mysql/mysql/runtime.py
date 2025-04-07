@@ -99,7 +99,6 @@ class MySQLRuntime(Runtime):
         return await self.run("SELECT CURRENT_USER() as user")
 
     async def runtime_info(self):
-        # return "mysql runtime"
         if self.config.database:
             result = f"mysql runtime connected to {self.config.database} database"
             table_descriptions = await self.describe_tables()
@@ -141,7 +140,11 @@ class MySQLRuntime(Runtime):
                             .upper()
                             .startswith(("SELECT", "SHOW", "DESCRIBE", "EXPLAIN"))
                         ):
-                            return await loop.run_in_executor(None, cursor.fetchall)
+                            try:
+                                return await loop.run_in_executor(None, cursor.fetchall)
+                            finally:
+                                # commit so that we do not have a stale view in case of transactions happen in separate connections
+                                await loop.run_in_executor(None, self.connection.commit)
                         else:
                             await loop.run_in_executor(None, self.connection.commit)
                             return (

@@ -5,7 +5,6 @@ from opsmate.runtime.docker import DockerRuntimeConfig
 from contextlib import asynccontextmanager
 import os
 from tempfile import NamedTemporaryFile
-import uuid
 import subprocess
 from subprocess import check_call as co
 

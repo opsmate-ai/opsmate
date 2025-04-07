@@ -99,7 +99,6 @@ class MySQLRuntime(Runtime):
         return await self.run("SELECT CURRENT_USER() as user")
 
     async def runtime_info(self):
-        # return "mysql runtime"
         if self.config.database:
             result = f"mysql runtime connected to {self.config.database} database"
             table_descriptions = await self.describe_tables()

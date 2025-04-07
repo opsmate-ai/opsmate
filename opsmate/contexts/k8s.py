@@ -4,8 +4,8 @@ from opsmate.tools import (
     ACITool,
     HtmlToText,
     PrometheusTool,
+    Thinking,
 )
-import subprocess
 from opsmate.dino.context import context
 from opsmate.runtime import Runtime
 
@@ -18,6 +18,7 @@ from opsmate.runtime import Runtime
         ACITool,
         HtmlToText,
         PrometheusTool,
+        Thinking,
     ],
 )
 async def k8s_ctx(runtime: Runtime) -> str:
@@ -51,7 +52,6 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 <available_command_line_tools>
 - kubectl
 - helm
-- kubectx
 - and all the conventional command line tools such as grep, awk, wc, etc.
 </available_command_line_tools>
     """

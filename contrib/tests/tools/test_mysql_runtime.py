@@ -92,10 +92,9 @@ services:
             logger.error("Failed to stop MySQL runtime", error=e)
 
 
-@pytest.mark.serial
 @pytest.mark.skipif(
-    os.getenv("MYSQL_RUNTIME_TESTS") != "true",
-    reason="MYSQL_RUNTIME_TESTS is not set",
+    os.getenv("CONTAINER_RUNTIME_TEST") != "true",
+    reason="CONTAINER_RUNTIME_TEST is not set",
 )
 class TestMySQLRuntime:
     @pytest.mark.asyncio

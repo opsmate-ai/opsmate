@@ -47,25 +47,29 @@ async def k8s_agent(question: str, hooks: EvalHooks):
         span.set_attribute("rendered_question", rendered_question)
         hooks.metadata["input"] = rendered_question
 
-        runtime = LocalRuntime()
+        try:
+            runtime = LocalRuntime()
+            await runtime.connect()
 
-        contexts = await k8s_ctx.resolve_contexts(runtime=runtime)
-        tools = k8s_ctx.resolve_tools()
-        async for output in run_react(
-            rendered_question,
-            contexts=contexts,
-            tools=tools,
-            model=hooks.metadata.get("model"),
-            tool_call_context={
-                "runtime": runtime,
-            },
-        ):
-            logger.info("output", output=output)
+            contexts = await k8s_ctx.resolve_contexts(runtime=runtime)
+            tools = k8s_ctx.resolve_tools()
+            async for output in run_react(
+                rendered_question,
+                contexts=contexts,
+                tools=tools,
+                model=hooks.metadata.get("model"),
+                tool_call_context={
+                    "runtime": runtime,
+                },
+            ):
+                logger.info("output", output=output)
 
-        if isinstance(output, ReactAnswer):
-            return output.answer
-        else:
-            raise ValueError(f"Unexpected output type: {type(output)}")
+            if isinstance(output, ReactAnswer):
+                return output.answer
+            else:
+                raise ValueError(f"Unexpected output type: {type(output)}")
+        finally:
+            await runtime.disconnect()
 
 
 # create a temp directory and copy all the scenarios files to it

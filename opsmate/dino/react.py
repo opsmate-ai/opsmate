@@ -49,13 +49,18 @@ async def _react_prompt(
     </response_format 2>
 
     <important 1>
-    If you are requested with a general query in which user do not expect you to perform any action,
+    If you are requested with a general query in which you can answer outright without accessing to any internal knowledge-base,
     you can directly give the answer without going through the thought process.
 
     These query often include:
-    - How can I ...
-    - Can you provide me with instructions on how to ...
-    - What are the steps to ...
+    - How can I install a curl package?
+    - Can you provide me with instructions on how to install a curl package?
+    - What are the steps to install a curl package?
+
+    And does not include:
+    - How can I install $A_INTERNAL_TOOL where you have no knowledge of $A_INTERNAL_TOOL
+    - Can you provide me with instructions on how to install $A_INTERNAL_TOOL
+    - What are the steps to install $A_INTERNAL_TOOL
 
     For example:
 

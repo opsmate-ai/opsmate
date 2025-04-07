@@ -5,6 +5,7 @@ from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
 from opsmate.libs.core.trace import start_trace
 from opsmate.libs.config import config
+from opsmate.runtime import LocalRuntime
 from opentelemetry import trace
 import structlog
 import os
@@ -46,13 +47,18 @@ async def k8s_agent(question: str, hooks: EvalHooks):
         span.set_attribute("rendered_question", rendered_question)
         hooks.metadata["input"] = rendered_question
 
-        contexts = await k8s_ctx.resolve_contexts()
+        runtime = LocalRuntime()
+
+        contexts = await k8s_ctx.resolve_contexts(runtime=runtime)
         tools = k8s_ctx.resolve_tools()
         async for output in run_react(
             rendered_question,
             contexts=contexts,
             tools=tools,
             model=hooks.metadata.get("model"),
+            tool_call_context={
+                "runtime": runtime,
+            },
         ):
             logger.info("output", output=output)
 

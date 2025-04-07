@@ -67,11 +67,7 @@ class Result(BaseModel):
 
 
 class ACITool(ToolCall[Result], PresentationMixin):
-    model_config = ConfigDict(populate_by_name=True)
-
     """
-    # ACITool
-
     ACITool is a text editor built for AI Agents to search, view, create, update,
     insert and undo file operations.
 
@@ -87,6 +83,8 @@ class ACITool(ToolCall[Result], PresentationMixin):
     - Directory view: 2-depth, ignores dotfiles
     - Empty new content in update deletes old content
     """
+
+    model_config = ConfigDict(populate_by_name=True)
 
     _file_history: ClassVar[Dict[Path, List[str]]] = defaultdict(list)
 

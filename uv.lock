@@ -3074,7 +3074,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.47a0"
+version = "0.1.48a0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3234,7 +3234,7 @@ requires-dist = [
 
 [[package]]
 name = "opsmate-tool-mysql"
-version = "0.1.1a0"
+version = "0.1.2a0"
 source = { editable = "contrib/tools/mysql" }
 dependencies = [
     { name = "opsmate" },

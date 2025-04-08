@@ -1,4 +1,9 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import (
+    ToolCall,
+    ToolCallConfig,
+    register_tool,
+    PresentationMixin,
+)
 from pydantic import Field
 from typing import Any, Tuple, Dict, Union, List
 from .runtime import MySQLRuntime, RuntimeError
@@ -10,6 +15,15 @@ ResultType = Union[
 ]
 
 
+class MySQLToolConfig(ToolCallConfig):
+    runtime: str = Field(
+        alias="MYSQL_TOOL_RUNTIME",
+        description="The runtime to use for the tool call",
+        default="mysql",
+    )
+
+
+@register_tool(config=MySQLToolConfig)
 class MySQLTool(ToolCall[ResultType], PresentationMixin):
     """MySQL tool"""
 

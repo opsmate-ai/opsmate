@@ -12,10 +12,12 @@ from typing import (
     Callable,
     Awaitable,
     TypeAlias,
+    ClassVar,
 )
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
 from opsmate.runtime import Runtime
+from opsmate.libs.config import BaseSettings
 from abc import ABC, abstractmethod
 import structlog
 import inspect
@@ -118,6 +120,10 @@ OutputType = TypeVar("OutputType")
 
 
 class ToolCall(BaseModel, Generic[OutputType]):
+    _tools: ClassVar[Dict[str, "ToolCall"]] = {}
+    _tool_configs: ClassVar[Dict[str, "ToolCallConfig"]] = {}
+    _tool_sources: ClassVar[Dict[str, str]] = {}
+
     _output: OutputType = PrivateAttr()
 
     async def run(self, context: dict[str, Any] = {}):
@@ -208,17 +214,19 @@ class ToolCall(BaseModel, Generic[OutputType]):
         return []
 
 
-class RuntimeMixin(ABC):
-    _runtime: Runtime = PrivateAttr()
+class ToolCallConfig(BaseSettings): ...
 
-    @computed_field
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
 
-    @runtime.setter
-    def runtime(self, value: Runtime):
-        self._runtime = value
+def register_tool(config: Type[ToolCallConfig] | None = None):
+    def wrapper(cls: Type[ToolCall]):
+        tool_name = cls.__name__
+        ToolCall._tools[tool_name] = cls
+        ToolCall._tool_sources[tool_name] = inspect.getfile(cls)
+        if config:
+            ToolCall._tool_configs[tool_name] = config
+        return cls
+
+    return wrapper
 
 
 class PresentationMixin(ABC):

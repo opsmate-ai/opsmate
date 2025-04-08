@@ -1,4 +1,4 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import ToolCall, PresentationMixin, register_tool
 from pydantic import Field
 from typing import ClassVar, Optional, Any
 import os
@@ -21,6 +21,7 @@ class Result(BaseModel):
     )
 
 
+@register_tool()
 class GithubCloneAndCD(ToolCall[Result], PresentationMixin):
     """
     Clone a github repository and cd into the directory
@@ -84,6 +85,7 @@ Repo path: `{self.repo_path}`
 """
 
 
+@register_tool()
 class GithubRaisePR(ToolCall[Result], PresentationMixin):
     """
     Raise a PR for a given github repository

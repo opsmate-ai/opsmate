@@ -1,4 +1,4 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import ToolCall, PresentationMixin, register_tool
 import httpx
 from typing import Dict, List, Any
 from pydantic import Field
@@ -27,6 +27,7 @@ class HttpBase(ToolCall[HttpResponse], PresentationMixin):
         return self._client
 
 
+@register_tool()
 class HttpGet(HttpBase):
     """HttpGet tool allows you to get the content of a URL"""
 
@@ -52,6 +53,7 @@ resp code: {self.output.status_code}
 """
 
 
+@register_tool()
 class HttpCall(HttpBase):
     """
     HttpCall tool allows you to call a URL
@@ -103,6 +105,7 @@ resp code: {self.output.status_code}
 """
 
 
+@register_tool()
 class HtmlToText(HttpBase):
     """HtmlToText tool allows you to convert an HTTP response to text"""
 
@@ -130,12 +133,14 @@ resp code: {self.output.status_code}
 """
 
 
+@register_tool()
 class Fs(ToolCall[str], PresentationMixin):
     """Fs tool allows you to read and write to the filesystem"""
 
     def markdown(self, context: Dict[str, Any] = {}): ...
 
 
+@register_tool()
 class FileRead(Fs):
     """FileRead tool allows you to read a file"""
 
@@ -161,6 +166,7 @@ class FileRead(Fs):
 """
 
 
+@register_tool()
 class FileWrite(Fs):
     """FileWrite tool allows you to write to a file"""
 
@@ -187,6 +193,7 @@ class FileWrite(Fs):
 """
 
 
+@register_tool()
 class FileAppend(Fs):
     """FileAppend tool allows you to append to a file"""
 
@@ -213,6 +220,7 @@ class FileAppend(Fs):
 """
 
 
+@register_tool()
 class FilesList(Fs):
     """FilesList tool allows you to list files in a directory recursively"""
 
@@ -249,6 +257,7 @@ class FilesList(Fs):
 """
 
 
+@register_tool()
 class FilesFind(Fs):
     """FilesFind tool allows you to find files in a directory"""
 
@@ -278,6 +287,7 @@ class FilesFind(Fs):
 """
 
 
+@register_tool()
 class FileDelete(Fs):
     """FileDelete tool allows you to delete a file"""
 
@@ -302,6 +312,7 @@ class FileDelete(Fs):
 """
 
 
+@register_tool()
 class SysStats(Fs):
     """SysStats tool allows you to get the stats of a file"""
 
@@ -326,6 +337,7 @@ class SysStats(Fs):
 """
 
 
+@register_tool()
 class SysChdir(Fs):
     """SysChdir tool allows you to change the current working directory"""
 
@@ -356,6 +368,7 @@ class SysChdir(Fs):
 """
 
 
+@register_tool()
 class SysEnv(Fs):
     """SysEnv tool allows you to get the environment variables"""
 

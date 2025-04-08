@@ -1,4 +1,4 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import ToolCall, PresentationMixin, register_tool
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Dict, List, Optional, ClassVar, Self, Any
 from collections import defaultdict
@@ -66,6 +66,7 @@ class Result(BaseModel):
     )
 
 
+@register_tool()
 class ACITool(ToolCall[Result], PresentationMixin):
     """
     ACITool is a text editor built for AI Agents to search, view, create, update,

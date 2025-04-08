@@ -7,7 +7,14 @@ from rich.text import Text
 from rich.prompt import Prompt
 from rich.markdown import Markdown
 from opsmate.dino import dino, run_react
-from opsmate.dino.types import Observation, ReactAnswer, React, Message, ToolCall
+from opsmate.dino.types import (
+    Observation,
+    ReactAnswer,
+    React,
+    Message,
+    ToolCall,
+    ToolCallConfig,
+)
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
@@ -15,6 +22,7 @@ from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
+import opsmate.tools
 from functools import cache
 from typing import Dict
 from runpy import run_module
@@ -146,6 +154,12 @@ def with_runtime(func):
             await runtime.disconnect()
 
     return wrapper
+
+
+def tool_config_params(func):
+    for _, tool_config in ToolCall._tool_configs.items():
+        func = tool_config.config_params()(func)
+    return func
 
 
 def runtime_params(func):

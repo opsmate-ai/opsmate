@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, model_validator, computed_field
 import pytz
 from typing import ClassVar, Annotated
 from opsmate.dino import dtool, dino
+from opsmate.dino.types import register_tool
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -45,6 +46,7 @@ class DatetimeRange(BaseModel):
         return datetime.strptime(self.end, self._FMT)
 
 
+@register_tool()
 @dtool
 async def current_time() -> str:
     """
@@ -53,6 +55,7 @@ async def current_time() -> str:
     return datetime.now(pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+@register_tool()
 @dtool
 @dino(
     model="gpt-4o-mini",

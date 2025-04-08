@@ -12,6 +12,11 @@ from pydantic import create_model
 import inspect
 from inspect import Parameter
 from .types import ToolCall, BaseModel
+import pkg_resources
+import traceback
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 P = ParamSpec("P")
@@ -103,3 +108,21 @@ def _fn_has_context(fn: Callable | Coroutine[Any, Any, Any]):
 def _is_fn_returning_base_model(fn: Callable | Coroutine[Any, Any, Any]):
     return_type = fn.__annotations__.get("return")
     return isinstance(return_type, type) and issubclass(return_type, BaseModel)
+
+
+def discover_tools(group_name="opsmate.tools"):
+    """discover tools via entry points"""
+    for entry_point in pkg_resources.iter_entry_points(group_name):
+        try:
+            cls = entry_point.load()
+            if not issubclass(cls, ToolCall):
+                logger.error("Tool must inherit from ToolCall", tool=entry_point.name)
+                continue
+        except Exception as e:
+            logger.error(
+                "Error loading tool",
+                tool=entry_point.name,
+                error=e,
+                stacktrace=traceback.format_exc(),
+            )
+            continue

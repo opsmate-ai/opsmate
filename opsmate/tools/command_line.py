@@ -1,6 +1,11 @@
 from typing import Any, List
 from pydantic import Field
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import (
+    ToolCall,
+    ToolCallConfig,
+    PresentationMixin,
+    register_tool,
+)
 import structlog
 from opsmate.tools.utils import maybe_truncate_text
 from opsmate.runtime.local import LocalRuntime, LocalRuntimeConfig
@@ -11,6 +16,15 @@ tracer = trace.get_tracer(__name__)
 logger = structlog.get_logger(__name__)
 
 
+class ShellCommandConfig(ToolCallConfig):
+    runtime: str = Field(
+        alias="SHELL_COMMAND_RUNTIME",
+        description="The runtime to use for the tool call",
+        default="local",
+    )
+
+
+@register_tool(config=ShellCommandConfig)
 class ShellCommand(ToolCall[str], PresentationMixin):
     """
     ShellCommand tool allows you to run shell commands and get the output.

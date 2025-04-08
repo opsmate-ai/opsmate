@@ -18,6 +18,9 @@ class LocalRuntimeConfig(RuntimeConfig):
     shell_cmd: str = Field(default="/bin/bash", alias="RUNTIME_LOCAL_SHELL")
     envvars: Dict[str, str] = Field(default={}, alias="RUNTIME_LOCAL_ENV")
 
+    def support_tools(self):
+        return ["ShellCommand"]
+
 
 @register_runtime("local", LocalRuntimeConfig)
 class LocalRuntime(Runtime):

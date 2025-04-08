@@ -20,6 +20,9 @@ class K8sRuntimeConfig(RuntimeConfig):
     )
     shell_cmd: str = Field(default="/bin/sh", alias="RUNTIME_K8S_SHELL")
 
+    def support_tools(self):
+        return ["ShellCommand"]
+
 
 @register_runtime("k8s", K8sRuntimeConfig)
 class K8sRuntime(LocalRuntime):

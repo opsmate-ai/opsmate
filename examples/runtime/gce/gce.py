@@ -30,6 +30,9 @@ class GCERuntimeConfig(RuntimeConfig):
     gcloud_binary: str = Field(default="gcloud", alias="RUNTIME_GCE_GCLOUD_BINARY")
     extra_flags: List[str] = Field(default=[], alias="RUNTIME_GCE_EXTRA_FLAGS")
 
+    def support_tools(self):
+        return ["ShellCommand"]
+
 
 @register_runtime("gce", GCERuntimeConfig)
 class GCERuntime(LocalRuntime):

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Type, List
 from opsmate.libs.config.base_settings import BaseSettings
 import pkg_resources
 import structlog
@@ -9,7 +9,9 @@ import traceback
 logger = structlog.get_logger(__name__)
 
 
-class RuntimeConfig(BaseSettings): ...
+class RuntimeConfig(BaseSettings):
+    @abstractmethod
+    def support_tools(self) -> List[str]: ...
 
 
 class Runtime(ABC):

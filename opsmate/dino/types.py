@@ -208,6 +208,19 @@ class ToolCall(BaseModel, Generic[OutputType]):
         return []
 
 
+class RuntimeMixin(ABC):
+    _runtime: Runtime = PrivateAttr()
+
+    @computed_field
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    @runtime.setter
+    def runtime(self, value: Runtime):
+        self._runtime = value
+
+
 class PresentationMixin(ABC):
     @abstractmethod
     def markdown(self, context: dict[str, Any] = {}):

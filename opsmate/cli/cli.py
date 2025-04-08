@@ -1,5 +1,6 @@
 from opsmate import __version__
 from opsmate.libs.core.trace import traceit, start_trace
+from opsmate.libs.config.base_settings import CommaSeparatedList
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -51,39 +52,6 @@ class StdinArgument(click.ParamType):
         if value == "-":
             return sys.stdin.read().strip()
         return value
-
-
-class CommaSeparatedList(click.Option):
-    """Custom Click option for handling comma-separated lists.
-
-    This class allows you to pass comma-separated values to a Click option
-    and have them automatically converted to a Python list.
-
-    Example usage:
-        @click.option('--items', cls=CommaSeparatedList)
-        def command(items):
-            # items will be a list
-    """
-
-    def type_cast_value(self, ctx, value):
-        if value is None or value == "":
-            return []
-
-        # Handle the case where the value is already a list
-        if isinstance(value, list) or isinstance(value, tuple):
-            return value
-
-        # Split by comma and strip whitespace
-        result = [item.strip() for item in value.split(",") if item.strip()]
-        return result
-
-    def get_help_record(self, ctx):
-        help_text = self.help or ""
-        if help_text and not help_text.endswith("."):
-            help_text += "."
-        help_text += " Values should be comma-separated."
-
-        return super(CommaSeparatedList, self).get_help_record(ctx)
 
 
 @click.group()

@@ -3,7 +3,7 @@ from lancedb.pydantic import LanceModel, Vector
 from lancedb.embeddings import get_registry
 from lancedb.index import FTS
 from pydantic import Field
-from opsmate.libs.config import config
+from opsmate.config import config
 from typing import List, Any, Dict
 import uuid
 from enum import Enum

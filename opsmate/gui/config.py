@@ -1,4 +1,4 @@
-from opsmate.libs.config import Config as OpsmateConfig
+from opsmate.config import Config as OpsmateConfig
 from pydantic import Field
 from opsmate.plugins import PluginRegistry
 from opsmate.dino.context import ContextRegistry

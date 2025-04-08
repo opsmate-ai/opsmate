@@ -4,7 +4,7 @@ from opsmate.contexts import k8s_ctx
 from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
 from opsmate.libs.core.trace import start_trace
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.runtime import LocalRuntime
 from opentelemetry import trace
 import structlog

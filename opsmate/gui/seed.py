@@ -1,6 +1,6 @@
 from sqlmodel import Session, select, create_engine
 from opsmate.gui.models import BluePrint, Workflow, WorkflowEnum, default_new_cell
-from opsmate.libs.config import config
+from opsmate.config import config
 
 polya_workflows = [
     {

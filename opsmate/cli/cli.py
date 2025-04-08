@@ -10,7 +10,7 @@ from opsmate.dino.types import Observation, ReactAnswer, React, Message, ToolCal
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime

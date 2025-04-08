@@ -4,7 +4,7 @@ from opsmate.ingestions.chunk import chunk_document
 from opsmate.ingestions.fs import FsIngestion
 from opsmate.ingestions.github import GithubIngestion
 from opsmate.ingestions.models import IngestionRecord, DocumentRecord
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.dbq.dbq import enqueue_task, dbq_task
 from opsmate.dino import dino
 from opsmate.textsplitters import splitter_from_config

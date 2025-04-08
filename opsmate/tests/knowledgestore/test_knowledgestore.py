@@ -17,7 +17,7 @@ from opsmate.knowledgestore.models import (
     schedule_reindex_table,
     ReindexTableTask,
 )
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.dbq.dbq import SQLModel, TaskItem, TaskStatus
 from sqlmodel import Session, select
 

@@ -1,7 +1,7 @@
 import tempfile
 import os
 import pytest
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.knowledgestore.models import init_table
 import structlog
 import asyncio

@@ -973,7 +973,11 @@ def list_tools(config):
 
 
 @opsmate_cli.command()
-def list_models():
+@click.option(
+    "--provider",
+    help="Provider to list the models for",
+)
+def list_models(provider):
     """
     List all the models available.
     """
@@ -981,9 +985,17 @@ def list_models():
     table.add_column("Provider")
     table.add_column("Model")
 
-    for provider_name, provider in Provider.providers.items():
-        for model in provider.models:
-            table.add_row(provider_name, model)
+    if provider:
+        if provider not in Provider.providers:
+            console.print(f"Provider {provider} not found")
+            exit(1)
+        model_list = Provider.providers[provider]
+        for model in model_list.models:
+            table.add_row(provider, model)
+    else:
+        for provider_name, provider in Provider.providers.items():
+            for model in provider.models:
+                table.add_row(provider_name, model)
 
     console.print(table)
 

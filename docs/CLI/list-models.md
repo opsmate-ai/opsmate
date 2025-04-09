@@ -10,7 +10,8 @@ Usage: opsmate list-models [OPTIONS]
   List all the models available.
 
 Options:
-  --help  Show this message and exit.
+  --provider TEXT  Provider to list the models for
+  --help           Show this message and exit.
 ```
 
 ## USAGE

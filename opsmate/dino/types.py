@@ -19,7 +19,6 @@ from opentelemetry.trace.status import Status, StatusCode
 from opsmate.runtime import Runtime
 from opsmate.libs.config import BaseSettings
 from abc import ABC, abstractmethod
-from textwrap import dedent
 import structlog
 import inspect
 import traceback
@@ -213,10 +212,6 @@ class ToolCall(BaseModel, Generic[OutputType]):
         confirmation_fields is the method that is called to get the fields that are used to confirm the tool call.
         """
         return []
-
-    @classmethod
-    def doc(cls):
-        return dedent(cls.__doc__).strip()
 
 
 class ToolCallConfig(BaseSettings): ...

@@ -32,6 +32,7 @@ import os
 import click
 import structlog
 import sys
+import inspect
 
 console = Console()
 
@@ -962,7 +963,7 @@ def list_tools(config):
     table.add_column("Description")
 
     for tool_name, tool in PluginRegistry.get_tools().items():
-        table.add_row(tool_name, tool.doc())
+        table.add_row(tool_name, inspect.getdoc(tool))
 
     console.print(table)
 
@@ -1076,7 +1077,7 @@ async def list_runtimes():
     table.add_column("Description")
 
     for name, runtime in Runtime.runtimes.items():
-        table.add_row(name, runtime.doc())
+        table.add_row(name, inspect.getdoc(runtime))
 
     console.print(table)
 

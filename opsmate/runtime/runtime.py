@@ -5,7 +5,6 @@ import pkg_resources
 import structlog
 import subprocess
 import traceback
-from textwrap import dedent
 
 logger = structlog.get_logger(__name__)
 
@@ -46,10 +45,6 @@ class Runtime(ABC):
     @abstractmethod
     async def has_systemd(self):
         pass
-
-    @classmethod
-    def doc(cls):
-        return dedent(cls.__doc__).strip()
 
 
 class RuntimeError(Exception):

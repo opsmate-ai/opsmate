@@ -3,7 +3,7 @@ from pydantic import Field, computed_field, PrivateAttr
 from typing import Any, List, Dict, ClassVar
 from httpx import AsyncClient
 from opsmate.dino import dino
-from opsmate.dino.types import Message
+from opsmate.dino.types import Message, register_tool
 from opsmate.tools.datetime import DatetimeRange, datetime_extraction
 from opsmate.tools.knowledge_retrieval import KnowledgeRetrieval
 import pandas as pd
@@ -458,6 +458,7 @@ async def prometheus_query(query: str, context: dict[str, Any] = {}):
     ]
 
 
+@register_tool()
 class PrometheusTool(ToolCall[PromQuery], PresentationMixin):
     """
     PrometheusTool is a tool to query metrics from prometheus tsdb via natural language

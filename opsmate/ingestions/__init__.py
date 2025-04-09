@@ -2,7 +2,7 @@ from .base import BaseIngestion
 from .fs import FsIngestion
 from .github import GithubIngestion
 from typing import List
-from opsmate.libs.config import Config
+from opsmate.config import Config
 import structlog
 from opsmate.ingestions.jobs import ingest
 from sqlmodel import Session

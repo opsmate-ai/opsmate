@@ -1,19 +1,27 @@
 from opsmate import __version__
 from opsmate.libs.core.trace import traceit, start_trace
+from opsmate.libs.config.base_settings import CommaSeparatedList
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 from rich.prompt import Prompt
 from rich.markdown import Markdown
 from opsmate.dino import dino, run_react
-from opsmate.dino.types import Observation, ReactAnswer, React, Message, ToolCall
+from opsmate.dino.types import (
+    Observation,
+    ReactAnswer,
+    React,
+    Message,
+    ToolCall,
+)
 from opsmate.dino.provider import Provider
 from opsmate.dino.context import ContextRegistry
 from functools import wraps
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
+
 from functools import cache
 from typing import Dict
 from runpy import run_module
@@ -23,6 +31,9 @@ import os
 import click
 import structlog
 import sys
+import inspect
+import opsmate.tools  # noqa: F401
+import traceback
 
 console = Console()
 
@@ -51,39 +62,6 @@ class StdinArgument(click.ParamType):
         if value == "-":
             return sys.stdin.read().strip()
         return value
-
-
-class CommaSeparatedList(click.Option):
-    """Custom Click option for handling comma-separated lists.
-
-    This class allows you to pass comma-separated values to a Click option
-    and have them automatically converted to a Python list.
-
-    Example usage:
-        @click.option('--items', cls=CommaSeparatedList)
-        def command(items):
-            # items will be a list
-    """
-
-    def type_cast_value(self, ctx, value):
-        if value is None or value == "":
-            return []
-
-        # Handle the case where the value is already a list
-        if isinstance(value, list) or isinstance(value, tuple):
-            return value
-
-        # Split by comma and strip whitespace
-        result = [item.strip() for item in value.split(",") if item.strip()]
-        return result
-
-    def get_help_record(self, ctx):
-        help_text = self.help or ""
-        if help_text and not help_text.endswith("."):
-            help_text += "."
-        help_text += " Values should be comma-separated."
-
-        return super(CommaSeparatedList, self).get_help_record(ctx)
 
 
 @click.group()
@@ -151,39 +129,61 @@ def config_params(cli_config=config):
     return decorator
 
 
-def runtime_from_kwargs(kwargs):
-    config = kwargs.get("config")
-    runtime_name = config.runtime
-    runtime_class: Runtime = config.runtime_class()
-    runtime_config_name = Runtime.configs[runtime_name].__name__
-    runtime_config = kwargs.pop(runtime_config_name)
-    return runtime_class(runtime_config)
+def tool_config_params(func):
+    for tool_name, tool_config in ToolCall._tool_configs.items():
+        func = tool_config.config_params(tool_name)(func)
+    return func
+
+
+def runtime_params(func):
+    for runtime_name, runtime_config in Runtime.configs.items():
+        func = runtime_config.config_params(runtime_name)(func)
+    return func
+
+
+def runtimes_from_kwargs(kwargs):
+    ctx = get_context(kwargs.get("context"))
+    selected_tools = kwargs.get("tools", [])
+    if len(selected_tools) == 0:
+        selected_tools = ctx.resolve_tools()
+    selected_tool_names = [t.__name__ for t in selected_tools]
+
+    tool_configs = kwargs.pop("ToolCallConfig")
+    runtime_configs = kwargs.pop("RuntimeConfig")
+
+    runtimes = {}
+    configs = {}
+    for tool_name, tool_config in tool_configs.items():
+        if tool_name not in selected_tool_names:
+            continue
+
+        runtime_name = tool_config.runtime
+        runtime_class: Runtime = Runtime.runtimes[runtime_name]
+
+        runtime_config = runtime_configs[runtime_name]
+        runtimes[tool_name] = runtime_class(runtime_config)
+        configs[runtime_name] = runtime_config
+
+    return runtimes, configs
 
 
 def with_runtime(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        runtime = runtime_from_kwargs(kwargs)
+        runtimes, _ = runtimes_from_kwargs(kwargs)
         tool_call_context = kwargs.get("tool_call_context")
-        tool_call_context["runtime"] = runtime
+        tool_call_context["runtimes"] = runtimes
+        kwargs["runtimes"] = runtimes
 
-        for _, runtime_config in Runtime.configs.items():
-            kwargs.pop(runtime_config.__name__, None)
-
-        kwargs["runtime"] = runtime
         try:
-            await runtime.connect()
+            for runtime in runtimes.values():
+                await runtime.connect()
             return await func(*args, **kwargs)
         finally:
-            await runtime.disconnect()
+            for runtime in runtimes.values():
+                await runtime.disconnect()
 
     return wrapper
-
-
-def runtime_params(func):
-    for _, runtime_config in Runtime.configs.items():
-        func = runtime_config.config_params()(func)
-    return func
 
 
 def common_params(func):
@@ -214,6 +214,13 @@ def common_params(func):
         default=None,
         show_default=True,
         help="System prompt to use",
+    )
+    @click.option(
+        "-c",
+        "--context",
+        default="cli",
+        show_default=True,
+        help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
     )
     @click.option(
         "-l",
@@ -297,13 +304,6 @@ Edit the execution if needed, then press Enter to execute:
 @opsmate_cli.command()
 @click.argument("instruction", type=StdinArgument())
 @click.option(
-    "-c",
-    "--context",
-    show_default=True,
-    default="cli",
-    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
-)
-@click.option(
     "-nt",
     "--no-tool-output",
     is_flag=True,
@@ -316,11 +316,12 @@ Edit the execution if needed, then press Enter to execute:
     help="Do not print observation",
 )
 @config_params()
+@tool_config_params
 @runtime_params
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
     instruction,
     model,
@@ -330,7 +331,7 @@ async def run(
     system_prompt,
     no_tool_output,
     no_observation,
-    runtime,
+    runtimes,
     config,
     span,
 ):
@@ -360,7 +361,7 @@ async def run(
 
     @dino(model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
-        sys_prompts = await ctx.resolve_contexts(runtime=runtime)
+        sys_prompts = await ctx.resolve_contexts(runtimes=runtimes)
         if system_prompt:
             sys_prompts = [
                 Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
@@ -393,6 +394,7 @@ async def run(
                 console.print(Markdown(observation.observation))
     except Exception as e:
         console.print(f"Error: {e}")
+        console.print(f"Traceback:\n{traceback.format_exc()}")
         exit(1)
 
 
@@ -404,13 +406,6 @@ async def run(
     default=10,
     show_default=True,
     help="Max number of iterations the AI assistant can reason about",
-)
-@click.option(
-    "-c",
-    "--context",
-    default="cli",
-    show_default=True,
-    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
 )
 @click.option(
     "-nt",
@@ -431,11 +426,12 @@ async def run(
     help="Number of tool calls per action",
 )
 @config_params()
+@tool_config_params
 @runtime_params
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtime", "tools"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtimes", "tools"])
 async def solve(
     instruction,
     model,
@@ -448,7 +444,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
-    runtime,
+    runtimes,
     span,
 ):
     """
@@ -471,7 +467,7 @@ async def solve(
             "cli.solve.tool_calls_per_action": tool_calls_per_action,
         }
     )
-    contexts = await ctx.resolve_contexts(runtime=runtime)
+    contexts = await ctx.resolve_contexts(runtimes=runtimes)
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 
@@ -552,24 +548,18 @@ Commands:
     help="Max number of iterations the AI assistant can reason about",
 )
 @click.option(
-    "-c",
-    "--context",
-    default="cli",
-    show_default=True,
-    help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
-)
-@click.option(
     "--tool-calls-per-action",
     default=1,
     show_default=True,
     help="Number of tool calls per action",
 )
 @config_params()
+@tool_config_params
 @runtime_params
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtime"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
     model,
     max_iter,
@@ -578,7 +568,7 @@ async def chat(
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
-    runtime,
+    runtimes,
     config,
     span,
 ):
@@ -589,7 +579,7 @@ async def chat(
     ctx = get_context(context)
 
     if len(tools) == 0:
-        tools = ctx.tools
+        tools = ctx.resolve_tools()
 
     span.set_attributes(
         {
@@ -617,7 +607,7 @@ async def chat(
                 console.print(help_msg)
                 continue
 
-            contexts = await ctx.resolve_contexts(runtime=runtime)
+            contexts = await ctx.resolve_contexts(runtimes=runtimes)
             if system_prompt:
                 contexts = [
                     Message.system(f"<system_prompt>{system_prompt}</system_prompt>")
@@ -770,17 +760,12 @@ async def reset(skip_confirm, config):
     help="Number of uvicorn workers to serve on",
 )
 @click.option(
-    "--runtime",
-    default="",
-    show_default=True,
-    help="Runtime to use",
-)
-@click.option(
     "--dev",
     is_flag=True,
     help="Run in development mode",
 )
 @config_params(gui_config)
+@tool_config_params
 @runtime_params
 @auto_migrate
 @coro
@@ -788,20 +773,22 @@ async def serve(host, port, workers, dev, config, **kwargs):
     """
     Start the Opsmate server.
     """
-    import uvicorn
-    from sqlmodel import Session
-    from opsmate.gui.app import kb_ingest
-    from opsmate.gui.seed import seed_blueprints
 
     # serialize config to environment variables
     config.serialize_to_env()
 
-    runtime_name = config.runtime
-    runtime_config_name = Runtime.configs[runtime_name].__name__
-    runtime_config = kwargs.pop(runtime_config_name)
-    runtime_config.serialize_to_env()
+    kwargs["context"] = config.context
+    kwargs["tools"] = config.opsmate_tools()
+    _, runtime_configs = runtimes_from_kwargs(kwargs)
+    for _, runtime_config in runtime_configs.items():
+        runtime_config.serialize_to_env()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    import uvicorn
+    from sqlmodel import Session
+    from opsmate.gui.app import kb_ingest
+    from opsmate.gui.seed import seed_blueprints
 
     await kb_ingest()
     engine = config.db_engine()
@@ -980,7 +967,7 @@ def list_tools(config):
     table.add_column("Description")
 
     for tool_name, tool in PluginRegistry.get_tools().items():
-        table.add_row(tool_name, tool.__doc__)
+        table.add_row(tool_name, inspect.getdoc(tool))
 
     console.print(table)
 
@@ -1094,7 +1081,7 @@ async def list_runtimes():
     table.add_column("Description")
 
     for name, runtime in Runtime.runtimes.items():
-        table.add_row(name, runtime.__doc__)
+        table.add_row(name, inspect.getdoc(runtime))
 
     console.print(table)
 

@@ -20,6 +20,7 @@ from .system import (
 )
 from .prom import PrometheusTool
 from .thinking import Thinking
+from opsmate.dino.tools import discover_tools
 
 __all__ = [
     "current_time",
@@ -44,3 +45,5 @@ __all__ = [
     "PrometheusTool",
     "Thinking",
 ]
+
+discover_tools()

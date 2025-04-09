@@ -1,4 +1,9 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import (
+    ToolCall,
+    ToolCallConfig,
+    register_tool,
+    PresentationMixin,
+)
 from pydantic import Field
 from typing import Any, Tuple, Dict, Union, List
 from .runtime import MySQLRuntime, RuntimeError
@@ -10,6 +15,15 @@ ResultType = Union[
 ]
 
 
+class MySQLToolConfig(ToolCallConfig):
+    runtime: str = Field(
+        alias="MYSQL_TOOL_RUNTIME",
+        description="The runtime to use for the tool call",
+        default="mysql",
+    )
+
+
+@register_tool(config=MySQLToolConfig)
 class MySQLTool(ToolCall[ResultType], PresentationMixin):
     """MySQL tool"""
 
@@ -22,7 +36,10 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
     )
 
     async def __call__(self, context: dict[str, Any] = {}):
-        runtime = context.get("runtime")
+        runtime = self.maybe_runtime(context)
+        if runtime is None:
+            raise RuntimeError("MySQL runtime not found")
+
         if not isinstance(runtime, MySQLRuntime):
             raise RuntimeError(f"Runtime {runtime} is not a MySQLRuntime")
 
@@ -62,3 +79,10 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
 
     def confirmation_fields(self) -> List[str]:
         return ["query"]
+
+    def maybe_runtime(self, context: dict[str, Any] = {}):
+        runtimes = context.get("runtimes", {})
+        if len(runtimes) == 0:
+            return None
+
+        return runtimes.get("MySQLTool", None)

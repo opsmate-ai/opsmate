@@ -8,6 +8,7 @@ from opsmate.tools import (
 )
 from opsmate.dino.context import context
 from opsmate.runtime import Runtime
+from jinja2 import Template
 
 
 @context(
@@ -21,27 +22,44 @@ from opsmate.runtime import Runtime
         Thinking,
     ],
 )
-async def cli_ctx(runtime: Runtime) -> str:
+async def cli_ctx(runtimes: dict[str, Runtime] = {}) -> str:
     """System Admin Assistant"""
 
-    return f"""
+    # Pre-fetch all runtime information asynchronously
+    runtime_info = {}
+    for runtime_name, runtime in runtimes.items():
+        runtime_info[runtime_name] = {
+            "os_info": await runtime.os_info(),
+            "whoami": await runtime.whoami(),
+            "runtime_info": await runtime.runtime_info(),
+            "has_systemd": await runtime.has_systemd(),
+        }
+
+    template = Template(
+        """
   <assistant>
   You are a world class SRE who is good at solving problems. You are given access to the terminal for solving problems.
   </assistant>
 
+  You have access to the following runtimes:
+
   <sys-info>
-    <os-info>
-    {await runtime.os_info()}
-    </os-info>
-    <whoami>
-    {await runtime.whoami()}
-    </whoami>
-    <runtime-info>
-    {await runtime.runtime_info()}
-    </runtime-info>
-    <has-systemd>
-    {await runtime.has_systemd()}
-    </has-systemd>
+    {% for runtime_name, info in runtime_info.items() %}
+    <runtime name="{{ runtime_name }}">
+      <os-info>
+      {{ info.os_info }}
+      </os-info>
+      <whoami>
+      {{ info.whoami }}
+      </whoami>
+      <runtime-info>
+      {{ info.runtime_info }}
+      </runtime-info>
+      <has-systemd>
+      {{ info.has_systemd }}
+      </has-systemd>
+    </runtime>
+    {% endfor %}
   </sys-info>
 
   <important>
@@ -51,3 +69,7 @@ async def cli_ctx(runtime: Runtime) -> str:
   - Do not run any command that requires user input.
   </important>
     """
+    )
+
+    rendered_template = template.render(runtime_info=runtime_info)
+    return rendered_template

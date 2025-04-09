@@ -1,4 +1,4 @@
-from opsmate.dino.types import ToolCall, PresentationMixin
+from opsmate.dino.types import ToolCall, PresentationMixin, register_tool
 from typing import Any
 from pydantic import Field
 import structlog
@@ -6,8 +6,10 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
+@register_tool()
 class Thinking(ToolCall[str], PresentationMixin):
-    """Use the tool to think about something.
+    """
+    Use the tool to think about something.
     It will not obtain new information or change the system state,
     but just append the thought to the log.
 

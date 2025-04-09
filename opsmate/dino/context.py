@@ -51,7 +51,7 @@ class ContextRegistry(BaseModel):
             return Context(
                 name=name,
                 system_prompt=fn,
-                description=fn.__doc__ if fn.__doc__ else "",
+                description=inspect.getdoc(fn) if fn.__doc__ else "",
                 contexts=contexts,
                 tools=tools,
             )

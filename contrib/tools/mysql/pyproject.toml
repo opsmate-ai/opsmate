@@ -1,6 +1,6 @@
 [project]
 name = "opsmate-tool-mysql"
-version = "0.1.1a0"
+version = "0.1.2a0"
 description = "MySQL tool for opsmate"
 authors = [
     { name="Jingkai He", email="jingkai@hey.com" },

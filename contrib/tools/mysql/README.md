@@ -34,7 +34,7 @@ docker compose -f fixtures/docker-compose.yml up
 Then you can test the tool by running:
 
 ```bash
-opsmate chat --runtime mysql \
+opsmate chat\
   --runtime-mysql-password my-secret-pw \
   --runtime-mysql-host localhost \
   --tools MySQLTool

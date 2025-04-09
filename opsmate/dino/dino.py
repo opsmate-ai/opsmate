@@ -151,7 +151,7 @@ def dino(
                 _client = _get_client(client, decorator_client)
                 provider = Provider.from_model(_model)
 
-                system_prompt = fn.__doc__
+                system_prompt = inspect.getdoc(fn) if fn.__doc__ else ""
                 # if is coroutine, await it
                 if inspect.iscoroutinefunction(fn):
                     prompt = await fn(*args, **fn_kwargs)

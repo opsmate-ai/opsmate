@@ -30,7 +30,7 @@ You will notice that the GCE runtime is automatically added to the list of runti
 Here is an example of how to use the GCE runtime:
 
 ```bash
-opsmate chat --runtime gce \
+opsmate chat --shell-command-runtime gce \
   --runtime-gce-instance my-vm \
   --runtime-gce-zone europe-west1-c
 ```

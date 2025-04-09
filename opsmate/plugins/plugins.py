@@ -62,8 +62,6 @@ class PluginRegistry(BaseModel):
     """
 
     _plugins: ClassVar[Dict[str, Plugin]] = {}
-    _tools: ClassVar[Dict[str, ToolCall]] = {}
-    _tool_sources: ClassVar[Dict[str, str]] = {}
 
     @classmethod
     def auto_discover(
@@ -77,7 +75,7 @@ class PluginRegistry(BaseModel):
 
         def decorator(func: Callable[P, T]) -> Callable[P, T]:
             plugin_name = name or func.__name__
-            plugin_description = description or func.__doc__
+            plugin_description = description or inspect.getdoc(func)
             is_async = asyncio.iscoroutinefunction(func)
 
             # Get the caller's frame and file path
@@ -119,33 +117,9 @@ class PluginRegistry(BaseModel):
     @classmethod
     def discover(cls, *plugin_dirs: str, ignore_conflicts: bool = False):
         """discover plugins in a directory"""
-        cls._load_builtin(ignore_conflicts=ignore_conflicts)
+        cls._load_builtin()
         for plugin_dir in plugin_dirs:
             cls._discover(plugin_dir, ignore_conflicts)
-
-        cls._discover_tools_via_entry_points()
-
-    @classmethod
-    def _discover_tools_via_entry_points(cls, group_name="opsmate.tools"):
-        """discover tools via entry points"""
-        for entry_point in pkg_resources.iter_entry_points(group_name):
-            try:
-                tool_cls = entry_point.load()
-                if not issubclass(tool_cls, ToolCall):
-                    logger.error(
-                        "Tool must inherit from ToolCall", tool=tool_cls.__name__
-                    )
-                    continue
-                cls._tools[tool_cls.__name__] = tool_cls
-                cls._tool_sources[tool_cls.__name__] = inspect.getfile(tool_cls)
-            except Exception as e:
-                logger.error(
-                    "Error loading tool",
-                    tool=entry_point.name,
-                    error=e,
-                    stacktrace=traceback.format_exc(),
-                )
-                continue
 
     @classmethod
     def _discover(cls, plugin_dir: str, ignore_conflicts: bool = False):
@@ -190,16 +164,8 @@ class PluginRegistry(BaseModel):
                 raise e
 
     @classmethod
-    def _load_builtin(
-        cls,
-        ignore_conflicts: bool = True,
-        builtin_modules: List[str] = ["opsmate.tools"],
-    ):
-        logger.debug("loading builtin tools")
-        for builtin_module in builtin_modules:
-            logger.debug("loading builtin tools from", builtin_module=builtin_module)
-            module = importlib.import_module(builtin_module)
-            cls._load_dtools(module, ignore_conflicts)
+    def _load_builtin(cls):
+        import opsmate.tools
 
     @classmethod
     def _load_dtools(cls, module, ignore_conflicts: bool = False):
@@ -208,10 +174,10 @@ class PluginRegistry(BaseModel):
             if inspect.isclass(item) and issubclass(item, ToolCall):
                 logger.debug("loading dtool", dtool=item_name)
                 if (
-                    item_name in cls._tools
-                    and cls._tool_sources[item_name] != module.__file__
+                    item_name in ToolCall._tools
+                    and ToolCall._tool_sources[item_name] != module.__file__
                 ):
-                    conflict_source = cls._tool_sources[item_name]
+                    conflict_source = ToolCall._tool_sources[item_name]
                     logger.warning(
                         "tool already exists",
                         tool=item_name,
@@ -222,8 +188,8 @@ class PluginRegistry(BaseModel):
                         raise ValueError(
                             f"Tool {item_name} already exists at {conflict_source}"
                         )
-                cls._tools[item_name] = item
-                cls._tool_sources[item_name] = module.__file__
+                ToolCall._tools[item_name] = item
+                ToolCall._tool_sources[item_name] = module.__file__
 
     @classmethod
     def get_plugin(cls, plugin_name: str) -> Plugin:
@@ -238,26 +204,26 @@ class PluginRegistry(BaseModel):
     @classmethod
     def get_tool(cls, tool_name: str) -> ToolCall:
         """get a tool by name"""
-        return cls._tools.get(tool_name)
+        return ToolCall._tools.get(tool_name)
 
     @classmethod
     def get_tools(cls) -> Dict[str, ToolCall]:
         """get all tools"""
-        return cls._tools
+        return ToolCall._tools
 
     @classmethod
     def get_tools_from_list(cls, tool_names: List[str]) -> List[ToolCall]:
         """get tools from a list of tool names"""
         result = []
         for tool_name in tool_names:
-            if tool_name not in cls._tools:
+            if tool_name not in ToolCall._tools:
                 raise ValueError(f"Tool {tool_name} not found")
-            result.append(cls._tools[tool_name])
+            result.append(ToolCall._tools[tool_name])
         return result
 
     @classmethod
     def clear(cls):
         """clear all plugins"""
         cls._plugins = {}
-        cls._tools = {}
-        cls._tool_sources = {}
+        ToolCall._tools = {}
+        ToolCall._tool_sources = {}

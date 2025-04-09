@@ -1,5 +1,5 @@
 from opsmate.dbq.dbq import Worker
-from opsmate.libs.config import config
+from opsmate.config import config
 import asyncio
 import structlog
 import signal

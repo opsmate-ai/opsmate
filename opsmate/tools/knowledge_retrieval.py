@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Union
 from pydantic import Field
 
 from opsmate.knowledgestore.models import conn, aconn
-from opsmate.dino.types import ToolCall, Message, PresentationMixin
+from opsmate.dino.types import ToolCall, Message, PresentationMixin, register_tool
 from opsmate.dino.dino import dino
 from pydantic import BaseModel
 from typing import Union
@@ -47,6 +47,7 @@ class KnowledgeNotFound(BaseModel):
     """
 
 
+@register_tool()
 class KnowledgeRetrieval(
     ToolCall[Union[RetrievalResult, KnowledgeNotFound]], PresentationMixin
 ):

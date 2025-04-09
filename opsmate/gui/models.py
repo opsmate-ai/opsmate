@@ -26,6 +26,7 @@ import pickle
 from pydantic import BaseModel, model_validator
 from contextlib import asynccontextmanager
 from opsmate.dino.context import ContextRegistry
+from opsmate.runtime import Runtime
 
 logger = structlog.get_logger(__name__)
 
@@ -381,25 +382,47 @@ def gen_react():
     return run_react
 
 
-def get_runtime():
-    runtime_class = config.runtime_class()
-    runtime_config_cls = runtime_class.configs[config.runtime]
-    runtime_config = runtime_config_cls()
-    return runtime_class(runtime_config)
+def get_runtimes():
+    ctx = ContextRegistry.get_context(config.context)
+    selected_tools = config.opsmate_tools()
+    if len(selected_tools) == 0:
+        selected_tools = ctx.resolve_tools()
+
+    selected_tool_names = [t.__name__ for t in selected_tools]
+    runtimes = {}
+    configs = {}
+
+    for tool_name, tool_config_cls in ToolCall._tool_configs.items():
+        if tool_name not in selected_tool_names:
+            continue
+        tool_config = tool_config_cls()
+
+        runtime_name = tool_config.runtime
+        runtime_cls = Runtime.runtimes[runtime_name]
+
+        runtime_config_cls = Runtime.configs[runtime_name]
+        runtime_config = runtime_config_cls()
+
+        runtimes[tool_name] = runtime_cls(runtime_config)
+        configs[runtime_name] = runtime_config
+
+    return runtimes, configs
 
 
 @asynccontextmanager
-async def with_runtime():
-    runtime = get_runtime()
+async def with_runtimes():
+    runtimes, _ = get_runtimes()
     try:
-        await runtime.connect()
-        yield runtime
+        for runtime in runtimes.values():
+            await runtime.connect()
+        yield runtimes
     finally:
-        await runtime.disconnect()
+        for runtime in runtimes.values():
+            await runtime.disconnect()
 
 
 def gen_simple():
-    runtime = get_runtime()
+    runtimes, _ = get_runtimes()
     ctx = ContextRegistry.get_context(config.context)
 
     @dino(
@@ -413,7 +436,7 @@ def gen_simple():
                 Message.system(f"<system_prompt>{config.system_prompt}</system_prompt>")
             ]
         else:
-            sys_prompts = await ctx.resolve_contexts(runtime=runtime)
+            sys_prompts = await ctx.resolve_contexts(runtimes=runtimes)
         return [
             *sys_prompts,
             *chat_history,

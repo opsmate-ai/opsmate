@@ -21,7 +21,7 @@ The remote runtime is available to `run`, `solve` and `chat` commands.
 Here is an example of how you can `chat` with a remote VM.
 
 ```bash
-opsmate chat --runtime ssh \
+opsmate chat --shell-command-runtime ssh \
     --runtime-ssh-host <vm-host> \
     --runtime-ssh-username <vm-username>
 ```

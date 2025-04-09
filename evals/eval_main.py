@@ -4,7 +4,7 @@ from opsmate.contexts import k8s_ctx
 from opsmate.dino import run_react
 from opsmate.dino.types import ReactAnswer
 from opsmate.libs.core.trace import start_trace
-from opsmate.libs.config import config
+from opsmate.config import config
 from opsmate.runtime import LocalRuntime
 from opentelemetry import trace
 import structlog
@@ -48,10 +48,13 @@ async def k8s_agent(question: str, hooks: EvalHooks):
         hooks.metadata["input"] = rendered_question
 
         try:
-            runtime = LocalRuntime()
-            await runtime.connect()
+            runtimes = {
+                "ShellCommand": LocalRuntime(),
+            }
+            for runtime in runtimes.values():
+                await runtime.connect()
 
-            contexts = await k8s_ctx.resolve_contexts(runtime=runtime)
+            contexts = await k8s_ctx.resolve_contexts(runtimes=runtimes)
             tools = k8s_ctx.resolve_tools()
             async for output in run_react(
                 rendered_question,
@@ -59,7 +62,7 @@ async def k8s_agent(question: str, hooks: EvalHooks):
                 tools=tools,
                 model=hooks.metadata.get("model"),
                 tool_call_context={
-                    "runtime": runtime,
+                    "runtimes": runtimes,
                 },
             ):
                 logger.info("output", output=output)
@@ -69,7 +72,8 @@ async def k8s_agent(question: str, hooks: EvalHooks):
             else:
                 raise ValueError(f"Unexpected output type: {type(output)}")
         finally:
-            await runtime.disconnect()
+            for runtime in runtimes.values():
+                await runtime.disconnect()
 
 
 # create a temp directory and copy all the scenarios files to it

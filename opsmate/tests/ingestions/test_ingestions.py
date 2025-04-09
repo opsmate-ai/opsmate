@@ -1,7 +1,7 @@
 import pytest
 from opsmate.ingestions import ingestions_from_config
 from opsmate.tests.base import BaseTestCase
-from opsmate.libs.config import Config
+from opsmate.config import Config
 from opsmate.ingestions import GithubIngestion, FsIngestion
 import os
 

@@ -4,7 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from opsmate.libs.config import config as opsmate_config
+from opsmate.config import config as opsmate_config
 
 from opsmate.workflow.models import SQLModel as WorkflowSQLModel
 from opsmate.ingestions.models import SQLModel as IngestionModel

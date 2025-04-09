@@ -208,7 +208,7 @@ opsmate chat --help | grep -i gce
 
 Here is the minimal command to interact with the GCE runtime:
 ```bash
-opsmate chat --runtime gce \
+opsmate chat --shell-command-runtime gce \
   --runtime-gce-instance <instance-name> \
   --runtime-gce-zone <zone> \
 ```

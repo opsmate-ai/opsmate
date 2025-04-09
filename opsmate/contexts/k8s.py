@@ -8,6 +8,7 @@ from opsmate.tools import (
 )
 from opsmate.dino.context import context
 from opsmate.runtime import Runtime
+from jinja2 import Template
 
 
 @context(
@@ -21,10 +22,21 @@ from opsmate.runtime import Runtime
         Thinking,
     ],
 )
-async def k8s_ctx(runtime: Runtime) -> str:
+async def k8s_ctx(runtimes: dict[str, Runtime] = {}) -> str:
     """Kubernetes SME"""
 
-    return f"""
+    # Pre-fetch all runtime information asynchronously
+    k8s_info = {}
+    if runtimes and "ShellCommand" in runtimes:
+        k8s_info = {
+            "kube_contexts": await __kube_contexts(runtimes),
+            "namespaces": await __namespaces(runtimes),
+        }
+    else:
+        raise ValueError("ShellCommand runtime not found")
+
+    template = Template(
+        """
 <assistant>
 You are a world class SRE who is an expert in kubernetes. You are tasked to help with kubernetes related problem solving
 </assistant>
@@ -42,11 +54,11 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 </important>
 
 <available_k8s_contexts>
-{await __kube_contexts(runtime)}
+{{ k8s_info.kube_contexts }}
 </available_k8s_contexts>
 
 <available_namespaces>
-{await __namespaces(runtime)}
+{{ k8s_info.namespaces }}
 </available_namespaces>
 
 <available_command_line_tools>
@@ -55,11 +67,17 @@ You are a world class SRE who is an expert in kubernetes. You are tasked to help
 - and all the conventional command line tools such as grep, awk, wc, etc.
 </available_command_line_tools>
     """
+    )
+
+    rendered_template = template.render(k8s_info=k8s_info)
+    return rendered_template
 
 
-async def __namespaces(runtime: Runtime) -> str:
-    return await runtime.run("kubectl get ns -o jsonpath='{.items[*].metadata.name}'")
+async def __namespaces(runtimes: dict[str, Runtime]) -> str:
+    return await runtimes["ShellCommand"].run(
+        "kubectl get ns -o jsonpath='{.items[*].metadata.name}'"
+    )
 
 
-async def __kube_contexts(runtime: Runtime) -> str:
-    return await runtime.run("kubectl config get-contexts")
+async def __kube_contexts(runtimes: dict[str, Runtime]) -> str:
+    return await runtimes["ShellCommand"].run("kubectl config get-contexts")

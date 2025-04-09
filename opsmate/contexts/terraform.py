@@ -37,5 +37,5 @@ When you have issue with executing `terraform <subcommand>` try to use `terrafor
     """
 
 
-async def __terraform_help(runtime: Runtime) -> str:
-    return await runtime.run("terraform -help")
+async def __terraform_help(runtimes: dict[str, Runtime]) -> str:
+    return await runtimes["ShellCommand"].run("terraform -help")

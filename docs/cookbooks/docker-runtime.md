@@ -17,7 +17,7 @@ Now with the container running, we can interact with it using Opsmate's docker r
 
 ```bash
 # -nt only prints out the answer
-$ opsmate run -nt --runtime docker --runtime-docker-container-name testbox "what is the os distro"
+$ opsmate run -nt --shell-command-runtime docker --runtime-docker-container-name testbox "what is the os distro"
 The OS distribution is Ubuntu 20.04.6 LTS (Focal Fossa).
 ```
 
@@ -46,7 +46,7 @@ services:
 To interact with the environment you can run:
 
 ```bash
-opsmate chat --runtime docker
+opsmate chat --shell-command-runtime docker
 ```
 
 By default it will auto detect the `docker-compose.yml` file in the current directory, and use the `default` service as the container to interact with.

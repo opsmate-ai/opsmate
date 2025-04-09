@@ -424,11 +424,12 @@ async def run(
     help="Number of tool calls per action",
 )
 @config_params()
+@tool_config_params
 @runtime_params
 @common_params
 @coro
 @with_runtime
-@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtime", "tools"])
+@traceit(exclude=["system_prompt", "config", "tool_call_context", "runtimes", "tools"])
 async def solve(
     instruction,
     model,
@@ -441,7 +442,7 @@ async def solve(
     answer_only,
     tool_calls_per_action,
     config,
-    runtime,
+    runtimes,
     span,
 ):
     """
@@ -464,7 +465,7 @@ async def solve(
             "cli.solve.tool_calls_per_action": tool_calls_per_action,
         }
     )
-    contexts = await ctx.resolve_contexts(runtime=runtime)
+    contexts = await ctx.resolve_contexts(runtimes=runtimes)
     if system_prompt:
         contexts = [Message.system(f"<system_prompt>{system_prompt}</system_prompt>")]
 

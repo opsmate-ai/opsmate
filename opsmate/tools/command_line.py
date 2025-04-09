@@ -43,7 +43,7 @@ class ShellCommand(ToolCall[str], PresentationMixin):
             max_output_length = context.get("max_output_length", 10000)
             logger.info("running shell command", command=self.command)
 
-            runtime = context.get("runtime", None)
+            runtime = self.maybe_runtime(context)
             transit_runtime = True if runtime is None else False
 
             span.set_attributes(
@@ -75,6 +75,13 @@ class ShellCommand(ToolCall[str], PresentationMixin):
             finally:
                 if transit_runtime:
                     await runtime.disconnect()
+
+    def maybe_runtime(self, context: dict[str, Any] = {}):
+        runtimes = context.get("runtimes", {})
+        if len(runtimes) == 0:
+            return None
+
+        return runtimes.get("ShellCommand", None)
 
     def confirmation_fields(self) -> List[str]:
         return ["command"]

@@ -270,8 +270,8 @@ class Context(BaseModel):
     description: str = Field(description="The description of the context", default="")
 
     # make system prompt coroutine as crafting the system prompt might involve network calls
-    system_prompt: Optional[Callable[[Runtime | None], Awaitable[str]]] = Field(
-        description="The system prompt of the context", default=None
+    system_prompt: Optional[Callable[[dict[str, Runtime] | None], Awaitable[str]]] = (
+        Field(description="The system prompt of the context", default=None)
     )
     contexts: List["Context"] = Field(
         description="The sub contexts to the context", default=[]
@@ -294,19 +294,19 @@ class Context(BaseModel):
                 tools.add(tool)
         return tools
 
-    async def resolve_contexts(self, runtime: Runtime | None = None):
+    async def resolve_contexts(self, runtimes: dict[str, Runtime] | None = None):
         """resolve_contexts aggregates all the contexts from the context hierarchy"""
         contexts = []
         if self.system_prompt:
             # Check if system_prompt expects a runtime parameter
             sig = inspect.signature(self.system_prompt)
-            if "runtime" in sig.parameters:
+            if "runtimes" in sig.parameters:
                 # Function expects runtime parameter
-                content = await self.system_prompt(runtime=runtime)
+                content = await self.system_prompt(runtimes=runtimes)
             else:
                 # Function doesn't expect runtime parameter
                 content = await self.system_prompt()
             contexts.append(Message.system(content))
         for ctx in self.contexts:
-            contexts.extend(await ctx.resolve_contexts(runtime=runtime))
+            contexts.extend(await ctx.resolve_contexts(runtimes=runtimes))
         return contexts

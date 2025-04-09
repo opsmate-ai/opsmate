@@ -127,11 +127,11 @@ class Config(BaseSettings):
         alias="OPSMATE_SPLITTER_CONFIG",
     )
 
-    runtime: str = Field(
-        default="local",
-        description="The runtime to use",
-        alias="OPSMATE_RUNTIME",
-    )
+    # runtime: str = Field(
+    #     default="local",
+    #     description="The runtime to use",
+    #     alias="OPSMATE_RUNTIME",
+    # )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
 

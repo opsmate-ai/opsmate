@@ -36,7 +36,10 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
     )
 
     async def __call__(self, context: dict[str, Any] = {}):
-        runtime = context.get("runtime")
+        runtime = self.maybe_runtime(context)
+        if runtime is None:
+            raise RuntimeError("MySQL runtime not found")
+
         if not isinstance(runtime, MySQLRuntime):
             raise RuntimeError(f"Runtime {runtime} is not a MySQLRuntime")
 
@@ -76,3 +79,10 @@ class MySQLTool(ToolCall[ResultType], PresentationMixin):
 
     def confirmation_fields(self) -> List[str]:
         return ["query"]
+
+    def maybe_runtime(self, context: dict[str, Any] = {}):
+        runtimes = context.get("runtimes", {})
+        if len(runtimes) == 0:
+            return None
+
+        return runtimes.get("MySQLTool", None)

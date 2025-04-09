@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings as _BaseSettings
 import json
 import os
-from typing import Dict
+from typing import Dict, Optional
 import click
 from functools import wraps
 from pydantic import ConfigDict
@@ -66,7 +66,7 @@ class BaseSettings(_BaseSettings):
             os.environ[key] = value
 
     @classmethod
-    def config_params(cls):
+    def config_params(cls, config_name: Optional[str] = None):
         """Decorator to inject pydantic settings config as the click options."""
 
         def decorator(func):
@@ -114,8 +114,13 @@ class BaseSettings(_BaseSettings):
 
             @wraps(func)
             def wrapper(*args, **kwargs):
-                config_name = cls.__name__
-                kwargs[config_name] = config_from_kwargs(kwargs)
+                config_registry = cls.__base__.__name__
+                _config_name = config_name or cls.__name__
+
+                if config_registry not in kwargs:
+                    kwargs[config_registry] = {}
+
+                kwargs[config_registry][_config_name] = config_from_kwargs(kwargs)
 
                 return func(*args, **kwargs)
 

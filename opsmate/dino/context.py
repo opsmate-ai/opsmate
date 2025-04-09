@@ -5,6 +5,7 @@ import importlib
 import inspect
 import structlog
 from pydantic import BaseModel
+from textwrap import dedent
 import os
 import sys
 
@@ -51,7 +52,7 @@ class ContextRegistry(BaseModel):
             return Context(
                 name=name,
                 system_prompt=fn,
-                description=fn.__doc__ if fn.__doc__ else "",
+                description=dedent(fn.__doc__).strip() if fn.__doc__ else "",
                 contexts=contexts,
                 tools=tools,
             )

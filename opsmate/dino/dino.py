@@ -22,6 +22,7 @@ from instructor import AsyncInstructor
 from tenacity import AsyncRetrying, stop_after_attempt, wait_fixed
 from opentelemetry import trace
 from opentelemetry.trace.status import Status, StatusCode
+from textwrap import dedent
 import asyncio
 
 logger = structlog.get_logger(__name__)
@@ -151,7 +152,7 @@ def dino(
                 _client = _get_client(client, decorator_client)
                 provider = Provider.from_model(_model)
 
-                system_prompt = fn.__doc__
+                system_prompt = dedent(fn.__doc__).strip() if fn.__doc__ else ""
                 # if is coroutine, await it
                 if inspect.iscoroutinefunction(fn):
                     prompt = await fn(*args, **fn_kwargs)

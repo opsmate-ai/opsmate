@@ -10,6 +10,7 @@ import importlib
 import inspect
 import pkg_resources
 import traceback
+from textwrap import dedent
 
 logger = structlog.get_logger(__name__)
 
@@ -75,7 +76,7 @@ class PluginRegistry(BaseModel):
 
         def decorator(func: Callable[P, T]) -> Callable[P, T]:
             plugin_name = name or func.__name__
-            plugin_description = description or func.__doc__
+            plugin_description = description or dedent(func.__doc__).strip()
             is_async = asyncio.iscoroutinefunction(func)
 
             # Get the caller's frame and file path

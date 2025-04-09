@@ -23,9 +23,6 @@ class SSHRuntimeConfig(RuntimeConfig):
     timeout: int = Field(default=10, alias="RUNTIME_SSH_TIMEOUT")
     connect_retries: int = Field(default=3, alias="RUNTIME_SSH_CONNECT_RETRIES")
 
-    def support_tools(self):
-        return ["ShellCommand"]
-
 
 @register_runtime("ssh", SSHRuntimeConfig)
 class SSHRuntime(LocalRuntime):

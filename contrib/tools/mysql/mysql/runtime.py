@@ -49,9 +49,6 @@ class MySQLRuntimeConfig(RuntimeConfig):
         description="The timeout of the MySQL server",
     )
 
-    def support_tools(self):
-        return ["MySQLTool"]
-
 
 @register_runtime("mysql", MySQLRuntimeConfig)
 class MySQLRuntime(Runtime):

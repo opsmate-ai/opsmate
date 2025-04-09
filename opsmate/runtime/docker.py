@@ -27,9 +27,6 @@ class DockerRuntimeConfig(RuntimeConfig):
         description="Name of the service to run",
     )
 
-    def support_tools(self):
-        return ["ShellCommand"]
-
 
 @register_runtime("docker", DockerRuntimeConfig)
 class DockerRuntime(LocalRuntime):

@@ -9,9 +9,7 @@ import traceback
 logger = structlog.get_logger(__name__)
 
 
-class RuntimeConfig(BaseSettings):
-    @abstractmethod
-    def support_tools(self) -> List[str]: ...
+class RuntimeConfig(BaseSettings): ...
 
 
 class Runtime(ABC):

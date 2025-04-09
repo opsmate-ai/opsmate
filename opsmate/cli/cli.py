@@ -22,7 +22,7 @@ from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
-import opsmate.tools
+
 from functools import cache
 from typing import Dict
 from runpy import run_module

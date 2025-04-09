@@ -16,7 +16,7 @@ from opsmate.gui.models import (
     CellStateEnum,
     EnvVar,
     ExecutionConfirmation,
-    with_runtime,
+    with_runtimes,
 )
 from opsmate.gui.components import (
     CellComponent,
@@ -431,7 +431,7 @@ async def execute_llm_react_instruction(
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    async with with_runtime() as runtime:
+    async with with_runtimes() as runtimes:
         await react_streaming(
             cell,
             swap,
@@ -443,10 +443,10 @@ async def execute_llm_react_instruction(
                 tool_call_context={
                     "envvars": EnvVar.all(session),
                     "confirmation": confirmation_prompt,
-                    "runtime": runtime,
+                    "runtimes": runtimes,
                 },
                 model=llm_model,
-                runtime=runtime,
+                runtimes=runtimes,
             ),
         )
 
@@ -803,7 +803,7 @@ Here are the tasks to be performed **ONLY**:
 
     confirmation_prompt = await gen_confirmation_prompt(cell, session, send)
 
-    async with with_runtime() as runtime:
+    async with with_runtimes() as runtimes:
         await react_streaming(
             cell,
             swap,
@@ -816,10 +816,10 @@ Here are the tasks to be performed **ONLY**:
                     "envvars": EnvVar.all(session),
                     "confirmation": confirmation_prompt,
                     "cwd": os.getcwd(),
-                    "runtime": runtime,
+                    "runtimes": runtimes,
                 },
                 model=llm_model,
-                runtime=runtime,
+                runtimes=runtimes,
             ),
         )
 

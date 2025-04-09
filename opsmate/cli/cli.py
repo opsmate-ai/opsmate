@@ -152,6 +152,7 @@ def runtimes_from_kwargs(kwargs):
     runtime_configs = kwargs.pop("RuntimeConfig")
 
     runtimes = {}
+    configs = {}
     for tool_name, tool_config in tool_configs.items():
         if tool_name not in selected_tool_names:
             continue
@@ -161,14 +162,15 @@ def runtimes_from_kwargs(kwargs):
 
         runtime_config = runtime_configs[runtime_name]
         runtimes[tool_name] = runtime_class(runtime_config)
+        configs[runtime_name] = runtime_config
 
-    return runtimes
+    return runtimes, configs
 
 
 def with_runtime(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        runtimes = runtimes_from_kwargs(kwargs)
+        runtimes, _ = runtimes_from_kwargs(kwargs)
         tool_call_context = kwargs.get("tool_call_context")
         tool_call_context["runtimes"] = runtimes
         kwargs["runtimes"] = runtimes
@@ -758,17 +760,12 @@ async def reset(skip_confirm, config):
     help="Number of uvicorn workers to serve on",
 )
 @click.option(
-    "--runtime",
-    default="",
-    show_default=True,
-    help="Runtime to use",
-)
-@click.option(
     "--dev",
     is_flag=True,
     help="Run in development mode",
 )
 @config_params(gui_config)
+@tool_config_params
 @runtime_params
 @auto_migrate
 @coro
@@ -776,20 +773,22 @@ async def serve(host, port, workers, dev, config, **kwargs):
     """
     Start the Opsmate server.
     """
-    import uvicorn
-    from sqlmodel import Session
-    from opsmate.gui.app import kb_ingest
-    from opsmate.gui.seed import seed_blueprints
 
     # serialize config to environment variables
     config.serialize_to_env()
 
-    runtime_name = config.runtime
-    runtime_config_name = Runtime.configs[runtime_name].__name__
-    runtime_config = kwargs.pop(runtime_config_name)
-    runtime_config.serialize_to_env()
+    kwargs["context"] = config.context
+    kwargs["tools"] = config.opsmate_tools()
+    _, runtime_configs = runtimes_from_kwargs(kwargs)
+    for _, runtime_config in runtime_configs.items():
+        runtime_config.serialize_to_env()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    import uvicorn
+    from sqlmodel import Session
+    from opsmate.gui.app import kb_ingest
+    from opsmate.gui.seed import seed_blueprints
 
     await kb_ingest()
     engine = config.db_engine()

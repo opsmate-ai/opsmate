@@ -17,7 +17,6 @@ Options:
   -p, --port INTEGER              Port to serve on  [default: 8080]
   -w, --workers INTEGER           Number of uvicorn workers to serve on
                                   [default: 2]
-  --runtime TEXT                  Runtime to use  [default: ""]
   --dev                           Run in development mode
   --model TEXT                    Set model (env: OPSMATE_MODEL)  [default:
                                   gpt-4o]
@@ -36,8 +35,6 @@ Options:
                                   [default: session]
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
-  --runtime TEXT                  The runtime to use (env: OPSMATE_RUNTIME)
-                                  [default: local]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
                                   OPSMATE_CATEGORISE)  [default: True]
   --reranker-name TEXT            The name of the reranker model (env:
@@ -59,6 +56,8 @@ Options:
                                   [default: /root/.opsmate/plugins]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
+  --shell-command-runtime TEXT    The runtime to use for the tool call (env:
+                                  SHELL_COMMAND_RUNTIME)  [default: local]
   --runtime-k8s-shell TEXT        Set shell_cmd (env: RUNTIME_K8S_SHELL)
                                   [default: /bin/sh]
   --runtime-k8s-container TEXT    Name of the container of the pod, if not

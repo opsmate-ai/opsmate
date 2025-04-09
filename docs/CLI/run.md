@@ -8,15 +8,10 @@ Usage: opsmate run [OPTIONS] INSTRUCTION
   Run a task with the Opsmate.
 
 Options:
-  -c, --context TEXT              Context to be added to the prompt. Run the
-                                  list-contexts command to see all the
-                                  contexts available.  [default: cli]
   -nt, --no-tool-output           Do not print tool outputs
   -no, --no-observation           Do not print observation
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
-  --runtime TEXT                  The runtime to use (env: OPSMATE_RUNTIME)
-                                  [default: local]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
                                   OPSMATE_CATEGORISE)  [default: True]
   --reranker-name TEXT            The name of the reranker model (env:
@@ -38,6 +33,8 @@ Options:
                                   [default: /root/.opsmate/plugins]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
+  --shell-command-runtime TEXT    The runtime to use for the tool call (env:
+                                  SHELL_COMMAND_RUNTIME)  [default: local]
   --runtime-k8s-shell TEXT        Set shell_cmd (env: RUNTIME_K8S_SHELL)
                                   [default: /bin/sh]
   --runtime-k8s-container TEXT    Name of the container of the pod, if not
@@ -84,6 +81,9 @@ Options:
   --tools TEXT                    Comma separated list of tools to use
   -r, --review                    Review and edit commands before execution
   -s, --system-prompt TEXT        System prompt to use
+  -c, --context TEXT              Context to be added to the prompt. Run the
+                                  list-contexts command to see all the
+                                  contexts available.  [default: cli]
   -l, --max-output-length INTEGER
                                   Max length of the output, if the output is
                                   truncated, the tmp file will be printed in

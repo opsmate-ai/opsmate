@@ -19,8 +19,6 @@ Options:
                                   [default: **/*.md]
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
-  --runtime TEXT                  The runtime to use (env: OPSMATE_RUNTIME)
-                                  [default: local]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
                                   OPSMATE_CATEGORISE)  [default: True]
   --reranker-name TEXT            The name of the reranker model (env:

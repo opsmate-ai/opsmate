@@ -3,9 +3,7 @@ import asyncio
 from contrib.tools.mysql.mysql.runtime import MySQLRuntime, MySQLRuntimeConfig
 from contextlib import asynccontextmanager
 import os
-from tempfile import NamedTemporaryFile
 import subprocess
-from subprocess import check_call as co
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -15,25 +13,11 @@ logger = structlog.get_logger(__name__)
 async def mysql_runtime(
     password="my-secret-pw",
 ):
-    with NamedTemporaryFile("w", suffix=".yml", delete=False) as f:
-        f.write(
-            f"""
-services:
-  mysql-server:
-    image: mysql:9.2.0
-    environment:
-        MYSQL_ROOT_PASSWORD: {password}
-    ports:
-    - "3306:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p{password}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      """
-        )
-        compose_file = f.name
-        logger.info("MySQL runtime compose file", compose_file=compose_file)
+    # Use the fixed docker-compose file in fixtures directory
+    compose_file = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "fixtures", "docker-compose.yml"
+    )
+    logger.info("MySQL runtime compose file", compose_file=compose_file)
 
     # start the test mysql server
     subprocess.run(f"docker compose -f {compose_file} up -d", shell=True, check=False)
@@ -87,7 +71,6 @@ services:
             subprocess.run(
                 f"docker compose -f {compose_file} down", shell=True, check=False
             )
-            os.remove(compose_file)
         except Exception as e:
             logger.error("Failed to stop MySQL runtime", error=e)
 

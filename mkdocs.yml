@@ -1,7 +1,7 @@
 site_name: Opsmate
 repo_name: opsmate
 repo_url: https://github.com/jingkaihe/opsmate
-site_url: https://docs.opsmate.hjktech.uk
+site_url: https://docs.tryopsmate.ai
 edit_uri: edit/main/docs/
 theme:
   name: material

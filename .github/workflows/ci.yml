@@ -43,7 +43,14 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CI: "true"
         run: |
-          uv run --package opsmate-tool-mysql pytest ./contrib/tests
+          uv run --package opsmate-tool-mysql pytest ./contrib/tests/tools/mysql
+      - name: postgres tool tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI: "true"
+        run: |
+          uv run --package opsmate-tool-postgres pytest ./contrib/tests/tools/postgres
 
   build-image:
     runs-on: ubuntu-latest

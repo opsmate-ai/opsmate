@@ -90,6 +90,7 @@ build-backend = "hatchling.build"
 opsmate-provider-groq = { workspace = true }
 opsmate-provider-fireworks = { workspace = true }
 opsmate-tool-mysql = { workspace = true }
+opsmate-tool-postgres = { workspace = true }
 
 [tool.uv.workspace]
 members = [

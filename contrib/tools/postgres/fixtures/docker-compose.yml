@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:15.12-bullseye
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ecommerce
+    ports:
+      - 5432:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./ecommerce.sql:/docker-entrypoint-initdb.d/ecommerce.sql
+
+volumes:
+  pgdata:

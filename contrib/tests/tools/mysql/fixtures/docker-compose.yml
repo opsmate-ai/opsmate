@@ -1,0 +1,12 @@
+services:
+  mysql-server:
+    image: mysql:9.2.0
+    environment:
+        MYSQL_ROOT_PASSWORD: my-secret-pw
+    ports:
+    - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pmy-secret-pw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

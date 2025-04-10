@@ -2,26 +2,20 @@
 
 `opsmate-tool-postgres` is a tool for Opsmate that allows you to interact with PostgreSQL databases with the assistance of a LLM.
 
-## Should I use this tool?
-
-:warning: This is an early prototype and the protocol is yet to be finalized. :warning:
-
-Here is the guide to help you to make decisions about whether you should use this tool at the moment:
-
-| Situation | Recommendation |
-|-----------|----------|
-| I am not sure if this tool is mature enough for my use case | Don't use it |
-| I want this tool to perform all the production db administration tasks for me | Absolutely not |
-| There is a pressing production issue that needs to be resolved urgently, this postgres plugin might be useful | Seriously NO |
-| I really want to use this tool but I'm worried about PII and data privacy implications | Don't use it |
-| I have a non-production database and I want to test this tool | Maybe |
-
 ## Installation
 
 Change directory to this folder and run:
 ```bash
 opsmate install opsmate-tool-postgres
 ```
+
+To verify the installation, you can run:
+
+```bash
+$ opsmate list-tools | grep -i postgres
+│ PostgresTool        │ PostgreSQL tool
+```
+
 
 ## Usage
 
@@ -41,32 +35,10 @@ opsmate chat \
   --tools PostgresTool
 ```
 
-## Implementation Details
-
-The tool is implemented in the `postgres/tool.py` file.
-
-The tool uses the `PostgresRuntime` class to connect to the PostgreSQL server, which implements the `Runtime` interface. It is implemented in the `postgres/runtime.py` file.
-
-In the [pyproject.toml](./pyproject.toml) file you can find the entry points for the tool and the runtime:
-
-```toml
-[project.entry-points."opsmate.tools"]
-tool = "postgres.tool:PostgresTool"
-
-[project.entry-points."opsmate.runtime.runtimes"]
-runtime = "postgres.runtime:PostgresRuntime"
-```
-
-This is to make sure that the tools are "autodiscovered" by Opsmate on startup. To verify this you can run the following commands:
+## Configurable oOptions
 
 ```bash
-# to verify the postgres tool is autodiscovered
-opsmate list-tools | grep -i postgres
-│ PostgresTool           │ PostgreSQL tool
-```
-
-```bash
-# to verify the postgres runtime is autodiscovered
+$ opsmate chat --help | grep -i postgres
   --postgres-tool-runtime TEXT    The runtime to use for the tool call (env:
                                   POSTGRES_TOOL_RUNTIME)  [default: postgres]
   --runtime-postgres-timeout INTEGER

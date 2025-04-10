@@ -25,6 +25,8 @@ jobs:
             url: https://pypi.org/p/opsmate-provider-fireworks
           - name: opsmate-tool-mysql
             url: https://pypi.org/p/opsmate-tool-mysql
+          - name: opsmate-tool-postgres
+            url: https://pypi.org/p/opsmate-tool-postgres
     environment:
       name: pypi
       url: ${{ matrix.package.url }}

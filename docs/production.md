@@ -36,7 +36,7 @@ resource "kubernetes_namespace" "opsmate_operator" {
 
 resource "helm_release" "opsmate_operator" {
   name             = "opsmate-operator"
-  repository       = "oci://europe-west1-docker.pkg.dev/hjktech-metal/opsmate-charts/"
+  repository       = "oci://ghcr.io/jingkaihe/opsmate-operator"
   chart            = "opsmate-operator"
   version          = "0.1.4"
   namespace        = kubernetes_namespace.opsmate_operator.metadata[0].name
@@ -54,8 +54,8 @@ resource "helm_release" "opsmate_operator" {
         fullnameOverride = "opsmate-operator"
         manager = {
           image = {
-            repository = "europe-west1-docker.pkg.dev/hjktech-metal/opsmate-images/opsmate-controller-manager"
-            tag        = "0.1.4.alpha"
+            repository = "ghcr.io/jingkaihe/opsmate-controller-manager"
+            tag        = "0.1.4.alpha2"
           }
         }
       }

@@ -22,23 +22,23 @@ import (
 // DefaultAPIService DefaultAPI service
 type DefaultAPIService service
 
-type ApiHealthV1HealthGetRequest struct {
+type ApiHealthV1HealthzGetRequest struct {
 	ctx context.Context
 	ApiService *DefaultAPIService
 }
 
-func (r ApiHealthV1HealthGetRequest) Execute() (*Health, *http.Response, error) {
-	return r.ApiService.HealthV1HealthGetExecute(r)
+func (r ApiHealthV1HealthzGetRequest) Execute() (*Health, *http.Response, error) {
+	return r.ApiService.HealthV1HealthzGetExecute(r)
 }
 
 /*
-HealthV1HealthGet Health
+HealthV1HealthzGet Health
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @return ApiHealthV1HealthGetRequest
+ @return ApiHealthV1HealthzGetRequest
 */
-func (a *DefaultAPIService) HealthV1HealthGet(ctx context.Context) ApiHealthV1HealthGetRequest {
-	return ApiHealthV1HealthGetRequest{
+func (a *DefaultAPIService) HealthV1HealthzGet(ctx context.Context) ApiHealthV1HealthzGetRequest {
+	return ApiHealthV1HealthzGetRequest{
 		ApiService: a,
 		ctx: ctx,
 	}
@@ -46,7 +46,7 @@ func (a *DefaultAPIService) HealthV1HealthGet(ctx context.Context) ApiHealthV1He
 
 // Execute executes the request
 //  @return Health
-func (a *DefaultAPIService) HealthV1HealthGetExecute(r ApiHealthV1HealthGetRequest) (*Health, *http.Response, error) {
+func (a *DefaultAPIService) HealthV1HealthzGetExecute(r ApiHealthV1HealthzGetRequest) (*Health, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
@@ -54,12 +54,12 @@ func (a *DefaultAPIService) HealthV1HealthGetExecute(r ApiHealthV1HealthGetReque
 		localVarReturnValue  *Health
 	)
 
-	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.HealthV1HealthGet")
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "DefaultAPIService.HealthV1HealthzGet")
 	if err != nil {
 		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/v1/health"
+	localVarPath := localBasePath + "/v1/healthz"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

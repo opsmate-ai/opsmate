@@ -34,7 +34,7 @@ class Session(BaseModel):
 
 @api_app.middleware("http")
 async def token_verification(request: Request, call_next):
-    if request.url.path == "/v1/health":
+    if request.url.path == "/v1/healthz":
         return await call_next(request)
 
     if os.environ.get("OPSMATE_TOKEN"):
@@ -48,7 +48,7 @@ async def token_verification(request: Request, call_next):
     return await call_next(request)
 
 
-@api_app.get("/v1/health", response_model=Health)
+@api_app.get("/v1/healthz", response_model=Health)
 async def health():
     return Health(status="ok")
 

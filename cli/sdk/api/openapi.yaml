@@ -5,9 +5,9 @@ info:
 servers:
 - url: /
 paths:
-  /v1/health:
+  /v1/healthz:
     get:
-      operationId: health_v1_health_get
+      operationId: health_v1_healthz_get
       responses:
         "200":
           content:

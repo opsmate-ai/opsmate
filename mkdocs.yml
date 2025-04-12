@@ -93,6 +93,7 @@ nav:
     - Add New Runtimes: integrations/integrate-with-new-runtime.md
     - Use Cloud Storage for Embeddings Storage: integrations/use-cloud-storage-for-embeddings-storage.md
     - Advanced Knowledge Retrieval: integrations/advanced-knowledge-retrieval.md
+    - OTel Integration: integrations/OTel.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Manage VMs via SSH: cookbooks/manage-vms.md

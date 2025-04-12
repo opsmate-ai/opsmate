@@ -9,7 +9,9 @@ from opentelemetry.sdk.trace.sampling import Sampler, SamplingResult, Decision
 from opentelemetry.trace import Context, TraceState, SpanKind, Link
 from opentelemetry.util.types import Attributes
 from collections import OrderedDict
+import structlog
 
+logger = structlog.get_logger()
 tracer = trace.get_tracer("opsmate")
 
 
@@ -152,6 +154,10 @@ class DiscardSampler(Sampler):
 
 
 def start_trace(spans_to_discard: List[str] = []):
+    if os.getenv("OPSMATE_DISABLE_OTEL"):
+        logger.info("OTEL is disabled")
+        return
+
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
         from opentelemetry.instrumentation.openai import OpenAIInstrumentor
         from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor

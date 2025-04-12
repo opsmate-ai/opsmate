@@ -22,11 +22,11 @@ func Test_opsmatesdk_DefaultAPIService(t *testing.T) {
 	configuration := openapiclient.NewConfiguration()
 	apiClient := openapiclient.NewAPIClient(configuration)
 
-	t.Run("Test DefaultAPIService HealthV1HealthGet", func(t *testing.T) {
+	t.Run("Test DefaultAPIService HealthV1HealthzGet", func(t *testing.T) {
 
 		t.Skip("skip test")  // remove to run test
 
-		resp, httpRes, err := apiClient.DefaultAPI.HealthV1HealthGet(context.Background()).Execute()
+		resp, httpRes, err := apiClient.DefaultAPI.HealthV1HealthzGet(context.Background()).Execute()
 
 		require.Nil(t, err)
 		require.NotNil(t, resp)

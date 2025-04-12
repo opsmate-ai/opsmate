@@ -5,11 +5,23 @@ from opsmate.dino.provider import Provider
 from opsmate.dino.types import Message, Observation
 from opsmate.dino.dino import dino
 from opsmate.dino.context import ContextRegistry
-from opsmate.gui.app import app as fasthtml_app, startup
+
+from opsmate.libs.core.trace import start_trace
+from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 import os
 
 app = FastAPI()
 api_app = FastAPI()
+
+if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+    start_trace(spans_to_discard=["dbq.dequeue_task"])
+
+    StarletteInstrumentor().instrument_app(app)
+
+
+from opsmate.gui.app import app as fasthtml_app, startup
 
 
 class Health(BaseModel):

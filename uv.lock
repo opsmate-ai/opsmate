@@ -3075,7 +3075,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.50a0"
+version = "0.1.51a0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3205,7 +3205,7 @@ eval = [
 
 [[package]]
 name = "opsmate-provider-fireworks"
-version = "0.1.0a0"
+version = "0.1.1a0"
 source = { editable = "contrib/providers/fireworks" }
 dependencies = [
     { name = "fireworks-ai" },
@@ -3220,7 +3220,7 @@ requires-dist = [
 
 [[package]]
 name = "opsmate-provider-groq"
-version = "0.1.0a0"
+version = "0.1.1a0"
 source = { editable = "contrib/providers/groq" }
 dependencies = [
     { name = "groq" },

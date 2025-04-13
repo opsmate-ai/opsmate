@@ -11,31 +11,23 @@ opsmate install opsmate-provider-groq
 After installation you can list all the models via
 
 ```bash
-$ opsmate list-models
+$ opsmate list-models --provider groq
                    Models
-┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Provider  ┃ Model                         ┃
-┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ openai    │ gpt-4o                        │
-├───────────┼───────────────────────────────┤
-│ openai    │ gpt-4o-mini                   │
-├───────────┼───────────────────────────────┤
-│ openai    │ o1-preview                    │
-├───────────┼───────────────────────────────┤
-│ anthropic │ claude-3-5-sonnet-20241022    │
-├───────────┼───────────────────────────────┤
-│ anthropic │ claude-3-7-sonnet-20250219    │
-├───────────┼───────────────────────────────┤
-│ xai       │ grok-2-1212                   │
-├───────────┼───────────────────────────────┤
-│ groq      │ qwen-2.5-32b                  │
-├───────────┼───────────────────────────────┤
-│ groq      │ deepseek-r1-distill-qwen-32b  │
-├───────────┼───────────────────────────────┤
-│ groq      │ deepseek-r1-distill-llama-70b │
-├───────────┼───────────────────────────────┤
-│ groq      │ llama-3.3-70b-versatile       │
-└───────────┴───────────────────────────────┘
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Provider ┃ Model                         ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ groq     │ qwen-qwq-32b                  │
+├──────────┼───────────────────────────────┤
+│ groq     │ qwen-2.5-32b                  │
+├──────────┼───────────────────────────────┤
+│ groq     │ mistral-saba-24b              │
+├──────────┼───────────────────────────────┤
+│ groq     │ deepseek-r1-distill-qwen-32b  │
+├──────────┼───────────────────────────────┤
+│ groq     │ deepseek-r1-distill-llama-70b │
+├──────────┼───────────────────────────────┤
+│ groq     │ llama-3.3-70b-versatile       │
+└──────────┴───────────────────────────────┘
 ```
 
 You will notice that the models from Groq are automatically added to the list of models.

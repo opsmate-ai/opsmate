@@ -1,6 +1,6 @@
 [project]
 name = "opsmate-provider-groq"
-version = "0.1.0a0"
+version = "0.1.1a0"
 description = "Groq provider for opsmate"
 authors = [
     { name="Jingkai He", email="jingkai@hey.com" },

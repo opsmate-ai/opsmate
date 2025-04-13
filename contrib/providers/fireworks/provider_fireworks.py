@@ -36,7 +36,8 @@ class FireworksProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = client or cls.default_client()
+        model = kwargs.get("model")
+        client = client or cls.default_client(model)
         kwargs.pop("client", None)
 
         messages = [{"role": m.role, "content": m.content} for m in messages]

@@ -66,7 +66,7 @@ class Provider(ABC):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def default_client(cls, model: str) -> AsyncInstructor:
         client = cls._default_client()
         client.on("parse:error", cls._handle_parse_error)
         return client
@@ -106,11 +106,9 @@ def discover_providers(group_name="opsmate.dino.providers"):
 
 @register_provider("openai")
 class OpenAIProvider(Provider):
-    models = [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o1-preview",
-    ]
+    chat_models = ["gpt-4o", "gpt-4o-mini"]
+    reasoning_models = ["o1", "o3-mini"]
+    models = chat_models + reasoning_models
 
     @classmethod
     async def chat_completion(
@@ -124,7 +122,8 @@ class OpenAIProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = client or cls.default_client()
+        model = kwargs.get("model")
+        client = client or cls.default_client(model)
         kwargs.pop("client", None)
 
         messages = [
@@ -132,8 +131,7 @@ class OpenAIProvider(Provider):
             for m in messages
         ]
 
-        model = kwargs.get("model")
-        if model == "o1-preview":
+        if cls.is_reasoning_model(model):
             # modify all the system messages to be user
             for message in messages:
                 if message["role"] == "system":
@@ -150,9 +148,24 @@ class OpenAIProvider(Provider):
         )
 
     @classmethod
-    @cache
     def _default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(AsyncOpenAI())
+
+    @classmethod
+    def _default_reasoning_client(cls) -> AsyncInstructor:
+        return instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+
+    @classmethod
+    @cache
+    def default_client(cls, model: str) -> AsyncInstructor:
+        if cls.is_reasoning_model(model):
+            return cls._default_reasoning_client()
+        else:
+            return cls._default_client()
+
+    @classmethod
+    def is_reasoning_model(cls, model: str) -> bool:
+        return model in cls.reasoning_models
 
     @staticmethod
     def normalise_content(content: Content):
@@ -210,7 +223,8 @@ class AnthropicProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = client or cls.default_client()
+        model = kwargs.get("model")
+        client = client or cls.default_client(model)
         kwargs.pop("client", None)
         messages = [
             {"role": m.role, "content": cls.normalise_content(m.content)}
@@ -286,10 +300,17 @@ class AnthropicProvider(Provider):
 @register_provider("xai")
 class XAIProvider(OpenAIProvider):
     DEFAULT_BASE_URL = "https://api.x.ai/v1"
-    models = [
+    chat_models = [
         "grok-2-1212",
         "grok-2-vision-1212",
     ]
+    reasoning_models = [
+        "grok-3-mini-fast-beta",
+        "grok-3-mini-beta",
+        "grok-3-fast-beta",
+        "grok-3-beta",
+    ]
+    models = chat_models + reasoning_models
 
     @classmethod
     @cache
@@ -298,5 +319,19 @@ class XAIProvider(OpenAIProvider):
             AsyncOpenAI(
                 base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),
                 api_key=os.getenv("XAI_API_KEY"),
-            )
+            ),
         )
+
+    @classmethod
+    def _default_reasoning_client(cls) -> AsyncInstructor:
+        return instructor.from_openai(
+            AsyncOpenAI(
+                base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),
+                api_key=os.getenv("XAI_API_KEY"),
+            ),
+            mode=instructor.Mode.JSON_O1,
+        )
+
+    @classmethod
+    def is_reasoning_model(cls, model: str) -> bool:
+        return model in cls.reasoning_models

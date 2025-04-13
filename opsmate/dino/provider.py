@@ -106,12 +106,9 @@ def discover_providers(group_name="opsmate.dino.providers"):
 
 @register_provider("openai")
 class OpenAIProvider(Provider):
-    models = [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o1",
-        "o3-mini",
-    ]
+    chat_models = ["gpt-4o", "gpt-4o-mini"]
+    reasoning_models = ["o1", "o3-mini"]
+    models = chat_models + reasoning_models
 
     @classmethod
     async def chat_completion(
@@ -168,7 +165,7 @@ class OpenAIProvider(Provider):
 
     @classmethod
     def is_reasoning_model(cls, model: str) -> bool:
-        return model in ["o1"]
+        return model in cls.reasoning_models
 
     @staticmethod
     def normalise_content(content: Content):
@@ -302,14 +299,17 @@ class AnthropicProvider(Provider):
 @register_provider("xai")
 class XAIProvider(OpenAIProvider):
     DEFAULT_BASE_URL = "https://api.x.ai/v1"
-    models = [
+    chat_models = [
         "grok-2-1212",
         "grok-2-vision-1212",
+    ]
+    reasoning_models = [
         "grok-3-mini-fast-beta",
         "grok-3-mini-beta",
         "grok-3-fast-beta",
         "grok-3-beta",
     ]
+    models = chat_models + reasoning_models
 
     @classmethod
     @cache
@@ -333,9 +333,4 @@ class XAIProvider(OpenAIProvider):
 
     @classmethod
     def is_reasoning_model(cls, model: str) -> bool:
-        return model in [
-            "grok-3-mini-fast-beta",
-            "grok-3-mini-beta",
-            "grok-3-fast-beta",
-            "grok-3-beta",
-        ]
+        return model in cls.reasoning_models

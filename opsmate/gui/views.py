@@ -76,7 +76,7 @@ simple = gen_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model
-llm_client = llm_provider.default_client()
+llm_client = llm_provider.default_client(llm_model)
 
 # Set up the app, including daisyui and tailwind for the chat component
 tlink = Script(src="https://cdn.tailwindcss.com?plugins=typography")

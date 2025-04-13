@@ -66,7 +66,7 @@ class Provider(ABC):
 
     @classmethod
     @cache
-    def default_client(cls) -> AsyncInstructor:
+    def default_client(cls, model: str) -> AsyncInstructor:
         client = cls._default_client()
         client.on("parse:error", cls._handle_parse_error)
         return client
@@ -223,7 +223,8 @@ class AnthropicProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = client or cls.default_client()
+        model = kwargs.get("model")
+        client = client or cls.default_client(model)
         kwargs.pop("client", None)
         messages = [
             {"role": m.role, "content": cls.normalise_content(m.content)}

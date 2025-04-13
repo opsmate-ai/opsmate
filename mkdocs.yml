@@ -87,7 +87,11 @@ nav:
     - XAI: providers/xai.md
     - Groq: providers/groq.md
     - Fireworks AI: providers/fireworks-ai.md
-  - Production: production.md
+  - Tools:
+    - Tools: tools/index.md
+    - Prometheus: tools/prometheus.md
+    - MySQL: tools/mysql.md
+    - Postgres: tools/postgres.md
   - Integrations:
     - Add New LLM Providers: integrations/add-new-llm-providers.md
     - Add New Runtimes: integrations/integrate-with-new-runtime.md
@@ -104,7 +108,7 @@ nav:
     - Plugin System: cookbooks/plugin-system.ipynb
     - 5 Levels of Workflow Orchestration: cookbooks/5-levels-of-workflow-orchestration.ipynb
     - Knowledge Management: cookbooks/knowledge-management.ipynb
-
+  - Production: production.md
 extra:
   social:
     - icon: fontawesome/brands/github

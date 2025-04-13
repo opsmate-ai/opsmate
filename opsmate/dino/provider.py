@@ -109,7 +109,8 @@ class OpenAIProvider(Provider):
     models = [
         "gpt-4o",
         "gpt-4o-mini",
-        "o1-preview",
+        "o1",
+        "o3-mini",
     ]
 
     @classmethod
@@ -124,7 +125,8 @@ class OpenAIProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
-        client = client or cls.default_client()
+        model = kwargs.get("model")
+        client = client or cls.default_client(model)
         kwargs.pop("client", None)
 
         messages = [
@@ -132,8 +134,7 @@ class OpenAIProvider(Provider):
             for m in messages
         ]
 
-        model = kwargs.get("model")
-        if model == "o1-preview":
+        if cls.is_reasoning_model(model):
             # modify all the system messages to be user
             for message in messages:
                 if message["role"] == "system":
@@ -150,9 +151,24 @@ class OpenAIProvider(Provider):
         )
 
     @classmethod
-    @cache
     def _default_client(cls) -> AsyncInstructor:
         return instructor.from_openai(AsyncOpenAI())
+
+    @classmethod
+    def _default_reasoning_client(cls) -> AsyncInstructor:
+        return instructor.from_openai(AsyncOpenAI(), mode=instructor.Mode.JSON_O1)
+
+    @classmethod
+    @cache
+    def default_client(cls, model: str) -> AsyncInstructor:
+        if cls.is_reasoning_model(model):
+            return cls._default_reasoning_client()
+        else:
+            return cls._default_client()
+
+    @classmethod
+    def is_reasoning_model(cls, model: str) -> bool:
+        return model in ["o1"]
 
     @staticmethod
     def normalise_content(content: Content):
@@ -289,6 +305,10 @@ class XAIProvider(OpenAIProvider):
     models = [
         "grok-2-1212",
         "grok-2-vision-1212",
+        "grok-3-mini-fast-beta",
+        "grok-3-mini-beta",
+        "grok-3-fast-beta",
+        "grok-3-beta",
     ]
 
     @classmethod
@@ -298,5 +318,24 @@ class XAIProvider(OpenAIProvider):
             AsyncOpenAI(
                 base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),
                 api_key=os.getenv("XAI_API_KEY"),
-            )
+            ),
         )
+
+    @classmethod
+    def _default_reasoning_client(cls) -> AsyncInstructor:
+        return instructor.from_openai(
+            AsyncOpenAI(
+                base_url=os.getenv("XAI_BASE_URL", cls.DEFAULT_BASE_URL),
+                api_key=os.getenv("XAI_API_KEY"),
+            ),
+            mode=instructor.Mode.JSON_O1,
+        )
+
+    @classmethod
+    def is_reasoning_model(cls, model: str) -> bool:
+        return model in [
+            "grok-3-mini-fast-beta",
+            "grok-3-mini-beta",
+            "grok-3-fast-beta",
+            "grok-3-beta",
+        ]

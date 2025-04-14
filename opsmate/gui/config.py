@@ -24,7 +24,7 @@ class Config(OpsmateConfig):
         default="",
     )
     context: str = Field(
-        default="k8s",
+        default="cli",
         alias="OPSMATE_CONTEXT",
         description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
     )

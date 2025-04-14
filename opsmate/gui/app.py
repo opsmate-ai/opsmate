@@ -101,7 +101,7 @@ async def startup():
         await kb_ingest()
 
 
-@app.route("/")
+@app.route("/polya")
 async def get():
     with sqlmodel.Session(engine) as session:
         blueprint = BluePrint.find_by_name(session, "polya")
@@ -277,7 +277,7 @@ async def delete(id: str):
         )
 
 
-@app.route("/blueprint/freestyle")
+@app.route("/")
 async def get():
     with sqlmodel.Session(engine) as session:
         blueprint = BluePrint.find_by_name(session, "freestyle")

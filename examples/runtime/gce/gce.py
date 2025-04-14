@@ -155,7 +155,13 @@ class GCERuntime(LocalRuntime):
 
     async def os_info(self):
         """Get OS information from the remote GCE instance."""
-        return await self.run("cat /etc/os-release")
+        return (
+            await self.run("uname -a")
+            + "\n"
+            + await self.run(
+                "[ -f /etc/os-release ] && cat /etc/os-release || echo 'No os-release file found'"
+            )
+        )
 
     async def whoami(self):
         """Get current user information from the remote GCE instance."""

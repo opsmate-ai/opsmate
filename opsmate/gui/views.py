@@ -97,7 +97,7 @@ nav = (
     Nav(
         Div(
             A("Opsmate Workspace", cls="btn btn-ghost text-xl", href="/"),
-            A("Freestyle", href="/blueprint/freestyle", cls="btn btn-ghost text-sm"),
+            A("Problem Solving", href="/polya", cls="btn btn-ghost text-sm"),
             A("Knowledges", href="/knowledges", cls="btn btn-ghost text-sm"),
             A("Settings", href="/settings", cls="btn btn-ghost text-sm"),
             cls="flex-1",

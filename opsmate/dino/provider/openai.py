@@ -1,14 +1,11 @@
 from .base import Provider, register_provider, T
-from typing import Any, Awaitable, TypeVar, List
+from typing import Any, Awaitable, List
 from instructor import AsyncInstructor
 from openai import AsyncOpenAI
 from functools import cache
 from tenacity import AsyncRetrying
 from opsmate.dino.types import Message, TextContent, ImageURLContent, Content
 import instructor
-import structlog
-
-logger = structlog.get_logger(__name__)
 
 
 @register_provider("openai")

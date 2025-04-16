@@ -1,4 +1,4 @@
-from .base import Provider, register_provider
+from .base import register_provider
 from .openai import OpenAIProvider
 from instructor import AsyncInstructor
 from openai import AsyncOpenAI

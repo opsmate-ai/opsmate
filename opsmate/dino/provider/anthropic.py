@@ -1,7 +1,7 @@
 from .base import Provider, register_provider, T
 from instructor import AsyncInstructor
 from anthropic import AsyncAnthropic
-from typing import Any, Awaitable, TypeVar, List
+from typing import Any, Awaitable, List
 from tenacity import AsyncRetrying
 from opsmate.dino.types import Message, TextContent, ImageURLContent, Content
 from functools import cache

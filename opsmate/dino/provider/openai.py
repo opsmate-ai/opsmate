@@ -10,8 +10,17 @@ import instructor
 
 @register_provider("openai")
 class OpenAIProvider(Provider):
-    chat_models = ["gpt-4o", "gpt-4o-mini"]
-    reasoning_models = ["o1", "o3-mini"]
+    chat_models = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+    ]
+    reasoning_models = [
+        "o1",
+        "o3-mini",
+    ]
     models = chat_models + reasoning_models
 
     @classmethod
@@ -63,9 +72,12 @@ class OpenAIProvider(Provider):
     @cache
     def default_client(cls, model: str) -> AsyncInstructor:
         if cls.is_reasoning_model(model):
-            return cls._default_reasoning_client()
+            client = cls._default_reasoning_client()
         else:
-            return cls._default_client()
+            client = cls._default_client()
+
+        client.on("parse:error", cls._handle_parse_error)
+        return client
 
     @classmethod
     def is_reasoning_model(cls, model: str) -> bool:

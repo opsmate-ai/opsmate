@@ -75,7 +75,7 @@ class Provider(ABC):
 
             if isinstance(e, ValidationError):
                 span.set_attribute("error_details", pformat(e.errors()))
-                logger.error("Validation error", error=e.errors())
+                logger.debug("Validation error", error=e.errors())
 
 
 def register_provider(name: str):

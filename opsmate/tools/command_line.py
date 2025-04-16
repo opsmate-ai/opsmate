@@ -83,6 +83,9 @@ class ShellCommand(ToolCall[str], PresentationMixin):
 
         return runtimes.get("ShellCommand", None)
 
+    def prompt_display(self):
+        return self.markdown()
+
     def confirmation_fields(self) -> List[str]:
         return ["command"]
 

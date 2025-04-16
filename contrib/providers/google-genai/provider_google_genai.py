@@ -61,7 +61,7 @@ class GoogleGenAIProvider(Provider):
     @cache
     def _default_client(cls) -> AsyncInstructor:
         return instructor.from_genai(
-            genai.Client(),
+            genai.Client(vertexai=True),
             mode=instructor.Mode.GENAI_STRUCTURED_OUTPUTS,
             use_async=True,
         )

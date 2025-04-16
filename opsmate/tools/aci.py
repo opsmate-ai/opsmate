@@ -10,6 +10,7 @@ import os
 import structlog
 import traceback
 import re
+from enum import Enum
 from jinja2 import Template
 
 logger = structlog.get_logger(__name__)
@@ -66,6 +67,15 @@ class Result(BaseModel):
     )
 
 
+class ActionEnum(str, Enum):
+    search = "search"
+    view = "view"
+    create = "create"
+    update = "update"
+    insert = "insert"
+    undo = "undo"
+
+
 @register_tool()
 class ACITool(ToolCall[Result], PresentationMixin):
     """
@@ -81,9 +91,8 @@ class ACITool(ToolCall[Result], PresentationMixin):
     # number of lines before and after the match
     search_context_window: ClassVar[int] = 4
 
-    action: str = Field(
-        description="The action to take for text editing or searching",
-        choices=["search", "view", "create", "update", "insert", "undo"],
+    action: ActionEnum = Field(
+        description="The action to take for text editing or searching.",
     )
 
     path: str = Field(description="The path of the file or directory to be operated on")
@@ -115,7 +124,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     @model_validator(mode="after")
     def validate_path(self) -> Self:
-        if self.action != "create":
+        if self.action != ActionEnum.create:
             if not Path(self.path).exists():
                 raise ValueError(f"File or directory {self.path} does not exist")
         else:
@@ -125,14 +134,14 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     @model_validator(mode="after")
     def validate_search_action(self) -> Self:
-        if self.action == "search":
+        if self.action == ActionEnum.search:
             if self.content is None:
                 self.content = ""
         return self
 
     @model_validator(mode="after")
     def validate_view_action(self) -> Self:
-        if self.action == "view":
+        if self.action == ActionEnum.view:
             if self.line_start is None and self.line_end is not None:
                 raise ValueError("line_start is required when line_end is provided")
             if self.line_end is None and self.line_start is not None:
@@ -148,14 +157,14 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     @model_validator(mode="after")
     def validate_create_action(self) -> Self:
-        if self.action == "create":
+        if self.action == ActionEnum.create:
             if self.content is None:
                 raise ValueError("content is required for the create action")
         return self
 
     @model_validator(mode="after")
     def validate_update_action(self) -> Self:
-        if self.action == "update":
+        if self.action == ActionEnum.update:
             if self.old_content is None:
                 raise ValueError("old_content is required for the update action")
             if self.content is None:
@@ -164,7 +173,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     @model_validator(mode="after")
     def validate_insert_action(self) -> Self:
-        if self.action == "insert":
+        if self.action == ActionEnum.insert:
             if self.content is None:
                 raise ValueError("content is required for the insert action")
             if self.insert_line_number is None:
@@ -173,7 +182,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     @model_validator(mode="after")
     def validate_undo_action(self) -> Self:
-        if self.action == "undo":
+        if self.action == ActionEnum.undo:
             if self.path is None:
                 raise ValueError("path is required for the undo action")
         return self
@@ -181,7 +190,7 @@ class ACITool(ToolCall[Result], PresentationMixin):
     async def __call__(self) -> Result:
         logger.info(
             "executing action",
-            action=self.action,
+            action=self.action.value,
             path=self.path,
             content=self.content,
             old_content=self.old_content,
@@ -189,17 +198,17 @@ class ACITool(ToolCall[Result], PresentationMixin):
             line_start=self.line_start,
             line_end=self.line_end,
         )
-        if self.action == "search":
+        if self.action == ActionEnum.search:
             return await self.search()
-        elif self.action == "view":
+        elif self.action == ActionEnum.view:
             return await self.view()
-        elif self.action == "create":
+        elif self.action == ActionEnum.create:
             return await self.create()
-        elif self.action == "update":
+        elif self.action == ActionEnum.update:
             return await self.update()
-        elif self.action == "insert":
+        elif self.action == ActionEnum.insert:
             return await self.insert()
-        elif self.action == "undo":
+        elif self.action == ActionEnum.undo:
             return await self.undo()
         else:
             raise ValueError(f"Invalid action: {self.action}")
@@ -525,17 +534,17 @@ class ACITool(ToolCall[Result], PresentationMixin):
 
     def markdown(self, context: dict[str, Any] = {}):
         match self.action:
-            case "search":
+            case ActionEnum.search:
                 return self._render_search_markdown()
-            case "view":
+            case ActionEnum.view:
                 return self._render_view_markdown()
-            case "create":
+            case ActionEnum.create:
                 return self._render_create_markdown()
-            case "update":
+            case ActionEnum.update:
                 return self._render_update_markdown()
-            case "insert":
+            case ActionEnum.insert:
                 return self._render_insert_markdown()
-            case "undo":
+            case ActionEnum.undo:
                 return self._render_undo_markdown()
             case _:
                 return self._render_error()

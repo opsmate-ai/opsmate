@@ -84,6 +84,7 @@ nav:
     - LLM Providers: providers/index.md
     - OpenAI: providers/openai.md
     - Anthropic: providers/anthropic.md
+    - Google Vertex AI: providers/google-genai.md
     - XAI: providers/xai.md
     - Groq: providers/groq.md
     - Fireworks AI: providers/fireworks-ai.md

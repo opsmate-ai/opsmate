@@ -9,7 +9,7 @@ from google import genai
 import instructor
 
 
-@register_provider("google_genai")
+@register_provider("google-genai")
 class GoogleGenAIProvider(Provider):
     models = [
         "gemini-2.5-pro-preview-03-25",

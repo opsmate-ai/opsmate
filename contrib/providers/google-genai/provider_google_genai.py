@@ -13,7 +13,10 @@ import os
 @register_provider("google_genai")
 class GoogleGenAIProvider(Provider):
     models = [
+        # "gemini-2.5-pro-exp-03-25",
+        # "gemini-2.5-pro-preview-03-25",
         "gemini-2.0-flash-001",
+        "gemini-2.0-flash-lite",
     ]
 
     @classmethod

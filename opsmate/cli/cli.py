@@ -100,9 +100,15 @@ def config_params(cli_config=config):
             description = field_info.description or f"Set {field_name}"
             env_var = field_info.alias
 
-            option_name = f"--{field_name.replace('_', '-')}"
+            option_names = [f"--{field_name.replace('_', '-')}"]
+            if field_info.json_schema_extra and field_info.json_schema_extra.get(
+                "abbr"
+            ):
+                option_names.append(
+                    f"-{field_info.json_schema_extra['abbr']}",
+                )
             func = click.option(
-                option_name,
+                *option_names,
                 default=default_value,
                 help=f"{description} (env: {env_var})",
                 show_default=True,
@@ -187,14 +193,6 @@ def with_runtime(func):
 
 
 def common_params(func):
-    # Then apply existing common params
-    @click.option(
-        "-m",
-        "--model",
-        show_default=True,
-        default="gpt-4o",
-        help="Large language model to use. To list models available please run the list-models command.",
-    )
     @click.option(
         "--tools",
         default="",
@@ -324,7 +322,6 @@ Edit the execution if needed, then press Enter to execute:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
     instruction,
-    model,
     context,
     tools,
     tool_call_context,
@@ -347,7 +344,7 @@ async def run(
     span.set_attributes(
         {
             "cli.run.instruction": instruction,
-            "cli.run.model": model,
+            "cli.run.model": config.model,
             "cli.run.context": context,
             "cli.run.tools": [t.__name__ for t in tools],
             "cli.run.system_prompt": system_prompt if system_prompt else "",
@@ -357,9 +354,9 @@ async def run(
         }
     )
 
-    logger.info("Running on", instruction=instruction, model=model)
+    logger.info("Running on", instruction=instruction, model=config.model)
 
-    @dino(model, response_model=Observation, tools=tools)
+    @dino(config.model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         sys_prompts = await ctx.resolve_contexts(runtimes=runtimes)
         if system_prompt:
@@ -434,7 +431,6 @@ async def run(
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "runtimes", "tools"])
 async def solve(
     instruction,
-    model,
     max_iter,
     context,
     tools,
@@ -458,7 +454,7 @@ async def solve(
     span.set_attributes(
         {
             "cli.solve.instruction": instruction,
-            "cli.solve.model": model,
+            "cli.solve.model": config.model,
             "cli.solve.context": context,
             "cli.solve.tools": [t.__name__ for t in tools],
             "cli.solve.max_iter": max_iter,
@@ -477,7 +473,7 @@ async def solve(
         run_react(
             instruction,
             contexts=contexts,
-            model=model,
+            model=config.model,
             max_iter=max_iter,
             tools=tools,
             tool_call_context=tool_call_context,
@@ -561,7 +557,6 @@ Commands:
 @with_runtime
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
-    model,
     max_iter,
     context,
     tools,
@@ -583,7 +578,7 @@ async def chat(
 
     span.set_attributes(
         {
-            "cli.chat.model": model,
+            "cli.chat.model": config.model,
             "cli.chat.max_iter": max_iter,
             "cli.chat.context": context,
             "cli.chat.tools": [t.__name__ for t in tools],
@@ -616,7 +611,7 @@ async def chat(
             run = run_react(
                 user_input,
                 contexts=contexts,
-                model=model,
+                model=config.model,
                 max_iter=max_iter,
                 tools=tools,
                 chat_history=chat_history,

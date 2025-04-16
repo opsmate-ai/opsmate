@@ -70,6 +70,11 @@ class Config(BaseSettings):
 
     db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
 
+    model: str = Field(
+        default="gpt-4o",
+        alias="OPSMATE_MODEL",
+        abbr="m",
+    )
     plugins_dir: str = Field(
         default=default_plugins_dir,
         alias="OPSMATE_PLUGINS_DIR",

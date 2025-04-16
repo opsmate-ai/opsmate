@@ -29,12 +29,6 @@ class Config(OpsmateConfig):
         description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
     )
 
-    model: str = Field(
-        default="gpt-4o",
-        alias="OPSMATE_MODEL",
-        choices=["gpt-4o", "claude-3-5-sonnet-20241022", "grok-2-1212"],
-    )
-
     def addon_discovery(self):
         PluginRegistry.discover(self.plugins_dir)
         ContextRegistry.discover(self.contexts_dir)

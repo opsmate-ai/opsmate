@@ -19,6 +19,8 @@ jobs:
         package:
           - name: opsmate
             url: https://pypi.org/p/opsmate
+          - name: opsmate-provider-google-genai
+            url: https://pypi.org/p/opsmate-provider-google-genai
           - name: opsmate-provider-groq
             url: https://pypi.org/p/opsmate-provider-groq
           - name: opsmate-provider-fireworks

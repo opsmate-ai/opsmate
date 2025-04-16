@@ -12,6 +12,7 @@ resolution-markers = [
 members = [
     "opsmate",
     "opsmate-provider-fireworks",
+    "opsmate-provider-google-genai",
     "opsmate-provider-groq",
     "opsmate-tool-mysql",
     "opsmate-tool-postgres",
@@ -473,6 +474,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/16/13/ab46b7033b585ecafb636eda505e049bcae31f7b0335e7b83bb8250147ca/braintrust_core-0.0.58.tar.gz", hash = "sha256:213ef6515ea1b5802213035b12b66971b10f4ee55a6bc426e29370d2da063f6c", size = 3610 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/58/a255894436f3eca4a20611785a30a43b85bc75adf1b77f227e1e6d0cce0a/braintrust_core-0.0.58-py3-none-any.whl", hash = "sha256:fa272b70376d2c6692acf00ebd9fb9bae057b0c53b2b6a59a64850bf79757311", size = 4438 },
+]
+
+[[package]]
+name = "cachetools"
+version = "5.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/81/3747dad6b14fa2cf53fcf10548cf5aea6913e96fab41a3c198676f8948a5/cachetools-5.5.2.tar.gz", hash = "sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4", size = 28380 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl", hash = "sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a", size = 10080 },
 ]
 
 [[package]]
@@ -1256,6 +1266,38 @@ wheels = [
 ]
 
 [[package]]
+name = "google-auth"
+version = "2.39.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "pyasn1-modules" },
+    { name = "rsa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cb/8e/8f45c9a32f73e786e954b8f9761c61422955d23c45d1e8c347f9b4b59e8e/google_auth-2.39.0.tar.gz", hash = "sha256:73222d43cdc35a3aeacbfdcaf73142a97839f10de930550d89ebfe1d0a00cde7", size = 274834 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/12/ad37a1ef86006d0a0117fc06a4a00bd461c775356b534b425f00dde208ea/google_auth-2.39.0-py2.py3-none-any.whl", hash = "sha256:0150b6711e97fb9f52fe599f55648950cc4540015565d8fbb31be2ad6e1548a2", size = 212319 },
+]
+
+[[package]]
+name = "google-genai"
+version = "1.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "google-auth" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/7a/224e2f70c835202042969685ee3da00a6475508d1b64f0f1e90144f96beb/google_genai-1.10.0.tar.gz", hash = "sha256:f59423e0f155dc66b7792c8a0e6724c75c72dc699d1eb7907d4d0006d4f6186f", size = 156355 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/a0/56839a2e202d79c773edd1c1db124da8eb2a7b657267a888080b678d0369/google_genai-1.10.0-py3-none-any.whl", hash = "sha256:41b105a2fcf8a027fc45cc16694cd559b8cd1272eab7345ad58cfa2c353bf34f", size = 154705 },
+]
+
+[[package]]
 name = "googleapis-common-protos"
 version = "1.69.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1554,7 +1596,7 @@ wheels = [
 
 [[package]]
 name = "instructor"
-version = "1.7.6"
+version = "1.7.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1569,9 +1611,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/f2/7463cab642475e711b7b50f2306554444a227091ff7b00d31b8966d687f4/instructor-1.7.6.tar.gz", hash = "sha256:e17fa67cf026ee8230af3599e05a5ea3e25a17a804e4007768bf0263399a0822", size = 67499481 }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/ff/a1b8d008c774bf88dbc13120719f4ab24b9c869b4dd30dc9bd49a9dcc58e/instructor-1.7.9.tar.gz", hash = "sha256:3b7ff9119b386ebdc3c683a8af3c6461f424b9d80795d5e12676990b8379dd8a", size = 69063860 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/06/3dd7205fda8234765402b6d5cca4d8f345db328a2b97598a4bbf3b2dfdb8/instructor-1.7.6-py3-none-any.whl", hash = "sha256:d6ff70559b6fab18880ff6b5ee4e574bcf08c0ff2f916a34124318ea03385eab", size = 83922 },
+    { url = "https://files.pythonhosted.org/packages/e5/a1/aa7d1ff14070ab55f1e915566b47f8f94f7d21531276320d9a0d5ac74165/instructor-1.7.9-py3-none-any.whl", hash = "sha256:8050c3de3e38680a7fa8de03e52bb644d0cb3d5fab38fee4343977db74ed77bc", size = 86010 },
 ]
 
 [package.optional-dependencies]
@@ -1815,6 +1857,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6a/0a/eebeb1fa92507ea94016a2a790b93c2ae41a7e18778f85471dc54475ed25/jsonpointer-3.0.0.tar.gz", hash = "sha256:2b2d729f2091522d61c3b31f82e11870f60b68f43fbc705cb76bf4b832af59ef", size = 9114 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/92/5e77f98553e9e75130c78900d000368476aed74276eb8ae8796f65f00918/jsonpointer-3.0.0-py2.py3-none-any.whl", hash = "sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942", size = 7595 },
+]
+
+[[package]]
+name = "jsonref"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/0d/c1f3277e90ccdb50d33ed5ba1ec5b3f0a242ed8c1b1a85d3afeb68464dca/jsonref-1.1.0.tar.gz", hash = "sha256:32fe8e1d85af0fdefbebce950af85590b22b60f9e95443176adbde4e1ecea552", size = 8814 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/ec/e1db9922bceb168197a558a2b8c03a7963f1afe93517ddd3cf99f202f996/jsonref-1.1.0-py3-none-any.whl", hash = "sha256:590dc7773df6c21cbf948b5dac07a72a251db28b0238ceecce0a2abfa8ec30a9", size = 9425 },
 ]
 
 [[package]]
@@ -3075,7 +3126,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.1.52a0"
+version = "0.1.54a0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3153,7 +3204,7 @@ requires-dist = [
     { name = "graphviz", specifier = ">=0.20.3,<1.0.0" },
     { name = "html2text", specifier = "==2024.2.26" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "instructor", extras = ["anthropic"], specifier = ">=1.7.6,<2.0.0" },
+    { name = "instructor", extras = ["anthropic"], specifier = ">=1.7.9,<2.0.0" },
     { name = "jinja2", specifier = ">=3.1.6,<4.0.0" },
     { name = "lancedb", specifier = "==0.20.0" },
     { name = "matplotlib", specifier = ">=3.10.1,<4.0.0" },
@@ -3215,6 +3266,23 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fireworks-ai", specifier = ">=0.15.12" },
+    { name = "opsmate", editable = "." },
+]
+
+[[package]]
+name = "opsmate-provider-google-genai"
+version = "0.1.1a0"
+source = { editable = "contrib/providers/google-genai" }
+dependencies = [
+    { name = "google-genai" },
+    { name = "jsonref" },
+    { name = "opsmate" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "google-genai", specifier = ">=1.5.0" },
+    { name = "jsonref", specifier = ">=1.1.0,<2.0.0" },
     { name = "opsmate", editable = "." },
 ]
 
@@ -3777,6 +3845,27 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/d4/b4a3aa781a2c715520aa8ab4fe2e7fa49d33a1d4e71c8fc6ab7b5de7a3f8/pyarrow-19.0.1-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5a9137cf7e1640dce4c190551ee69d478f7121b5c6f323553b319cac936395f6", size = 42171896 },
     { url = "https://files.pythonhosted.org/packages/23/1b/716d4cd5a3cbc387c6e6745d2704c4b46654ba2668260d25c402626c5ddb/pyarrow-19.0.1-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:7c1bca1897c28013db5e4c83944a2ab53231f541b9e0c3f4791206d0c0de389a", size = 40464851 },
     { url = "https://files.pythonhosted.org/packages/ed/bd/54907846383dcc7ee28772d7e646f6c34276a17da740002a5cefe90f04f7/pyarrow-19.0.1-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:58d9397b2e273ef76264b45531e9d552d8ec8a6688b7390b5be44c02a37aade8", size = 42085744 },
+]
+
+[[package]]
+name = "pyasn1"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/e9/01f1a64245b89f039897cb0130016d79f77d52669aae6ee7b159a6c4c018/pyasn1-0.6.1.tar.gz", hash = "sha256:6f580d2bdd84365380830acf45550f2511469f673cb4a5ae3857a3170128b034", size = 145322 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/f1/d6a797abb14f6283c0ddff96bbdd46937f64122b8c925cab503dd37f8214/pyasn1-0.6.1-py3-none-any.whl", hash = "sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629", size = 83135 },
+]
+
+[[package]]
+name = "pyasn1-modules"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyasn1" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/e6/78ebbb10a8c8e4b61a59249394a4a594c1a7af95593dc933a349c8d00964/pyasn1_modules-0.4.2.tar.gz", hash = "sha256:677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6", size = 307892 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/8d/d529b5d697919ba8c11ad626e835d4039be708a35b0d22de83a269a6682c/pyasn1_modules-0.4.2-py3-none-any.whl", hash = "sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a", size = 181259 },
 ]
 
 [[package]]
@@ -4496,6 +4585,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/42/02/be91e1de139ec8b4f9fec4192fd779ba48af281cfc762c0ca4c15b945484/rpds_py-0.23.1-pp310-pypy310_pp73-musllinux_1_2_i686.whl", hash = "sha256:a98f510d86f689fcb486dc59e6e363af04151e5260ad1bdddb5625c10f1e95f8", size = 584773 },
     { url = "https://files.pythonhosted.org/packages/27/28/3af8a1956df3edc41d884267d766dc096496dafc83f02f764a475eca0b4a/rpds_py-0.23.1-pp310-pypy310_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:e0397dd0b3955c61ef9b22838144aa4bef6f0796ba5cc8edfc64d468b93798b4", size = 555153 },
     { url = "https://files.pythonhosted.org/packages/5e/bb/e45f51c4e1327dea3c72b846c6de129eebacb7a6cb309af7af35d0578c80/rpds_py-0.23.1-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:75307599f0d25bf6937248e5ac4e3bde5ea72ae6618623b86146ccc7845ed00b", size = 233827 },
+]
+
+[[package]]
+name = "rsa"
+version = "4.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyasn1" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/da/8a/22b7beea3ee0d44b1916c0c1cb0ee3af23b700b6da9f04991899d0c555d4/rsa-4.9.1.tar.gz", hash = "sha256:e7bdbfdb5497da4c07dfd35530e1a902659db6ff241e39d9953cad06ebd0ae75", size = 29034 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/64/8d/0133e4eb4beed9e425d9a98ed6e081a55d195481b7632472be1af08d2f6b/rsa-4.9.1-py3-none-any.whl", hash = "sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762", size = 34696 },
 ]
 
 [[package]]

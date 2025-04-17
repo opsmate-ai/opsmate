@@ -88,6 +88,7 @@ nav:
     - XAI: providers/xai.md
     - Groq: providers/groq.md
     - Fireworks AI: providers/fireworks-ai.md
+    - Ollama: providers/ollama.md
   - Tools:
     - Tools: tools/index.md
     - Prometheus: tools/prometheus.md

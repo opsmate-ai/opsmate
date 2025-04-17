@@ -19,7 +19,9 @@ class OpenAIProvider(Provider):
     ]
     reasoning_models = [
         "o1",
+        "o3",
         "o3-mini",
+        "o4-mini",
     ]
     models = chat_models + reasoning_models
 

@@ -19,8 +19,6 @@ async def cli_lite_ctx(runtimes: dict[str, Runtime] = {}) -> str:
         runtime_info[runtime_name] = {
             "os_info": await runtime.os_info(),
             "whoami": await runtime.whoami(),
-            "runtime_info": await runtime.runtime_info(),
-            "has_systemd": await runtime.has_systemd(),
         }
 
     template = Template(

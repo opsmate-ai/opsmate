@@ -164,13 +164,13 @@ def runtimes_from_kwargs(kwargs):
         runtimes[tool_name] = runtime_class(runtime_config)
         configs[runtime_name] = runtime_config
 
-    return runtimes, configs
+    return runtimes, configs, tool_configs
 
 
 def with_runtime(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        runtimes, _ = runtimes_from_kwargs(kwargs)
+        runtimes, _, _ = runtimes_from_kwargs(kwargs)
         tool_call_context = kwargs.get("tool_call_context")
         tool_call_context["runtimes"] = runtimes
         kwargs["runtimes"] = runtimes
@@ -779,9 +779,12 @@ async def serve(host, port, workers, dev, config, **kwargs):
 
     kwargs["context"] = config.context
     kwargs["tools"] = config.opsmate_tools()
-    _, runtime_configs = runtimes_from_kwargs(kwargs)
+    _, runtime_configs, tool_configs = runtimes_from_kwargs(kwargs)
     for _, runtime_config in runtime_configs.items():
         runtime_config.serialize_to_env()
+
+    for _, tool_config in tool_configs.items():
+        tool_config.serialize_to_env()
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

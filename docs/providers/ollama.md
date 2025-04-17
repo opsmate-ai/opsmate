@@ -9,7 +9,7 @@
 
 Currently we have only experimented with Ollama on Apple Silicon with bunch of 7b - 12b parameter models. `gemma3:12b` so far is the only model that can produce barely acceptable results, and it's way behind in terms of quality and latency compared to frontier models.
 
-That being said we welcome you to give it a try and [report any issues](https://github.com/jingkaihe/opsmate/issues), especially those who has 128GB+ vRAM GPU power that can run bigger models.
+That being said we encourage you to give it a try and [report any issues](https://github.com/jingkaihe/opsmate/issues), especially for those who has 128GB+ vRAM to run bigger models.
 
 ## Usage
 

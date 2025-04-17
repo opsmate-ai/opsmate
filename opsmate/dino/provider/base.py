@@ -7,6 +7,8 @@ from pprint import pformat
 from opentelemetry import trace
 from functools import cache
 import pkg_resources
+import json
+from pathlib import Path
 from opsmate.dino.types import Message
 
 import structlog
@@ -28,6 +30,26 @@ class Provider(ABC):
         "presence_penalty",
         "system",
     ]
+
+    CACHE_DIR = Path.home() / ".cache" / "opsmate"
+
+    @classmethod
+    def _get_cached_models(cls) -> List[str]:
+        """Read cached models from file."""
+        if cls.MODELS_CACHE_FILE.exists():
+            try:
+                with open(cls.MODELS_CACHE_FILE, "r") as f:
+                    return json.load(f)
+            except Exception:
+                return []
+        return []
+
+    @classmethod
+    def _cache_models(cls, models: List[str]) -> None:
+        """Cache models to file."""
+        cls.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(cls.MODELS_CACHE_FILE, "w") as f:
+            json.dump(models, f)
 
     @classmethod
     @abstractmethod
@@ -81,6 +103,7 @@ class Provider(ABC):
 def register_provider(name: str):
     def wrapper(cls: Type[Provider]):
         Provider.providers[name] = cls
+        cls.MODELS_CACHE_FILE = Provider.CACHE_DIR / f"{name}_models.json"
         return cls
 
     return wrapper

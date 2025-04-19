@@ -6,11 +6,12 @@
 [![Link to documentation](https://img.shields.io/static/v1?label=%F0%9F%93%96&message=Documentation&color=blue)](https://docs.tryopsmate.ai/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Opsmate is an AI SRE teammate to free you from the toils of production engineering.
+Opsmate is an LLM-powered SRE copilot for understanding and solving production problems. By encoding expert troubleshooting patterns and operational knowledge, Opsmate lets users describe problem statements and intentions in natural language, eliminating the need to memorise complex command line or domain-specific tool syntax.
+
+Opsmate can not only perform problem solving autonomously, but also allow human operators to provide feedback and take over the control when needed. It accelerates incident response, reduces mean time to repair (MTTR), and empowers teams to focus on solving problems rather than wrestling with tooling.
 
 <img src="assets/demo.gif" width="700">
 
-Modern infrastructure and production environments are complex. Opsmate is a 24/7 available SRE teammate that helps you manage production operations with a human-in-the-loop approach.
 
 ## Table of Contents
 

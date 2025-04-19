@@ -1,10 +1,8 @@
 # Opsmate, The AI SRE teammate to free you from the toils of production engineering.
 
-_Modern infrastructure and production environments are complex, Opsmate is a SRE teammate that is available 24/7 to help you handle the production operations._
+Opsmate is an LLM-powered SRE copilot for understanding and solving production problems. By encoding expert troubleshooting patterns and operational knowledge, Opsmate lets users describe problem statements and intentions in natural language, eliminating the need to memorise complex command line or domain-specific tool syntax.
 
----
-
-Opsmate makes it easy to manage production environments. It stands out from other current SRE tools because its human-in-the-loop approach - It can not only run autonomously but also allow the human operator to provide feedback and take over the control when needed.
+Opsmate can not only perform problem solving autonomously, but also allow human operators to provide feedback and take over the control when needed. It accelerates incident response, reduces mean time to repair (MTTR), and empowers teams to focus on solving problems rather than wrestling with tooling.
 
 ## Getting Started
 
@@ -60,7 +58,20 @@ export ANTHROPIC_API_KEY="sk-ant-api03-..."
 export XAI_API_KEY="xai-..."
 ```
 
-Check out:
+## Quick Start
 
-- [CLI](./CLI/index.md) for simple command usage.
-- [Production](production.md) for production use cases.
+Run `opsmate run "what's the distro of the os"` to get the OS distribution of the host
+
+Run `opsmate solve "resolve the high cpu usage on the server" --review` to solve the problem step by step and review the solution with human in the loop.
+
+Run `opsmate chat --review` to chat with Opsmate.
+
+Run `opsmate serve` to launch a notebook interface for Opsmate.
+
+## Documentation
+
+- [CLI Reference](./CLI/index.md) for simple command usage.
+- [LLM Providers](./providers/index.md) for LLM provider configuration.
+- [Tools](./tools/index.md) for tool usage.
+- [Integrations](./integrations/add-new-llm-providers.md) and [Cookbooks](./cookbooks/index.md) for advanced usages.
+- [Production](production.md) for how to production-grade Opsmate deployment behind local workstation usage.

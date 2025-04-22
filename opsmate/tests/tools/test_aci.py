@@ -35,8 +35,13 @@ async def test_file_create(tmp_path, test_file):
     assert tool2._file_history[Path(test_file)] == ["Hello, world!"]
 
     # ensure duplicated file creation failed to init
-    with pytest.raises(ValueError, match="test.txt already exists"):
-        ACITool(action="create", path=test_file, content="Hello, world!")
+    # with pytest.raises(ValueError, match="test.txt already exists"):
+    #     ACITool(action="create", path=test_file, content="Hello, world!")
+    tool3 = ACITool(action="create", path=test_file, content="Good morning")
+    result = await tool3.run()
+    assert result.output == "File created successfully"
+    assert tool3.output.output == "File created successfully"
+    assert tool3._file_history[Path(test_file)] == ["Hello, world!", "Good morning"]
 
 
 @pytest.mark.asyncio

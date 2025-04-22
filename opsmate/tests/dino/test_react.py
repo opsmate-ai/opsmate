@@ -226,9 +226,9 @@ async def test_react_decorator_with_tool_call_context():
     @dtool
     async def weather(city: str, context: dict[str, Any] = {}) -> str:
         """
-        return the weather of the city
+        the real time weather api
         """
-        return context[city]
+        return context[city.lower()]
 
     @react(
         model="gpt-4o",
@@ -244,15 +244,15 @@ async def test_react_decorator_with_tool_call_context():
         return f"answer the query: {query} answer should be either sunny or cloudy"
 
     tool_call_context = {
-        "Singapore": "sunny",
-        "London": "cloudy",
+        "singapore": "sunny",
+        "london": "cloudy",
     }
     answer = await weather_agent(
         "what is the weather in singapore?",
         tool_call_context=tool_call_context,
     )
 
-    @dino("gpt-4o-mini", response_model=Literal["sunny", "cloudy"])
+    @dino("gpt-4o", response_model=Literal["sunny", "cloudy"])
     def category_weather(weather: str):
         """
         categorize the weather into sunny or cloudy

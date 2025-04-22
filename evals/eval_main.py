@@ -554,7 +554,10 @@ Here is the current deployment resources in alpha namespace:
     },
 ]
 
-models = ["claude-3-7-sonnet-20250219", "gpt-4o"]
+models = [
+    "claude-3-7-sonnet-20250219",
+    "gpt-4o",
+]
 
 test_cases = [
     {

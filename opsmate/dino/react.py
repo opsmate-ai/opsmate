@@ -263,7 +263,7 @@ def react(
     iterable: bool = False,
     callback: Callable[[React | ReactAnswer | Observation], None] = None,
     tool_calls_per_action: int = 3,
-    react_kwargs: Any = {},
+    **react_kwargs: Any,
 ):
     """
     Decorator to run a function in a loop of question, thought, action.
@@ -350,9 +350,9 @@ def react(
                         tools=list(_tools),
                         max_iter=max_iter,
                         tool_calls_per_action=tool_calls_per_action,
-                        **react_kwargs,
                         chat_history=chat_history,
                         tool_call_context=tool_call_context,
+                        **react_kwargs,
                     )
 
                 return gen()
@@ -366,6 +366,7 @@ def react(
                     tool_calls_per_action=tool_calls_per_action,
                     chat_history=chat_history,
                     tool_call_context=tool_call_context,
+                    **react_kwargs,
                 ):
                     if callback:
                         if inspect.iscoroutinefunction(callback):

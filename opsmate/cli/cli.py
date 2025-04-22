@@ -148,7 +148,10 @@ def runtime_params(func):
 
 
 def runtimes_from_kwargs(kwargs):
-    ctx = get_context(kwargs.get("context"))
+    config = kwargs.get("config")
+    if config is None:
+        raise ValueError("config is required")
+    ctx = get_context(config.context)
     selected_tools = kwargs.get("tools", [])
     if len(selected_tools) == 0:
         selected_tools = ctx.resolve_tools()
@@ -212,13 +215,6 @@ def common_params(func):
         default=None,
         show_default=True,
         help="System prompt to use",
-    )
-    @click.option(
-        "-c",
-        "--context",
-        default="cli",
-        show_default=True,
-        help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
     )
     @click.option(
         "-l",
@@ -322,7 +318,6 @@ Edit the execution if needed, then press Enter to execute:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
     instruction,
-    context,
     tools,
     tool_call_context,
     system_prompt,
@@ -336,7 +331,7 @@ async def run(
     Run a task with the Opsmate.
     """
 
-    ctx = get_context(context)
+    ctx = get_context(config.context)
 
     if len(tools) == 0:
         tools = ctx.resolve_tools()
@@ -345,7 +340,7 @@ async def run(
         {
             "cli.run.instruction": instruction,
             "cli.run.model": config.model,
-            "cli.run.context": context,
+            "cli.run.context": config.context,
             "cli.run.tools": [t.__name__ for t in tools],
             "cli.run.system_prompt": system_prompt if system_prompt else "",
             "cli.run.no_tool_output": no_tool_output,
@@ -432,7 +427,6 @@ async def run(
 async def solve(
     instruction,
     max_iter,
-    context,
     tools,
     tool_call_context,
     system_prompt,
@@ -446,7 +440,7 @@ async def solve(
     """
     Solve a problem with the Opsmate.
     """
-    ctx = get_context(context)
+    ctx = get_context(config.context)
 
     if len(tools) == 0:
         tools = ctx.resolve_tools()
@@ -455,7 +449,7 @@ async def solve(
         {
             "cli.solve.instruction": instruction,
             "cli.solve.model": config.model,
-            "cli.solve.context": context,
+            "cli.solve.context": config.context,
             "cli.solve.tools": [t.__name__ for t in tools],
             "cli.solve.max_iter": max_iter,
             "cli.solve.no_tool_output": no_tool_output,
@@ -558,7 +552,6 @@ Commands:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
     max_iter,
-    context,
     tools,
     tool_call_context,
     system_prompt,
@@ -571,7 +564,7 @@ async def chat(
     Chat with the Opsmate.
     """
 
-    ctx = get_context(context)
+    ctx = get_context(config.context)
 
     if len(tools) == 0:
         tools = ctx.resolve_tools()
@@ -580,7 +573,7 @@ async def chat(
         {
             "cli.chat.model": config.model,
             "cli.chat.max_iter": max_iter,
-            "cli.chat.context": context,
+            "cli.chat.context": config.context,
             "cli.chat.tools": [t.__name__ for t in tools],
             "cli.chat.system_prompt": system_prompt if system_prompt else "",
             "cli.chat.tool_calls_per_action": tool_calls_per_action,

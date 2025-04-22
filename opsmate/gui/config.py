@@ -23,11 +23,6 @@ class Config(OpsmateConfig):
         alias="OPSMATE_SYSTEM_PROMPT",
         default="",
     )
-    context: str = Field(
-        default="cli",
-        alias="OPSMATE_CONTEXT",
-        description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
-    )
 
     def addon_discovery(self):
         PluginRegistry.discover(self.plugins_dir)

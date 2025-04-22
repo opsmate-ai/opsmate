@@ -73,7 +73,8 @@ class Config(BaseSettings):
     model: str = Field(
         default="gpt-4o",
         alias="OPSMATE_MODEL",
-        abbr="m",
+        description="The model to use for the session. Run `opsmate list-models` to see the available models.",
+        json_schema_extra={"abbr": "m"},
     )
     plugins_dir: str = Field(
         default=default_plugins_dir,
@@ -82,6 +83,13 @@ class Config(BaseSettings):
     contexts_dir: str = Field(
         default=default_contexts_dir,
         alias="OPSMATE_CONTEXTS_DIR",
+    )
+
+    context: str = Field(
+        default="cli",
+        alias="OPSMATE_CONTEXT",
+        description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
+        json_schema_extra={"abbr": "c"},
     )
 
     embeddings_db_path: str = Field(

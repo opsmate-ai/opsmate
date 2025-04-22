@@ -122,15 +122,15 @@ class ACITool(ToolCall[Result], PresentationMixin):
         default=None,
     )
 
-    @model_validator(mode="after")
-    def validate_path(self) -> Self:
-        if self.action != ActionEnum.create:
-            if not Path(self.path).exists():
-                raise ValueError(f"File or directory {self.path} does not exist")
-        else:
-            if Path(self.path).exists():
-                raise ValueError(f"File or directory {self.path} already exists")
-        return self
+    # @model_validator(mode="after")
+    # def validate_path(self) -> Self:
+    #     if self.action != ActionEnum.create:
+    #         if not Path(self.path).exists():
+    #             raise ValueError(f"File or directory {self.path} does not exist")
+    #     else:
+    #         if Path(self.path).exists():
+    #             raise ValueError(f"File or directory {self.path} already exists")
+    #     return self
 
     @model_validator(mode="after")
     def validate_search_action(self) -> Self:

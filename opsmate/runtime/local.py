@@ -86,7 +86,7 @@ class LocalRuntime(Runtime):
                     await self._start_shell()
                 # Add a unique marker to identify end of output
                 marker = f"__END_OF_COMMAND_{id(command)}__"
-                full_command = f"{command}; echo '{marker}'\n"
+                full_command = f"{command}\necho '{marker}'\n"
 
                 # Send command to the shell
                 self.process.stdin.write(full_command.encode())

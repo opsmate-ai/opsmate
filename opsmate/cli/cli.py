@@ -100,9 +100,15 @@ def config_params(cli_config=config):
             description = field_info.description or f"Set {field_name}"
             env_var = field_info.alias
 
-            option_name = f"--{field_name.replace('_', '-')}"
+            option_names = [f"--{field_name.replace('_', '-')}"]
+            if field_info.json_schema_extra and field_info.json_schema_extra.get(
+                "abbr"
+            ):
+                option_names.append(
+                    f"-{field_info.json_schema_extra['abbr']}",
+                )
             func = click.option(
-                option_name,
+                *option_names,
                 default=default_value,
                 help=f"{description} (env: {env_var})",
                 show_default=True,
@@ -142,10 +148,10 @@ def runtime_params(func):
 
 
 def runtimes_from_kwargs(kwargs):
-    ctx = get_context(kwargs.get("context"))
-    selected_tools = kwargs.get("tools", [])
-    if len(selected_tools) == 0:
-        selected_tools = ctx.resolve_tools()
+    config = kwargs.get("config")
+    if config is None:
+        raise ValueError("config is required")
+    selected_tools = config.opsmate_tools()
     selected_tool_names = [t.__name__ for t in selected_tools]
 
     tool_configs = kwargs.pop("ToolCallConfig")
@@ -187,19 +193,6 @@ def with_runtime(func):
 
 
 def common_params(func):
-    # Then apply existing common params
-    @click.option(
-        "-m",
-        "--model",
-        show_default=True,
-        default="gpt-4o",
-        help="Large language model to use. To list models available please run the list-models command.",
-    )
-    @click.option(
-        "--tools",
-        default="",
-        help="Comma separated list of tools to use",
-    )
     @click.option(
         "-r",
         "--review",
@@ -216,13 +209,6 @@ def common_params(func):
         help="System prompt to use",
     )
     @click.option(
-        "-c",
-        "--context",
-        default="cli",
-        show_default=True,
-        help="Context to be added to the prompt. Run the list-contexts command to see all the contexts available.",
-    )
-    @click.option(
         "-l",
         "--max-output-length",
         default=10000,
@@ -231,21 +217,27 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        _tool_names = kwargs.pop("tools")
-        _tool_names = _tool_names.split(",")
-        _tool_names = [t for t in _tool_names if t != ""]
-
         addon_discovery()
 
+        config = kwargs.get("config")
+        if config is None:
+            raise ValueError("config is required")
+
         try:
-            tools = PluginRegistry.get_tools_from_list(_tool_names)
+            config.opsmate_context()
+        except ValueError as e:
+            console.print(
+                f"Error: {e}. Run the list-contexts command to see all the contexts available."
+            )
+            exit(1)
+
+        try:
+            config.opsmate_tools()
         except ValueError as e:
             console.print(
                 f"Error: {e}. Run the list-tools command to see all the tools available."
             )
             exit(1)
-
-        kwargs["tools"] = tools
 
         review = kwargs.pop("review", False)
         kwargs["tool_call_context"] = {
@@ -324,9 +316,6 @@ Edit the execution if needed, then press Enter to execute:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
     instruction,
-    model,
-    context,
-    tools,
     tool_call_context,
     system_prompt,
     no_tool_output,
@@ -339,16 +328,14 @@ async def run(
     Run a task with the Opsmate.
     """
 
-    ctx = get_context(context)
-
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
+    ctx = config.opsmate_context()
+    tools = config.opsmate_tools()
 
     span.set_attributes(
         {
             "cli.run.instruction": instruction,
-            "cli.run.model": model,
-            "cli.run.context": context,
+            "cli.run.model": config.model,
+            "cli.run.context": config.context,
             "cli.run.tools": [t.__name__ for t in tools],
             "cli.run.system_prompt": system_prompt if system_prompt else "",
             "cli.run.no_tool_output": no_tool_output,
@@ -357,9 +344,9 @@ async def run(
         }
     )
 
-    logger.info("Running on", instruction=instruction, model=model)
+    logger.info("Running on", instruction=instruction, model=config.model)
 
-    @dino(model, response_model=Observation, tools=tools)
+    @dino(config.model, response_model=Observation, tools=tools)
     async def run_command(instruction: str, context={}):
         sys_prompts = await ctx.resolve_contexts(runtimes=runtimes)
         if system_prompt:
@@ -434,10 +421,7 @@ async def run(
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "runtimes", "tools"])
 async def solve(
     instruction,
-    model,
     max_iter,
-    context,
-    tools,
     tool_call_context,
     system_prompt,
     no_tool_output,
@@ -450,16 +434,14 @@ async def solve(
     """
     Solve a problem with the Opsmate.
     """
-    ctx = get_context(context)
+    ctx = config.opsmate_context()
 
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
-
+    tools = config.opsmate_tools()
     span.set_attributes(
         {
             "cli.solve.instruction": instruction,
-            "cli.solve.model": model,
-            "cli.solve.context": context,
+            "cli.solve.model": config.model,
+            "cli.solve.context": config.context,
             "cli.solve.tools": [t.__name__ for t in tools],
             "cli.solve.max_iter": max_iter,
             "cli.solve.no_tool_output": no_tool_output,
@@ -477,7 +459,7 @@ async def solve(
         run_react(
             instruction,
             contexts=contexts,
-            model=model,
+            model=config.model,
             max_iter=max_iter,
             tools=tools,
             tool_call_context=tool_call_context,
@@ -561,10 +543,7 @@ Commands:
 @with_runtime
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
-    model,
     max_iter,
-    context,
-    tools,
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
@@ -576,16 +555,14 @@ async def chat(
     Chat with the Opsmate.
     """
 
-    ctx = get_context(context)
-
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
+    ctx = config.opsmate_context()
+    tools = config.opsmate_tools()
 
     span.set_attributes(
         {
-            "cli.chat.model": model,
+            "cli.chat.model": config.model,
             "cli.chat.max_iter": max_iter,
-            "cli.chat.context": context,
+            "cli.chat.context": config.context,
             "cli.chat.tools": [t.__name__ for t in tools],
             "cli.chat.system_prompt": system_prompt if system_prompt else "",
             "cli.chat.tool_calls_per_action": tool_calls_per_action,
@@ -616,7 +593,7 @@ async def chat(
             run = run_react(
                 user_input,
                 contexts=contexts,
-                model=model,
+                model=config.model,
                 max_iter=max_iter,
                 tools=tools,
                 chat_history=chat_history,
@@ -769,12 +746,13 @@ async def reset(skip_confirm, config):
 @runtime_params
 @auto_migrate
 @coro
-async def serve(host, port, workers, dev, config, **kwargs):
+async def serve(host, port, workers, dev, **kwargs):
     """
     Start the Opsmate server.
     """
 
     # serialize config to environment variables
+    config = kwargs.get("config")
     config.serialize_to_env()
 
     kwargs["context"] = config.context
@@ -1218,16 +1196,6 @@ def version():
     Show the version of the Opsmate.
     """
     console.print(__version__)
-
-
-def get_context(ctx_name: str):
-    ctx = ContextRegistry.get_context(ctx_name)
-    if not ctx:
-        console.print(
-            f"Context {ctx_name} not found. Run the list-contexts command to see all the contexts available."
-        )
-        exit(1)
-    return ctx
 
 
 def opsmate_says(message: str):

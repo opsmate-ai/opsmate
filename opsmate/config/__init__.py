@@ -4,9 +4,11 @@ from pydantic_settings import (
     SettingsConfigDict,
     PydanticBaseSettingsSource,
 )
+from opsmate.plugins import PluginRegistry
+from opsmate.dino.context import ContextRegistry
 from pydantic import Field, model_validator, field_validator
 from pathlib import Path
-from typing import Dict, Any, Self, Tuple, Type
+from typing import Dict, Any, Self, Tuple, Type, List
 import structlog
 import logging
 from sqlmodel import create_engine, text
@@ -70,6 +72,12 @@ class Config(BaseSettings):
 
     db_url: str = Field(default=default_db_url, alias="OPSMATE_DB_URL")
 
+    model: str = Field(
+        default="gpt-4o",
+        alias="OPSMATE_MODEL",
+        description="The model to use for the session. Run `opsmate list-models` to see the available models.",
+        json_schema_extra={"abbr": "m"},
+    )
     plugins_dir: str = Field(
         default=default_plugins_dir,
         alias="OPSMATE_PLUGINS_DIR",
@@ -77,6 +85,13 @@ class Config(BaseSettings):
     contexts_dir: str = Field(
         default=default_contexts_dir,
         alias="OPSMATE_CONTEXTS_DIR",
+    )
+
+    context: str = Field(
+        default="cli",
+        alias="OPSMATE_CONTEXT",
+        description="The context to use for the session. Run `opsmate list-contexts` to see the available contexts.",
+        json_schema_extra={"abbr": "c"},
     )
 
     embeddings_db_path: str = Field(
@@ -127,6 +142,12 @@ class Config(BaseSettings):
     )
 
     loglevel: str = Field(default="INFO", alias="OPSMATE_LOGLEVEL")
+
+    tools: List[str] = Field(
+        default=[],
+        alias="OPSMATE_TOOLS",
+        description="The tools to use for the session. Run `opsmate list-tools` to see the available tools. By default the tools from the context are used.",
+    )
 
     @field_validator("embedding_registry_name")
     def validate_embedding_registry_name(cls, v):
@@ -215,6 +236,19 @@ class Config(BaseSettings):
 
         for key, value in env_vars.items():
             os.environ[key] = value
+
+    def opsmate_context(self):
+        ctx = ContextRegistry.get_context(self.context)
+        if ctx is None:
+            raise ValueError(f"Context {self.context} not found")
+        return ctx
+
+    def opsmate_tools(self):
+        tools = PluginRegistry.get_tools_from_list(self.tools)
+        if len(tools) == 0:
+            ctx = self.opsmate_context()
+            tools = ctx.resolve_tools()
+        return tools
 
 
 config = Config()

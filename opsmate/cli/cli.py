@@ -151,10 +151,7 @@ def runtimes_from_kwargs(kwargs):
     config = kwargs.get("config")
     if config is None:
         raise ValueError("config is required")
-    ctx = get_context(config.context)
-    selected_tools = kwargs.get("tools", [])
-    if len(selected_tools) == 0:
-        selected_tools = ctx.resolve_tools()
+    selected_tools = config.opsmate_tools()
     selected_tool_names = [t.__name__ for t in selected_tools]
 
     tool_configs = kwargs.pop("ToolCallConfig")
@@ -197,11 +194,6 @@ def with_runtime(func):
 
 def common_params(func):
     @click.option(
-        "--tools",
-        default="",
-        help="Comma separated list of tools to use",
-    )
-    @click.option(
         "-r",
         "--review",
         is_flag=True,
@@ -225,21 +217,27 @@ def common_params(func):
     )
     @wraps(func)
     def wrapper(*args, **kwargs):
-        _tool_names = kwargs.pop("tools")
-        _tool_names = _tool_names.split(",")
-        _tool_names = [t for t in _tool_names if t != ""]
-
         addon_discovery()
 
+        config = kwargs.get("config")
+        if config is None:
+            raise ValueError("config is required")
+
         try:
-            tools = PluginRegistry.get_tools_from_list(_tool_names)
+            config.opsmate_context()
+        except ValueError as e:
+            console.print(
+                f"Error: {e}. Run the list-contexts command to see all the contexts available."
+            )
+            exit(1)
+
+        try:
+            config.opsmate_tools()
         except ValueError as e:
             console.print(
                 f"Error: {e}. Run the list-tools command to see all the tools available."
             )
             exit(1)
-
-        kwargs["tools"] = tools
 
         review = kwargs.pop("review", False)
         kwargs["tool_call_context"] = {
@@ -318,7 +316,6 @@ Edit the execution if needed, then press Enter to execute:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
     instruction,
-    tools,
     tool_call_context,
     system_prompt,
     no_tool_output,
@@ -331,10 +328,8 @@ async def run(
     Run a task with the Opsmate.
     """
 
-    ctx = get_context(config.context)
-
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
+    ctx = config.opsmate_context()
+    tools = config.opsmate_tools()
 
     span.set_attributes(
         {
@@ -427,7 +422,6 @@ async def run(
 async def solve(
     instruction,
     max_iter,
-    tools,
     tool_call_context,
     system_prompt,
     no_tool_output,
@@ -440,11 +434,9 @@ async def solve(
     """
     Solve a problem with the Opsmate.
     """
-    ctx = get_context(config.context)
+    ctx = config.opsmate_context()
 
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
-
+    tools = config.opsmate_tools()
     span.set_attributes(
         {
             "cli.solve.instruction": instruction,
@@ -552,7 +544,6 @@ Commands:
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
     max_iter,
-    tools,
     tool_call_context,
     system_prompt,
     tool_calls_per_action,
@@ -564,10 +555,8 @@ async def chat(
     Chat with the Opsmate.
     """
 
-    ctx = get_context(config.context)
-
-    if len(tools) == 0:
-        tools = ctx.resolve_tools()
+    ctx = config.opsmate_context()
+    tools = config.opsmate_tools()
 
     span.set_attributes(
         {
@@ -757,12 +746,13 @@ async def reset(skip_confirm, config):
 @runtime_params
 @auto_migrate
 @coro
-async def serve(host, port, workers, dev, config, **kwargs):
+async def serve(host, port, workers, dev, **kwargs):
     """
     Start the Opsmate server.
     """
 
     # serialize config to environment variables
+    config = kwargs.get("config")
     config.serialize_to_env()
 
     kwargs["context"] = config.context
@@ -1206,16 +1196,6 @@ def version():
     Show the version of the Opsmate.
     """
     console.print(__version__)
-
-
-def get_context(ctx_name: str):
-    ctx = ContextRegistry.get_context(ctx_name)
-    if not ctx:
-        console.print(
-            f"Context {ctx_name} not found. Run the list-contexts command to see all the contexts available."
-        )
-        exit(1)
-    return ctx
 
 
 def opsmate_says(message: str):

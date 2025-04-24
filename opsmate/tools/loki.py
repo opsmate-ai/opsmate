@@ -121,10 +121,12 @@ class LokiQuery(ToolCall[ResultType], DatetimeRange, PresentationMixin):
             logger.error(
                 "Failed to fetch logs from loki", response_json=response.json()
             )
-            return {
-                "error": "Failed to fetch logs from loki",
-                "data": response.text,
-            }
+            return [
+                {
+                    "error": "Failed to fetch logs from loki",
+                    "data": response.text,
+                }
+            ]
 
         result = response.json()["data"]["result"]
 
@@ -224,6 +226,9 @@ async def loki_query(query: str, context: dict[str, Any] = {}):
     * Use namespace to filter by the namespace
     * Use pod to filter by the pod name
     * Use container to filter by the container name
+    * regex can be used for filtering
+    * For structured log if the log parser and fields are determined, you can further filter the log by fields e.g. `{app_kubernetes_io_name="my-app"} | logfmt | path="/api/v1/users"`
+    * Do not use double curly braces `{{ }}` in the query
     </rules>
     """
 
@@ -283,11 +288,17 @@ class LokiQueryTool(ToolCall[LokiQuery], PresentationMixin):
         output = self.output
         query_output = output.output
 
+        if not isinstance(query_output, list) and not isinstance(query_output, tuple):
+            return False
         if len(query_output) > 0 and "error" in query_output[0]:
             return True
         return False
 
     def prompt_display(self):
-        if self.error():
-            return self.output.markdown()
-        return self.output.prompt_display()
+        try:
+            if self.error():
+                return self.output.markdown()
+            return self.output.prompt_display()
+        except Exception as e:
+            logger.error("Failed to display prompt", error=e)
+            return "Failed to display prompt"

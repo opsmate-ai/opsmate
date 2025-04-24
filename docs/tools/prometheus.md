@@ -6,6 +6,15 @@ You can also explicitly add the tool to your session via
 opsmate [run|solve|chat|serve] --models PrometheusTool ...
 ```
 
+You can configure the prometheus endpoint and other parameters via environment variables:
+
+```bash
+PROMETHEUS_ENDPOINT=http://localhost:9090 # default endpoint
+PROMETHEUS_PATH=/api/v1/query # default path
+# Optional: PROMETHEUS_USER_ID
+# Optional: PROMETHEUS_API_KEY
+```
+
 Example usage:
 
 Here is a simple example of how to use the tool (you probably need to zoom in to see the text):

@@ -159,7 +159,7 @@ async def test_react_decorator_with_extra_contexts():
         tools=[calc],
     )
     async def use_calculator():
-        return "don't do caculation yourself only use the calculator"
+        return "use the calculator tool to do the calculation"
 
     @react(
         model="gpt-4o",
@@ -177,7 +177,7 @@ async def test_react_decorator_with_extra_contexts():
 async def test_react_decorator_with_extra_tools():
     @context(name="calc")
     async def use_calculator():
-        return "don't do caculation yourself only use the calculator"
+        return "use the calculator tool to do the calculation"
 
     @react(
         model="gpt-4o",

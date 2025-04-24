@@ -18,21 +18,17 @@ Options:
   -w, --workers INTEGER           Number of uvicorn workers to serve on
                                   [default: 2]
   --dev                           Run in development mode
-  --model TEXT                    Set model (env: OPSMATE_MODEL)  [default:
-                                  gpt-4o]
-  --context TEXT                  The context to use for the session. Run
-                                  `opsmate list-contexts` to see the available
-                                  contexts. (env: OPSMATE_CONTEXT)  [default:
-                                  k8s]
   --system-prompt TEXT            Set system_prompt (env:
                                   OPSMATE_SYSTEM_PROMPT)  [default: ""]
-  --tools TEXT                    Set tools (env: OPSMATE_TOOLS)  [default: Sh
-                                  ellCommand,KnowledgeRetrieval,ACITool,HtmlTo
-                                  Text,PrometheusTool]
   --token TEXT                    Set token (env: OPSMATE_TOKEN)  [default:
                                   ""]
   --session-name TEXT             Set session_name (env: OPSMATE_SESSION_NAME)
                                   [default: session]
+  --tools TEXT                    The tools to use for the session. Run
+                                  `opsmate list-tools` to see the available
+                                  tools. By default the tools from the context
+                                  are used. (env: OPSMATE_TOOLS)  [default:
+                                  ""]
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
@@ -50,10 +46,18 @@ Options:
                                   Storage, and gs:// is used for Google Cloud
                                   Storage (env: OPSMATE_EMBEDDINGS_DB_PATH)
                                   [default: /root/.opsmate/embeddings]
+  -c, --context TEXT              The context to use for the session. Run
+                                  `opsmate list-contexts` to see the available
+                                  contexts. (env: OPSMATE_CONTEXT)  [default:
+                                  cli]
   --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
                                   [default: /root/.opsmate/contexts]
   --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
                                   [default: /root/.opsmate/plugins]
+  -m, --model TEXT                The model to use for the session. Run
+                                  `opsmate list-models` to see the available
+                                  models. (env: OPSMATE_MODEL)  [default:
+                                  gpt-4o]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
   --shell-command-runtime TEXT    The runtime to use for the tool call (env:

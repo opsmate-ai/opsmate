@@ -20,6 +20,7 @@ from .system import (
 )
 from .prom import PrometheusTool
 from .thinking import Thinking
+from .loki import LokiQueryTool
 from opsmate.dino.tools import discover_tools
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "SysStats",
     "PrometheusTool",
     "Thinking",
+    "LokiQueryTool",
 ]
 
 discover_tools()

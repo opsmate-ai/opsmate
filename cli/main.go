@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	opsmatesdk "github.com/jingkaihe/opsmate/cli/sdk"
+	opsmatesdk "github.com/opsmate-ai/opsmate/cli/sdk"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
 )

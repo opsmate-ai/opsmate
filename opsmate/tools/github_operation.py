@@ -102,7 +102,7 @@ class GithubRaisePR(ToolCall[Result], PresentationMixin):
         return {
             "Authorization": f"Bearer {self._github_token}",
             "Accept": "application/vnd.github+json",
-            "User-Agent": "opsmate / 0.1.0 (https://github.com/jingkaihe/opsmate)",
+            "User-Agent": "opsmate / 0.1.0 (https://github.com/opsmate-ai/opsmate)",
             "X-GitHub-Api-Version": "2022-11-28",
         }
 

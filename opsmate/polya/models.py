@@ -354,7 +354,7 @@ class TaskPlan(BaseModel):
 class Fact(BaseModel):
     fact: str = Field(description="Fact that will help to resolve the problem")
     source: str = Field(
-        description="The source of the fact, must be a fqdn of the source e.g. https://github.com/jingkaihe/opsmate/blob/main/README.md"
+        description="The source of the fact, must be a fqdn of the source e.g. https://github.com/opsmate-ai/opsmate/blob/main/README.md"
     )
     weight: int = Field(description="Weight of the fact, 1-10")
 

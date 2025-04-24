@@ -9,7 +9,7 @@
 
 Currently we have only experimented with Ollama on Apple Silicon with bunch of 7b - 12b parameter models. `gemma3:12b` so far is the only model that can produce barely acceptable results, and it's way behind in terms of quality and latency compared to frontier models.
 
-That being said we encourage you to give it a try and [report any issues](https://github.com/jingkaihe/opsmate/issues), especially for those who has 128GB+ vRAM to run bigger models.
+That being said we encourage you to give it a try and [report any issues](https://github.com/opsmate-ai/opsmate/issues), especially for those who has 128GB+ vRAM to run bigger models.
 
 ## Usage
 
@@ -18,7 +18,7 @@ Assuming you have `gemma3:12b` model pulled via `ollama pull gemma3:12b`, you ca
 opsmate run --context cli-lite -m gemma3:12b "how many cores on the machine"
 ```
 
-We strongly recommend you to use `cli-lite` context for running 7b - 12b parameter small models. You can find the prompt of `cli-lite` context in [cli_lite.py](https://github.com/jingkaihe/opsmate/blob/main/opsmate/contexts/cli_lite.py).
+We strongly recommend you to use `cli-lite` context for running 7b - 12b parameter small models. You can find the prompt of `cli-lite` context in [cli_lite.py](https://github.com/opsmate-ai/opsmate/blob/main/opsmate/contexts/cli_lite.py).
 
 To find all the ollama models you can run:
 

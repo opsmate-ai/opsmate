@@ -12,7 +12,7 @@ RUN uv build
 # Final stage
 FROM python:3.12.3-slim-bullseye
 
-LABEL org.opencontainers.image.source=https://github.com/jingkaihe/opsmate
+LABEL org.opencontainers.image.source=https://github.com/opsmate-ai/opsmate
 
 # Install only kubectl without keeping unnecessary files
 RUN apt-get update && \
@@ -30,6 +30,6 @@ WORKDIR /app
 
 COPY --from=builder /app/dist/opsmate-*.whl /tmp/dist/
 
-RUN pip install --no-cache-dir /tmp/dist/opsmate-*.whl
+RUN pip install --no-cache-dir /tmp/dist/opsmate-*.whl && opsmate version
 
 ENTRYPOINT ["opsmate"]

@@ -36,7 +36,7 @@ resource "kubernetes_namespace" "opsmate_operator" {
 
 resource "helm_release" "opsmate_operator" {
   name             = "opsmate-operator"
-  repository       = "oci://ghcr.io/jingkaihe/opsmate-operator"
+  repository       = "oci://ghcr.io/opsmate-ai/opsmate-operator"
   chart            = "opsmate-operator"
   version          = "0.1.4"
   namespace        = kubernetes_namespace.opsmate_operator.metadata[0].name
@@ -54,7 +54,7 @@ resource "helm_release" "opsmate_operator" {
         fullnameOverride = "opsmate-operator"
         manager = {
           image = {
-            repository = "ghcr.io/jingkaihe/opsmate-controller-manager"
+            repository = "ghcr.io/opsmate-ai/opsmate-controller-manager"
             tag        = "0.1.4.alpha2"
           }
         }
@@ -180,7 +180,7 @@ data:
   EMBEDDINGS_DB_PATH: /var/opsmate/embedding
   GITHUB_EMBEDDINGS_CONFIG: |
     {
-      "jingkaihe/opsmate": "**/*.md"
+      "opsmate-ai/opsmate": "**/*.md"
     }
 ---
 # cluster reader environment build
@@ -195,7 +195,7 @@ spec:
       serviceAccountName: opsmate-cluster-reader
       initContainers:
         - name: opsmate-db-migrate
-          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
+          image: ghcr.io/opsmate-ai/opsmate:0.2.0a0
           args:
             - db-migrate
           envFrom:
@@ -206,7 +206,7 @@ spec:
               mountPath: /var/opsmate
       containers:
         - name: opsmate
-          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
+          image: ghcr.io/opsmate-ai/opsmate:0.2.0a0
           ports:
             - containerPort: 8000
           envFrom:
@@ -221,7 +221,7 @@ spec:
             - serve
             - --auto-migrate=false
         - name: worker
-          image: ghcr.io/jingkaihe/opsmate:0.1.45a0
+          image: ghcr.io/opsmate-ai/opsmate:0.1.45a0
           envFrom:
             - secretRef:
                 name: opsmate-secret

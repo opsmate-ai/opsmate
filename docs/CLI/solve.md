@@ -17,6 +17,11 @@ Options:
   --tool-calls-per-action INTEGER
                                   Number of tool calls per action  [default:
                                   1]
+  --tools TEXT                    The tools to use for the session. Run
+                                  `opsmate list-tools` to see the available
+                                  tools. By default the tools from the context
+                                  are used. (env: OPSMATE_TOOLS)  [default:
+                                  ""]
   --loglevel TEXT                 Set loglevel (env: OPSMATE_LOGLEVEL)
                                   [default: INFO]
   --categorise BOOLEAN            Whether to categorise the embeddings (env:
@@ -34,10 +39,18 @@ Options:
                                   Storage, and gs:// is used for Google Cloud
                                   Storage (env: OPSMATE_EMBEDDINGS_DB_PATH)
                                   [default: /root/.opsmate/embeddings]
+  -c, --context TEXT              The context to use for the session. Run
+                                  `opsmate list-contexts` to see the available
+                                  contexts. (env: OPSMATE_CONTEXT)  [default:
+                                  cli]
   --contexts-dir TEXT             Set contexts_dir (env: OPSMATE_CONTEXTS_DIR)
                                   [default: /root/.opsmate/contexts]
   --plugins-dir TEXT              Set plugins_dir (env: OPSMATE_PLUGINS_DIR)
                                   [default: /root/.opsmate/plugins]
+  -m, --model TEXT                The model to use for the session. Run
+                                  `opsmate list-models` to see the available
+                                  models. (env: OPSMATE_MODEL)  [default:
+                                  gpt-4o]
   --db-url TEXT                   Set db_url (env: OPSMATE_DB_URL)  [default:
                                   sqlite:////root/.opsmate/opsmate.db]
   --shell-command-runtime TEXT    The runtime to use for the tool call (env:
@@ -82,15 +95,8 @@ Options:
                                   ""]
   --runtime-local-shell TEXT      Set shell_cmd (env: RUNTIME_LOCAL_SHELL)
                                   [default: /bin/bash]
-  -m, --model TEXT                Large language model to use. To list models
-                                  available please run the list-models
-                                  command.  [default: gpt-4o]
-  --tools TEXT                    Comma separated list of tools to use
   -r, --review                    Review and edit commands before execution
   -s, --system-prompt TEXT        System prompt to use
-  -c, --context TEXT              Context to be added to the prompt. Run the
-                                  list-contexts command to see all the
-                                  contexts available.  [default: cli]
   -l, --max-output-length INTEGER
                                   Max length of the output, if the output is
                                   truncated, the tmp file will be printed in

@@ -1,13 +1,12 @@
 from opsmate.dino.types import ToolCall, PresentationMixin
 from pydantic import Field, PrivateAttr
-from typing import Literal, ClassVar, Optional, Any, Tuple, Dict, Union, List
+from typing import Literal, Any, Tuple, Dict, Union, List
 from httpx import AsyncClient
 import os
 import base64
 from opsmate.dino import dino
 from opsmate.dino.types import Message, register_tool
 from opsmate.tools.datetime import DatetimeRange, datetime_extraction
-from copy import deepcopy
 import pandas as pd
 import structlog
 from enum import Enum
@@ -237,6 +236,13 @@ async def loki_query(query: str, context: dict[str, Any] = {}):
 class LokiQueryTool(ToolCall[LokiQuery], PresentationMixin):
     """
     A tool to query logs in loki
+
+    <rules>
+    * Please use this instead of the `kubectl logs` command
+    * If you can please specify the namespace, pod, container of the subject that you are interested in
+    * You don't need to worry about whether loki is running
+    * If you know the format of the log pass the log format to the tool, e.g. `logfmt` or `json`
+    </rules>
     """
 
     natural_language_query: str = Field(

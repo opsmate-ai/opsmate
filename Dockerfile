@@ -30,6 +30,6 @@ WORKDIR /app
 
 COPY --from=builder /app/dist/opsmate-*.whl /tmp/dist/
 
-RUN pip install --no-cache-dir /tmp/dist/opsmate-*.whl
+RUN pip install --no-cache-dir /tmp/dist/opsmate-*.whl && opsmate version
 
 ENTRYPOINT ["opsmate"]

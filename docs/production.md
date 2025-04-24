@@ -195,7 +195,7 @@ spec:
       serviceAccountName: opsmate-cluster-reader
       initContainers:
         - name: opsmate-db-migrate
-          image: ghcr.io/opsmate-ai/opsmate:0.1.45a0
+          image: ghcr.io/opsmate-ai/opsmate:0.2.0a0
           args:
             - db-migrate
           envFrom:
@@ -206,7 +206,7 @@ spec:
               mountPath: /var/opsmate
       containers:
         - name: opsmate
-          image: ghcr.io/opsmate-ai/opsmate:0.1.45a0
+          image: ghcr.io/opsmate-ai/opsmate:0.2.0a0
           ports:
             - containerPort: 8000
           envFrom:

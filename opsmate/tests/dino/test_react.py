@@ -81,6 +81,7 @@ async def test_react_decorator():
         model="gpt-4o",
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -102,6 +103,7 @@ async def test_react_decorator_callback():
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         callback=callback,
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -121,6 +123,7 @@ async def test_react_decorator_iterable():
         tools=[calc],
         contexts=["don't do caculation yourself only use the calculator"],
         iterable=True,
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -144,6 +147,7 @@ async def test_react_decorator_with_contexts():
         contexts=[use_calculator],
         iterable=False,
         callback=lambda x: print(x),
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -165,6 +169,7 @@ async def test_react_decorator_with_extra_contexts():
         model="gpt-4o",
         iterable=False,
         callback=lambda x: print(x),
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -185,6 +190,7 @@ async def test_react_decorator_with_extra_tools():
         contexts=[use_calculator],
         iterable=False,
         callback=lambda x: print(x),
+        temperature=0.0,
     )
     async def calc_agent(query: str):
         return f"answer the query: {query}"
@@ -200,6 +206,7 @@ async def test_react_decorator_with_custom_model():
         model="gpt-4o",
         iterable=False,
         callback=lambda x: print(x),
+        temperature=0.0,
     )
     async def what_is_the_llm():
         return "what is your name? \
@@ -235,6 +242,7 @@ async def test_react_decorator_with_tool_call_context():
         iterable=False,
         callback=lambda x: print(x),
         tools=[weather],
+        temperature=0.0,
     )
     async def weather_agent(query: str):
         """

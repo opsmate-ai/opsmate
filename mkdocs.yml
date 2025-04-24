@@ -92,6 +92,7 @@ nav:
   - Tools:
     - Tools: tools/index.md
     - Prometheus: tools/prometheus.md
+    - Loki: tools/loki.md
     - MySQL: tools/mysql.md
     - Postgres: tools/postgres.md
   - Integrations:

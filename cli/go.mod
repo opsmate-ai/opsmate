@@ -1,4 +1,4 @@
-module github.com/jingkaihe/opsmate/cli
+module github.com/opsmate-ai/opsmate/cli
 
 go 1.22.2
 

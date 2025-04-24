@@ -1,6 +1,6 @@
 site_name: Opsmate
 repo_name: opsmate
-repo_url: https://github.com/jingkaihe/opsmate
+repo_url: https://github.com/opsmate-ai/opsmate
 site_url: https://docs.tryopsmate.ai
 edit_uri: edit/main/docs/
 theme:
@@ -115,7 +115,7 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/jingkaihe/opsmate
+      link: https://github.com/opsmate-ai/opsmate
     - icon: fontawesome/brands/x-twitter
       link: https://x.com/he_jingkai
 

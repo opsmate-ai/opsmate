@@ -30,13 +30,13 @@ You can start using Opsmate by running it locally on your workstation. There are
     ```bash
     # Note this is less useful as you cannot access the host from the container
     # But still useful to interact with cloud API in an isolated containerised environment
-    docker pull ghcr.io/jingkaihe/opsmate:latest # or the specific version if you prefer not living on the edge
-    alias opsmate="docker run -it --rm --env OPENAI_API_KEY=$OPENAI_API_KEY -v $HOME/.opsmate:/root/.opsmate ghcr.io/jingkaihe/opsmate:latest"
+    docker pull ghcr.io/opsmate-ai/opsmate:latest # or the specific version if you prefer not living on the edge
+    alias opsmate="docker run -it --rm --env OPENAI_API_KEY=$OPENAI_API_KEY -v $HOME/.opsmate:/root/.opsmate ghcr.io/opsmate-ai/opsmate:latest"
     ```
 
 === "Source"
     ```bash
-    git clone git@github.com:jingkaihe/opsmate.git
+    git clone git@github.com:opsmate-ai/opsmate.git
     cd opsmate
 
     uv build

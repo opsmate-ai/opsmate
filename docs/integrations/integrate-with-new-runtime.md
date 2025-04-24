@@ -13,7 +13,7 @@ Out of box Opsmate supports the following runtimes:
 
 That being said nothing prevents you from integrating with a new runtime. In this article we will use Google Compute Engine as an example and create `opsmate-gce-runtime` plugin.
 
-The full code for this example can be found [here](https://github.com/jingkaihe/opsmate/tree/main/examples/runtime/gce).
+The full code for this example can be found [here](https://github.com/opsmate-ai/opsmate/tree/main/examples/runtime/gce).
 
 ## Prerequisites
 
@@ -62,7 +62,7 @@ touch pyproject.toml # This is the file that will contain runtime plugin metadat
 
 ### Step 2: Implement the runtime code
 
-The runtime code can be found [here](https://github.com/jingkaihe/opsmate/blob/main/examples/runtime/gce/gce.py). In the code below we highlight the parts that are essential for the runtime integration, namely:
+The runtime code can be found [here](https://github.com/opsmate-ai/opsmate/blob/main/examples/runtime/gce/gce.py). In the code below we highlight the parts that are essential for the runtime integration, namely:
 
 - The `GCERuntimeConfig` class that defines the configuration for the runtime.
 - The `GCERuntime` class that implements the runtime.

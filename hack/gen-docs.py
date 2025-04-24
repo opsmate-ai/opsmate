@@ -9,7 +9,7 @@ with open("pyproject.toml", "rb") as f:
 
 version = pyproject["project"]["version"]
 
-container_image = f"ghcr.io/jingkaihe/opsmate:{version}"
+container_image = f"ghcr.io/opsmate-ai/opsmate:{version}"
 
 
 async def gen_help(subcommand: str):

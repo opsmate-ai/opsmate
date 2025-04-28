@@ -20,6 +20,7 @@ tracer = trace.get_tracer("opsmate.eval")
 
 project_name = "opsmate-eval"
 project_id = os.getenv("BRAINTRUST_PROJECT_ID")
+react_max_iter = int(os.getenv("REACT_MAX_ITER", 15))
 
 if os.getenv("BRAINTRUST_API_KEY") is not None:
     OTEL_EXPORTER_OTLP_ENDPOINT = "https://api.braintrust.dev/otel"
@@ -60,6 +61,7 @@ async def k8s_agent(question: str, hooks: EvalHooks):
                 rendered_question,
                 contexts=contexts,
                 tools=tools,
+                max_iter=react_max_iter,
                 model=hooks.metadata.get("model"),
                 tool_call_context={
                     "runtimes": runtimes,

@@ -38,7 +38,7 @@ resource "helm_release" "opsmate_operator" {
   name             = "opsmate-operator"
   repository       = "oci://ghcr.io/opsmate-ai/opsmate-operator"
   chart            = "opsmate-operator"
-  version          = "0.1.4"
+  version          = "0.2.0"
   namespace        = kubernetes_namespace.opsmate_operator.metadata[0].name
   create_namespace = false
   max_history      = 3
@@ -52,12 +52,6 @@ resource "helm_release" "opsmate_operator" {
     yamlencode({
       controllerManager = {
         fullnameOverride = "opsmate-operator"
-        manager = {
-          image = {
-            repository = "ghcr.io/opsmate-ai/opsmate-controller-manager"
-            tag        = "0.1.4.alpha2"
-          }
-        }
       }
     }),
   ]

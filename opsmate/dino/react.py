@@ -115,7 +115,14 @@ Here is a list of tools you can use:
 
 
 @traceit(
-    exclude=["contexts", "tools", "chat_history", "react_prompt", "tool_call_context"]
+    exclude=[
+        "contexts",
+        "tools",
+        "chat_history",
+        "react_prompt",
+        "tool_call_context",
+        "thinking",
+    ]
 )
 async def run_react(
     question: str,

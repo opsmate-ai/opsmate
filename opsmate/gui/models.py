@@ -375,6 +375,7 @@ def gen_react():
         contexts=contexts,
         tools=config.opsmate_tools(),
         iterable=True,
+        **config.models_config.get(config.model, {}),
     )
     async def run_react(question: str, chat_history: List[Message] = []):
         return question
@@ -429,6 +430,7 @@ def gen_simple():
         model=config.model,
         response_model=Observation,
         tools=config.opsmate_tools(),
+        **config.models_config.get(config.model, {}),
     )
     async def instruction(question: str, chat_history: List[Message] = []):
         if config.system_prompt:

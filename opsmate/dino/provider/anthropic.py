@@ -1,7 +1,7 @@
 from .base import Provider, register_provider, T
 from instructor import AsyncInstructor
 from anthropic import AsyncAnthropic
-from typing import Any, Awaitable, List
+from typing import Any, Awaitable, List, Dict
 from tenacity import AsyncRetrying
 from opsmate.dino.types import Message, TextContent, ImageURLContent, Content
 from functools import cache
@@ -10,10 +10,13 @@ import instructor
 
 @register_provider("anthropic")
 class AnthropicProvider(Provider):
-    models = [
+    chat_completion_models = [
         "claude-3-5-sonnet-20241022",
+    ]
+    reasoning_models = [
         "claude-3-7-sonnet-20250219",
     ]
+    models = chat_completion_models + reasoning_models
 
     @classmethod
     async def chat_completion(
@@ -27,8 +30,9 @@ class AnthropicProvider(Provider):
         client: AsyncInstructor | None = None,
         **kwargs: Any,
     ) -> Awaitable[T]:
+        thinking = kwargs.get("thinking", None)
         model = kwargs.get("model")
-        client = client or cls.default_client(model)
+        client = client or cls.default_client(model, thinking)
         kwargs.pop("client", None)
         messages = [
             {"role": m.role, "content": cls.normalise_content(m.content)}
@@ -48,9 +52,12 @@ class AnthropicProvider(Provider):
             kwargs["system"] = sys_messages
 
         if kwargs.get("max_tokens") is None:
-            kwargs["max_tokens"] = 1000
+            kwargs["max_tokens"] = 8192
 
         filtered_kwargs = cls._filter_kwargs(kwargs)
+        if thinking:
+            filtered_kwargs["thinking"] = thinking
+
         return await client.chat.completions.create(
             response_model=response_model,
             messages=messages,
@@ -65,6 +72,28 @@ class AnthropicProvider(Provider):
     @cache
     def _default_client(cls) -> AsyncInstructor:
         return instructor.from_anthropic(AsyncAnthropic())
+
+    @classmethod
+    def _default_reasoning_client(cls) -> AsyncInstructor:
+        return instructor.from_anthropic(
+            AsyncAnthropic(), mode=instructor.Mode.ANTHROPIC_REASONING_TOOLS
+        )
+
+    @classmethod
+    def is_reasoning_model(cls, model: str) -> bool:
+        return model in cls.reasoning_models
+
+    @classmethod
+    def default_client(
+        cls, model: str, thinking: Dict[str, Any] | None = None
+    ) -> AsyncInstructor:
+        if cls.is_reasoning_model(model) and thinking:
+            client = cls._default_reasoning_client()
+        else:
+            client = cls._default_client()
+
+        client.on("parse:error", cls._handle_parse_error)
+        return client
 
     @staticmethod
     def normalise_content(content: Content):

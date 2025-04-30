@@ -40,7 +40,8 @@ class Provider(ABC):
             try:
                 with open(cls.MODELS_CACHE_FILE, "r") as f:
                     return json.load(f)
-            except Exception:
+            except Exception as e:
+                logger.error("Error loading cached models", error=e)
                 return []
         return []
 

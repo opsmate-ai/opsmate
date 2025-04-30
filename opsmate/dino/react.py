@@ -103,7 +103,7 @@ async def _react_prompt(
     """
 
     return [
-        Message.user(
+        Message.system(
             f"""
 Here is a list of tools you can use:
 {"\n".join(f"<tool>\n{t.__name__}: \n{t.__doc__}\n</tool>" for t in tool_names)}

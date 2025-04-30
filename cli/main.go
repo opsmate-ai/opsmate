@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	opsmatesdk "github.com/opsmate-ai/opsmate/cli/sdk"
 	"github.com/olekukonko/tablewriter"
+	opsmatesdk "github.com/opsmate-ai/opsmate/cli/sdk"
 	"github.com/urfave/cli/v2"
 )
 
@@ -107,7 +107,7 @@ func main() {
 				Usage: "get the status of the server",
 				Action: func(c *cli.Context) error {
 					client := c.Context.Value(clientCtxKey{}).(*opsmatesdk.APIClient)
-					req := client.DefaultAPI.HealthV1HealthGet(c.Context)
+					req := client.DefaultAPI.HealthV1HealthzGet(c.Context)
 					health, resp, err := req.Execute()
 					if err != nil {
 						return err

@@ -83,7 +83,7 @@ go-sdk-codegen: # generate the go sdk
 		--model-package models \
 		-g go \
 		--package-name opsmatesdk \
-		--git-user-id jingkaihe \
+		--git-user-id opsmate-ai \
 		--git-repo-id opsmate/cli/sdk \
 		-o /local/cli/sdk \
 		--additional-properties=packageVersion=$(VERSION),withGoMod=false

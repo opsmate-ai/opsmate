@@ -22,7 +22,7 @@ go get golang.org/x/net/context
 Put the package under your project folder and add the following in import:
 
 ```go
-import opsmatesdk "github.com/jingkaihe/opsmate/cli/sdk"
+import opsmatesdk "github.com/opsmate-ai/opsmate/cli/sdk"
 ```
 
 To use a proxy, set the environment variable `HTTP_PROXY`:

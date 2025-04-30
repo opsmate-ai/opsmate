@@ -8,6 +8,7 @@ from opsmate.dino.context import ContextRegistry
 
 from opsmate.libs.core.trace import start_trace
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+from opsmate.gui.models import gen_simple
 import os
 
 app = FastAPI()
@@ -81,17 +82,9 @@ class RunResponse(BaseModel):
 
 @api_app.post("/v1/run", response_model=RunResponse)
 async def run(request: RunRequest):
+    simple = gen_simple()
 
-    ctx = get_context(request.context)
-
-    @dino("gpt-4o", response_model=Observation, tools=ctx.resolve_tools())
-    async def run_command(instruction: str):
-        return [
-            *await ctx.resolve_contexts(),
-            Message.user(instruction),
-        ]
-
-    observation: Observation = await run_command(request.instruction)
+    observation = await simple(request.instruction)
     return RunResponse(
         tool_outputs="\n".join(
             [output.markdown() for output in observation.tool_outputs]

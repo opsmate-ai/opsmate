@@ -36,13 +36,16 @@ class AnthropicProvider(Provider):
         ]
 
         # filter out all the system messages
-        sys_messages = [m for m in messages if m["role"] == "system"]
+        sys_messages = [
+            {"type": "text", "text": m["content"]}
+            for m in messages
+            if m["role"] == "system"
+        ]
         messages = [m for m in messages if m["role"] != "system"]
 
-        sys_prompt = "\n".join([m["content"] for m in sys_messages])
-
         if len(sys_messages) > 0:
-            kwargs["system"] = sys_prompt
+            sys_messages[-1]["cache_control"] = {"type": "ephemeral"}
+            kwargs["system"] = sys_messages
 
         if kwargs.get("max_tokens") is None:
             kwargs["max_tokens"] = 1000

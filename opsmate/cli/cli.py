@@ -979,8 +979,8 @@ def list_models(provider):
         if provider not in Provider.providers:
             console.print(f"Provider {provider} not found")
             exit(1)
-        model_list = Provider.providers[provider]
-        for model in model_list.models:
+        provider_models = Provider.providers[provider]
+        for model in provider_models.models:
             table.add_row(provider, model)
     else:
         for provider_name, provider in Provider.providers.items():

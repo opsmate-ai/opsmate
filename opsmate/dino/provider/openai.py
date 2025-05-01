@@ -25,6 +25,25 @@ class OpenAIProvider(Provider):
     ]
     models = chat_models + reasoning_models
 
+    models_config = {
+        "o4-mini": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o3-mini": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o1": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o3": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+    }
+
     @classmethod
     async def chat_completion(
         cls,

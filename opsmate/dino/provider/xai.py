@@ -22,6 +22,17 @@ class XAIProvider(OpenAIProvider):
     ]
     models = chat_models + reasoning_models
 
+    models_config = {
+        "grok-3-mini-fast-beta": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "grok-3-beta",
+        },
+        "grok-3-mini-beta": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "grok-3-beta",
+        },
+    }
+
     @classmethod
     @cache
     def _default_client(cls) -> AsyncInstructor:

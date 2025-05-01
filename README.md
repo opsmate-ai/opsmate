@@ -30,7 +30,7 @@ Opsmate can not only perform problem solving autonomously, but also allow human 
 
 - 🤖 **Natural Language Interface**: Run commands using natural language without remembering complex syntax
 - 🔍 **Advanced Reasoning**: Troubleshoot and solve production issues with AI-powered reasoning
-- 🔄 **Multiple LLM Support**: Out of box works for OpenAI, Anthropic, xAI. [Easy to extend](./docs/integrations/add-new-llm-providers.md) to other LLMs.
+- 🔄 **Multiple LLM Support**: Out of box works for OpenAI, Anthropic, xAI. [Easy to extend](./docs/configurations/add-new-llm-providers.md) to other LLMs.
 - 🛠️ **Multiple Runtimes**: Supports various execution environments such as Local, [Docker](./docs/cookbooks/docker-runtime.md), [Kubernetes](./docs/cookbooks/k8s-runtime.md) and [remote VMs](./docs/cookbooks/manage-vms.md).
 - 🔭 **Modern Observability Tooling**: Built-in support for [Prometheus](https://prometheus.io/) allows you to create time series dashboards with natural language, and more to come.
 - 🧠 **Knowledge Management**: Ingest and use domain-specific knowledge
@@ -146,7 +146,7 @@ Opsmate supports various use cases:
 
 ## Integrations
 
-For a comprehensive list of integrations, please refer to the [integrations](https://docs.tryopsmate.ai/integrations/add-new-llm-providers/) and [cookbooks](https://docs.tryopsmate.ai/cookbooks/) sections.
+For a comprehensive list of integrations, please refer to the [integrations](https://docs.tryopsmate.ai/configurations/add-new-llm-providers/) and [cookbooks](https://docs.tryopsmate.ai/cookbooks/) sections.
 
 ## Documentation
 

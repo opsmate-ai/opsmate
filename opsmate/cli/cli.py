@@ -34,6 +34,7 @@ import sys
 import inspect
 import opsmate.tools  # noqa: F401
 import traceback
+import json
 
 console = Console()
 
@@ -53,6 +54,10 @@ def coro(f):
 
 
 logger = structlog.get_logger(__name__)
+
+import yaml
+
+print(yaml.dump(config.models_config))
 
 
 class StdinArgument(click.ParamType):
@@ -330,11 +335,13 @@ async def run(
 
     ctx = config.opsmate_context()
     tools = config.opsmate_tools()
+    run_kwargs = config.models_config.get(config.model, {})
 
     span.set_attributes(
         {
             "cli.run.instruction": instruction,
             "cli.run.model": config.model,
+            "cli.run.model_config": json.dumps(run_kwargs),
             "cli.run.context": config.context,
             "cli.run.tools": [t.__name__ for t in tools],
             "cli.run.system_prompt": system_prompt if system_prompt else "",
@@ -346,7 +353,7 @@ async def run(
 
     logger.info("Running on", instruction=instruction, model=config.model)
 
-    @dino(config.model, response_model=Observation, tools=tools)
+    @dino(config.model, response_model=Observation, tools=tools, **run_kwargs)
     async def run_command(instruction: str, context={}):
         sys_prompts = await ctx.resolve_contexts(runtimes=runtimes)
         if system_prompt:
@@ -437,10 +444,13 @@ async def solve(
     ctx = config.opsmate_context()
 
     tools = config.opsmate_tools()
+    run_react_kwargs = config.models_config.get(config.model, {})
+
     span.set_attributes(
         {
             "cli.solve.instruction": instruction,
             "cli.solve.model": config.model,
+            "cli.solve.model_config": json.dumps(run_react_kwargs),
             "cli.solve.context": config.context,
             "cli.solve.tools": [t.__name__ for t in tools],
             "cli.solve.max_iter": max_iter,
@@ -464,6 +474,7 @@ async def solve(
             tools=tools,
             tool_call_context=tool_call_context,
             tool_calls_per_action=tool_calls_per_action,
+            **run_react_kwargs,
         )
     ) as run:
         async for output in run:
@@ -557,10 +568,11 @@ async def chat(
 
     ctx = config.opsmate_context()
     tools = config.opsmate_tools()
-
+    run_react_kwargs = config.models_config.get(config.model, {})
     span.set_attributes(
         {
             "cli.chat.model": config.model,
+            "cli.chat.model_config": json.dumps(run_react_kwargs),
             "cli.chat.max_iter": max_iter,
             "cli.chat.context": config.context,
             "cli.chat.tools": [t.__name__ for t in tools],
@@ -599,6 +611,7 @@ async def chat(
                 chat_history=chat_history,
                 tool_call_context=tool_call_context,
                 tool_calls_per_action=tool_calls_per_action,
+                **run_react_kwargs,
             )
             chat_history.append(Message.user(user_input))
 
@@ -970,8 +983,8 @@ def list_models(provider):
         if provider not in Provider.providers:
             console.print(f"Provider {provider} not found")
             exit(1)
-        model_list = Provider.providers[provider]
-        for model in model_list.models:
+        provider_models = Provider.providers[provider]
+        for model in provider_models.models:
             table.add_row(provider, model)
     else:
         for provider_name, provider in Provider.providers.items():

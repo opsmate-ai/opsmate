@@ -71,6 +71,14 @@ class Provider(ABC):
     def _default_client(cls) -> AsyncInstructor: ...
 
     providers: dict[str, Type["Provider"]] = {}
+    models_config: dict[str, dict[str, Any]] = {}
+
+    @classmethod
+    def all_models_config(cls) -> dict[str, dict[str, Any]]:
+        result = {}
+        for provider in cls.providers.values():
+            result.update(provider.models_config)
+        return result
 
     @classmethod
     def from_model(cls, model: str) -> "Provider":

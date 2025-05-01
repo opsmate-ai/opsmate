@@ -73,5 +73,5 @@ Run `opsmate serve` to launch a notebook interface for Opsmate.
 - [CLI Reference](./CLI/index.md) for simple command usage.
 - [LLM Providers](./providers/index.md) for LLM provider configuration.
 - [Tools](./tools/index.md) for tool usage.
-- [Integrations](./integrations/add-new-llm-providers.md) and [Cookbooks](./cookbooks/index.md) for advanced usages.
+- [Integrations](./configurations/add-new-llm-providers.md) and [Cookbooks](./cookbooks/index.md) for advanced usages.
 - [Production](production.md) for how to production-grade Opsmate deployment behind local workstation usage.

@@ -25,6 +25,25 @@ class OpenAIProvider(Provider):
     ]
     models = chat_models + reasoning_models
 
+    models_config = {
+        "o4-mini": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o3-mini": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o1": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+        "o3": {
+            "reasoning_effort": "medium",
+            "tool_call_model": "gpt-4.1",
+        },
+    }
+
     @classmethod
     async def chat_completion(
         cls,
@@ -46,12 +65,16 @@ class OpenAIProvider(Provider):
             for m in messages
         ]
 
+        filtered_kwargs = cls._filter_kwargs(kwargs)
         if cls.is_reasoning_model(model):
             # modify all the system messages to be user
             for message in messages:
                 if message["role"] == "system":
                     message["role"] = "user"
-        filtered_kwargs = cls._filter_kwargs(kwargs)
+
+            reasoning_effort = kwargs.get("reasoning_effort", "medium")
+            filtered_kwargs["reasoning_effort"] = reasoning_effort
+
         return await client.chat.completions.create(
             response_model=response_model,
             messages=messages,

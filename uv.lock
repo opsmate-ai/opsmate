@@ -3126,7 +3126,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.2.2a0"
+version = "0.2.3a0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

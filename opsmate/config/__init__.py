@@ -6,7 +6,8 @@ from pydantic_settings import (
 )
 from opsmate.plugins import PluginRegistry
 from opsmate.dino.context import ContextRegistry
-from pydantic import Field, model_validator, field_validator
+from opsmate.dino import Provider
+from pydantic import BaseModel, Field, model_validator, field_validator
 from pathlib import Path
 from typing import Dict, Any, Self, Tuple, Type, List
 import structlog
@@ -77,6 +78,11 @@ class Config(BaseSettings):
         alias="OPSMATE_MODEL",
         description="The model to use for the session. Run `opsmate list-models` to see the available models.",
         json_schema_extra={"abbr": "m"},
+    )
+    models_config: Dict[str, Any] = Field(
+        default=Provider.all_models_config(),
+        alias="OPSMATE_MODELS_CONFIG",
+        description="The config to use for the models",
     )
     plugins_dir: str = Field(
         default=default_plugins_dir,

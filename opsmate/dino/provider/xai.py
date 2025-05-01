@@ -13,12 +13,12 @@ class XAIProvider(OpenAIProvider):
     chat_models = [
         "grok-2-1212",
         "grok-2-vision-1212",
+        "grok-3-fast-beta",
+        "grok-3-beta",
     ]
     reasoning_models = [
         "grok-3-mini-fast-beta",
         "grok-3-mini-beta",
-        "grok-3-fast-beta",
-        "grok-3-beta",
     ]
     models = chat_models + reasoning_models
 

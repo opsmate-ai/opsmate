@@ -46,12 +46,16 @@ class OpenAIProvider(Provider):
             for m in messages
         ]
 
+        filtered_kwargs = cls._filter_kwargs(kwargs)
         if cls.is_reasoning_model(model):
             # modify all the system messages to be user
             for message in messages:
                 if message["role"] == "system":
                     message["role"] = "user"
-        filtered_kwargs = cls._filter_kwargs(kwargs)
+
+            reasoning_effort = kwargs.get("reasoning_effort", "medium")
+            filtered_kwargs["reasoning_effort"] = reasoning_effort
+
         return await client.chat.completions.create(
             response_model=response_model,
             messages=messages,

@@ -150,7 +150,9 @@ async def run_react(
         else:
             raise ValueError(f"Invalid context type: {type(ctx)}")
 
-    @dino(model, response_model=Observation, tools=tools, **kwargs)
+    tool_call_model = kwargs.get("tool_call_model", model)
+
+    @dino(tool_call_model, response_model=Observation, tools=tools, **kwargs)
     async def run_action(react: React, context: Dict[str, Any] = {}):
         f"""
         You are a world class expert to carry out actions using the tools you are given.

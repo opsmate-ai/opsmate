@@ -25,6 +25,6 @@ Options:
 
 ## SEE ALSO
 
-- [Add New LLM Providers](../integrations/add-new-llm-providers.md)
-- [Integrate with New Runtime](../integrations/integrate-with-new-runtime.md)
+- [Add New LLM Providers](../configurations/add-new-llm-providers.md)
+- [Integrate with New Runtime](../configurations/integrate-with-new-runtime.md)
 - [Uninstall](./uninstall.md)

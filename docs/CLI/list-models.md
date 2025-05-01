@@ -49,4 +49,4 @@ Options:
 
 ## SEE ALSO
 
-- [Add new LLM providers](../integrations/add-new-llm-providers.md)
+- [Add new LLM providers](../configurations/add-new-llm-providers.md)

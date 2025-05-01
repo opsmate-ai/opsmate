@@ -95,12 +95,12 @@ nav:
     - Loki: tools/loki.md
     - MySQL: tools/mysql.md
     - Postgres: tools/postgres.md
-  - Integrations:
-    - Add New LLM Providers: integrations/add-new-llm-providers.md
-    - Add New Runtimes: integrations/integrate-with-new-runtime.md
-    - Use Cloud Storage for Embeddings Storage: integrations/use-cloud-storage-for-embeddings-storage.md
-    - Advanced Knowledge Retrieval: integrations/advanced-knowledge-retrieval.md
-    - OTel Integration: integrations/OTel.md
+  - Configurations:
+    - Add New LLM Providers: configurations/add-new-llm-providers.md
+    - Add New Runtimes: configurations/integrate-with-new-runtime.md
+    - Use Cloud Storage for Embeddings Storage: configurations/use-cloud-storage-for-embeddings-storage.md
+    - Advanced Knowledge Retrieval: configurations/advanced-knowledge-retrieval.md
+    - OTel Integration: configurations/OTel.md
   - Cookbooks:
     - Cookbooks: cookbooks/index.md
     - Manage VMs via SSH: cookbooks/manage-vms.md

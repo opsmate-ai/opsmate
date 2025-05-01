@@ -55,6 +55,10 @@ def coro(f):
 
 logger = structlog.get_logger(__name__)
 
+import yaml
+
+print(yaml.dump(config.models_config))
+
 
 class StdinArgument(click.ParamType):
     name = "stdin"

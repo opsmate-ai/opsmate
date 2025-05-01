@@ -96,6 +96,7 @@ nav:
     - MySQL: tools/mysql.md
     - Postgres: tools/postgres.md
   - Configurations:
+    - LLM Configurations: configurations/llm-configurations.md
     - Add New LLM Providers: configurations/add-new-llm-providers.md
     - Add New Runtimes: configurations/integrate-with-new-runtime.md
     - Use Cloud Storage for Embeddings Storage: configurations/use-cloud-storage-for-embeddings-storage.md

@@ -5,7 +5,6 @@ import pytz
 mcp = FastMCP("Time")
 
 
-# Add an addition tool
 @mcp.tool()
 def get_current_time(timezone: str = "UTC") -> str:
     """Get the current time in a specific timezone"""

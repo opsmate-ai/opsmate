@@ -135,7 +135,7 @@ def mcp_to_dino_tool(
     async def call(self, context: dict[str, Any] = {}) -> CallToolResult:
         return await session.call_tool(tool_name, self.model_dump())
 
-    def markdown(self) -> str:
+    def markdown(self, context: dict[str, Any] = {}) -> str:
         return f"""
 ### MCP Tool Execution: {class_name}
 

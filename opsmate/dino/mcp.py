@@ -1,16 +1,14 @@
 from pydantic import BaseModel, Field, create_model
-from typing import Optional, List, Dict, Any, Type
-import asyncio
-import structlog
-import os
-import shutil
-import asyncio
+from typing import Any, Type
 from mcp import ClientSession, StdioServerParameters
 from mcp.types import CallToolResult
 from mcp.client.stdio import stdio_client
 from contextlib import AsyncExitStack
-from opsmate.dino.types import ToolCall
+from opsmate.dino.types import ToolCall, register_tool
 from opsmate.dino.utils import json_schema_to_pydantic_model
+import asyncio
+import structlog
+import os
 
 logger = structlog.get_logger(__name__)
 
@@ -22,8 +20,6 @@ class MCPConfig(BaseModel):
 
 
 # From https://github.com/modelcontextprotocol/python-sdk/blob/main/examples/clients/simple-chatbot/mcp_simple_chatbot/main.py
-
-
 class Server:
     """Manages MCP server connections and tool execution."""
 
@@ -47,6 +43,7 @@ class Server:
             env=(
                 {**os.environ, **self.config["env"]} if self.config.get("env") else None
             ),
+            cwd=self.config.get("cwd", None),
         )
         try:
             stdio_transport = await self.exit_stack.enter_async_context(
@@ -154,7 +151,7 @@ def mcp_to_dino_tool(
         class_name,
         __base__=(ToolCall[CallToolResult], InputModel),
         __doc__=tool_description,
-        _mcp_tool_name=(f"{server_name}/{tool_name}", ...),
+        _mcp_tool_name=f"{server_name}/{tool_name}",
         __call__=call,
         markdown=markdown,
     )
@@ -162,4 +159,4 @@ def mcp_to_dino_tool(
     # Ensure the created class is recognized as a subclass of ToolCall
     assert issubclass(DinoToolClass, ToolCall)
 
-    return DinoToolClass
+    return register_tool()(DinoToolClass)

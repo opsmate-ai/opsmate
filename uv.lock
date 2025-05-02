@@ -2373,6 +2373,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/09/943fa9dc1e9751c2e7302205112801d0bb6a12050e21f0945486748f9ff3/mcp-1.7.0-py3-none-any.whl", hash = "sha256:0e874a587f542211f36f87b02c9acd6ad2534976fb2c36ff794d8b2bc0a91915", size = 100192 },
 ]
 
+[package.optional-dependencies]
+cli = [
+    { name = "python-dotenv" },
+    { name = "typer" },
+]
+
 [[package]]
 name = "mdit-py-plugins"
 version = "0.4.2"
@@ -3160,7 +3166,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "lancedb" },
     { name = "matplotlib" },
-    { name = "mcp" },
+    { name = "mcp", extra = ["cli"] },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-anthropic" },
     { name = "opentelemetry-instrumentation-openai" },
@@ -3229,7 +3235,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6,<4.0.0" },
     { name = "lancedb", specifier = "==0.20.0" },
     { name = "matplotlib", specifier = ">=3.10.1,<4.0.0" },
-    { name = "mcp", specifier = ">=1.7.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.7.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.31.0" },
     { name = "opentelemetry-instrumentation-anthropic", specifier = ">=0.38.12" },
     { name = "opentelemetry-instrumentation-openai", specifier = ">=0.38.12" },

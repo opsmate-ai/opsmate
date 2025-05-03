@@ -18,14 +18,7 @@ class AnthropicProvider(Provider):
     ]
     models = chat_completion_models + reasoning_models
 
-    models_config = {
-        "claude-3-7-sonnet-20250219": {
-            "thinking": {
-                "type": "enabled",
-                "budget_tokens": 1024,
-            }
-        },
-    }
+    models_config = {}
 
     @classmethod
     async def chat_completion(

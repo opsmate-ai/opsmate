@@ -21,6 +21,7 @@ from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
+from opsmate.dino.tools import discover_mcp_tools
 
 from functools import cache
 from typing import Dict
@@ -63,6 +64,19 @@ class StdinArgument(click.ParamType):
         if value == "-":
             return sys.stdin.read().strip()
         return value
+
+
+def with_mcp_tools(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            servers = await discover_mcp_tools()
+            return await func(*args, **kwargs)
+        finally:
+            for server in reversed(servers):
+                await server.cleanup()
+
+    return wrapper
 
 
 @click.group()
@@ -217,7 +231,7 @@ def common_params(func):
         help="Max length of the output, if the output is truncated, the tmp file will be printed in the output",
     )
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         addon_discovery()
 
         config = kwargs.get("config")
@@ -248,7 +262,7 @@ def common_params(func):
         if review:
             kwargs["tool_call_context"]["confirmation"] = confirmation_prompt
 
-        return func(*args, **kwargs)
+        return await func(*args, **kwargs)
 
     return wrapper
 
@@ -311,8 +325,9 @@ Edit the execution if needed, then press Enter to execute:
 @config_params()
 @tool_config_params
 @runtime_params
-@common_params
 @coro
+@with_mcp_tools
+@common_params
 @with_runtime
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def run(
@@ -418,8 +433,9 @@ async def run(
 @config_params()
 @tool_config_params
 @runtime_params
-@common_params
 @coro
+@with_mcp_tools
+@common_params
 @with_runtime
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "runtimes", "tools"])
 async def solve(
@@ -545,8 +561,9 @@ Commands:
 @config_params()
 @tool_config_params
 @runtime_params
-@common_params
 @coro
+@with_mcp_tools
+@common_params
 @with_runtime
 @traceit(exclude=["system_prompt", "config", "tool_call_context", "tools", "runtimes"])
 async def chat(
@@ -755,6 +772,7 @@ async def reset(skip_confirm, config):
 @runtime_params
 @auto_migrate
 @coro
+@with_mcp_tools
 async def serve(host, port, workers, dev, **kwargs):
     """
     Start the Opsmate server.
@@ -948,10 +966,13 @@ async def ingest_prometheus_metrics_metadata(
 @opsmate_cli.command()
 @config_params()
 @traceit(exclude=["config"])
-def list_tools(config):
+@coro
+@with_mcp_tools
+async def list_tools(config):
     """
     List all the tools available.
     """
+    # await discover_mcp_tools()
     table = Table(title="Tools", show_header=True, show_lines=True)
     table.add_column("Tool")
     table.add_column("Description")

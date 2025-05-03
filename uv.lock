@@ -2354,6 +2354,32 @@ wheels = [
 ]
 
 [[package]]
+name = "mcp"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-multipart" },
+    { name = "sse-starlette" },
+    { name = "starlette" },
+    { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c8/b7/0bf3c75ddedbc744f872c34801b9c6c8930fe1134212c45e25029f0b83df/mcp-1.7.0.tar.gz", hash = "sha256:8b955eddf5fbb09613c4d517956745d932db9f757673200112b336bd8092509f", size = 229504 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/09/943fa9dc1e9751c2e7302205112801d0bb6a12050e21f0945486748f9ff3/mcp-1.7.0-py3-none-any.whl", hash = "sha256:0e874a587f542211f36f87b02c9acd6ad2534976fb2c36ff794d8b2bc0a91915", size = 100192 },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "python-dotenv" },
+    { name = "typer" },
+]
+
+[[package]]
 name = "mdit-py-plugins"
 version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3126,7 +3152,7 @@ wheels = [
 
 [[package]]
 name = "opsmate"
-version = "0.2.3a2"
+version = "0.2.4a0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3140,6 +3166,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "lancedb" },
     { name = "matplotlib" },
+    { name = "mcp", extra = ["cli"] },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-anthropic" },
     { name = "opentelemetry-instrumentation-openai" },
@@ -3208,6 +3235,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6,<4.0.0" },
     { name = "lancedb", specifier = "==0.20.0" },
     { name = "matplotlib", specifier = ">=3.10.1,<4.0.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.7.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.31.0" },
     { name = "opentelemetry-instrumentation-anthropic", specifier = ">=0.38.12" },
     { name = "opentelemetry-instrumentation-openai", specifier = ">=0.38.12" },
@@ -4896,6 +4924,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/86/4b/c2ad0496f5bdc6073d9b4cef52be9c04f2b37a5773441cc6600b1857648b/sqlmodel-0.0.24.tar.gz", hash = "sha256:cc5c7613c1a5533c9c7867e1aab2fd489a76c9e8a061984da11b4e613c182423", size = 116780 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/16/91/484cd2d05569892b7fef7f5ceab3bc89fb0f8a8c0cde1030d383dbc5449c/sqlmodel-0.0.24-py3-none-any.whl", hash = "sha256:6778852f09370908985b667d6a3ab92910d0d5ec88adcaf23dbc242715ff7193", size = 28622 },
+]
+
+[[package]]
+name = "sse-starlette"
+version = "2.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "starlette" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/35/7d8d94eb0474352d55f60f80ebc30f7e59441a29e18886a6425f0bccd0d3/sse_starlette-2.3.3.tar.gz", hash = "sha256:fdd47c254aad42907cfd5c5b83e2282be15be6c51197bf1a9b70b8e990522072", size = 17499 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/20/52fdb5ebb158294b0adb5662235dd396fc7e47aa31c293978d8d8942095a/sse_starlette-2.3.3-py3-none-any.whl", hash = "sha256:8b0a0ced04a329ff7341b01007580dd8cf71331cc21c0ccea677d500618da1e0", size = 10235 },
 ]
 
 [[package]]

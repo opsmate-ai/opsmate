@@ -43,19 +43,28 @@ from opsmate.gui.views import (
     tippy_js,
     popper_js,
 )
+from functools import cache
 from opsmate.gui.components import CellComponent, editor_script
 from opsmate.ingestions import ingest_from_config
 from opsmate.ingestions.models import IngestionRecord
 from opsmate.ingestions.jobs import ingest, delete_ingestion
 from opsmate.dbq.dbq import enqueue_task
+from opsmate.gui.models import gen_react, gen_simple
 from uuid import uuid4
-
 
 logger = structlog.get_logger()
 
 
 # start a sqlite database
 engine = config.db_engine()
+
+
+@cache
+def get_llm_workflows():
+    return {
+        "react": gen_react(),
+        "simple": gen_simple(),
+    }
 
 
 def before(req, session):
@@ -94,11 +103,11 @@ async def kb_ingest():
     await ingest_from_config(config, engine)
 
 
-@app.on_event("startup")
-async def startup():
-    dev = os.environ.get("DEV", "false").lower() == "true"
-    if dev:
-        await kb_ingest()
+# @app.on_event("startup")
+# async def startup():
+#     dev = os.environ.get("DEV", "false").lower() == "true"
+#     if dev:
+#         await kb_ingest()
 
 
 @app.route("/polya")
@@ -640,12 +649,17 @@ async def ws(cell_id: int, input: str, send, session):
             input=cell.input,
             thinking_system=cell.thinking_system.value,
         )
+        llm_workflows = get_llm_workflows()
         swap = "beforeend"
         if cell.lang == CellLangEnum.TEXT_INSTRUCTION:
             if cell.thinking_system == ThinkingSystemEnum.SIMPLE:
-                await execute_llm_simple_instruction(cell, swap, send, session)
+                await execute_llm_simple_instruction(
+                    cell, swap, send, session, llm_workflows["simple"]
+                )
             elif cell.thinking_system == ThinkingSystemEnum.REASONING:
-                await execute_llm_react_instruction(cell, swap, send, session)
+                await execute_llm_react_instruction(
+                    cell, swap, send, session, llm_workflows["react"]
+                )
             elif cell.thinking_system == ThinkingSystemEnum.TYPE2:
                 await execute_llm_type2_instruction(cell, swap, send, session)
         elif cell.lang == CellLangEnum.BASH:

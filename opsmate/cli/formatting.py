@@ -51,7 +51,10 @@ class OpsmateGroup(click.Group):
             line = line.rstrip()
             
             if line.endswith(':') and not line.startswith(' '):
-                section_name = line[:-1].strip()
+                import re
+                match = re.match(r'^(\S.*?):$', line)
+                if match:
+                    section_name = match.group(1).strip()
                 current_section = section_name
                 continue
                 

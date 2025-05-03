@@ -5,13 +5,29 @@ from opsmate.dino.provider import Provider
 from opsmate.dino.types import Message, Observation
 from opsmate.dino.dino import dino
 from opsmate.dino.context import ContextRegistry
+from opsmate.dino.tools import discover_mcp_tools
 
 from opsmate.libs.core.trace import start_trace
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 import os
+import contextlib
+import structlog
 
-app = FastAPI()
-api_app = FastAPI()
+logger = structlog.get_logger()
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app):
+    logger.info("discovering mcp tools")
+    servers = await discover_mcp_tools()
+    yield
+    logger.info("cleaning up mcp tools")
+    for server in servers:
+        await server.cleanup()
+
+
+app = FastAPI(lifespan=lifespan)
+api_app = FastAPI(lifespan=lifespan)
 
 if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
     from opentelemetry.instrumentation.starlette import StarletteInstrumentor
@@ -21,7 +37,7 @@ if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
     StarletteInstrumentor().instrument_app(app)
 
 
-from opsmate.gui.app import app as fasthtml_app, startup
+from opsmate.gui.app import app as fasthtml_app
 
 
 class Health(BaseModel):
@@ -114,4 +130,4 @@ def get_context(context: str):
 app.mount("/api", api_app)
 app.mount("/", fasthtml_app)
 
-app.add_event_handler("startup", startup)
+# app.add_event_handler("startup", startup)

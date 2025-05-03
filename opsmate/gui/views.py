@@ -7,8 +7,8 @@ from opsmate.gui.models import (
     BluePrint,
     Workflow,
     CellType,
-    gen_simple,
-    gen_react,
+    # gen_simple,
+    # gen_react,
     conversation_context,
     CellLangEnum,
     ThinkingSystemEnum,
@@ -63,16 +63,13 @@ from opsmate.gui.steps import (
 )
 import yaml
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Callable
 from opsmate.tools.prom import PromQuery
 from opentelemetry import trace
 from opsmate.libs.core.trace import traceit
 import os
 
 logger = structlog.get_logger()
-
-react = gen_react()
-simple = gen_simple()
 
 llm_provider = Provider.from_model(config.model)
 llm_model = config.model
@@ -414,9 +411,9 @@ async def gen_confirmation_prompt(cell: Cell, session: Session, send):
     return confirmation_prompt
 
 
-@traceit(exclude=["cell", "session", "send", "swap"])
+@traceit(exclude=["cell", "session", "send", "swap", "react"])
 async def execute_llm_react_instruction(
-    cell: Cell, swap: str, send, session: Session, span: trace.Span
+    cell: Cell, swap: str, send, session: Session, react: Callable, span: trace.Span
 ):
     span.set_attributes({"cell_id": cell.id, "input": cell.input})
 
@@ -451,9 +448,9 @@ async def execute_llm_react_instruction(
         )
 
 
-@traceit(exclude=["cell", "session", "send", "swap"])
+@traceit(exclude=["cell", "session", "send", "swap", "simple"])
 async def execute_llm_simple_instruction(
-    cell: Cell, swap: str, send, session: Session, span: trace.Span
+    cell: Cell, swap: str, send, session: Session, simple: Callable, span: trace.Span
 ):
     span.set_attributes({"cell_id": cell.id, "input": cell.input})
 

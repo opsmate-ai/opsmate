@@ -772,6 +772,7 @@ async def reset(skip_confirm, config):
 @runtime_params
 @auto_migrate
 @coro
+@with_mcp_tools
 async def serve(host, port, workers, dev, **kwargs):
     """
     Start the Opsmate server.

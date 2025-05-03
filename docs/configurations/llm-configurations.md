@@ -52,3 +52,16 @@ OPSMATE_MODELS_CONFIG:
 Note that in the configuration above, we use tool call models as the supplemental model for the reasoning models, this is because while reasoning models are capable of reasoning, in many use cases they are not very effective at tool calling.
 
 To override the default configurations, you can copy and paste the above configurations to your `~/.opsmate/config.yaml` file, and override the specific configurations you want to change.
+
+## Claude 3.7 Sonnet for Thinking
+
+The `claude-3-7-sonnet-20250219` model is a powerful reasoning model with `thinking` enabled. To enable you can add the following configuration to your `~/.opsmate/config.yaml` file:
+
+```yaml
+OPSMATE_MODELS_CONFIG:
+  claude-3-7-sonnet-20250219:
+    thinking:
+      budget_tokens: 1024
+      type: enabled
+  # ...
+```

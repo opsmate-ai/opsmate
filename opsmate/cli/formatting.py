@@ -8,8 +8,19 @@ from rich.text import Text
 from typing import List, Tuple, Optional, Dict, Callable, Any
 import inspect
 import shutil
+import os
 
-console = Console()
+
+def get_console(color: bool = False) -> Console:
+    env_color = os.environ.get("OPSMATE_COLOR", "").lower()
+    if env_color in ("1", "true", "yes", "on", "Y", "y"):
+        color = True
+    elif env_color in ("0", "false", "no", "off", "N", "n"):
+        color = False
+    
+    return Console(color_system="auto" if color else None)
+
+console = get_console()
 
 class OpsmateHelpFormatter(click.HelpFormatter):
     def write_usage(self, prog, args='', prefix='Usage: '):
@@ -457,8 +468,6 @@ class OpsmateCommand(click.Command):
                             value = 'https://example.com'
                         else:
                             value = 'value'
-                    else:
-                        value = 'value'
                     
                     examples.append((
                         f"With {option_name.lstrip('-')} option", 

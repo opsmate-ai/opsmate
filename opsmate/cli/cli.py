@@ -21,7 +21,7 @@ from opsmate.config import config
 from opsmate.gui.config import config as gui_config
 from opsmate.plugins import PluginRegistry
 from opsmate.runtime import Runtime
-from opsmate.cli.formatting import OpsmateGroup, OpsmateCommand
+from opsmate.cli.formatting import OpsmateGroup, OpsmateCommand, get_console
 
 from functools import cache
 from typing import Dict
@@ -37,7 +37,7 @@ import opsmate.tools  # noqa: F401
 import traceback
 import json
 
-console = Console()
+console = get_console()
 
 
 @cache
@@ -67,11 +67,20 @@ class StdinArgument(click.ParamType):
 
 
 @click.group(cls=OpsmateGroup)
-def opsmate_cli():
+@click.option(
+    "--no-color",
+    is_flag=True,
+    default=True,
+    help="Disable colored output, alternatively use OPSMATE_COLOR environment variable [1/true/on/Y/y/yes], or [0/false/no/N/n/off]",
+)
+@click.pass_context
+def opsmate_cli(ctx, no_color):
     """
     Opsmate is an SRE AI assistant that helps you manage production environment.
     This is the cli tool to interact with Opsmate.
     """
+    ctx.ensure_object(dict)
+    ctx.obj["no_color"] = no_color
     start_trace(spans_to_discard=["dbq.dequeue_task"])
 
 

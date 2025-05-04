@@ -5,6 +5,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 from rich.columns import Columns
 from rich.text import Text
+from rich.markup import escape
 from typing import List, Tuple, Optional, Dict, Callable, Any
 import inspect
 import shutil
@@ -199,19 +200,17 @@ class OpsmateCommand(click.Command):
             console.print(f"\n[bold]Usage:[/bold] [yellow]{usage_text}[/yellow]")
         else:
             console.print(f"\n[bold]Usage:[/bold] [yellow]opsmate {command_name} [OPTIONS][/yellow]")
-        
+
+        description = ""
         if "Description" in sections and sections["Description"]:
-            description = "\n".join(sections["Description"])
-            if description.strip():
-                console.print(f"\n  {description}\n")
-            else:
-                console.print(f"\n  {self._get_command_description(command_name)}\n")
-        else:
-            console.print(f"\n  {self._get_command_description(command_name)}\n")
-        
+            description = "\n".join(sections["Description"]).strip()
+        if not description:
+            description = self._get_command_description(command_name) 
+        if description:
+             console.print(f"\n  {description}\n")
+
         if "Arguments" in sections and sections["Arguments"]:
             console.print("\n[bold]Arguments:[/bold]")
-            
             for line in sections["Arguments"]:
                 if line.strip():
                     parts = line.strip().split('  ', 1)
@@ -219,38 +218,92 @@ class OpsmateCommand(click.Command):
                         arg, desc = parts[0].strip(), parts[1].strip()
                         console.print(f"  [magenta]{arg}[/magenta]")
                         console.print(f"      {desc}\n")
-        
+
         if "Options" in sections and sections["Options"]:
             console.print("\n[bold]Options:[/bold]")
-            
+
+            option_info = {}
+            for param in ctx.command.params:
+                if isinstance(param, click.Option):
+                    default_value = param.get_default(ctx, call=False)
+                    show_default_explicit = param.show_default
+                    show_default_calculated = False
+                    if show_default_explicit is not None:
+                        show_default_calculated = show_default_explicit
+                    elif default_value is not None:
+                        show_default_calculated = True
+
+                    if show_default_calculated:
+                        for opt in param.opts:
+                            option_info[opt] = default_value
+
             options_dict = {}
-            current_option = None
-            
+            current_option_key = None
             for line in sections["Options"]:
                 stripped_line = line.strip()
-                
                 if stripped_line.startswith("-"):
                     parts = stripped_line.split("  ", 1)
-                    opt_name = parts[0].strip()
+                    current_option_key = parts[0].strip()
                     initial_desc = parts[1].strip() if len(parts) > 1 else ""
+                    options_dict[current_option_key] = [initial_desc] if initial_desc else []
+                elif stripped_line and current_option_key is not None:
+                    if current_option_key in options_dict:
+                        options_dict[current_option_key].append(stripped_line)
+
+            for option_key, desc_lines in options_dict.items():
+                parts = option_key.split(' ')
+                option_names_part = parts[0]
+                if ',' in option_names_part and len(parts) > 1 and parts[1].startswith('-'):
+                    option_names_part += f" {parts[1]}"
+                elif ',' in option_names_part and not option_names_part.endswith(','):
+                    last_comma_index = option_names_part.rfind(',')
+                    potential_name = (
+                        option_names_part[: last_comma_index + 1]
+                        + option_names_part[last_comma_index + 1 :].split('=')[0]
+                    )
+                    if all(p.strip().startswith('-') for p in potential_name.split(',')):
+                        option_names_part = potential_name
+
+                opts_in_key = [opt.strip() for opt in option_names_part.split(',') if opt.strip()]
+
+                full_desc = " ".join(desc_lines).replace("…", "").strip()
+                default_value = None
+                matched_opt = None
+
+                for opt in opts_in_key:
+                    if opt in option_info:
+                        default_value = option_info[opt]
+                        matched_opt = opt
+                        break
+
+                default_str = None
+                if matched_opt is not None:
+                    if isinstance(default_value, bool):
+                        default_str = f"[default: {str(default_value)}]"
+                    elif isinstance(default_value, (list, tuple)):
+                        if not default_value:
+                            default_str = "[default: ]"
+                        else:
+                            default_str = f"[default: {','.join(str(x) for x in default_value)}]"
+                    elif default_value == "":
+                        default_str = '[default: ""]'
+                    elif default_value is None:
+                        default_str = "[default: None]"
+                    else:
+                        if isinstance(default_value, str):
+                            default_str = f'[default: "{default_value}"]'
+                        else:
+                            default_str = f"[default: {default_value}]"
                     
-                    current_option = opt_name
-                    if current_option not in options_dict:
-                        options_dict[current_option] = []
-                    
-                    if initial_desc:
-                        options_dict[current_option].append(initial_desc)
-                elif stripped_line and current_option is not None:
-                    if current_option in options_dict:
-                        options_dict[current_option].append(stripped_line)
-            
-            for option, desc_lines in options_dict.items():
-                full_desc = " ".join(desc_lines)
-                full_desc = full_desc.replace("…", "").replace("\n", " ")
-                
-                console.print(f"  [green]{option}[/green]")
-                console.print(f"      {full_desc}\n")
-        
+                    default_str = escape(default_str)
+
+                console.print(f"  [green]{option_key}[/green]")
+
+                if default_str:
+                    console.print(f"      {full_desc} [dim]{default_str}[/dim]\n")
+                else:
+                    console.print(f"      {full_desc}\n")
+
         self._show_command_examples(ctx)
 
     def _get_command_description(self, command_name: str) -> str:

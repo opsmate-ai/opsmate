@@ -458,7 +458,7 @@ async def solve(
     
     Examples:
       opsmate solve "Why is my CPU usage spiking?"
-      opsmate solve --context ~/logs.txt "Debug these error logs"
+      opsmate solve --context terraform "What is the status of my EC2 instances?"
     """
     ctx = config.opsmate_context()
 

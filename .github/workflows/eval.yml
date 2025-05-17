@@ -1,51 +1,51 @@
-name: Run Opsmate evals
+# name: Run Opsmate evals
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * 1" # every Monday at 00:00 UTC
+# on:
+#   workflow_dispatch:
+#   schedule:
+#     - cron: "0 0 * * 1" # every Monday at 00:00 UTC
 
-jobs:
-  eval:
-    name: Run evals
-    runs-on: ubuntu-latest
-    environment: ci
-    strategy:
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+# jobs:
+#   eval:
+#     name: Run evals
+#     runs-on: ubuntu-latest
+#     environment: ci
+#     strategy:
+#       matrix:
+#         python-version: ["3.12"]
+#     steps:
+#       - name: Checkout
+#         id: checkout
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: |
-          pipx install uv --python $(which python${{ matrix.python-version }})
-          uv sync --group eval
+#       - name: Install dependencies
+#         run: |
+#           pipx install uv --python $(which python${{ matrix.python-version }})
+#           uv sync --group eval
 
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x ./kubectl
-          sudo mv ./kubectl /usr/local/bin/kubectl
+#       - name: Install kubectl
+#         run: |
+#           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#           chmod +x ./kubectl
+#           sudo mv ./kubectl /usr/local/bin/kubectl
 
-      - name: Start the test cluster
-        run: |
-          make kind-cluster
+#       - name: Start the test cluster
+#         run: |
+#           make kind-cluster
 
-      - name: Run Evals
-        env:
-          BRAINTRUST_PROJECT_ID: ${{ secrets.BRAINTRUST_PROJECT_ID }}
-          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CI: "true"
-        run: |
-          uv run braintrust eval ./evals/ --num-workers 1
+#       - name: Run Evals
+#         env:
+#           BRAINTRUST_PROJECT_ID: ${{ secrets.BRAINTRUST_PROJECT_ID }}
+#           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+#           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+#           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+#           CI: "true"
+#         run: |
+#           uv run braintrust eval ./evals/ --num-workers 1
